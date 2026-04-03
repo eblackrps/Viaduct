@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security Policy
+    url: https://github.com/eblackrps/Viaduct/blob/main/SECURITY.md
+    about: Please review the private reporting guidance for vulnerabilities.

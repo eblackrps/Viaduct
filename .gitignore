@@ -1,0 +1,11 @@
+bin/
+.env
+*.exe
+vendor/
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+coverage.out
