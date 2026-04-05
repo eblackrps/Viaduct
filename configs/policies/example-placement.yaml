@@ -1,0 +1,9 @@
+name: cluster-required
+type: placement
+description: Production workloads must remain on Cluster-A.
+severity: enforce
+rules:
+  - field: cluster
+    operator: equals
+    value: Cluster-A
+    message: Move the workload onto Cluster-A before approval.

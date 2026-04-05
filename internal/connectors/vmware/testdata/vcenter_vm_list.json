@@ -1,0 +1,54 @@
+{
+  "data": [
+    {
+      "id": "vm-101",
+      "name": "web-01",
+      "power_state": "on",
+      "cpu_count": 2,
+      "memory_mb": 2048,
+      "guest_os": "Ubuntu Linux (64-bit)",
+      "host": "esxi-01",
+      "cluster": "cluster-a"
+    },
+    {
+      "id": "vm-102",
+      "name": "db-01",
+      "power_state": "off",
+      "cpu_count": 4,
+      "memory_mb": 4096,
+      "guest_os": "Windows Server 2022",
+      "host": "esxi-01",
+      "cluster": "cluster-a"
+    },
+    {
+      "id": "vm-103",
+      "name": "cache-01",
+      "power_state": "on",
+      "cpu_count": 2,
+      "memory_mb": 1024,
+      "guest_os": "Debian GNU/Linux",
+      "host": "esxi-02",
+      "cluster": "cluster-a"
+    },
+    {
+      "id": "vm-201",
+      "name": "monitor-01",
+      "power_state": "suspended",
+      "cpu_count": 1,
+      "memory_mb": 1024,
+      "guest_os": "Photon OS",
+      "host": "esxi-03",
+      "cluster": "cluster-b"
+    },
+    {
+      "id": "vm-202",
+      "name": "ci-runner-01",
+      "power_state": "on",
+      "cpu_count": 8,
+      "memory_mb": 8192,
+      "guest_os": "Ubuntu Linux (64-bit)",
+      "host": "esxi-03",
+      "cluster": "cluster-b"
+    }
+  ]
+}

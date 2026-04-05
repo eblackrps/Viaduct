@@ -1,0 +1,26 @@
+[
+  {
+    "id": "job-1",
+    "name": "Daily Production",
+    "type": "backup",
+    "schedule": "0 2 * * *",
+    "targetRepo": "primary-repo",
+    "retentionDays": 14,
+    "protectedVMs": ["web-01", "db-01"],
+    "lastRun": "2026-04-02T02:00:00Z",
+    "lastResult": "success",
+    "enabled": true
+  },
+  {
+    "id": "job-2",
+    "name": "Daily Web",
+    "type": "backup",
+    "schedule": "0 3 * * *",
+    "targetRepo": "primary-repo",
+    "retentionDays": 7,
+    "protectedVMs": ["web-02"],
+    "lastRun": "2026-04-02T03:00:00Z",
+    "lastResult": "warning",
+    "enabled": true
+  }
+]

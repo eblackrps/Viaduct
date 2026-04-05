@@ -1,0 +1,29 @@
+# Plugin Example
+
+This example starts a community connector plugin that serves a tiny static inventory over gRPC.
+
+## Run It Directly
+
+```bash
+go run ./examples/plugin-example
+```
+
+By default it listens on `127.0.0.1:50071`. To let Viaduct launch it dynamically, the plugin host will set `VIADUCT_PLUGIN_ADDR`.
+
+## Build It
+
+```bash
+go build ./examples/plugin-example
+```
+
+## What It Demonstrates
+- implementing `ConnectorPluginServer`
+- health reporting
+- platform lookup
+- returning normalized discovery results
+- clean plugin shutdown
+
+## Validation Tips
+- start with the plugin author guide in [`../../docs/reference/plugin-author-guide.md`](../../docs/reference/plugin-author-guide.md)
+- use the host behavior in `internal/connectors/plugin/host.go` as the compatibility contract
+- ensure your plugin returns a non-empty platform and a non-nil discovery result

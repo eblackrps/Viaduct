@@ -1,0 +1,8 @@
+platform: proxmox
+name: Proxmox Community
+cpu_cost_per_core_month: 4
+memory_cost_per_gb_month: 1.5
+storage_cost_per_gb_month: 0.35
+license_model: none
+support_cost_monthly: 5
+notes: Community deployment with self-support assumptions.

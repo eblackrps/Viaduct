@@ -1,0 +1,20 @@
+[
+  {
+    "id": "rp-1",
+    "vmId": "vm-1",
+    "vmName": "web-01",
+    "jobName": "Daily Production",
+    "createdAt": "2026-04-02T02:05:00Z",
+    "sizeMB": 4096,
+    "type": "full"
+  },
+  {
+    "id": "rp-2",
+    "vmId": "vm-2",
+    "vmName": "web-02",
+    "jobName": "Daily Web",
+    "createdAt": "2026-04-02T03:05:00Z",
+    "sizeMB": 2048,
+    "type": "incremental"
+  }
+]

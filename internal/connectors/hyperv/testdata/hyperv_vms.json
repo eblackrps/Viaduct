@@ -1,0 +1,20 @@
+[
+  {
+    "Name": "web-01",
+    "VMId": "vm-1",
+    "State": "Running",
+    "ProcessorCount": 2,
+    "MemoryAssigned": 2147483648,
+    "Path": "C:\\HyperV\\web-01",
+    "Generation": 2
+  },
+  {
+    "Name": "db-01",
+    "VMId": "vm-2",
+    "State": "Off",
+    "ProcessorCount": 4,
+    "MemoryAssigned": 4294967296,
+    "Path": "C:\\HyperV\\db-01",
+    "Generation": 2
+  }
+]

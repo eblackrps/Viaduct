@@ -165,3 +165,117 @@ func TestVirtualMachine_OmitsEmptyOptionals(t *testing.T) {
 		}
 	}
 }
+
+func TestNetworkInfo_JSONRoundtrip(t *testing.T) {
+	t.Parallel()
+
+	original := NetworkInfo{
+		ID:     "network-1",
+		Name:   "Production",
+		Type:   "distributed",
+		VlanID: 210,
+		Switch: "dvSwitch-01",
+	}
+
+	payload, err := json.Marshal(original)
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+
+	var decoded NetworkInfo
+	if err := json.Unmarshal(payload, &decoded); err != nil {
+		t.Fatalf("Unmarshal() error = %v", err)
+	}
+
+	if !reflect.DeepEqual(decoded, original) {
+		t.Fatalf("roundtrip mismatch:\nwant: %#v\ngot:  %#v", original, decoded)
+	}
+}
+
+func TestDatastoreInfo_JSONRoundtrip(t *testing.T) {
+	t.Parallel()
+
+	original := DatastoreInfo{
+		ID:         "datastore-1",
+		Name:       "vsanDatastore",
+		Type:       "vsan",
+		CapacityMB: 524288,
+		FreeMB:     262144,
+		Hosts:      []string{"esxi-01", "esxi-02"},
+	}
+
+	payload, err := json.Marshal(original)
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+
+	var decoded DatastoreInfo
+	if err := json.Unmarshal(payload, &decoded); err != nil {
+		t.Fatalf("Unmarshal() error = %v", err)
+	}
+
+	if !reflect.DeepEqual(decoded, original) {
+		t.Fatalf("roundtrip mismatch:\nwant: %#v\ngot:  %#v", original, decoded)
+	}
+}
+
+func TestDiscoveryResult_IncludesInfrastructure(t *testing.T) {
+	t.Parallel()
+
+	discoveredAt := time.Date(2026, time.April, 3, 10, 0, 0, 0, time.UTC)
+
+	original := DiscoveryResult{
+		Source:   "lab-vcenter",
+		Platform: PlatformVMware,
+		VMs: []VirtualMachine{
+			{
+				ID:           "vm-1",
+				Name:         "web-01",
+				Platform:     PlatformVMware,
+				PowerState:   PowerOn,
+				CPUCount:     4,
+				MemoryMB:     8192,
+				Disks:        []Disk{{ID: "disk-1", Name: "Hard disk 1", SizeMB: 40960, StorageBackend: "vsanDatastore"}},
+				NICs:         []NIC{{ID: "nic-1", Name: "Network adapter 1", MACAddress: "00:50:56:aa:bb:cc", Network: "Production", Connected: true}},
+				GuestOS:      "Ubuntu Linux (64-bit)",
+				Host:         "esxi-01",
+				Cluster:      "cluster-a",
+				CreatedAt:    discoveredAt.Add(-24 * time.Hour),
+				DiscoveredAt: discoveredAt,
+				SourceRef:    "vm-1",
+			},
+		},
+		Networks: []NetworkInfo{
+			{ID: "network-1", Name: "Production", Type: "distributed", VlanID: 100, Switch: "dvSwitch-01"},
+		},
+		Datastores: []DatastoreInfo{
+			{ID: "datastore-1", Name: "vsanDatastore", Type: "vsan", CapacityMB: 524288, FreeMB: 262144, Hosts: []string{"esxi-01"}},
+		},
+		Hosts: []HostInfo{
+			{ID: "host-1", Name: "esxi-01", Cluster: "cluster-a", CPUCores: 16, MemoryMB: 131072, PowerState: PowerOn, ConnectionState: "connected"},
+		},
+		Clusters: []ClusterInfo{
+			{ID: "domain-c1", Name: "cluster-a", Hosts: []string{"esxi-01"}, TotalCPUCores: 16, TotalMemoryMB: 131072, HAEnabled: true, DRSEnabled: true},
+		},
+		ResourcePools: []ResourcePoolInfo{
+			{ID: "resgroup-1", Name: "production", Cluster: "cluster-a", CPULimitMHz: -1, MemoryLimitMB: -1},
+		},
+		DiscoveredAt: discoveredAt,
+		Duration:     3 * time.Second,
+		Errors:       []string{"warning: partial tag data unavailable"},
+	}
+
+	payload, err := json.Marshal(original)
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+
+	var decoded DiscoveryResult
+	if err := json.Unmarshal(payload, &decoded); err != nil {
+		t.Fatalf("Unmarshal() error = %v", err)
+	}
+
+	if !reflect.DeepEqual(decoded, original) {
+		t.Fatalf("roundtrip mismatch:\nwant: %#v\ngot:  %#v", original, decoded)
+	}
+}

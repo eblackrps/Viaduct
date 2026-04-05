@@ -1,0 +1,64 @@
+{
+  "metadata": {
+    "uuid": "33333333-3333-3333-3333-333333333333",
+    "creation_time": "2026-04-04T10:00:00Z",
+    "categories": {
+      "env": "production"
+    }
+  },
+  "spec": {
+    "name": "ahv-web-01",
+    "resources": {
+      "num_sockets": 2,
+      "num_vcpus_per_socket": 2,
+      "memory_size_mib": 8192,
+      "guest_os": "Ubuntu 22.04",
+      "disk_list": [
+        {
+          "uuid": "disk-1",
+          "disk_size_bytes": 21474836480,
+          "storage_config": {
+            "storage_container_reference": {
+              "name": "container-a"
+            }
+          },
+          "device_properties": {
+            "disk_address": {
+              "device_index": "0",
+              "disk_label": "scsi.0"
+            }
+          },
+          "data_source_reference": {
+            "name": "ahv-web-01-disk"
+          }
+        }
+      ],
+      "nic_list": [
+        {
+          "uuid": "nic-1",
+          "mac_address": "52:54:00:ab:cd:ef",
+          "subnet_reference": {
+            "name": "Prod-Subnet"
+          },
+          "ip_endpoint_list": [
+            {
+              "ip": "10.0.0.25"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "status": {
+    "name": "ahv-web-01",
+    "resources": {
+      "power_state": "ON",
+      "host_reference": {
+        "name": "ahv-host-01"
+      },
+      "cluster_reference": {
+        "name": "Cluster-A"
+      }
+    }
+  }
+}

@@ -1,0 +1,10 @@
+[
+  {
+    "id": "repo-1",
+    "name": "primary-repo",
+    "type": "hardened",
+    "capacityMB": 2048000,
+    "freeMB": 1024000,
+    "usedMB": 1024000
+  }
+]

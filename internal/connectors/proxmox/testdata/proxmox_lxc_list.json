@@ -1,0 +1,6 @@
+{
+  "data": [
+    {"node": "pve-01", "vmid": "301", "name": "proxy-01", "status": "running", "maxmem": 536870912},
+    {"node": "pve-02", "vmid": "302", "name": "batch-01", "status": "stopped", "maxmem": 1073741824}
+  ]
+}

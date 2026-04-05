@@ -1,0 +1,8 @@
+platform: proxmox
+name: Proxmox Enterprise
+cpu_cost_per_core_month: 6
+memory_cost_per_gb_month: 2
+storage_cost_per_gb_month: 0.4
+license_model: none
+support_cost_monthly: 10
+notes: Enterprise subscription with paid support.

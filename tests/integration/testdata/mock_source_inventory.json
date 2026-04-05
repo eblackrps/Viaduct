@@ -1,0 +1,72 @@
+{
+  "source": "vcsa.integration.local",
+  "platform": "vmware",
+  "vms": [
+    {
+      "id": "vm-1",
+      "name": "web-01",
+      "platform": "vmware",
+      "power_state": "on",
+      "cpu_count": 2,
+      "memory_mb": 2048,
+      "disks": [{"id": "disk-1", "name": "web-01.vmdk", "size_mb": 10240, "thin": true, "storage_backend": "datastore1"}],
+      "nics": [{"id": "nic-1", "name": "nic1", "mac_address": "00:50:56:00:00:01", "network": "VM Network", "connected": true, "ip_addresses": ["10.0.0.11"]}],
+      "host": "esx-01"
+    },
+    {
+      "id": "vm-2",
+      "name": "web-02",
+      "platform": "vmware",
+      "power_state": "on",
+      "cpu_count": 2,
+      "memory_mb": 2048,
+      "disks": [{"id": "disk-2", "name": "web-02.vmdk", "size_mb": 10240, "thin": true, "storage_backend": "datastore1"}],
+      "nics": [{"id": "nic-2", "name": "nic1", "mac_address": "00:50:56:00:00:02", "network": "VM Network", "connected": true, "ip_addresses": ["10.0.0.12"]}],
+      "host": "esx-01"
+    },
+    {
+      "id": "vm-3",
+      "name": "web-03",
+      "platform": "vmware",
+      "power_state": "off",
+      "cpu_count": 2,
+      "memory_mb": 2048,
+      "disks": [{"id": "disk-3", "name": "web-03.vmdk", "size_mb": 10240, "thin": true, "storage_backend": "datastore1"}],
+      "nics": [{"id": "nic-3", "name": "nic1", "mac_address": "00:50:56:00:00:03", "network": "Management", "connected": true, "ip_addresses": ["10.0.1.13"]}],
+      "host": "esx-02"
+    },
+    {
+      "id": "vm-4",
+      "name": "db-01",
+      "platform": "vmware",
+      "power_state": "on",
+      "cpu_count": 4,
+      "memory_mb": 4096,
+      "disks": [{"id": "disk-4", "name": "db-01.vmdk", "size_mb": 20480, "thin": false, "storage_backend": "datastore1"}],
+      "nics": [{"id": "nic-4", "name": "nic1", "mac_address": "00:50:56:00:00:04", "network": "Management", "connected": true, "ip_addresses": ["10.0.1.14"]}],
+      "host": "esx-02"
+    },
+    {
+      "id": "vm-5",
+      "name": "ops-01",
+      "platform": "vmware",
+      "power_state": "on",
+      "cpu_count": 1,
+      "memory_mb": 1024,
+      "disks": [{"id": "disk-5", "name": "ops-01.vmdk", "size_mb": 4096, "thin": true, "storage_backend": "datastore1"}],
+      "nics": [{"id": "nic-5", "name": "nic1", "mac_address": "00:50:56:00:00:05", "network": "VM Network", "connected": true, "ip_addresses": ["10.0.0.15"]}],
+      "host": "esx-03"
+    }
+  ],
+  "networks": [
+    {"id": "network-1", "name": "VM Network", "type": "portgroup", "vlan_id": 0, "switch": "vSwitch0"},
+    {"id": "network-2", "name": "Management", "type": "portgroup", "vlan_id": 10, "switch": "vSwitch1"}
+  ],
+  "datastores": [
+    {"id": "ds-1", "name": "datastore1", "type": "vmfs", "capacity_mb": 1000000, "free_mb": 500000, "hosts": ["esx-01", "esx-02", "esx-03"]}
+  ],
+  "hosts": [
+    {"id": "host-1", "name": "esx-01", "cluster": "cluster-a", "cpu_cores": 16, "memory_mb": 65536, "power_state": "on", "connection_state": "connected"},
+    {"id": "host-2", "name": "esx-02", "cluster": "cluster-a", "cpu_cores": 16, "memory_mb": 65536, "power_state": "on", "connection_state": "connected"}
+  ]
+}

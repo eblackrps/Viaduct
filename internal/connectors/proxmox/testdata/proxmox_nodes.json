@@ -1,0 +1,6 @@
+{
+  "data": [
+    {"node": "pve-01", "status": "online"},
+    {"node": "pve-02", "status": "online"}
+  ]
+}

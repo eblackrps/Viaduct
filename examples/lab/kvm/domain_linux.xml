@@ -1,0 +1,23 @@
+<domain type="kvm">
+  <name>ubuntu-web-01</name>
+  <uuid>11111111-1111-1111-1111-111111111111</uuid>
+  <memory unit="MiB">4096</memory>
+  <vcpu>4</vcpu>
+  <os>
+    <type arch="x86_64">hvm</type>
+  </os>
+  <devices>
+    <disk type="file" device="disk">
+      <driver name="qemu" type="qcow2"/>
+      <source file="/var/lib/libvirt/images/ubuntu-web-01.qcow2"/>
+      <target dev="vda" bus="virtio"/>
+    </disk>
+    <interface type="bridge">
+      <mac address="52:54:00:12:34:56"/>
+      <source bridge="br0"/>
+      <target dev="vnet0"/>
+      <model type="virtio"/>
+      <alias name="net0"/>
+    </interface>
+  </devices>
+</domain>

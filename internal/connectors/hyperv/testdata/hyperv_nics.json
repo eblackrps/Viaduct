@@ -1,0 +1,16 @@
+[
+  {
+    "VMName": "web-01",
+    "MacAddress": "00155D010101",
+    "SwitchName": "External",
+    "Connected": true,
+    "IPAddresses": ["10.0.0.10"]
+  },
+  {
+    "VMName": "db-01",
+    "MacAddress": "00155D020202",
+    "SwitchName": "Management",
+    "Connected": true,
+    "IPAddresses": ["10.0.1.20"]
+  }
+]

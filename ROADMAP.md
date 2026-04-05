@@ -1,59 +1,94 @@
 # Roadmap
 
-Viaduct is being built in four phases so the project can move from foundation work to real multi-hypervisor migration outcomes without losing architectural discipline.
+Viaduct has completed its first four implementation phases and is now in the release and ecosystem-launch stage. This roadmap distinguishes completed implementation milestones from the current release-readiness and ecosystem work so contributors can see what is stable, what is still being hardened, and where new work adds the most leverage.
 
 ## Current Status
-- Phase 0 is the active bootstrap milestone.
-- The repository foundation, CLI skeleton, inventory schema, CI workflow, and connector stubs are in place.
-- The next implementation milestone is the Discovery Engine MVP.
+- Phase 0 through Phase 4 are complete in the repository.
+- The current focus is production packaging, operator experience, ecosystem adoption, release verification, and supportability.
+- Short-term work should favor compatibility, connector depth, installability, observability, certification, and contributor leverage over speculative rewrites.
+
+## Current Priorities
+- polish release bundles, installation paths, and upgrade / rollback guidance
+- keep public docs aligned with the implemented API, CLI, dashboard, and packaging surfaces
+- deepen operational confidence through release-gate discipline, example environments, and troubleshooting guidance
+- strengthen connector and plugin adoption with compatibility rules, reference examples, and contributor documentation
 
 ## Phase 0: Foundation
-Target outcome: a public, buildable repository with contributor guidance and the minimum code scaffolding needed to begin platform work.
+Status: complete
 
 Key deliverables:
 - Go module, Makefile, lint configuration, and CI
 - Universal inventory schema and connector interface
 - Cobra CLI skeleton with the core commands
-- VMware and Proxmox connector stubs
 - Public project documentation and contribution standards
 
-Detail: [Phase 0 Roadmap](docs/roadmaps/phase-0.md)
+Detail: [Phase 0 Archive](docs/roadmaps/phase-0.md)
 
 ## Phase 1: Discovery Engine MVP
-Target milestone: end of June 2026
+Status: complete
 
 Key deliverables:
 - VMware vCenter VM, network, and storage discovery
 - Proxmox VM, network, and storage discovery
-- Normalization into the universal schema
-- State store wiring, CLI formatting, and integration coverage
-- Verification sweep and project housekeeping
+- normalization into the universal schema
+- state store wiring, CLI formatting, and integration coverage
 
-Detail: [Phase 1 Roadmap](docs/roadmaps/phase-1.md)
+Detail: [Phase 1 Archive](docs/roadmaps/phase-1.md)
 
-## Phase 2: Cold Migration, Dashboard, and Veeam
-Target milestone: end of September 2026
+## Phase 2: Cold Migration, Dashboard, And Veeam
+Status: complete
 
 Key deliverables:
-- Disk conversion and migration spec parsing
-- Cold migration orchestration, pre-flight checks, rollback, and network remapping
+- disk conversion and migration spec parsing
+- cold migration orchestration, preflight checks, rollback, and network remapping
 - Veeam backup job discovery and Hyper-V discovery
 - React dashboard for inventory, migration workflows, and dependency views
-- End-to-end migration validation
 
-Detail: [Phase 2 Roadmap](docs/roadmaps/phase-2.md)
+Detail: [Phase 2 Archive](docs/roadmaps/phase-2.md)
 
-## Phase 3: Lifecycle, Warm Migration, and Multi-Tenancy
-Target milestone: end of January 2027
+## Phase 3: Lifecycle, Warm Migration, And Multi-Tenancy
+Status: complete
 
 Key deliverables:
-- Block replication and warm migration cutover
-- Cost modeling, policy engine, and drift detection
-- Backup portability and lifecycle views
+- block replication and warm migration cutover
+- cost modeling, policy engine, drift detection, and lifecycle views
+- backup portability and lifecycle views
 - KVM/libvirt and Nutanix AHV connectors
-- MSP-oriented multi-tenancy and community connector SDK
+- MSP-oriented multi-tenancy and connector plugin hosting
 
-Detail: [Phase 3 Roadmap](docs/roadmaps/phase-3.md)
+Detail: [Phase 3 Archive](docs/roadmaps/phase-3.md)
+
+## Phase 4: Scale, Extensibility, And Automation
+Status: complete
+
+Key deliverables:
+- execution windows, approval gates, wave planning, checkpoints, and resume support
+- lifecycle remediation guidance and simulation flows
+- tenant summary reporting and stronger operator diagnostics
+- stronger release gating with coverage enforcement
+- plugin lifecycle hardening
+
+Detail: [Phase 4 Archive](docs/roadmaps/phase-4.md)
+
+## Release And Ecosystem Launch
+Current focus:
+- polished release bundles and install paths
+- upgrade and rollback guidance
+- operator runbooks and reference environments
+- plugin author onboarding and validation guidance
+- clearer support and compatibility expectations
+
+Expected outcomes:
+- a clean stable release flow that is easy to evaluate from source or packaged artifacts
+- documentation that matches the current architecture, API surface, and workflows
+- contributor guidance that reinforces release-gate discipline and compatibility rules
+
+Contribution opportunities:
+- connector certification and compatibility validation
+- richer operator examples and reference environments
+- packaging and installation improvements across platforms
+- observability, diagnostics, and release-engineering automation
+- documentation clarity where code and operator workflow still feel too implicit
 
 ## Guiding Principles
 - Keep the universal schema in `internal/models/` as the system of record.

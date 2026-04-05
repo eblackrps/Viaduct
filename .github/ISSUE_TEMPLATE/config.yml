@@ -1,5 +1,8 @@
-blank_issues_enabled: true
+blank_issues_enabled: false
 contact_links:
+  - name: Support and usage help
+    url: https://github.com/eblackrps/Viaduct/blob/main/SUPPORT.md
+    about: Start here for installation, evaluation, usage, and troubleshooting guidance.
   - name: Security Policy
     url: https://github.com/eblackrps/Viaduct/blob/main/SECURITY.md
     about: Please review the private reporting guidance for vulnerabilities.

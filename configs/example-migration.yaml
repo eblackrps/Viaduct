@@ -1,0 +1,36 @@
+# Example VMware to Proxmox cold migration specification.
+name: vmware-to-proxmox-phase2
+source:
+  address: vcsa.lab.local
+  platform: vmware
+  credential_ref: source/vcenter
+target:
+  address: pve.lab.local
+  platform: proxmox
+  credential_ref: target/proxmox
+  default_host: pve01
+  default_storage: local-lvm
+workloads:
+  - match:
+      name_pattern: web-*
+    overrides:
+      target_host: pve01
+      target_storage: local-lvm
+      network_map:
+        VM Network: vmbr0
+      storage_map:
+        datastore1: local-lvm
+  - match:
+      tags:
+        env: production
+    overrides:
+      target_storage: ceph-ssd
+      network_map:
+        VM Network: vmbr0
+        Management: vmbr1
+      storage_map:
+        datastore1: local-lvm
+options:
+  parallel: 2
+  shutdown_source: true
+  verify_boot: true

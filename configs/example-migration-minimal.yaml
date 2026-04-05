@@ -1,0 +1,14 @@
+name: minimal-migration
+source:
+  address: vcsa.lab.local
+  platform: vmware
+  credential_ref: source/vcenter
+target:
+  address: pve.lab.local
+  platform: proxmox
+  credential_ref: target/proxmox
+workloads:
+  - match:
+      name_pattern: "*"
+options:
+  parallel: 1

@@ -9,3 +9,10 @@ vendor/
 .DS_Store
 Thumbs.db
 coverage.out
+coverage
+.gocache/
+.gomodcache/
+dist/
+web/node_modules/
+web/dist/
+web/*.tsbuildinfo

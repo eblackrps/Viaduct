@@ -1,0 +1,14 @@
+[
+  {
+    "VMName": "web-01",
+    "Path": "C:\\HyperV\\web-01\\disk0.vhdx",
+    "DiskNumber": 0,
+    "ControllerType": "SCSI"
+  },
+  {
+    "VMName": "db-01",
+    "Path": "C:\\HyperV\\db-01\\disk0.vhdx",
+    "DiskNumber": 0,
+    "ControllerType": "SCSI"
+  }
+]

@@ -1,0 +1,22 @@
+name: integration-migration
+source:
+  address: vcsa.integration.local
+  platform: vmware
+target:
+  address: pve.integration.local
+  platform: proxmox
+  default_host: pve-01
+  default_storage: local-lvm
+workloads:
+  - match:
+      name_pattern: web-*
+    overrides:
+      target_host: pve-01
+      target_storage: local-lvm
+      network_map:
+        VM Network: vmbr0
+        Management: vmbr1
+options:
+  parallel: 2
+  shutdown_source: true
+  verify_boot: true

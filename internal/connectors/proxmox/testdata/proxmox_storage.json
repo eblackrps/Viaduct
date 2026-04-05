@@ -1,0 +1,6 @@
+{
+  "data": [
+    {"storage": "local-lvm", "type": "lvmthin", "node": "pve-01"},
+    {"storage": "shared-nfs", "type": "nfs", "node": "pve-02"}
+  ]
+}

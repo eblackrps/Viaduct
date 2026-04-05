@@ -1,0 +1,35 @@
+# Support Matrix
+
+This matrix reflects what is implemented and what is currently validated in the repository. It is intentionally conservative.
+
+## Toolchain
+| Component | Expected Version | Notes |
+| --- | --- | --- |
+| Go | 1.24+ | CI and release docs align to the `go.mod` version. |
+| Node.js | 20+ | Required for dashboard development and local web builds. |
+| `make` | Optional but recommended | Windows users can run the underlying commands directly if `make` is unavailable. |
+| `qemu-img` | Optional | Needed for live disk conversion outside mocked or fixture-backed tests. |
+
+## Runtime Validation
+| Area | Validation Scope | Notes |
+| --- | --- | --- |
+| Backend build and tests | CI release gate on Linux | Includes build, vet, lint, race tests, coverage, and packaging. |
+| CLI packaging | Local developer verification on Windows | Release bundles are ZIP-based and include docs, configs, and web assets. |
+| Dashboard build | CI and local | `npm run build` is part of the release gate. |
+
+## Connectors
+| Connector | Status | Notes |
+| --- | --- | --- |
+| VMware | Discovery implemented | vCenter discovery with VM and infrastructure metadata. |
+| Proxmox | Discovery implemented | REST-based inventory for VMs, containers, networks, storage, and nodes. |
+| Hyper-V | Discovery implemented | WinRM / PowerShell inventory collection. |
+| KVM | Discovery implemented | XML-backed fallback plus libvirt build-tag implementation. |
+| Nutanix | Discovery implemented | Prism Central v3 inventory collection. |
+| Veeam | Backup discovery and portability implemented | Used for backup correlation and portability planning. |
+| Community plugins | Supported | gRPC plugin host with validation for health, platform ID, and discovery results. |
+
+## Operational Notes
+- Persistent deployments should use PostgreSQL rather than the in-memory store.
+- Multi-tenant deployments should always use explicit tenant API keys.
+- Production migration usage should be exercised in a lab or pilot environment first, especially for connector-specific runtime actions beyond discovery.
+- The Vite dashboard dev server is for local development only and should not be exposed as a public production surface.

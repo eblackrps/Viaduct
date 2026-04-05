@@ -4,26 +4,25 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/eblackrps/viaduct/internal/connectors"
 	"github.com/eblackrps/viaduct/internal/models"
+	"github.com/vmware/govmomi/vim25/types"
 )
 
-func TestNewVMwareConnector_ReturnsNonNil(t *testing.T) {
+func TestMapPowerState_SupportedStates(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name string
-		cfg  connectors.Config
+		name  string
+		input types.VirtualMachinePowerState
+		want  models.PowerState
 	}{
-		{
-			name: "configured address",
-			cfg:  connectors.Config{Address: "vcenter.example.com"},
-		},
-		{
-			name: "empty config",
-			cfg:  connectors.Config{},
-		},
+		{name: "powered on", input: types.VirtualMachinePowerStatePoweredOn, want: models.PowerOn},
+		{name: "powered off", input: types.VirtualMachinePowerStatePoweredOff, want: models.PowerOff},
+		{name: "suspended", input: types.VirtualMachinePowerStateSuspended, want: models.PowerSuspend},
+		{name: "unknown", input: "unknown", want: models.PowerUnknown},
 	}
 
 	for _, tt := range tests {
@@ -31,112 +30,107 @@ func TestNewVMwareConnector_ReturnsNonNil(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			conn := NewVMwareConnector(tt.cfg)
-			if conn == nil {
-				t.Fatal("NewVMwareConnector() returned nil")
-			}
-
-			if conn.config != tt.cfg {
-				t.Fatalf("connector config = %#v, want %#v", conn.config, tt.cfg)
+			if got := mapPowerState(tt.input); got != tt.want {
+				t.Fatalf("mapPowerState(%q) = %q, want %q", tt.input, got, tt.want)
 			}
 		})
 	}
 }
 
-func TestVMwareConnector_DiscoverBeforeConnect(t *testing.T) {
+func TestMapDisks_VirtualDisk_ReturnsNormalizedDisks(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		name string
-		cfg  connectors.Config
-	}{
-		{
-			name: "default config",
-			cfg:  connectors.Config{},
+	devices := []types.BaseVirtualDevice{
+		&types.VirtualDisk{
+			VirtualDevice: types.VirtualDevice{
+				Key:        2000,
+				DeviceInfo: &types.Description{Label: "Hard disk 1"},
+				Backing: &types.VirtualDiskFlatVer2BackingInfo{
+					VirtualDeviceFileBackingInfo: types.VirtualDeviceFileBackingInfo{FileName: "[vsanDatastore] web-01/web-01.vmdk"},
+					ThinProvisioned:              types.NewBool(true),
+				},
+			},
+			CapacityInKB: 32 * 1024,
 		},
 	}
 
-	for _, tt := range tests {
-		tt := tt
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
+	disks := mapDisks(devices)
+	if len(disks) != 1 {
+		t.Fatalf("len(disks) = %d, want 1", len(disks))
+	}
 
-			conn := NewVMwareConnector(tt.cfg)
-			_, err := conn.Discover(context.Background())
-			if err == nil {
-				t.Fatal("Discover() error = nil, want error")
-			}
-
-			if !strings.Contains(err.Error(), "not connected") {
-				t.Fatalf("Discover() error = %q, want substring %q", err.Error(), "not connected")
-			}
-		})
+	if disks[0].SizeMB != 32 {
+		t.Fatalf("SizeMB = %d, want 32", disks[0].SizeMB)
 	}
 }
 
-func TestVMwareConnector_Platform(t *testing.T) {
+func TestMapNICs_VirtualEthernetCard_ReturnsNormalizedNICs(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		name string
-		cfg  connectors.Config
-		want models.Platform
-	}{
-		{
-			name: "vmware platform",
-			cfg:  connectors.Config{},
-			want: models.PlatformVMware,
+	devices := []types.BaseVirtualDevice{
+		&types.VirtualVmxnet3{
+			VirtualVmxnet: types.VirtualVmxnet{
+				VirtualEthernetCard: types.VirtualEthernetCard{
+					VirtualDevice: types.VirtualDevice{
+						Key:        4000,
+						DeviceInfo: &types.Description{Label: "Network adapter 1"},
+						Backing: &types.VirtualEthernetCardNetworkBackingInfo{
+							VirtualDeviceDeviceBackingInfo: types.VirtualDeviceDeviceBackingInfo{DeviceName: "Production"},
+						},
+						Connectable: &types.VirtualDeviceConnectInfo{Connected: true},
+					},
+					MacAddress: "00:50:56:AA:BB:CC",
+				},
+			},
 		},
 	}
 
-	for _, tt := range tests {
-		tt := tt
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
+	guestNics := []types.GuestNicInfo{
+		{
+			MacAddress: "00:50:56:AA:BB:CC",
+			Network:    "Production",
+			IpAddress:  []string{"10.0.0.10"},
+		},
+	}
 
-			conn := NewVMwareConnector(tt.cfg)
-			if got := conn.Platform(); got != tt.want {
-				t.Fatalf("Platform() = %q, want %q", got, tt.want)
-			}
-		})
+	nics := mapNICs(devices, guestNics)
+	if len(nics) != 1 {
+		t.Fatalf("len(nics) = %d, want 1", len(nics))
+	}
+
+	if nics[0].MACAddress != "00:50:56:AA:BB:CC" {
+		t.Fatalf("MACAddress = %q, want %q", nics[0].MACAddress, "00:50:56:AA:BB:CC")
 	}
 }
 
-func TestVMwareConnector_ConnectAndClose(t *testing.T) {
+func TestVMwareConnector_ConnectFailure_UnreachableAddressReturnsWrappedError(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		name string
-		cfg  connectors.Config
-	}{
-		{
-			name: "connect then close",
-			cfg:  connectors.Config{},
-		},
+	connector := NewVMwareConnector(connectors.Config{
+		Address:  "https://127.0.0.1:1/sdk",
+		Username: "user",
+		Password: "pass",
+		Insecure: true,
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	err := connector.Connect(ctx)
+	if err == nil {
+		t.Fatal("Connect() error = nil, want error")
 	}
 
-	for _, tt := range tests {
-		tt := tt
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
+	if !strings.Contains(err.Error(), "vmware: connect") {
+		t.Fatalf("Connect() error = %q, want wrapped vmware connect error", err.Error())
+	}
+}
 
-			conn := NewVMwareConnector(tt.cfg)
+func TestVMwareConnector_Platform_ReturnsVMware(t *testing.T) {
+	t.Parallel()
 
-			if err := conn.Connect(context.Background()); err != nil {
-				t.Fatalf("Connect() error = %v", err)
-			}
-
-			if !conn.connected {
-				t.Fatal("connected = false, want true after Connect")
-			}
-
-			if err := conn.Close(); err != nil {
-				t.Fatalf("Close() error = %v", err)
-			}
-
-			if conn.connected {
-				t.Fatal("connected = true, want false after Close")
-			}
-		})
+	connector := NewVMwareConnector(connectors.Config{})
+	if got := connector.Platform(); got != models.PlatformVMware {
+		t.Fatalf("Platform() = %q, want %q", got, models.PlatformVMware)
 	}
 }

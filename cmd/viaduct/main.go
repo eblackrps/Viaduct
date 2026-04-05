@@ -48,6 +48,7 @@ func init() {
 		newStatusCommand(),
 		newRollbackCommand(),
 		newVersionCommand(),
+		newServeAPICommand(),
 	)
 }
 

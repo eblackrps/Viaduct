@@ -1,0 +1,88 @@
+syntax = "proto3";
+
+package viaduct.plugin.v1;
+
+option go_package = "github.com/eblackrps/viaduct/api/proto/pluginv1";
+
+service ConnectorPlugin {
+  rpc Connect(ConnectRequest) returns (ConnectResponse);
+  rpc Discover(DiscoverRequest) returns (DiscoverResponse);
+  rpc Platform(PlatformRequest) returns (PlatformResponse);
+  rpc Close(CloseRequest) returns (CloseResponse);
+  rpc Health(HealthRequest) returns (HealthResponse);
+}
+
+message ConnectorConfig {
+  string address = 1;
+  string username = 2;
+  string password = 3;
+  bool insecure = 4;
+  int32 port = 5;
+}
+
+message ConnectRequest {
+  ConnectorConfig config = 1;
+}
+
+message ConnectResponse {
+  bool ok = 1;
+}
+
+message DiscoverRequest {}
+
+message PlatformRequest {}
+
+message CloseRequest {}
+
+message HealthRequest {}
+
+message HealthResponse {
+  string status = 1;
+}
+
+message CloseResponse {
+  bool ok = 1;
+}
+
+message DiscoverResponse {
+  DiscoveryResult result = 1;
+}
+
+message DiscoveryResult {
+  string source = 1;
+  string platform = 2;
+  repeated VirtualMachine vms = 3;
+  repeated string errors = 4;
+}
+
+message VirtualMachine {
+  string id = 1;
+  string name = 2;
+  string platform = 3;
+  string power_state = 4;
+  int32 cpu_count = 5;
+  int32 memory_mb = 6;
+  repeated Disk disks = 7;
+  repeated NIC nics = 8;
+  string guest_os = 9;
+  string host = 10;
+  string cluster = 11;
+  string source_ref = 12;
+}
+
+message Disk {
+  string id = 1;
+  string name = 2;
+  int32 size_mb = 3;
+  bool thin = 4;
+  string storage_backend = 5;
+}
+
+message NIC {
+  string id = 1;
+  string name = 2;
+  string mac_address = 3;
+  string network = 4;
+  bool connected = 5;
+  repeated string ip_addresses = 6;
+}

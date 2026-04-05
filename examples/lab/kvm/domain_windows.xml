@@ -1,0 +1,23 @@
+<domain type="kvm">
+  <name>windows-app-01</name>
+  <uuid>22222222-2222-2222-2222-222222222222</uuid>
+  <memory unit="MiB">8192</memory>
+  <vcpu>8</vcpu>
+  <os>
+    <type arch="x86_64">hvm</type>
+  </os>
+  <devices>
+    <disk type="file" device="disk">
+      <driver name="qemu" type="raw"/>
+      <source file="/var/lib/libvirt/images/windows-app-01.img"/>
+      <target dev="sda" bus="sata"/>
+    </disk>
+    <interface type="network">
+      <mac address="52:54:00:65:43:21"/>
+      <source network="default"/>
+      <target dev="vnet1"/>
+      <model type="e1000"/>
+      <alias name="net1"/>
+    </interface>
+  </devices>
+</domain>

@@ -1,0 +1,32 @@
+{
+  "metadata": {
+    "uuid": "44444444-4444-4444-4444-444444444444",
+    "creation_time": "2026-04-04T10:05:00Z",
+    "categories": {
+      "env": "staging"
+    }
+  },
+  "spec": {
+    "name": "ahv-app-02",
+    "resources": {
+      "num_sockets": 1,
+      "num_vcpus_per_socket": 4,
+      "memory_size_mib": 4096,
+      "guest_os": "Ubuntu 22.04",
+      "disk_list": [],
+      "nic_list": []
+    }
+  },
+  "status": {
+    "name": "ahv-app-02",
+    "resources": {
+      "power_state": "OFF",
+      "host_reference": {
+        "name": "ahv-host-02"
+      },
+      "cluster_reference": {
+        "name": "Cluster-A"
+      }
+    }
+  }
+}

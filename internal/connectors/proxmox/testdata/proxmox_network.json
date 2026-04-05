@@ -1,0 +1,13 @@
+{
+  "data": {
+    "pve-01": [
+      {"iface": "vmbr0", "type": "bridge"},
+      {"iface": "bond0", "type": "bond"},
+      {"iface": "vmbr0.100", "type": "vlan", "vlan-id": 100}
+    ],
+    "pve-02": [
+      {"iface": "vmbr1", "type": "bridge"},
+      {"iface": "vmbr2", "type": "bridge"}
+    ]
+  }
+}

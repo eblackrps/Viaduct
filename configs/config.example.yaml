@@ -1,0 +1,33 @@
+# Copy to ~/.viaduct/config.yaml and replace the placeholder values for your environment.
+# Prefer environment variables for secrets when possible.
+
+username: ""
+password: ""
+insecure: false
+
+# Leave empty to use the in-memory store for local demos.
+# For persistent state, point this at PostgreSQL.
+state_store_dsn: "postgres://viaduct:change-me@localhost:5432/viaduct?sslmode=disable"
+
+sources:
+  vmware:
+    address: "https://vcenter.example.local"
+    username: "administrator@vsphere.local"
+    password: "replace-me"
+    insecure: true
+  proxmox:
+    address: "https://proxmox.example.local:8006/api2/json"
+    username: "root@pam"
+    password: "replace-me"
+    insecure: true
+  hyperv:
+    address: "hyperv.example.local"
+    username: "administrator"
+    password: "replace-me"
+  kvm:
+    address: "examples/lab/kvm"
+  nutanix:
+    address: "https://prism.example.local:9440"
+    username: "admin"
+    password: "replace-me"
+    insecure: true

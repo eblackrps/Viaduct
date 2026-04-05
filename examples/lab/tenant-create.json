@@ -1,0 +1,10 @@
+{
+  "id": "lab-tenant",
+  "name": "Lab Tenant",
+  "api_key": "lab-tenant-key",
+  "active": true,
+  "settings": {
+    "environment": "lab",
+    "owner": "operations"
+  }
+}

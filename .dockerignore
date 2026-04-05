@@ -1,0 +1,11 @@
+.git
+.github
+.codex
+bin
+dist
+coverage.out
+coverage
+.gocache
+.gomodcache
+web/node_modules
+web/dist

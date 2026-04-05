@@ -1,0 +1,31 @@
+{
+  "data": {
+    "101": {
+      "vmid": "101",
+      "name": "web-01",
+      "cores": 2,
+      "memory": 2048,
+      "ostype": "l26",
+      "scsi0": "local-lvm:vm-101-disk-0,size=32G",
+      "net0": "virtio=AA:BB:CC:DD:EE:01,bridge=vmbr0"
+    },
+    "102": {
+      "vmid": "102",
+      "name": "db-01",
+      "cores": 4,
+      "memory": 4096,
+      "ostype": "win11",
+      "virtio0": "local-lvm:vm-102-disk-0,size=64G",
+      "net0": "virtio=AA:BB:CC:DD:EE:02,bridge=vmbr0"
+    },
+    "201": {
+      "vmid": "201",
+      "name": "monitor-01",
+      "cores": 1,
+      "memory": 1024,
+      "ostype": "l26",
+      "scsi0": "shared-nfs:vm-201-disk-0,size=16G",
+      "net0": "virtio=AA:BB:CC:DD:EE:03,bridge=vmbr1"
+    }
+  }
+}

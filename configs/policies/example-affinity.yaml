@@ -1,0 +1,9 @@
+name: web-folder-affinity
+type: affinity
+description: Web workloads should live in the production web folder hierarchy.
+severity: info
+rules:
+  - field: folder
+    operator: matches
+    value: ^/Prod/(Web|Shared)
+    message: Move the workload into a supported production folder.

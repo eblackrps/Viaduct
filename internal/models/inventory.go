@@ -76,6 +76,86 @@ type Snapshot struct {
 	SizeMB int `json:"size_mb"`
 }
 
+// NetworkInfo represents a discovered virtual network or port group.
+type NetworkInfo struct {
+	// ID is the source platform identifier for the network.
+	ID string `json:"id"`
+	// Name is the human-readable network name.
+	Name string `json:"name"`
+	// Type identifies the network implementation such as standard, distributed, bridge, bond, or vlan.
+	Type string `json:"type"`
+	// VlanID is the configured VLAN ID when one is associated with the network.
+	VlanID int `json:"vlan_id"`
+	// Switch is the backing virtual switch, bridge, or fabric name.
+	Switch string `json:"switch"`
+}
+
+// DatastoreInfo represents a discovered datastore or storage backend.
+type DatastoreInfo struct {
+	// ID is the source platform identifier for the datastore.
+	ID string `json:"id"`
+	// Name is the human-readable datastore name.
+	Name string `json:"name"`
+	// Type identifies the storage backend type such as vmfs, vsan, nfs, lvm, or ceph.
+	Type string `json:"type"`
+	// CapacityMB is the total datastore capacity in mebibytes.
+	CapacityMB int64 `json:"capacity_mb"`
+	// FreeMB is the currently available datastore capacity in mebibytes.
+	FreeMB int64 `json:"free_mb"`
+	// Hosts lists the hosts or nodes attached to the datastore.
+	Hosts []string `json:"hosts"`
+}
+
+// HostInfo represents a discovered hypervisor host or node.
+type HostInfo struct {
+	// ID is the source platform identifier for the host.
+	ID string `json:"id"`
+	// Name is the human-readable host name.
+	Name string `json:"name"`
+	// Cluster is the cluster containing the host when applicable.
+	Cluster string `json:"cluster"`
+	// CPUCores is the number of physical CPU cores reported by the platform.
+	CPUCores int `json:"cpu_cores"`
+	// MemoryMB is the total host memory in mebibytes.
+	MemoryMB int64 `json:"memory_mb"`
+	// PowerState is the host power state when it can be normalized to the VM power state enum.
+	PowerState PowerState `json:"power_state"`
+	// ConnectionState is the platform-specific host connection state.
+	ConnectionState string `json:"connection_state"`
+}
+
+// ClusterInfo represents a discovered compute cluster.
+type ClusterInfo struct {
+	// ID is the source platform identifier for the cluster.
+	ID string `json:"id"`
+	// Name is the human-readable cluster name.
+	Name string `json:"name"`
+	// Hosts lists host names that belong to the cluster.
+	Hosts []string `json:"hosts"`
+	// TotalCPUCores is the aggregate CPU core count for the cluster.
+	TotalCPUCores int `json:"total_cpu_cores"`
+	// TotalMemoryMB is the aggregate cluster memory in mebibytes.
+	TotalMemoryMB int64 `json:"total_memory_mb"`
+	// HAEnabled reports whether high availability is enabled.
+	HAEnabled bool `json:"ha_enabled"`
+	// DRSEnabled reports whether DRS or equivalent workload balancing is enabled.
+	DRSEnabled bool `json:"drs_enabled"`
+}
+
+// ResourcePoolInfo represents a discovered resource pool or workload allocation boundary.
+type ResourcePoolInfo struct {
+	// ID is the source platform identifier for the resource pool.
+	ID string `json:"id"`
+	// Name is the human-readable resource pool name.
+	Name string `json:"name"`
+	// Cluster is the parent cluster name when applicable.
+	Cluster string `json:"cluster"`
+	// CPULimitMHz is the configured CPU limit in MHz when available.
+	CPULimitMHz int64 `json:"cpu_limit_mhz"`
+	// MemoryLimitMB is the configured memory limit in mebibytes when available.
+	MemoryLimitMB int64 `json:"memory_limit_mb"`
+}
+
 // VirtualMachine is the universal representation of a VM across all hypervisors.
 type VirtualMachine struct {
 	// ID is the source platform identifier for the VM.
@@ -124,6 +204,16 @@ type DiscoveryResult struct {
 	Platform Platform `json:"platform"`
 	// VMs contains the normalized virtual machine inventory.
 	VMs []VirtualMachine `json:"vms"`
+	// Networks contains normalized virtual network inventory discovered alongside VMs.
+	Networks []NetworkInfo `json:"networks,omitempty"`
+	// Datastores contains normalized storage backend inventory discovered alongside VMs.
+	Datastores []DatastoreInfo `json:"datastores,omitempty"`
+	// Hosts contains normalized hypervisor host inventory discovered alongside VMs.
+	Hosts []HostInfo `json:"hosts,omitempty"`
+	// Clusters contains normalized compute cluster inventory discovered alongside VMs.
+	Clusters []ClusterInfo `json:"clusters,omitempty"`
+	// ResourcePools contains normalized resource pool inventory discovered alongside VMs.
+	ResourcePools []ResourcePoolInfo `json:"resource_pools,omitempty"`
 	// DiscoveredAt is when discovery completed.
 	DiscoveredAt time.Time `json:"discovered_at"`
 	// Duration is the total time spent collecting inventory.

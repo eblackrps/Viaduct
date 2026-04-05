@@ -1,20 +1,22 @@
 # Code of Conduct
 
-## Our Standard
+## Our Pledge
 
-Viaduct is committed to a welcoming, respectful, and technically collaborative community.
+Viaduct is committed to a welcoming, respectful, and technically collaborative community. We want the repository to feel safe for operators, maintainers, new contributors, and experienced engineers alike.
 
-Participants are expected to:
+## Expected Behavior
 - be respectful in language, tone, and feedback
-- assume good intent while remaining honest and direct
-- focus critique on ideas, code, and decisions rather than people
+- assume good intent while remaining honest and technically direct
+- focus critique on ideas, code, docs, and decisions rather than people
 - support contributors with different backgrounds and experience levels
+- share operational context and evidence when disagreeing about design or behavior
 
-Unacceptable behavior includes:
+## Unacceptable Behavior
 - harassment, intimidation, or personal attacks
 - discriminatory language or conduct
-- deliberate disruption of discussions, reviews, or community spaces
+- deliberate disruption of issues, reviews, discussions, or community spaces
 - publishing private information without permission
+- hostile gatekeeping, dogpiling, or mocking basic questions
 
 ## Scope
 

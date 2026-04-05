@@ -1,0 +1,5 @@
+insecure: false
+
+sources:
+  kvm:
+    address: "examples/lab/kvm"

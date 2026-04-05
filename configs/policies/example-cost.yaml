@@ -1,0 +1,9 @@
+name: monthly-cost-cap
+type: cost
+description: Monthly workload cost should stay under the review threshold.
+severity: warn
+rules:
+  - field: cost
+    operator: less-than
+    value: 150
+    message: Re-size or move the workload to reduce monthly cost.

@@ -1,0 +1,12 @@
+name: environment-tag
+type: compliance
+description: Every workload must carry an environment tag.
+severity: warn
+rules:
+  - field: tag:env
+    operator: in
+    value:
+      - production
+      - staging
+      - development
+    message: Add a supported env tag to the workload metadata.

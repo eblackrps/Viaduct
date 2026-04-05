@@ -3,22 +3,40 @@ VERSION ?= $(shell git describe --tags --always --dirty 2>NUL || echo dev)
 COMMIT ?= $(shell git rev-parse --short HEAD 2>NUL || echo none)
 DATE ?= $(shell powershell -NoProfile -Command "[DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')")
 MKDIR_BIN = powershell -NoProfile -Command "New-Item -ItemType Directory -Force -Path 'bin' | Out-Null"
+MKDIR_DIST = powershell -NoProfile -Command "New-Item -ItemType Directory -Force -Path 'dist' | Out-Null"
 RM_BIN = powershell -NoProfile -Command "if (Test-Path 'bin') { Remove-Item -Recurse -Force 'bin' }"
+RM_DIST = powershell -NoProfile -Command "if (Test-Path 'dist') { Remove-Item -Recurse -Force 'dist' }"
+RM_COVER = powershell -NoProfile -Command "$$paths = @('coverage','coverage.out','coverage.out;','coverage-fresh','coverage-fresh.out'); foreach ($$path in $$paths) { if (Test-Path $$path) { Remove-Item -Force $$path } }"
+BIN_TARGET = bin/viaduct.exe
+RUN_BIN = $(BIN_TARGET)
+WEB_INSTALL = cd web && npm ci
+COVERPROFILE_ARG = "-coverprofile=coverage.out"
+COVERFUNC_ARG = "-func=coverage.out"
 else
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo none)
 DATE ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 MKDIR_BIN = mkdir -p bin
+MKDIR_DIST = mkdir -p dist
 RM_BIN = rm -rf bin/
+RM_DIST = rm -rf dist/
+RM_COVER = rm -f coverage coverage.out
+BIN_TARGET = bin/viaduct
+RUN_BIN = ./$(BIN_TARGET)
+WEB_INSTALL = cd web && npm ci
+COVERPROFILE_ARG = -coverprofile=coverage.out
+COVERFUNC_ARG = -func=coverage.out
 endif
 
-.PHONY: all build test lint proto docker clean
+COVER_MIN ?= 50.0
+
+.PHONY: all build test lint proto docker dashboard serve web-build package-release release-gate clean
 
 all: lint test build
 
 build:
 	$(MKDIR_BIN)
-	go build -ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DATE)" -o bin/viaduct ./cmd/viaduct
+	go build -ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DATE)" -o $(BIN_TARGET) ./cmd/viaduct
 
 test:
 	go test ./... -v -race
@@ -27,10 +45,49 @@ lint:
 	golangci-lint run ./...
 
 proto:
-	@echo "protobuf generation not yet configured"
+	protoc --go_out=. --go-grpc_out=. api/proto/plugin.proto
 
 docker:
-	@echo "docker build not yet configured"
+	docker build -t viaduct:$(VERSION) .
+
+dashboard:
+	$(MAKE) web-build
+
+serve:
+	$(WEB_INSTALL)
+	cd web && npm run dev:full
+
+web-build:
+	$(WEB_INSTALL)
+	cd web && npm run build
+
+package-release:
+	$(RM_DIST)
+	$(MKDIR_DIST)
+	$(MAKE) build
+	$(MAKE) web-build
+	go run ./scripts/package_release -workspace . -version $(VERSION) -commit $(COMMIT) -date $(DATE) -binary $(BIN_TARGET) -web-dir web/dist -output-dir dist
+
+release-gate:
+	$(RM_DIST)
+	$(RM_COVER)
+	go mod tidy
+	go build ./...
+	go vet ./...
+	golangci-lint run ./...
+	go test ./... -v -race -count=1
+	$(MAKE) build
+	$(RUN_BIN) --help
+	$(RUN_BIN) version
+	$(RUN_BIN) plan --help
+	$(RUN_BIN) migrate --help
+	$(MAKE) web-build
+	go test ./... $(COVERPROFILE_ARG)
+	go tool cover $(COVERFUNC_ARG)
+	go run ./scripts/coverage_gate.go coverage.out $(COVER_MIN)
+	$(MAKE) package-release
 
 clean:
 	$(RM_BIN)
+	$(RM_DIST)
+	$(RM_COVER)

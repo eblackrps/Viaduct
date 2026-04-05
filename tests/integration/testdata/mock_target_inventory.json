@@ -1,0 +1,16 @@
+{
+  "source": "pve.integration.local",
+  "platform": "proxmox",
+  "vms": [],
+  "networks": [
+    {"id": "network-10", "name": "vmbr0", "type": "bridge", "vlan_id": 0, "switch": "vmbr0"},
+    {"id": "network-11", "name": "vmbr1", "type": "bridge", "vlan_id": 10, "switch": "vmbr1"}
+  ],
+  "datastores": [
+    {"id": "storage-1", "name": "local-lvm", "type": "lvmthin", "capacity_mb": 2000000, "free_mb": 1500000, "hosts": ["pve-01"]},
+    {"id": "storage-2", "name": "ceph-ssd", "type": "ceph", "capacity_mb": 3000000, "free_mb": 2500000, "hosts": ["pve-01"]}
+  ],
+  "hosts": [
+    {"id": "host-10", "name": "pve-01", "cluster": "cluster-p", "cpu_cores": 48, "memory_mb": 262144, "power_state": "on", "connection_state": "connected"}
+  ]
+}

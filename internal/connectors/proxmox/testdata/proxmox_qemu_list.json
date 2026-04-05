@@ -1,0 +1,7 @@
+{
+  "data": [
+    {"node": "pve-01", "vmid": "101", "name": "web-01", "status": "running", "cpus": 2, "maxmem": 2147483648},
+    {"node": "pve-01", "vmid": "102", "name": "db-01", "status": "stopped", "cpus": 4, "maxmem": 4294967296},
+    {"node": "pve-02", "vmid": "201", "name": "monitor-01", "status": "running", "cpus": 1, "maxmem": 1073741824}
+  ]
+}

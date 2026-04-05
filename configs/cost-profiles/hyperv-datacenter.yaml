@@ -1,0 +1,9 @@
+platform: hyperv
+name: Hyper-V Datacenter
+cpu_cost_per_core_month: 7
+memory_cost_per_gb_month: 2.5
+storage_cost_per_gb_month: 0.45
+license_cost_per_core_month: 5
+license_model: per-core
+support_cost_monthly: 18
+notes: Hyper-V model with Windows Datacenter licensing.

@@ -1,0 +1,9 @@
+platform: vmware
+name: VMware VCF
+cpu_cost_per_core_month: 12
+memory_cost_per_gb_month: 4
+storage_cost_per_gb_month: 0.5
+license_cost_per_core_month: 8
+license_model: per-core
+support_cost_monthly: 25
+notes: Enterprise VMware cost model with per-core subscription pricing.
