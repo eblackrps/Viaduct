@@ -16,13 +16,13 @@
   "dependencies": {
     "d3": "^7.9.0",
     "lucide-react": "^0.525.0",
-    "react": "^18.3.1",
+    "react": "^19.2.4",
     "react-dom": "^18.3.1",
     "recharts": "^2.12.7"
   },
   "devDependencies": {
     "@types/d3": "^7.4.3",
-    "@types/react": "^18.3.4",
+    "@types/react": "^19.2.14",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.7.0",
     "autoprefixer": "^10.4.20",
