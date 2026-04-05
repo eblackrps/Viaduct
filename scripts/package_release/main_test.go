@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 )
 
@@ -33,20 +32,22 @@ func TestPackageRelease_CreatesBundleAndArchive(t *testing.T) {
 	mustWriteFile(t, filepath.Join(workspace, "web", "dist", "index.html"), "<html></html>\n")
 
 	options := releaseOptions{
-		Workspace: workspace,
-		Version:   "v1.0.0-rc1",
-		Commit:    "abc1234",
-		Date:      "2026-04-04T12:00:00Z",
-		Binary:    filepath.Join("bin", "viaduct"),
-		WebDir:    filepath.Join("web", "dist"),
-		OutputDir: "dist",
+		Workspace:    workspace,
+		Version:      "v1.0.0-rc1",
+		Commit:       "abc1234",
+		Date:         "2026-04-04T12:00:00Z",
+		Binary:       filepath.Join("bin", "viaduct"),
+		WebDir:       filepath.Join("web", "dist"),
+		OutputDir:    "dist",
+		BundleGOOS:   "linux",
+		BundleGOARCH: "amd64",
 	}
 
 	if err := packageRelease(options); err != nil {
 		t.Fatalf("packageRelease() error = %v", err)
 	}
 
-	packageName := "viaduct_v1.0.0-rc1_" + runtime.GOOS + "_" + runtime.GOARCH
+	packageName := "viaduct_v1.0.0-rc1_linux_amd64"
 	bundleDir := filepath.Join(workspace, "dist", packageName)
 	manifestPath := filepath.Join(bundleDir, "release-manifest.json")
 	if _, err := os.Stat(manifestPath); err != nil {
@@ -84,6 +85,61 @@ func TestPackageRelease_CreatesBundleAndArchive(t *testing.T) {
 
 	if _, err := os.Stat(filepath.Join(workspace, "dist", packageName+".zip")); err != nil {
 		t.Fatalf("archive missing: %v", err)
+	}
+}
+
+func TestPackageRelease_BundleTargetOverride_WritesManifestTarget(t *testing.T) {
+	workspace := t.TempDir()
+
+	mustWriteFile(t, filepath.Join(workspace, "README.md"), "# Viaduct\n")
+	mustWriteFile(t, filepath.Join(workspace, "LICENSE"), "Apache License\n")
+	mustWriteFile(t, filepath.Join(workspace, "CHANGELOG.md"), "# Changelog\n")
+	mustWriteFile(t, filepath.Join(workspace, "CODE_OF_CONDUCT.md"), "# Code of Conduct\n")
+	mustWriteFile(t, filepath.Join(workspace, "CONTRIBUTING.md"), "# Contributing\n")
+	mustWriteFile(t, filepath.Join(workspace, "INSTALL.md"), "# Installation\n")
+	mustWriteFile(t, filepath.Join(workspace, "QUICKSTART.md"), "# Quickstart\n")
+	mustWriteFile(t, filepath.Join(workspace, "RELEASE.md"), "# Release\n")
+	mustWriteFile(t, filepath.Join(workspace, "SECURITY.md"), "# Security\n")
+	mustWriteFile(t, filepath.Join(workspace, "SUPPORT.md"), "# Support\n")
+	mustWriteFile(t, filepath.Join(workspace, "UPGRADE.md"), "# Upgrade\n")
+	mustWriteFile(t, filepath.Join(workspace, ".env.example"), "VIADUCT_ADMIN_KEY=\n")
+	mustWriteFile(t, filepath.Join(workspace, "scripts", "install.sh"), "#!/usr/bin/env sh\n")
+	mustWriteFile(t, filepath.Join(workspace, "scripts", "install.ps1"), "Write-Host 'ok'\n")
+	mustWriteFile(t, filepath.Join(workspace, "docs", "guide.md"), "guide\n")
+	mustWriteFile(t, filepath.Join(workspace, "configs", "config.example.yaml"), "sources: {}\n")
+	mustWriteFile(t, filepath.Join(workspace, "examples", "lab", "README.md"), "lab\n")
+	mustWriteFile(t, filepath.Join(workspace, "examples", "plugin-example", "main.go"), "package main\n")
+	mustWriteFile(t, filepath.Join(workspace, "bin", "viaduct.exe"), "binary\n")
+	mustWriteFile(t, filepath.Join(workspace, "web", "dist", "index.html"), "<html></html>\n")
+
+	options := releaseOptions{
+		Workspace:    workspace,
+		Version:      "v1.0.0",
+		Commit:       "def5678",
+		Date:         "2026-04-05T12:00:00Z",
+		Binary:       filepath.Join("bin", "viaduct.exe"),
+		WebDir:       filepath.Join("web", "dist"),
+		OutputDir:    "dist",
+		BundleGOOS:   "windows",
+		BundleGOARCH: "amd64",
+	}
+
+	if err := packageRelease(options); err != nil {
+		t.Fatalf("packageRelease() error = %v", err)
+	}
+
+	manifestPath := filepath.Join(workspace, "dist", "viaduct_v1.0.0_windows_amd64", "release-manifest.json")
+	payload, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatalf("ReadFile(manifest) error = %v", err)
+	}
+
+	var manifest releaseManifest
+	if err := json.Unmarshal(payload, &manifest); err != nil {
+		t.Fatalf("Unmarshal(manifest) error = %v", err)
+	}
+	if manifest.GOOS != "windows" || manifest.GOARCH != "amd64" {
+		t.Fatalf("manifest target = %s/%s, want windows/amd64", manifest.GOOS, manifest.GOARCH)
 	}
 }
 

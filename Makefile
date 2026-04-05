@@ -12,6 +12,8 @@ RUN_BIN = $(BIN_TARGET)
 WEB_INSTALL = cd web && npm ci
 COVERPROFILE_ARG = "-coverprofile=coverage.out"
 COVERFUNC_ARG = "-func=coverage.out"
+GO_BUILD_LINUX = powershell -NoProfile -Command "$$env:CGO_ENABLED='0'; $$env:GOOS='linux'; $$env:GOARCH='amd64'; go build -ldflags '-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DATE)' -o '$(LINUX_BINARY)' ./cmd/viaduct"
+GO_BUILD_WINDOWS = powershell -NoProfile -Command "$$env:CGO_ENABLED='0'; $$env:GOOS='windows'; $$env:GOARCH='amd64'; go build -ldflags '-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DATE)' -o '$(WINDOWS_BINARY)' ./cmd/viaduct"
 else
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo none)
@@ -26,17 +28,29 @@ RUN_BIN = ./$(BIN_TARGET)
 WEB_INSTALL = cd web && npm ci
 COVERPROFILE_ARG = -coverprofile=coverage.out
 COVERFUNC_ARG = -func=coverage.out
+GO_BUILD_LINUX = CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DATE)" -o $(LINUX_BINARY) ./cmd/viaduct
+GO_BUILD_WINDOWS = CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DATE)" -o $(WINDOWS_BINARY) ./cmd/viaduct
 endif
 
 COVER_MIN ?= 50.0
+LINUX_BINARY = bin/viaduct-linux-amd64
+WINDOWS_BINARY = bin/viaduct.exe
 
-.PHONY: all build test lint proto docker dashboard serve web-build package-release release-gate clean
+.PHONY: all build build-linux build-windows test lint proto docker dashboard serve web-build package-release package-release-linux package-release-windows package-release-matrix certification-test soak-test release-gate clean
 
 all: lint test build
 
 build:
 	$(MKDIR_BIN)
 	go build -ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DATE)" -o $(BIN_TARGET) ./cmd/viaduct
+
+build-linux:
+	$(MKDIR_BIN)
+	$(GO_BUILD_LINUX)
+
+build-windows:
+	$(MKDIR_BIN)
+	$(GO_BUILD_WINDOWS)
 
 test:
 	go test ./... -v -race
@@ -68,6 +82,30 @@ package-release:
 	$(MAKE) web-build
 	go run ./scripts/package_release -workspace . -version $(VERSION) -commit $(COMMIT) -date $(DATE) -binary $(BIN_TARGET) -web-dir web/dist -output-dir dist
 
+package-release-linux:
+	$(MKDIR_DIST)
+	$(MAKE) build-linux
+	$(MAKE) web-build
+	go run ./scripts/package_release -workspace . -version $(VERSION) -commit $(COMMIT) -date $(DATE) -binary $(LINUX_BINARY) -web-dir web/dist -output-dir dist -bundle-goos linux -bundle-goarch amd64
+
+package-release-windows:
+	$(MKDIR_DIST)
+	$(MAKE) build-windows
+	$(MAKE) web-build
+	go run ./scripts/package_release -workspace . -version $(VERSION) -commit $(COMMIT) -date $(DATE) -binary $(WINDOWS_BINARY) -web-dir web/dist -output-dir dist -bundle-goos windows -bundle-goarch amd64
+
+package-release-matrix:
+	$(RM_DIST)
+	$(MKDIR_DIST)
+	$(MAKE) package-release-windows
+	$(MAKE) package-release-linux
+
+certification-test:
+	go test ./tests/certification/... -v
+
+soak-test:
+	go test -tags soak ./tests/soak/... -count=1
+
 release-gate:
 	$(RM_DIST)
 	$(RM_COVER)
@@ -76,6 +114,7 @@ release-gate:
 	go vet ./...
 	golangci-lint run ./...
 	go test ./... -v -race -count=1
+	$(MAKE) soak-test
 	$(MAKE) build
 	$(RUN_BIN) --help
 	$(RUN_BIN) version
@@ -85,7 +124,7 @@ release-gate:
 	go test ./... $(COVERPROFILE_ARG)
 	go tool cover $(COVERFUNC_ARG)
 	go run ./scripts/coverage_gate.go coverage.out $(COVER_MIN)
-	$(MAKE) package-release
+	$(MAKE) package-release-matrix
 
 clean:
 	$(RM_BIN)

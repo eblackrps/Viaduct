@@ -3,12 +3,6 @@ package main
 import (
 	"fmt"
 
-	"github.com/eblackrps/viaduct/internal/connectors"
-	"github.com/eblackrps/viaduct/internal/connectors/hyperv"
-	"github.com/eblackrps/viaduct/internal/connectors/kvm"
-	"github.com/eblackrps/viaduct/internal/connectors/nutanix"
-	"github.com/eblackrps/viaduct/internal/connectors/proxmox"
-	"github.com/eblackrps/viaduct/internal/connectors/vmware"
 	"github.com/eblackrps/viaduct/internal/discovery"
 	"github.com/eblackrps/viaduct/internal/models"
 	"github.com/eblackrps/viaduct/internal/store"
@@ -35,10 +29,16 @@ func newDiscoverCommand() *cobra.Command {
 				return fmt.Errorf("discover: load config: %w", err)
 			}
 
-			connectorConfig := resolveConnectorConfig(source, kind, username, password, insecure, cfg)
-			connector, err := buildConnector(kind, connectorConfig)
+			catalog, err := openConnectorCatalog(cfg)
 			if err != nil {
-				return err
+				return fmt.Errorf("discover: %w", err)
+			}
+			defer catalog.Close()
+
+			connectorConfig := resolveConnectorConfig(source, kind, username, password, insecure, cfg)
+			connector, err := catalog.Build(models.Platform(kind), connectorConfig)
+			if err != nil {
+				return fmt.Errorf("discover: %w", err)
 			}
 
 			engine := discovery.NewEngine()
@@ -50,11 +50,14 @@ func newDiscoverCommand() *cobra.Command {
 			}
 
 			if save {
-				memoryStore := store.NewMemoryStore()
-				defer memoryStore.Close()
+				stateStore, err := openStateStore(cmd.Context(), cfg)
+				if err != nil {
+					return fmt.Errorf("discover: open store: %w", err)
+				}
+				defer stateStore.Close()
 
 				for _, sourceResult := range result.Sources {
-					if _, err := memoryStore.SaveDiscovery(cmd.Context(), store.DefaultTenantID, &sourceResult); err != nil {
+					if _, err := stateStore.SaveDiscovery(cmd.Context(), store.DefaultTenantID, &sourceResult); err != nil {
 						return fmt.Errorf("discover: save snapshot: %w", err)
 					}
 				}
@@ -79,21 +82,4 @@ func newDiscoverCommand() *cobra.Command {
 	cobra.CheckErr(cmd.MarkFlagRequired("type"))
 
 	return cmd
-}
-
-func buildConnector(kind string, cfg connectors.Config) (connectors.Connector, error) {
-	switch models.Platform(kind) {
-	case models.PlatformVMware:
-		return vmware.NewVMwareConnector(cfg), nil
-	case models.PlatformProxmox:
-		return proxmox.NewProxmoxConnector(cfg), nil
-	case models.PlatformHyperV:
-		return hyperv.NewHyperVConnector(cfg), nil
-	case models.PlatformKVM:
-		return kvm.NewKVMConnector(cfg), nil
-	case models.PlatformNutanix:
-		return nutanix.NewNutanixConnector(cfg), nil
-	default:
-		return nil, fmt.Errorf("discover: unsupported platform %q", kind)
-	}
 }

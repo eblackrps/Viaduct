@@ -23,4 +23,7 @@ func TestLoadAppConfig_ExampleConfig_Parses(t *testing.T) {
 	if cfg.Sources["kvm"].Address != "examples/lab/kvm" {
 		t.Fatalf("kvm source address = %q, want examples/lab/kvm", cfg.Sources["kvm"].Address)
 	}
+	if cfg.Plugins["example"] != "grpc://127.0.0.1:50071" {
+		t.Fatalf("example plugin address = %q, want grpc://127.0.0.1:50071", cfg.Plugins["example"])
+	}
 }

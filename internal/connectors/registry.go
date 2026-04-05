@@ -1,33 +1,68 @@
 package connectors
 
 import (
+	"sort"
 	"sync"
 
 	"github.com/eblackrps/viaduct/internal/models"
 )
 
-var (
-	registryMu sync.RWMutex
-	registry   = map[models.Platform]func(Config) Connector{}
-)
+// Factory creates a connector from a shared configuration payload.
+type Factory func(Config) Connector
+
+// Registry stores connector factories without relying on package-level mutable state.
+type Registry struct {
+	mu        sync.RWMutex
+	factories map[models.Platform]Factory
+}
+
+// NewRegistry creates an empty connector registry.
+func NewRegistry() *Registry {
+	return &Registry{
+		factories: make(map[models.Platform]Factory),
+	}
+}
 
 // Register stores a connector factory for the provided platform.
-func Register(platform models.Platform, factory func(Config) Connector) {
-	if platform == "" || factory == nil {
+func (r *Registry) Register(platform models.Platform, factory Factory) {
+	if r == nil || platform == "" || factory == nil {
 		return
 	}
 
-	registryMu.Lock()
-	defer registryMu.Unlock()
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
-	registry[platform] = factory
+	r.factories[platform] = factory
 }
 
 // Get returns the registered connector factory for the provided platform.
-func Get(platform models.Platform) (func(Config) Connector, bool) {
-	registryMu.RLock()
-	defer registryMu.RUnlock()
+func (r *Registry) Get(platform models.Platform) (Factory, bool) {
+	if r == nil {
+		return nil, false
+	}
 
-	factory, ok := registry[platform]
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	factory, ok := r.factories[platform]
 	return factory, ok
+}
+
+// Platforms returns the registered platforms in stable sorted order.
+func (r *Registry) Platforms() []models.Platform {
+	if r == nil {
+		return nil
+	}
+
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	platforms := make([]models.Platform, 0, len(r.factories))
+	for platform := range r.factories {
+		platforms = append(platforms, platform)
+	}
+	sort.Slice(platforms, func(i, j int) bool {
+		return platforms[i] < platforms[j]
+	})
+	return platforms
 }

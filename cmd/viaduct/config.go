@@ -16,6 +16,7 @@ type appConfig struct {
 	Insecure      bool                         `yaml:"insecure"`
 	StateStoreDSN string                       `yaml:"state_store_dsn"`
 	Sources       map[string]connectors.Config `yaml:"sources"`
+	Plugins       map[string]string            `yaml:"plugins"`
 }
 
 func loadAppConfig(path string) (*appConfig, error) {

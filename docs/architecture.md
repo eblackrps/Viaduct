@@ -35,7 +35,7 @@ The Cobra CLI in `cmd/viaduct/` exposes discovery, planning, migration, status, 
 
 ### API Server
 
-`internal/api/server.go` serves REST endpoints for inventory, snapshots, graph views, preflight, migrations, lifecycle analysis, remediation, simulation, and tenant administration. Tenant and admin access are enforced with explicit API key middleware.
+`internal/api/server.go` serves REST endpoints for inventory, snapshots, graph views, preflight, migrations, lifecycle analysis, remediation, simulation, audit exports, reporting, metrics, and tenant administration. Tenant and admin access are enforced with explicit API key middleware.
 
 ### Dashboard
 
@@ -65,4 +65,4 @@ The universal schema in `internal/models/` is the canonical representation of di
 
 ## Release Model
 
-Viaduct now treats `make release-gate` as the canonical release-quality check and `make package-release` as the canonical packaging path. Release bundles include the CLI binary, built web assets, install scripts, docs, configs, examples, a manifest, and checksums.
+Viaduct now treats `make release-gate` as the canonical release-quality check and `make package-release-matrix` as the canonical packaging path. Release bundles include the CLI binary, built web assets, install scripts, docs, configs, examples, deployment references, a manifest, and checksums.

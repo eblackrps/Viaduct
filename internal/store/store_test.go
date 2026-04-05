@@ -303,3 +303,60 @@ func TestMemoryStore_CreateAndDeleteTenant_RemovesScopedData(t *testing.T) {
 		t.Fatal("GetTenant() error = nil, want not found")
 	}
 }
+
+func TestMemoryStore_SaveAndListAuditEvents_TenantScoped(t *testing.T) {
+	t.Parallel()
+
+	stateStore := NewMemoryStore()
+	ctx := context.Background()
+	if err := stateStore.CreateTenant(ctx, models.Tenant{
+		ID:        "tenant-a",
+		Name:      "Tenant A",
+		APIKey:    "tenant-a-key",
+		CreatedAt: time.Date(2026, time.April, 5, 8, 0, 0, 0, time.UTC),
+		Active:    true,
+	}); err != nil {
+		t.Fatalf("CreateTenant() error = %v", err)
+	}
+
+	for _, event := range []models.AuditEvent{
+		{
+			ID:        "event-a",
+			TenantID:  "tenant-a",
+			Actor:     "tenant:tenant-a",
+			Category:  "migration",
+			Action:    "execute",
+			Resource:  "migration-1",
+			Outcome:   models.AuditOutcomeSuccess,
+			Message:   "migration started",
+			CreatedAt: time.Date(2026, time.April, 5, 9, 0, 0, 0, time.UTC),
+		},
+		{
+			ID:        "event-b",
+			TenantID:  DefaultTenantID,
+			Actor:     "tenant:default",
+			Category:  "admin",
+			Action:    "read",
+			Resource:  "summary",
+			Outcome:   models.AuditOutcomeSuccess,
+			Message:   "summary read",
+			CreatedAt: time.Date(2026, time.April, 5, 8, 0, 0, 0, time.UTC),
+		},
+	} {
+		if err := stateStore.SaveAuditEvent(ctx, event); err != nil {
+			t.Fatalf("SaveAuditEvent(%s) error = %v", event.ID, err)
+		}
+	}
+
+	items, err := stateStore.ListAuditEvents(ctx, "tenant-a", 10)
+	if err != nil {
+		t.Fatalf("ListAuditEvents() error = %v", err)
+	}
+
+	if len(items) != 1 {
+		t.Fatalf("len(items) = %d, want 1", len(items))
+	}
+	if items[0].ID != "event-a" || items[0].TenantID != "tenant-a" {
+		t.Fatalf("unexpected audit event: %#v", items[0])
+	}
+}

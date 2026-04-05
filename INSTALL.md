@@ -28,7 +28,7 @@ npm run build
 
 ## Install From A Release Bundle
 
-Release bundles produced by `make package-release` include:
+Release bundles produced by `make package-release-matrix` include:
 - the CLI binary
 - built web assets
 - docs and sample configs
@@ -55,3 +55,5 @@ viaduct --help
 ```
 
 The fastest no-infrastructure evaluation path is the local KVM lab in [examples/lab](examples/lab). Continue with [QUICKSTART.md](QUICKSTART.md).
+
+Reference deployment assets for Docker Compose, systemd, and Kubernetes live in [examples/deploy](examples/deploy).

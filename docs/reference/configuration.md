@@ -26,6 +26,9 @@ sources:
     insecure: true
   kvm:
     address: "examples/lab/kvm"
+
+plugins:
+  example: "grpc://127.0.0.1:50071"
 ```
 
 Fields:
@@ -34,6 +37,7 @@ Fields:
 - `insecure`: default TLS skip-verify behavior
 - `state_store_dsn`: PostgreSQL DSN for persistent state; when empty, Viaduct uses the in-memory store
 - `sources`: keyed by source address or platform name, mapped to shared connector config
+- `plugins`: optional platform-to-plugin map for external connector processes or already-running gRPC plugin endpoints
 
 ## CLI Environment Variables
 - `VIADUCT_USERNAME`: overrides config file username for CLI connector auth
@@ -49,6 +53,7 @@ The dashboard reads this through Vite. See [`../../web/.env.example`](../../web/
 ## API Authentication Headers
 - `X-API-Key`: tenant-scoped API key for inventory, migration, lifecycle, and summary routes
 - `X-Admin-Key`: admin-only API key for tenant creation and deletion
+- `X-Request-ID`: optional caller-supplied request correlation ID; when absent, the API generates one
 
 ## Tenant Defaults
 - The built-in `default` tenant exists automatically in both the memory store and PostgreSQL store.
@@ -73,3 +78,8 @@ port: 443
 ```
 
 Not every connector uses every field. For example, KVM fixture discovery typically uses only `address`.
+
+## Plugin Configuration Notes
+- Plugin mappings are keyed by platform identifier, for example `example` or `custom-kvm`.
+- Values can be executable paths or `grpc://host:port` endpoints for already-running plugin processes.
+- Executable plugins should ship a `plugin.json` sidecar manifest with name, platform, version, and protocol version metadata.

@@ -76,6 +76,31 @@ CREATE TABLE IF NOT EXISTS recovery_points (
 	PRIMARY KEY (tenant_id, migration_id)
 );
 ALTER TABLE recovery_points ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'default';
+
+CREATE TABLE IF NOT EXISTS audit_events (
+	id TEXT PRIMARY KEY,
+	tenant_id TEXT NOT NULL DEFAULT 'default',
+	actor TEXT NOT NULL,
+	request_id TEXT NOT NULL DEFAULT '',
+	category TEXT NOT NULL,
+	action TEXT NOT NULL,
+	resource TEXT NOT NULL DEFAULT '',
+	outcome TEXT NOT NULL,
+	message TEXT NOT NULL,
+	details JSONB NOT NULL DEFAULT '{}'::jsonb,
+	created_at TIMESTAMPTZ NOT NULL
+);
+ALTER TABLE audit_events ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'default';
+ALTER TABLE audit_events ADD COLUMN IF NOT EXISTS actor TEXT NOT NULL DEFAULT '';
+ALTER TABLE audit_events ADD COLUMN IF NOT EXISTS request_id TEXT NOT NULL DEFAULT '';
+ALTER TABLE audit_events ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT '';
+ALTER TABLE audit_events ADD COLUMN IF NOT EXISTS action TEXT NOT NULL DEFAULT '';
+ALTER TABLE audit_events ADD COLUMN IF NOT EXISTS resource TEXT NOT NULL DEFAULT '';
+ALTER TABLE audit_events ADD COLUMN IF NOT EXISTS outcome TEXT NOT NULL DEFAULT 'success';
+ALTER TABLE audit_events ADD COLUMN IF NOT EXISTS message TEXT NOT NULL DEFAULT '';
+ALTER TABLE audit_events ADD COLUMN IF NOT EXISTS details JSONB NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE audit_events ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT to_timestamp(0);
+CREATE INDEX IF NOT EXISTS idx_audit_events_tenant_created_at ON audit_events(tenant_id, created_at DESC);
 `
 
 // PostgresStore is a PostgreSQL-backed Store implementation.
@@ -507,6 +532,7 @@ func (s *PostgresStore) DeleteTenant(ctx context.Context, tenantID string) error
 	}()
 
 	for _, statement := range []string{
+		`DELETE FROM audit_events WHERE tenant_id = $1`,
 		`DELETE FROM recovery_points WHERE tenant_id = $1`,
 		`DELETE FROM migrations WHERE tenant_id = $1`,
 		`DELETE FROM snapshots WHERE tenant_id = $1`,
@@ -531,6 +557,108 @@ func (s *PostgresStore) Close() error {
 	}
 
 	return s.db.Close()
+}
+
+// SaveAuditEvent persists a tenant-scoped audit event to PostgreSQL.
+func (s *PostgresStore) SaveAuditEvent(ctx context.Context, event models.AuditEvent) error {
+	event.TenantID = normalizeTenantID(event.TenantID)
+	if event.ID == "" {
+		event.ID = uuid.NewString()
+	}
+	if event.CreatedAt.IsZero() {
+		event.CreatedAt = time.Now().UTC()
+	}
+	if event.Outcome == "" {
+		event.Outcome = models.AuditOutcomeSuccess
+	}
+	if event.Details == nil {
+		event.Details = map[string]string{}
+	}
+
+	if err := s.ensureTenant(ctx, event.TenantID); err != nil {
+		return fmt.Errorf("postgres store: save audit event: %w", err)
+	}
+
+	detailsPayload, err := json.Marshal(event.Details)
+	if err != nil {
+		return fmt.Errorf("postgres store: save audit event: marshal details: %w", err)
+	}
+
+	_, err = s.db.ExecContext(
+		ctx,
+		`INSERT INTO audit_events (id, tenant_id, actor, request_id, category, action, resource, outcome, message, details, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+		event.ID,
+		event.TenantID,
+		event.Actor,
+		event.RequestID,
+		event.Category,
+		event.Action,
+		event.Resource,
+		string(event.Outcome),
+		event.Message,
+		detailsPayload,
+		event.CreatedAt,
+	)
+	if err != nil {
+		return fmt.Errorf("postgres store: save audit event %s: %w", event.ID, err)
+	}
+
+	return nil
+}
+
+// ListAuditEvents returns tenant audit events ordered from newest to oldest.
+func (s *PostgresStore) ListAuditEvents(ctx context.Context, tenantID string, limit int) ([]models.AuditEvent, error) {
+	tenantID = normalizeTenantID(tenantID)
+
+	query := `SELECT id, tenant_id, actor, request_id, category, action, resource, outcome, message, details, created_at
+		FROM audit_events WHERE tenant_id = $1 ORDER BY created_at DESC`
+	if limit > 0 {
+		query += fmt.Sprintf(` LIMIT %d`, limit)
+	}
+
+	rows, err := s.db.QueryContext(ctx, query, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("postgres store: list audit events: %w", err)
+	}
+	defer rows.Close()
+
+	items := make([]models.AuditEvent, 0)
+	for rows.Next() {
+		var (
+			event          models.AuditEvent
+			outcome        string
+			detailsPayload []byte
+		)
+		if err := rows.Scan(
+			&event.ID,
+			&event.TenantID,
+			&event.Actor,
+			&event.RequestID,
+			&event.Category,
+			&event.Action,
+			&event.Resource,
+			&outcome,
+			&event.Message,
+			&detailsPayload,
+			&event.CreatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("postgres store: scan audit event: %w", err)
+		}
+		event.Outcome = models.AuditOutcome(outcome)
+		if len(detailsPayload) > 0 {
+			if err := json.Unmarshal(detailsPayload, &event.Details); err != nil {
+				return nil, fmt.Errorf("postgres store: decode audit event details: %w", err)
+			}
+		}
+		items = append(items, event)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("postgres store: iterate audit events: %w", err)
+	}
+
+	return items, nil
 }
 
 func (s *PostgresStore) ensureTenant(ctx context.Context, tenantID string) error {

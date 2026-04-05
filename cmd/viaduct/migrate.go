@@ -20,6 +20,11 @@ func newMigrateCommand() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("migrate: load config: %w", err)
 			}
+			catalog, err := openConnectorCatalog(cfg)
+			if err != nil {
+				return fmt.Errorf("migrate: %w", err)
+			}
+			defer catalog.Close()
 
 			stateStore, err := openStateStore(cmd.Context(), cfg)
 			if err != nil {
@@ -33,7 +38,7 @@ func newMigrateCommand() *cobra.Command {
 			}
 			spec.Options.DryRun = dryRun
 
-			sourceConnector, targetConnector, err := connectorsForSpec(cfg, spec)
+			sourceConnector, targetConnector, err := connectorsForSpec(cfg, catalog, spec)
 			if err != nil {
 				return fmt.Errorf("migrate: %w", err)
 			}
@@ -53,7 +58,7 @@ func newMigrateCommand() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&planID, "plan", "", "Migration plan identifier")
+	cmd.Flags().StringVar(&planID, "plan", "", "Path to the migration spec")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview the migration without executing it")
 
 	cobra.CheckErr(cmd.MarkFlagRequired("plan"))

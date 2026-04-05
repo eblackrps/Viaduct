@@ -12,12 +12,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/eblackrps/viaduct/internal/connectorcatalog"
 	"github.com/eblackrps/viaduct/internal/connectors"
-	"github.com/eblackrps/viaduct/internal/connectors/hyperv"
-	"github.com/eblackrps/viaduct/internal/connectors/kvm"
-	"github.com/eblackrps/viaduct/internal/connectors/nutanix"
-	"github.com/eblackrps/viaduct/internal/connectors/proxmox"
-	"github.com/eblackrps/viaduct/internal/connectors/vmware"
 	"github.com/eblackrps/viaduct/internal/deps"
 	"github.com/eblackrps/viaduct/internal/discovery"
 	"github.com/eblackrps/viaduct/internal/lifecycle"
@@ -60,6 +56,9 @@ type Server struct {
 	store                store.Store
 	port                 int
 	adminAPIKey          string
+	catalog              *connectorcatalog.Catalog
+	metrics              *apiMetrics
+	rateLimiter          *tenantRateLimiter
 	backups              *models.BackupDiscoveryResult
 	costEngine           *lifecycle.CostEngine
 	policyEngine         *lifecycle.PolicyEngine
@@ -71,7 +70,7 @@ type Server struct {
 }
 
 // NewServer creates a REST API server on the supplied port.
-func NewServer(engine *discovery.Engine, stateStore store.Store, port int) *Server {
+func NewServer(engine *discovery.Engine, stateStore store.Store, port int, catalog *connectorcatalog.Catalog) *Server {
 	if stateStore == nil {
 		stateStore = store.NewMemoryStore()
 	}
@@ -97,6 +96,9 @@ func NewServer(engine *discovery.Engine, stateStore store.Store, port int) *Serv
 		store:                stateStore,
 		port:                 port,
 		adminAPIKey:          os.Getenv("VIADUCT_ADMIN_KEY"),
+		catalog:              catalog,
+		metrics:              newAPIMetrics(),
+		rateLimiter:          newTenantRateLimiter(300, time.Minute),
 		costEngine:           costEngine,
 		policyEngine:         policyEngine,
 		recommendationEngine: lifecycle.NewRecommendationEngine(costEngine, policyEngine),
@@ -109,11 +111,13 @@ func NewServer(engine *discovery.Engine, stateStore store.Store, port int) *Serv
 func (s *Server) Start(ctx context.Context) error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/v1/health", s.handleHealth)
+	mux.HandleFunc("/api/v1/metrics", s.handleMetrics)
 	mux.Handle("/api/v1/admin/tenants", AdminAuthMiddleware(s.adminAPIKey, http.HandlerFunc(s.handleAdminTenants)))
 	mux.Handle("/api/v1/admin/tenants/", AdminAuthMiddleware(s.adminAPIKey, http.HandlerFunc(s.handleAdminTenantByID)))
 
 	tenantMux := http.NewServeMux()
 	tenantMux.HandleFunc("/api/v1/inventory", s.handleInventory)
+	tenantMux.HandleFunc("/api/v1/audit", s.handleAudit)
 	tenantMux.HandleFunc("/api/v1/snapshots", s.handleSnapshots)
 	tenantMux.HandleFunc("/api/v1/snapshots/", s.handleSnapshotByID)
 	tenantMux.HandleFunc("/api/v1/graph", s.handleGraph)
@@ -126,24 +130,28 @@ func (s *Server) Start(ctx context.Context) error {
 	tenantMux.HandleFunc("/api/v1/remediation", s.handleRemediation)
 	tenantMux.HandleFunc("/api/v1/simulation", s.handleSimulation)
 	tenantMux.HandleFunc("/api/v1/summary", s.handleSummary)
+	tenantMux.HandleFunc("/api/v1/reports/", s.handleReports)
 
-	mux.Handle("/api/v1/inventory", TenantAuthMiddleware(s.store, tenantMux))
-	mux.Handle("/api/v1/snapshots", TenantAuthMiddleware(s.store, tenantMux))
-	mux.Handle("/api/v1/snapshots/", TenantAuthMiddleware(s.store, tenantMux))
-	mux.Handle("/api/v1/graph", TenantAuthMiddleware(s.store, tenantMux))
-	mux.Handle("/api/v1/preflight", TenantAuthMiddleware(s.store, tenantMux))
-	mux.Handle("/api/v1/migrations", TenantAuthMiddleware(s.store, tenantMux))
-	mux.Handle("/api/v1/migrations/", TenantAuthMiddleware(s.store, tenantMux))
-	mux.Handle("/api/v1/costs", TenantAuthMiddleware(s.store, tenantMux))
-	mux.Handle("/api/v1/policies", TenantAuthMiddleware(s.store, tenantMux))
-	mux.Handle("/api/v1/drift", TenantAuthMiddleware(s.store, tenantMux))
-	mux.Handle("/api/v1/remediation", TenantAuthMiddleware(s.store, tenantMux))
-	mux.Handle("/api/v1/simulation", TenantAuthMiddleware(s.store, tenantMux))
-	mux.Handle("/api/v1/summary", TenantAuthMiddleware(s.store, tenantMux))
+	tenantHandler := TenantAuthMiddleware(s.store, TenantRateLimitMiddleware(s.rateLimiter, tenantMux))
+	mux.Handle("/api/v1/inventory", tenantHandler)
+	mux.Handle("/api/v1/audit", tenantHandler)
+	mux.Handle("/api/v1/snapshots", tenantHandler)
+	mux.Handle("/api/v1/snapshots/", tenantHandler)
+	mux.Handle("/api/v1/graph", tenantHandler)
+	mux.Handle("/api/v1/preflight", tenantHandler)
+	mux.Handle("/api/v1/migrations", tenantHandler)
+	mux.Handle("/api/v1/migrations/", tenantHandler)
+	mux.Handle("/api/v1/costs", tenantHandler)
+	mux.Handle("/api/v1/policies", tenantHandler)
+	mux.Handle("/api/v1/drift", tenantHandler)
+	mux.Handle("/api/v1/remediation", tenantHandler)
+	mux.Handle("/api/v1/simulation", tenantHandler)
+	mux.Handle("/api/v1/summary", tenantHandler)
+	mux.Handle("/api/v1/reports/", tenantHandler)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", s.port),
-		Handler:           s.withCORS(mux),
+		Handler:           s.withObservability(s.withCORS(mux)),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 
@@ -216,6 +224,15 @@ func (s *Server) handleAdminTenants(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
+		s.recordAuditEvent(r, models.AuditEvent{
+			TenantID: tenant.ID,
+			Actor:    "admin",
+			Category: "admin",
+			Action:   "create-tenant",
+			Resource: tenant.ID,
+			Outcome:  models.AuditOutcomeSuccess,
+			Message:  "tenant created",
+		})
 		writeJSON(w, http.StatusCreated, tenant)
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -237,6 +254,15 @@ func (s *Server) handleAdminTenantByID(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	s.recordAuditEvent(r, models.AuditEvent{
+		TenantID: tenantID,
+		Actor:    "admin",
+		Category: "admin",
+		Action:   "delete-tenant",
+		Resource: tenantID,
+		Outcome:  models.AuditOutcomeSuccess,
+		Message:  "tenant deleted",
+	})
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -369,6 +395,16 @@ func (s *Server) handleMigrations(w http.ResponseWriter, r *http.Request) {
 		s.mu.Lock()
 		s.specs[s.specKey(tenantID, migrationID)] = spec
 		s.mu.Unlock()
+		s.recordAuditEvent(r, models.AuditEvent{
+			Category: "migration",
+			Action:   "plan",
+			Resource: migrationID,
+			Outcome:  models.AuditOutcomeSuccess,
+			Message:  "migration dry-run planned",
+			Details: map[string]string{
+				"spec_name": spec.Name,
+			},
+		})
 
 		writeJSON(w, http.StatusAccepted, state)
 	default:
@@ -435,6 +471,13 @@ func (s *Server) handleMigrationByID(w http.ResponseWriter, r *http.Request) {
 		executionSpec.Options.DryRun = false
 		executionSpec.Options.Approval = applyExecutionApproval(executionSpec.Options.Approval, executionRequest)
 		if err := validateExecutionRequest(executionSpec, time.Now().UTC()); err != nil {
+			s.recordAuditEvent(r, models.AuditEvent{
+				Category: "migration",
+				Action:   "execute",
+				Resource: migrationID,
+				Outcome:  models.AuditOutcomeFailure,
+				Message:  err.Error(),
+			})
 			http.Error(w, err.Error(), http.StatusConflict)
 			return
 		}
@@ -445,6 +488,16 @@ func (s *Server) handleMigrationByID(w http.ResponseWriter, r *http.Request) {
 			ctx := store.ContextWithTenantID(context.Background(), tenantID)
 			_, _ = orchestrator.Execute(ctx, spec)
 		}(&executionSpec, migrationID, tenantID)
+		s.recordAuditEvent(r, models.AuditEvent{
+			Category: "migration",
+			Action:   "execute",
+			Resource: migrationID,
+			Outcome:  models.AuditOutcomeSuccess,
+			Message:  "migration execution started",
+			Details: map[string]string{
+				"approved_by": executionSpec.Options.Approval.ApprovedBy,
+			},
+		})
 
 		writeJSON(w, http.StatusAccepted, map[string]string{"migration_id": migrationID, "status": "started"})
 	case "resume":
@@ -474,6 +527,13 @@ func (s *Server) handleMigrationByID(w http.ResponseWriter, r *http.Request) {
 		resumeSpec.Options.DryRun = false
 		resumeSpec.Options.Approval = applyExecutionApproval(resumeSpec.Options.Approval, resumeRequest)
 		if err := validateExecutionRequest(resumeSpec, time.Now().UTC()); err != nil {
+			s.recordAuditEvent(r, models.AuditEvent{
+				Category: "migration",
+				Action:   "resume",
+				Resource: migrationID,
+				Outcome:  models.AuditOutcomeFailure,
+				Message:  err.Error(),
+			})
 			http.Error(w, err.Error(), http.StatusConflict)
 			return
 		}
@@ -483,6 +543,13 @@ func (s *Server) handleMigrationByID(w http.ResponseWriter, r *http.Request) {
 			ctx := store.ContextWithTenantID(context.Background(), tenantID)
 			_, _ = orchestrator.Resume(ctx, id, spec)
 		}(&resumeSpec, migrationID, tenantID)
+		s.recordAuditEvent(r, models.AuditEvent{
+			Category: "migration",
+			Action:   "resume",
+			Resource: migrationID,
+			Outcome:  models.AuditOutcomeSuccess,
+			Message:  "migration resume started",
+		})
 
 		writeJSON(w, http.StatusAccepted, map[string]string{"migration_id": migrationID, "status": "resuming"})
 	case "rollback":
@@ -505,9 +572,23 @@ func (s *Server) handleMigrationByID(w http.ResponseWriter, r *http.Request) {
 
 		result, err := migratepkg.NewRollbackManager(s.store, sourceConnector, targetConnector).Rollback(store.ContextWithTenantID(r.Context(), tenantID), migrationID)
 		if err != nil {
+			s.recordAuditEvent(r, models.AuditEvent{
+				Category: "migration",
+				Action:   "rollback",
+				Resource: migrationID,
+				Outcome:  models.AuditOutcomeFailure,
+				Message:  err.Error(),
+			})
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		s.recordAuditEvent(r, models.AuditEvent{
+			Category: "migration",
+			Action:   "rollback",
+			Resource: migrationID,
+			Outcome:  models.AuditOutcomeSuccess,
+			Message:  "migration rollback completed",
+		})
 
 		writeJSON(w, http.StatusOK, result)
 	default:
@@ -785,14 +866,23 @@ func latestSnapshotsBySource(items []store.SnapshotMeta) []store.SnapshotMeta {
 }
 
 func (s *Server) connectorsForSpec(spec *migratepkg.MigrationSpec) (connectors.Connector, connectors.Connector, error) {
-	sourceConnector, err := buildConnector(spec.Source.Platform, connectors.Config{
+	catalog := s.catalog
+	if catalog == nil {
+		var err error
+		catalog, err = connectorcatalog.New(nil)
+		if err != nil {
+			return nil, nil, fmt.Errorf("open connector catalog: %w", err)
+		}
+	}
+
+	sourceConnector, err := catalog.Build(spec.Source.Platform, connectors.Config{
 		Address: spec.Source.Address,
 	})
 	if err != nil {
 		return nil, nil, err
 	}
 
-	targetConnector, err := buildConnector(spec.Target.Platform, connectors.Config{
+	targetConnector, err := catalog.Build(spec.Target.Platform, connectors.Config{
 		Address: spec.Target.Address,
 	})
 	if err != nil {
@@ -800,23 +890,6 @@ func (s *Server) connectorsForSpec(spec *migratepkg.MigrationSpec) (connectors.C
 	}
 
 	return sourceConnector, targetConnector, nil
-}
-
-func buildConnector(platform models.Platform, cfg connectors.Config) (connectors.Connector, error) {
-	switch platform {
-	case models.PlatformVMware:
-		return vmware.NewVMwareConnector(cfg), nil
-	case models.PlatformProxmox:
-		return proxmox.NewProxmoxConnector(cfg), nil
-	case models.PlatformHyperV:
-		return hyperv.NewHyperVConnector(cfg), nil
-	case models.PlatformKVM:
-		return kvm.NewKVMConnector(cfg), nil
-	case models.PlatformNutanix:
-		return nutanix.NewNutanixConnector(cfg), nil
-	default:
-		return nil, fmt.Errorf("unsupported platform %q", platform)
-	}
 }
 
 func decodeSpec(r *http.Request) (*migratepkg.MigrationSpec, error) {
@@ -890,7 +963,7 @@ func validateExecutionRequest(spec migratepkg.MigrationSpec, now time.Time) erro
 func (s *Server) withCORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-API-Key, X-Admin-Key")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-API-Key, X-Admin-Key, X-Request-ID")
 		w.Header().Set("Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS")
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)

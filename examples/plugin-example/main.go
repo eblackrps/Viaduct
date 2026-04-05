@@ -5,20 +5,39 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"sync"
 
 	"github.com/eblackrps/viaduct/internal/connectors/plugin"
 	"github.com/eblackrps/viaduct/internal/models"
 )
 
-type examplePluginServer struct{}
+type examplePluginServer struct {
+	mu           sync.RWMutex
+	source       string
+	discoverable bool
+}
 
 func (s *examplePluginServer) Connect(ctx context.Context, request *plugin.ConnectRequest) (*plugin.ConnectResponse, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.source = request.Config.Address
+	s.discoverable = true
 	return &plugin.ConnectResponse{OK: true}, nil
 }
 
 func (s *examplePluginServer) Discover(ctx context.Context, request *plugin.DiscoverRequest) (*plugin.DiscoverResponse, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if !s.discoverable {
+		return nil, fmt.Errorf("plugin not connected")
+	}
+
+	source := s.source
+	if source == "" {
+		source = "example-plugin"
+	}
 	return &plugin.DiscoverResponse{Result: &models.DiscoveryResult{
-		Source:   "example-plugin",
+		Source:   source,
 		Platform: models.Platform("example"),
 		VMs: []models.VirtualMachine{
 			{ID: "example-1", Name: "example-vm", Platform: models.Platform("example"), PowerState: models.PowerOn},
@@ -31,6 +50,9 @@ func (s *examplePluginServer) Platform(ctx context.Context, request *plugin.Plat
 }
 
 func (s *examplePluginServer) Close(ctx context.Context, request *plugin.CloseRequest) (*plugin.CloseResponse, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.discoverable = false
 	return &plugin.CloseResponse{OK: true}, nil
 }
 

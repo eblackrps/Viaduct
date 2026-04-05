@@ -35,6 +35,7 @@ type MemoryStore struct {
 	snapshots      map[string]storedSnapshot
 	migrations     map[string]storedMigration
 	recoveryPoints map[string]storedRecoveryPoint
+	auditEvents    map[string][]models.AuditEvent
 }
 
 // NewMemoryStore creates an empty in-memory discovery snapshot store.
@@ -44,6 +45,7 @@ func NewMemoryStore() *MemoryStore {
 		snapshots:      make(map[string]storedSnapshot),
 		migrations:     make(map[string]storedMigration),
 		recoveryPoints: make(map[string]storedRecoveryPoint),
+		auditEvents:    make(map[string][]models.AuditEvent),
 	}
 
 	store.tenants[DefaultTenantID] = defaultTenant()
@@ -446,8 +448,73 @@ func (s *MemoryStore) DeleteTenant(ctx context.Context, tenantID string) error {
 			delete(s.recoveryPoints, key)
 		}
 	}
+	delete(s.auditEvents, tenantID)
 
 	return nil
+}
+
+// SaveAuditEvent persists a tenant-scoped audit event in memory.
+func (s *MemoryStore) SaveAuditEvent(ctx context.Context, event models.AuditEvent) error {
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("memory store: save audit event: %w", ctx.Err())
+	default:
+	}
+
+	event.TenantID = normalizeTenantID(event.TenantID)
+	if event.ID == "" {
+		event.ID = uuid.NewString()
+	}
+	if event.CreatedAt.IsZero() {
+		event.CreatedAt = time.Now().UTC()
+	}
+	if event.Outcome == "" {
+		event.Outcome = models.AuditOutcomeSuccess
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if err := s.ensureTenantLocked(event.TenantID); err != nil {
+		return fmt.Errorf("memory store: save audit event: %w", err)
+	}
+
+	cloned := event
+	cloned.Details = copyStringMap(event.Details)
+	s.auditEvents[event.TenantID] = append(s.auditEvents[event.TenantID], cloned)
+	return nil
+}
+
+// ListAuditEvents returns tenant audit events ordered from newest to oldest.
+func (s *MemoryStore) ListAuditEvents(ctx context.Context, tenantID string, limit int) ([]models.AuditEvent, error) {
+	select {
+	case <-ctx.Done():
+		return nil, fmt.Errorf("memory store: list audit events: %w", ctx.Err())
+	default:
+	}
+
+	tenantID = normalizeTenantID(tenantID)
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	source := s.auditEvents[tenantID]
+	items := make([]models.AuditEvent, 0, len(source))
+	for _, event := range source {
+		cloned := event
+		cloned.Details = copyStringMap(event.Details)
+		items = append(items, cloned)
+	}
+
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].CreatedAt.After(items[j].CreatedAt)
+	})
+
+	if limit > 0 && len(items) > limit {
+		items = items[:limit]
+	}
+
+	return items, nil
 }
 
 // Close releases resources held by the in-memory store.

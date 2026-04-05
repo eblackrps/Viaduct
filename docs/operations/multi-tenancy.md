@@ -12,6 +12,8 @@ Viaduct's API and store layers are tenant-scoped. Tenant isolation should be tre
 - `GET /api/v1/snapshots`
 - `GET /api/v1/migrations`
 - `POST /api/v1/migrations`
+- `GET /api/v1/audit`
+- `GET /api/v1/reports/<name>`
 - `GET /api/v1/summary`
 - `POST /api/v1/admin/tenants`
 - `DELETE /api/v1/admin/tenants/<tenant-id>`
@@ -35,10 +37,12 @@ curl -X POST \
 - snapshots are tenant-scoped
 - migrations are keyed by `(tenant_id, id)` in PostgreSQL
 - recovery points are tenant-scoped
+- audit events and CSV/JSON reports are tenant-scoped
 - tenant summaries are derived through tenant-aware store helpers
 
 ## Operational Recommendations
 - Use PostgreSQL for any multi-tenant environment.
 - Keep admin and tenant API keys separate.
+- Keep request correlation IDs when integrating Viaduct behind reverse proxies or shared control planes.
 - Validate tenant A/B isolation with integration tests or a staging environment before onboarding multiple customers or business units.
 - Treat any cross-tenant leakage as critical severity.

@@ -72,8 +72,20 @@ Fix:
 Cause:
 - plugin health returned an unexpected status
 - platform ID is empty
+- plugin manifest platform or protocol version does not match what Viaduct expects
 - discover returned a nil result
 
 Fix:
 - validate the plugin against the checklist in [plugin-author-guide.md](plugin-author-guide.md)
 - test the plugin through `internal/connectors/plugin/host.go` behavior first
+- keep `plugin.json` next to the executable and ensure `protocol_version` is `v1`
+
+## `tenant rate limit exceeded`
+
+Cause:
+- a tenant is sending more requests than the configured in-process rate limiter allows during the current window
+
+Fix:
+- retry after the `Retry-After` interval
+- reduce dashboard polling or automation burst size
+- use request correlation IDs and logs to identify the noisiest callers

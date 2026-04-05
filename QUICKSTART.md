@@ -51,3 +51,5 @@ The dashboard expects the API at `/api` and can use `VITE_VIADUCT_API_KEY` from 
 - Review [docs/operations/migration-operations.md](docs/operations/migration-operations.md) for execution and rollback workflows.
 - Review [docs/operations/backup-portability.md](docs/operations/backup-portability.md) for Veeam portability guidance.
 - Review [docs/operations/multi-tenancy.md](docs/operations/multi-tenancy.md) before enabling shared-tenant operation.
+- Review [examples/deploy/README.md](examples/deploy/README.md) if you want to move from local evaluation into a packaged pilot environment.
+- Review [examples/plugin-example/README.md](examples/plugin-example/README.md) if you want to validate plugin-backed connector loading.

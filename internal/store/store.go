@@ -59,6 +59,10 @@ type Store interface {
 	ListTenants(ctx context.Context) ([]models.Tenant, error)
 	// DeleteTenant removes a tenant and any tenant-scoped data it owns.
 	DeleteTenant(ctx context.Context, tenantID string) error
+	// SaveAuditEvent persists a tenant-scoped audit event.
+	SaveAuditEvent(ctx context.Context, event models.AuditEvent) error
+	// ListAuditEvents returns tenant audit events ordered from newest to oldest.
+	ListAuditEvents(ctx context.Context, tenantID string, limit int) ([]models.AuditEvent, error)
 	// Close releases any store resources.
 	Close() error
 }

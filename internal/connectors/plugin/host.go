@@ -46,6 +46,54 @@ type ConnectRequest struct {
 	Config connectors.Config `json:"config"`
 }
 
+// MarshalJSON preserves redacted connector defaults for general JSON output while still carrying
+// the password field across the plugin RPC boundary.
+func (r ConnectRequest) MarshalJSON() ([]byte, error) {
+	type jsonConfig struct {
+		Address  string `json:"address"`
+		Username string `json:"username"`
+		Password string `json:"password"`
+		Insecure bool   `json:"insecure"`
+		Port     int    `json:"port,omitempty"`
+	}
+	return json.Marshal(struct {
+		Config jsonConfig `json:"config"`
+	}{
+		Config: jsonConfig{
+			Address:  r.Config.Address,
+			Username: r.Config.Username,
+			Password: r.Config.Password,
+			Insecure: r.Config.Insecure,
+			Port:     r.Config.Port,
+		},
+	})
+}
+
+// UnmarshalJSON decodes a plugin connection request and restores the shared connector config.
+func (r *ConnectRequest) UnmarshalJSON(data []byte) error {
+	type jsonConfig struct {
+		Address  string `json:"address"`
+		Username string `json:"username"`
+		Password string `json:"password"`
+		Insecure bool   `json:"insecure"`
+		Port     int    `json:"port,omitempty"`
+	}
+	var payload struct {
+		Config jsonConfig `json:"config"`
+	}
+	if err := json.Unmarshal(data, &payload); err != nil {
+		return err
+	}
+	r.Config = connectors.Config{
+		Address:  payload.Config.Address,
+		Username: payload.Config.Username,
+		Password: payload.Config.Password,
+		Insecure: payload.Config.Insecure,
+		Port:     payload.Config.Port,
+	}
+	return nil
+}
+
 // ConnectResponse reports whether plugin-side initialization succeeded.
 type ConnectResponse struct {
 	// OK reports plugin-side success.
@@ -209,6 +257,7 @@ type PluginProcess struct {
 	path     string
 	address  string
 	platform string
+	manifest *Manifest
 	command  *exec.Cmd
 	conn     *grpc.ClientConn
 	client   *connectorPluginClient
@@ -259,6 +308,15 @@ func (h *PluginHost) LoadPlugin(path string) error {
 
 // GetConnector returns a connector backed by a loaded plugin.
 func (h *PluginHost) GetConnector(platform string) (connectors.Connector, error) {
+	factory, err := h.Factory(platform)
+	if err != nil {
+		return nil, err
+	}
+	return factory(connectors.Config{}), nil
+}
+
+// Factory returns a connector factory backed by a loaded plugin.
+func (h *PluginHost) Factory(platform string) (connectors.Factory, error) {
 	if h == nil {
 		return nil, fmt.Errorf("get connector: host is nil")
 	}
@@ -270,9 +328,12 @@ func (h *PluginHost) GetConnector(platform string) (connectors.Connector, error)
 		return nil, fmt.Errorf("get connector: plugin for platform %q not found", platform)
 	}
 
-	return &PluginConnector{
-		process:  process,
-		platform: models.Platform(process.platform),
+	return func(cfg connectors.Config) connectors.Connector {
+		return &PluginConnector{
+			process:  process,
+			platform: models.Platform(process.platform),
+			config:   cfg,
+		}
 	}, nil
 }
 
@@ -299,6 +360,7 @@ func (h *PluginHost) ShutdownAll() {
 type PluginConnector struct {
 	process  *PluginProcess
 	platform models.Platform
+	config   connectors.Config
 }
 
 // Connect initializes the plugin connector.
@@ -306,7 +368,7 @@ func (c *PluginConnector) Connect(ctx context.Context) error {
 	if c == nil || c.process == nil || c.process.client == nil {
 		return fmt.Errorf("plugin connector: process is unavailable")
 	}
-	response, err := c.process.client.Connect(ctx, &ConnectRequest{})
+	response, err := c.process.client.Connect(ctx, &ConnectRequest{Config: c.config})
 	if err != nil {
 		return fmt.Errorf("plugin connector: connect: %w", err)
 	}
@@ -353,7 +415,12 @@ func (c *PluginConnector) Close() error {
 
 func (h *PluginHost) startPlugin(path string) (*PluginProcess, error) {
 	if strings.HasPrefix(path, "grpc://") {
-		return h.connectPlugin(nil, strings.TrimPrefix(path, "grpc://"), path)
+		return h.connectPlugin(nil, strings.TrimPrefix(path, "grpc://"), path, nil)
+	}
+
+	manifest, err := LoadManifest(path)
+	if err != nil {
+		return nil, fmt.Errorf("load plugin: %w", err)
 	}
 
 	pluginAddress, err := reserveLoopbackAddress()
@@ -368,7 +435,7 @@ func (h *PluginHost) startPlugin(path string) (*PluginProcess, error) {
 		return nil, fmt.Errorf("load plugin: start %s: %w", path, err)
 	}
 
-	process, err := h.connectPlugin(command, pluginAddress, path)
+	process, err := h.connectPlugin(command, pluginAddress, path, manifest)
 	if err != nil {
 		_ = command.Process.Kill()
 		_, _ = command.Process.Wait()
@@ -377,7 +444,7 @@ func (h *PluginHost) startPlugin(path string) (*PluginProcess, error) {
 	return process, nil
 }
 
-func (h *PluginHost) connectPlugin(command *exec.Cmd, address, path string) (*PluginProcess, error) {
+func (h *PluginHost) connectPlugin(command *exec.Cmd, address, path string, manifest *Manifest) (*PluginProcess, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -407,11 +474,16 @@ func (h *PluginHost) connectPlugin(command *exec.Cmd, address, path string) (*Pl
 		_ = connection.Close()
 		return nil, fmt.Errorf("load plugin: platform lookup: %w", err)
 	}
+	if manifest != nil && !strings.EqualFold(strings.TrimSpace(manifest.Platform), strings.TrimSpace(platformResponse.Platform)) {
+		_ = connection.Close()
+		return nil, fmt.Errorf("load plugin: manifest platform %q does not match plugin platform %q", manifest.Platform, platformResponse.Platform)
+	}
 
 	return &PluginProcess{
 		path:     path,
 		address:  address,
 		platform: platformResponse.Platform,
+		manifest: manifest,
 		command:  command,
 		conn:     connection,
 		client:   client,

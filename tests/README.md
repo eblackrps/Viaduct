@@ -4,6 +4,8 @@ This directory contains cross-package test assets that do not fit cleanly inside
 
 ## Layout
 - `integration/`: end-to-end and integration coverage for discovery, migration, lifecycle, tenant isolation, plugins, packaging, and release-readiness workflows
+- `certification/`: fixture-backed connector certification coverage for stable normalization behavior
+- `soak/`: tagged longer-running migration scaling tests used by `make soak-test`
 
 ## Expectations
 - Default package tests should remain race-safe.

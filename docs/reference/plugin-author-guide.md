@@ -21,11 +21,13 @@ The plugin host expects:
 - `Health` to return `ok` or `healthy`
 - `Discover` to return a non-nil normalized result
 - graceful shutdown behavior
+- a `plugin.json` manifest when Viaduct launches the plugin executable directly
 
 ## Example Plugin
 
 See:
 - [`../../examples/plugin-example/main.go`](../../examples/plugin-example/main.go)
+- [`../../examples/plugin-example/plugin.json`](../../examples/plugin-example/plugin.json)
 - [`../../examples/plugin-example/README.md`](../../examples/plugin-example/README.md)
 
 ## Runtime Model
@@ -33,6 +35,24 @@ See:
 - Viaduct can also connect to a pre-running plugin using a `grpc://host:port` address
 - plugins are registered by normalized platform key
 - loading a replacement plugin for the same platform replaces the prior process
+
+Example manifest:
+
+```json
+{
+  "name": "Viaduct Example Plugin",
+  "platform": "example",
+  "version": "1.0.0",
+  "protocol_version": "v1"
+}
+```
+
+Example config:
+
+```yaml
+plugins:
+  example: "grpc://127.0.0.1:50071"
+```
 
 ## Compatibility Rules
 - preserve the normalized schema in `internal/models/`
@@ -43,11 +63,12 @@ See:
 
 ## Validation And Certification Checklist
 - host load test using `internal/connectors/plugin/host.go`
+- manifest validation succeeds with the expected platform and protocol version
 - health check returns `ok` or `healthy`
 - platform lookup returns a non-empty identifier
 - discovery returns normalized VMs and metadata
 - shutdown path is safe
-- regression tests cover unhealthy plugin, empty platform, and nil discovery results
+- regression tests cover unhealthy plugin, empty platform, config propagation, and nil discovery results
 
 ## Developer Tips
 - keep fixture payloads close to the connector package

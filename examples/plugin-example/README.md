@@ -16,12 +16,23 @@ By default it listens on `127.0.0.1:50071`. To let Viaduct launch it dynamically
 go build ./examples/plugin-example
 ```
 
+Keep `plugin.json` next to the built executable when Viaduct launches the plugin directly. The example manifest is included in this directory.
+
+## Register It
+
+```yaml
+plugins:
+  example: "grpc://127.0.0.1:50071"
+```
+
 ## What It Demonstrates
 - implementing `ConnectorPluginServer`
 - health reporting
 - platform lookup
+- manifest-based compatibility metadata
 - returning normalized discovery results
 - clean plugin shutdown
+- receiving connector config from Viaduct during `Connect`
 
 ## Validation Tips
 - start with the plugin author guide in [`../../docs/reference/plugin-author-guide.md`](../../docs/reference/plugin-author-guide.md)

@@ -23,13 +23,15 @@ const (
 )
 
 type releaseOptions struct {
-	Workspace string
-	Version   string
-	Commit    string
-	Date      string
-	Binary    string
-	WebDir    string
-	OutputDir string
+	Workspace    string
+	Version      string
+	Commit       string
+	Date         string
+	Binary       string
+	WebDir       string
+	OutputDir    string
+	BundleGOOS   string
+	BundleGOARCH string
 }
 
 type releaseManifest struct {
@@ -54,6 +56,8 @@ func main() {
 	flag.StringVar(&options.Binary, "binary", filepath.Join("bin", "viaduct"), "Path to the built Viaduct binary")
 	flag.StringVar(&options.WebDir, "web-dir", filepath.Join("web", "dist"), "Path to the built dashboard assets")
 	flag.StringVar(&options.OutputDir, "output-dir", "dist", "Directory that will receive the packaged release")
+	flag.StringVar(&options.BundleGOOS, "bundle-goos", runtime.GOOS, "Target GOOS label for the packaged bundle")
+	flag.StringVar(&options.BundleGOARCH, "bundle-goarch", runtime.GOARCH, "Target GOARCH label for the packaged bundle")
 	flag.Parse()
 
 	if err := packageRelease(options); err != nil {
@@ -83,7 +87,16 @@ func packageRelease(options releaseOptions) error {
 		return fmt.Errorf("package release: create output dir: %w", err)
 	}
 
-	packageName := fmt.Sprintf("viaduct_%s_%s_%s", sanitizeVersion(options.Version), runtime.GOOS, runtime.GOARCH)
+	packageGOOS := strings.TrimSpace(options.BundleGOOS)
+	if packageGOOS == "" {
+		packageGOOS = runtime.GOOS
+	}
+	packageGOARCH := strings.TrimSpace(options.BundleGOARCH)
+	if packageGOARCH == "" {
+		packageGOARCH = runtime.GOARCH
+	}
+
+	packageName := fmt.Sprintf("viaduct_%s_%s_%s", sanitizeVersion(options.Version), packageGOOS, packageGOARCH)
 	bundleDir := filepath.Join(outputDir, packageName)
 	if err := os.RemoveAll(bundleDir); err != nil {
 		return fmt.Errorf("package release: reset bundle dir: %w", err)
@@ -147,8 +160,8 @@ func packageRelease(options releaseOptions) error {
 		Commit:     options.Commit,
 		BuiltAt:    options.Date,
 		PackagedAt: time.Now().UTC(),
-		GOOS:       runtime.GOOS,
-		GOARCH:     runtime.GOARCH,
+		GOOS:       packageGOOS,
+		GOARCH:     packageGOARCH,
 		Binary:     filepath.ToSlash(filepath.Join("bin", filepath.Base(binaryPath))),
 		WebDir:     "web",
 		Files:      files,

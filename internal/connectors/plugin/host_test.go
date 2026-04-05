@@ -3,8 +3,10 @@ package plugin
 import (
 	"context"
 	"net"
+	"sync"
 	"testing"
 
+	"github.com/eblackrps/viaduct/internal/connectors"
 	"github.com/eblackrps/viaduct/internal/models"
 )
 
@@ -14,9 +16,16 @@ type testPluginServer struct {
 	connectOK   bool
 	closeOK     bool
 	emptyResult bool
+	mu          sync.Mutex
+	lastConfig  connectors.Config
 }
 
 func (s *testPluginServer) Connect(ctx context.Context, request *ConnectRequest) (*ConnectResponse, error) {
+	if request != nil {
+		s.mu.Lock()
+		s.lastConfig = request.Config
+		s.mu.Unlock()
+	}
 	return &ConnectResponse{OK: s.connectOK}, nil
 }
 
@@ -48,7 +57,7 @@ func (s *testPluginServer) Health(ctx context.Context, request *HealthRequest) (
 func TestPluginHost_LoadPluginAndDiscover_Expected(t *testing.T) {
 	t.Parallel()
 
-	address, shutdown := startTestPluginServer(t, testPluginServer{
+	address, shutdown := startTestPluginServer(t, &testPluginServer{
 		status:    "ok",
 		platform:  "example",
 		connectOK: true,
@@ -82,7 +91,7 @@ func TestPluginHost_LoadPluginAndDiscover_Expected(t *testing.T) {
 func TestPluginHost_LoadPlugin_HealthCheckRejectsUnhealthy(t *testing.T) {
 	t.Parallel()
 
-	address, shutdown := startTestPluginServer(t, testPluginServer{
+	address, shutdown := startTestPluginServer(t, &testPluginServer{
 		status:    "degraded",
 		platform:  "example",
 		connectOK: true,
@@ -101,7 +110,7 @@ func TestPluginHost_LoadPlugin_HealthCheckRejectsUnhealthy(t *testing.T) {
 func TestPluginHost_LoadPlugin_EmptyPlatformRejected_Expected(t *testing.T) {
 	t.Parallel()
 
-	address, shutdown := startTestPluginServer(t, testPluginServer{
+	address, shutdown := startTestPluginServer(t, &testPluginServer{
 		status:    "ok",
 		platform:  "",
 		connectOK: true,
@@ -120,7 +129,7 @@ func TestPluginHost_LoadPlugin_EmptyPlatformRejected_Expected(t *testing.T) {
 func TestPluginConnector_Connect_UnsuccessfulResponseRejected_Expected(t *testing.T) {
 	t.Parallel()
 
-	address, shutdown := startTestPluginServer(t, testPluginServer{
+	address, shutdown := startTestPluginServer(t, &testPluginServer{
 		status:    "ok",
 		platform:  "example",
 		connectOK: false,
@@ -146,7 +155,7 @@ func TestPluginConnector_Connect_UnsuccessfulResponseRejected_Expected(t *testin
 func TestPluginConnector_Discover_EmptyResultRejected_Expected(t *testing.T) {
 	t.Parallel()
 
-	address, shutdown := startTestPluginServer(t, testPluginServer{
+	address, shutdown := startTestPluginServer(t, &testPluginServer{
 		status:      "ok",
 		platform:    "example",
 		connectOK:   true,
@@ -176,7 +185,7 @@ func TestPluginConnector_Discover_EmptyResultRejected_Expected(t *testing.T) {
 func TestPluginConnector_Close_UnsuccessfulResponseRejected_Expected(t *testing.T) {
 	t.Parallel()
 
-	address, shutdown := startTestPluginServer(t, testPluginServer{
+	address, shutdown := startTestPluginServer(t, &testPluginServer{
 		status:    "ok",
 		platform:  "example",
 		connectOK: true,
@@ -199,7 +208,54 @@ func TestPluginConnector_Close_UnsuccessfulResponseRejected_Expected(t *testing.
 	}
 }
 
-func startTestPluginServer(t *testing.T, plugin testPluginServer) (string, func()) {
+func TestPluginHost_Factory_ForwardsConnectorConfig_Expected(t *testing.T) {
+	t.Parallel()
+
+	serverState := &testPluginServer{
+		status:    "ok",
+		platform:  "example",
+		connectOK: true,
+		closeOK:   true,
+	}
+	address, shutdown := startTestPluginServer(t, serverState)
+	defer shutdown()
+
+	host := NewPluginHost()
+	defer host.ShutdownAll()
+	if err := host.LoadPlugin("grpc://" + address); err != nil {
+		t.Fatalf("LoadPlugin() error = %v", err)
+	}
+
+	factory, err := host.Factory("example")
+	if err != nil {
+		t.Fatalf("Factory() error = %v", err)
+	}
+
+	connector := factory(connectors.Config{
+		Address:  "https://plugin.example.local",
+		Username: "operator",
+		Password: "secret",
+		Insecure: true,
+		Port:     9440,
+	})
+	if err := connector.Connect(context.Background()); err != nil {
+		t.Fatalf("Connect() error = %v", err)
+	}
+
+	serverState.mu.Lock()
+	defer serverState.mu.Unlock()
+	if serverState.lastConfig.Address != "https://plugin.example.local" {
+		t.Fatalf("forwarded address = %q, want https://plugin.example.local", serverState.lastConfig.Address)
+	}
+	if serverState.lastConfig.Username != "operator" || serverState.lastConfig.Password != "secret" {
+		t.Fatalf("forwarded credentials = %#v, want operator/secret", serverState.lastConfig)
+	}
+	if !serverState.lastConfig.Insecure || serverState.lastConfig.Port != 9440 {
+		t.Fatalf("forwarded transport settings = %#v, want insecure=true and port=9440", serverState.lastConfig)
+	}
+}
+
+func startTestPluginServer(t *testing.T, plugin *testPluginServer) (string, func()) {
 	t.Helper()
 
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
@@ -208,7 +264,7 @@ func startTestPluginServer(t *testing.T, plugin testPluginServer) (string, func(
 	}
 
 	server := NewGRPCServer()
-	RegisterConnectorPluginServer(server, &plugin)
+	RegisterConnectorPluginServer(server, plugin)
 	go func() {
 		_ = server.Serve(listener)
 	}()

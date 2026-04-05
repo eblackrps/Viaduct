@@ -1,0 +1,18 @@
+services:
+  viaduct:
+    image: viaduct:latest
+    container_name: viaduct
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      VIADUCT_ADMIN_KEY: change-me
+    volumes:
+      - ./config:/config:ro
+    command:
+      - ./bin/viaduct
+      - serve-api
+      - --config
+      - /config/config.yaml
+      - --port
+      - "8080"

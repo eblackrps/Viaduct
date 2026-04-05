@@ -15,6 +15,10 @@ This changelog tracks published releases and the major implementation milestones
 
 ## Unreleased
 
+- no unreleased changes currently tracked
+
+## [1.1.0] - 2026-04-05
+
 ### Current Stable Surface
 - multi-platform discovery for VMware, Proxmox, Hyper-V, KVM, Nutanix, and Veeam-related backup inventory
 - dependency graph construction across workload, network, storage, and backup metadata
@@ -22,6 +26,12 @@ This changelog tracks published releases and the major implementation milestones
 - lifecycle cost, policy, drift, remediation, and simulation workflows
 - multi-tenancy, tenant-scoped API access, persistent state backends, and plugin hosting
 - React dashboard, reproducible release packaging, install scripts, and a shared release gate
+
+### Operability And Ecosystem
+- added connector certification coverage and a tagged soak-test path for large-wave migration exercises
+- added deployment reference assets for Docker Compose, systemd, and Kubernetes-based pilot environments
+- added plugin manifest validation and config-aware plugin connection handling so plugin connectors receive the same auth and transport settings as built-in connectors
+- added tenant-scoped audit exports, request correlation headers, API metrics, and basic tenant rate limiting to improve diagnostics without changing core workflows
 
 ### Maintenance
 - refreshed the dashboard stack to React 19, Vite 8, and `@vitejs/plugin-react` 6 with a Node 20.19+ baseline

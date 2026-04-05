@@ -19,6 +19,7 @@ Viaduct is maintained as an open source project with best-effort community suppo
 - Go and Node versions if building from source
 - connector or platform involved
 - whether you are using the in-memory or PostgreSQL store
+- whether the issue appears in `make release-gate`, `make certification-test`, or `make soak-test`
 - relevant config snippets with secrets removed
 
 ## Security

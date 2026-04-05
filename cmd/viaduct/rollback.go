@@ -21,6 +21,11 @@ func newRollbackCommand() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("rollback: load config: %w", err)
 			}
+			catalog, err := openConnectorCatalog(cfg)
+			if err != nil {
+				return fmt.Errorf("rollback: %w", err)
+			}
+			defer catalog.Close()
 
 			stateStore, err := openStateStore(cmd.Context(), cfg)
 			if err != nil {
@@ -50,7 +55,7 @@ func newRollbackCommand() *cobra.Command {
 				},
 			}
 
-			sourceConnector, targetConnector, err := connectorsForSpec(cfg, spec)
+			sourceConnector, targetConnector, err := connectorsForSpec(cfg, catalog, spec)
 			if err != nil {
 				return fmt.Errorf("rollback: %w", err)
 			}

@@ -24,6 +24,11 @@ func newServeAPICommand() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("serve-api: load config: %w", err)
 			}
+			catalog, err := openConnectorCatalog(cfg)
+			if err != nil {
+				return fmt.Errorf("serve-api: %w", err)
+			}
+			defer catalog.Close()
 
 			stateStore, err := openStateStore(cmd.Context(), cfg)
 			if err != nil {
@@ -34,7 +39,7 @@ func newServeAPICommand() *cobra.Command {
 			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 			defer stop()
 
-			server := viaductapi.NewServer(discovery.NewEngine(), stateStore, port)
+			server := viaductapi.NewServer(discovery.NewEngine(), stateStore, port, catalog)
 			return server.Start(ctx)
 		},
 	}

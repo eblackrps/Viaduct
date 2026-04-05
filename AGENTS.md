@@ -38,8 +38,10 @@ make build - Build binary to bin/viaduct
 make test - go test ./... -v -race
 make lint - golangci-lint run ./...
 make all - lint + test + build
-make release-gate - Full release verification: tidy, build, vet, lint, race tests, binary checks, web build, coverage
-make package-release - Build the CLI, build the dashboard, and create a release bundle in dist/
+make certification-test - Run fixture-backed connector certification checks
+make soak-test - Run tagged migration soak coverage
+make release-gate - Full release verification: tidy, build, vet, lint, race tests, soak coverage, binary checks, web build, coverage, and packaging
+make package-release-matrix - Build the CLI, build the dashboard, and create release bundles in dist/
 ## Commit Style
 Conventional commits: type(scope): description
 Types: feat, fix, docs, test, refactor, ci, chore
@@ -62,7 +64,7 @@ Scopes: cli, discovery, vmware, proxmox, hyperv, kvm, nutanix, migrate, deps, li
 - Backup correlation is name-based and case-insensitive because Veeam commonly exposes protected objects by display name rather than inventory UUID.
 - Backup models live in `internal/models/backup.go` and are consumed by dependency graph and future lifecycle features.
 ## Dashboard
-- The Go API server lives in `internal/api/server.go` and exposes inventory, snapshot, migration, pre-flight, health, graph, cost, policy, drift, and tenant administration routes over `net/http`.
+- The Go API server lives in `internal/api/server.go` and exposes inventory, snapshot, migration, pre-flight, health, graph, cost, policy, drift, remediation, simulation, audit, reporting, metrics, and tenant administration routes over `net/http`.
 - The React dashboard lives in `web/` and is built with Vite, TypeScript, Tailwind CSS, Recharts, and D3.
 - Core components are split by function: `InventoryTable`, `PlatformSummary`, `MigrationWizard`, `MigrationProgress`, `DependencyGraph`, `CostComparison`, `PolicyDashboard`, `DriftTimeline`, and `MigrationHistory`.
 - Use the hidden CLI command `viaduct serve-api` for local API serving, and `make serve` to start the dashboard dev workflow from `web/`.
@@ -103,15 +105,18 @@ Scopes: cli, discovery, vmware, proxmox, hyperv, kvm, nutanix, migrate, deps, li
 - `make release-gate` is the canonical Phase 4 release check and now includes a coverage threshold gate through `scripts/coverage_gate.go`.
 ## Release Era Guidance
 - Keep `go.mod`, `.golangci.yml`, CI, and public docs aligned on the supported Go version. Release drift between those files is a release blocker.
-- `make package-release` is the canonical packaging path. Release bundles should include the CLI binary, built web assets, install scripts, docs, configs, examples, a manifest, and checksums.
+- `make package-release-matrix` is the canonical packaging path. Release bundles should include the CLI binary, built web assets, install scripts, docs, configs, examples, deployment references, a manifest, and checksums.
 - Public docs are part of the product surface now. If an API route, CLI flag, config field, or operator workflow changes, update the relevant docs in the same change.
 - The top-level docs (`README.md`, `INSTALL.md`, `QUICKSTART.md`, `UPGRADE.md`, `RELEASE.md`, `SUPPORT.md`, `SECURITY.md`, `CHANGELOG.md`) are the public entrypoints. Keep them aligned with the detailed guides under `docs/`.
 - `docs/roadmaps/` is a historical archive. Completed phases should be described in past tense and not framed as the active state of the project.
 - Contributor-facing directories such as `docs/`, `configs/`, `examples/`, `api/`, `tests/`, and `web/` should have a local `README` when their purpose would otherwise be unclear to a new contributor.
 - Example configs and lab assets must stay runnable. Prefer real, parseable examples over pseudo-config snippets.
 - The local KVM lab under `examples/lab/` is the default first-run and demo path; keep it fast, offline-friendly, and stable.
+- Reference deployment assets under `examples/deploy/` should stay simple, parseable, and obviously scoped to lab and pilot use rather than implied production hardening.
 - Keep operator guidance honest about maturity. If a workflow is backend-only or automation-oriented rather than a first-class CLI command, document it that way instead of implying a polished surface that does not exist.
 - Release verification should exercise packaging as well as builds and tests. If packaging breaks, the release is not ready even if `go build` passes.
+- Plugin executable launches now expect a `plugin.json` sidecar manifest with name, platform, version, and protocol version metadata. Keep the manifest aligned with the plugin’s reported platform.
+- Tenant-scoped audit, reporting, and request-correlation behavior are part of the operator surface. Changes to those routes should update both the API docs and troubleshooting guidance.
 - Treat install, upgrade, and rollback documentation as operational code. Broken runbooks are production bugs.
 ## Current State
 - Discovery is implemented for VMware, Proxmox, Hyper-V, KVM, and Nutanix, with Veeam available for backup and restore-point enrichment plus portability planning.

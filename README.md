@@ -62,13 +62,15 @@ The local KVM lab under [examples/lab](examples/lab) gives you a first-run workf
 go mod tidy
 make build
 go test ./... -v -race -count=1
+make certification-test
+make soak-test
 go vet ./...
 golangci-lint run ./...
 cd web && npm run build
 make release-gate
 ```
 
-`make release-gate` is the canonical local verification path. It runs the backend checks, CLI smoke checks, dashboard build, coverage reporting, and release packaging in the same flow CI uses.
+`make release-gate` is the canonical local verification path. It runs the backend checks, CLI smoke checks, soak coverage, dashboard build, coverage reporting, and release packaging in the same flow CI uses.
 
 ## Installation And Operations
 - Install: [INSTALL.md](INSTALL.md)
@@ -92,6 +94,7 @@ make release-gate
 ## Extensibility
 - Plugin and connector author guide: [docs/reference/plugin-author-guide.md](docs/reference/plugin-author-guide.md)
 - Example plugin: [examples/plugin-example/README.md](examples/plugin-example/README.md)
+- Deployment examples: [examples/deploy/README.md](examples/deploy/README.md)
 - Example and lab assets: [examples/README.md](examples/README.md)
 - Sample configs and policies: [configs/README.md](configs/README.md)
 

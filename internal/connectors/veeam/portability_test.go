@@ -37,6 +37,9 @@ func TestPortabilityManager_PlanJobMigration_SingleJob(t *testing.T) {
 	if len(plan.Jobs) != 1 || plan.Jobs[0].TargetRepo != "target-repo" {
 		t.Fatalf("unexpected plan: %#v", plan)
 	}
+	if len(plan.RepositoryCompatibility) != 1 || !plan.RepositoryCompatibility[0].Compatible {
+		t.Fatalf("unexpected repository compatibility: %#v", plan.RepositoryCompatibility)
+	}
 }
 
 func TestPortabilityManager_PlanJobMigration_MultipleJobs(t *testing.T) {
@@ -156,6 +159,54 @@ func TestPortabilityManager_PlanJobMigration_RepositoryWarning(t *testing.T) {
 	}
 	if len(plan.Warnings) != 1 {
 		t.Fatalf("len(plan.Warnings) = %d, want 1", len(plan.Warnings))
+	}
+	if len(plan.RepositoryCompatibility) != 1 || plan.RepositoryCompatibility[0].Compatible {
+		t.Fatalf("unexpected repository compatibility: %#v", plan.RepositoryCompatibility)
+	}
+}
+
+func TestPortabilityManager_PlanFleetMigration_MultipleWorkloads(t *testing.T) {
+	t.Parallel()
+
+	manager, cleanup := newPortabilityManagerTestServer(t, []map[string]interface{}{
+		{"id": "job-1", "name": "Daily web-01", "targetRepo": "primary-repo", "retentionDays": 7, "protectedVMs": []string{"web-01"}},
+		{"id": "job-2", "name": "Daily app-02", "targetRepo": "primary-repo", "retentionDays": 7, "protectedVMs": []string{"app-02"}},
+	})
+	defer cleanup()
+
+	plan, err := manager.PlanFleetMigration(context.Background(), []WorkloadMapping{
+		{SourceVM: sampleBackupSourceVM(), TargetVM: sampleBackupTargetVM()},
+		{SourceVM: models.VirtualMachine{ID: "vm-app", Name: "app-02"}, TargetVM: models.VirtualMachine{ID: "vm-app-target", Name: "app-02-target"}},
+	}, nil)
+	if err != nil {
+		t.Fatalf("PlanFleetMigration() error = %v", err)
+	}
+	if len(plan.Plans) != 2 {
+		t.Fatalf("len(plan.Plans) = %d, want 2", len(plan.Plans))
+	}
+}
+
+func TestPortabilityManager_ExecuteFleetMigration_AggregatesResults(t *testing.T) {
+	t.Parallel()
+
+	manager, cleanup := newPortabilityManagerTestServer(t, []map[string]interface{}{})
+	defer cleanup()
+
+	result, err := manager.ExecuteFleetMigration(context.Background(), &FleetJobMigrationPlan{
+		Plans: []JobMigrationPlan{
+			{
+				TargetVM: models.VirtualMachine{Name: "web-01-target"},
+				Jobs: []BackupJobTemplate{
+					{Name: "Daily web-01-target", TargetRepo: "primary-repo", ProtectedVMs: []string{"web-01-target"}},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("ExecuteFleetMigration() error = %v", err)
+	}
+	if len(result.Results) != 1 {
+		t.Fatalf("len(result.Results) = %d, want 1", len(result.Results))
 	}
 }
 

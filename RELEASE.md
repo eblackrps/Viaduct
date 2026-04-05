@@ -3,13 +3,15 @@
 This document describes the stable packaging and release process for Viaduct.
 
 ## Canonical Commands
-- `make release-gate`: full verification flow for backend, CLI, dashboard, coverage, and packaging
-- `make package-release`: produce a release bundle in `dist/`
+- `make release-gate`: full verification flow for backend, CLI, dashboard, soak coverage, certification coverage, packaging, and coverage enforcement
+- `make package-release-matrix`: produce release bundles in `dist/` for the supported packaging targets
+- `make certification-test`: run connector certification fixtures
+- `make soak-test`: run the tagged migration soak workflow
 
 ## Release Checklist
 1. Ensure the working tree is in the intended state and public docs are current.
 2. Run `make release-gate`.
-3. Inspect the generated bundle in `dist/`.
+3. Inspect the generated bundles in `dist/`.
 4. Verify `release-manifest.json` and `SHA256SUMS.txt`.
 5. Smoke-test the packaged binary with `viaduct version` and `viaduct --help`.
 6. Confirm install docs, upgrade docs, and rollback docs still match the artifact layout.
@@ -24,6 +26,7 @@ The release bundle should include:
 - sample configs
 - examples
 - manifest and checksums
+- deployment reference assets
 
 ## Release Notes Guidance
 - summarize operator-visible changes

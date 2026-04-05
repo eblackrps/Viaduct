@@ -9,6 +9,9 @@ insecure: false
 # For persistent state, point this at PostgreSQL.
 state_store_dsn: "postgres://viaduct:change-me@localhost:5432/viaduct?sslmode=disable"
 
+# Admin API authentication is read from the process environment.
+# Example: export VIADUCT_ADMIN_KEY="replace-me"
+
 sources:
   vmware:
     address: "https://vcenter.example.local"
@@ -31,3 +34,8 @@ sources:
     username: "admin"
     password: "replace-me"
     insecure: true
+
+# Optional external plugins keyed by platform identifier.
+# Viaduct can start executables directly or connect to an already-running gRPC plugin.
+plugins:
+  example: "grpc://127.0.0.1:50071"

@@ -18,7 +18,7 @@ func TestServer_LatestInventory_UsesLatestSnapshotPerSourcePlatform_Expected(t *
 	t.Parallel()
 
 	stateStore := store.NewMemoryStore()
-	server := NewServer(nil, stateStore, 0)
+	server := NewServer(nil, stateStore, 0, nil)
 	ctx := context.Background()
 
 	for _, result := range []*models.DiscoveryResult{
@@ -64,7 +64,7 @@ func TestServer_HandleAdminTenants_ExplicitInactiveTenantPreserved_Expected(t *t
 	t.Parallel()
 
 	stateStore := store.NewMemoryStore()
-	server := NewServer(nil, stateStore, 0)
+	server := NewServer(nil, stateStore, 0, nil)
 
 	body := bytes.NewBufferString(`{"name":"Inactive Tenant","active":false}`)
 	request := httptest.NewRequest(http.MethodPost, "/api/v1/admin/tenants", body)
@@ -95,7 +95,7 @@ func TestServer_HandleAdminTenants_ExplicitInactiveTenantPreserved_Expected(t *t
 func TestServer_HandleAdminTenantByID_InvalidNestedPathRejected_Expected(t *testing.T) {
 	t.Parallel()
 
-	server := NewServer(nil, store.NewMemoryStore(), 0)
+	server := NewServer(nil, store.NewMemoryStore(), 0, nil)
 	request := httptest.NewRequest(http.MethodDelete, "/api/v1/admin/tenants/tenant-a/extra", nil)
 	recorder := httptest.NewRecorder()
 
@@ -118,7 +118,7 @@ func TestServer_HandleSummary_TenantScopedCounts_Expected(t *testing.T) {
 		}
 	}
 
-	server := NewServer(nil, stateStore, 0)
+	server := NewServer(nil, stateStore, 0, nil)
 	_, _ = stateStore.SaveDiscovery(context.Background(), "tenant-a", &models.DiscoveryResult{
 		Source:       "tenant-a-source",
 		Platform:     models.PlatformVMware,
@@ -156,7 +156,7 @@ func TestServer_HandleMigrationByID_ExecuteApprovalRequiredConflict_Expected(t *
 	t.Parallel()
 
 	stateStore := store.NewMemoryStore()
-	server := NewServer(nil, stateStore, 0)
+	server := NewServer(nil, stateStore, 0, nil)
 	server.mu.Lock()
 	server.specs[server.specKey(store.DefaultTenantID, "migration-1")] = &migratepkg.MigrationSpec{
 		Name: "approval-required",

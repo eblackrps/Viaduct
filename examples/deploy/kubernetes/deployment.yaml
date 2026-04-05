@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: viaduct
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: viaduct
+  template:
+    metadata:
+      labels:
+        app: viaduct
+    spec:
+      containers:
+        - name: viaduct
+          image: viaduct:latest
+          args:
+            - serve-api
+            - --config
+            - /etc/viaduct/config.yaml
+            - --port
+            - "8080"
+          env:
+            - name: VIADUCT_ADMIN_KEY
+              value: change-me
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - name: config
+              mountPath: /etc/viaduct
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: viaduct-config

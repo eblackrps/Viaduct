@@ -40,6 +40,8 @@ type JobMigrationPlan struct {
 	RepositoryMappings map[string]string `json:"repository_mappings,omitempty" yaml:"repository_mappings,omitempty"`
 	// Warnings contains non-fatal portability warnings.
 	Warnings []string `json:"warnings,omitempty" yaml:"warnings,omitempty"`
+	// RepositoryCompatibility captures source-to-target repository compatibility findings.
+	RepositoryCompatibility []RepositoryCompatibility `json:"repository_compatibility,omitempty" yaml:"repository_compatibility,omitempty"`
 }
 
 // JobMigrationResult records created jobs and their verification state.
@@ -49,6 +51,42 @@ type JobMigrationResult struct {
 	// VerificationStatus records the verification result per created job.
 	VerificationStatus map[string]string `json:"verification_status" yaml:"verification_status"`
 	// Errors contains any non-fatal job migration errors.
+	Errors []string `json:"errors,omitempty" yaml:"errors,omitempty"`
+}
+
+// RepositoryCompatibility summarizes compatibility findings for a repository mapping.
+type RepositoryCompatibility struct {
+	// SourceRepository is the repository used by the source-side backup job.
+	SourceRepository string `json:"source_repository" yaml:"source_repository"`
+	// TargetRepository is the repository selected on the target side.
+	TargetRepository string `json:"target_repository" yaml:"target_repository"`
+	// Compatible indicates whether the target repository can accept recreated jobs.
+	Compatible bool `json:"compatible" yaml:"compatible"`
+	// Reason provides a concise explanation when compatibility is degraded or failed.
+	Reason string `json:"reason,omitempty" yaml:"reason,omitempty"`
+}
+
+// WorkloadMapping describes a source-to-target workload pair for portability planning.
+type WorkloadMapping struct {
+	// SourceVM is the source workload protected by the original backup job.
+	SourceVM models.VirtualMachine `json:"source_vm" yaml:"source_vm"`
+	// TargetVM is the migrated workload that should inherit backup protection.
+	TargetVM models.VirtualMachine `json:"target_vm" yaml:"target_vm"`
+}
+
+// FleetJobMigrationPlan aggregates portability plans across multiple workload migrations.
+type FleetJobMigrationPlan struct {
+	// Plans contains one portability plan per workload mapping.
+	Plans []JobMigrationPlan `json:"plans" yaml:"plans"`
+	// Warnings contains non-fatal planning warnings across the fleet.
+	Warnings []string `json:"warnings,omitempty" yaml:"warnings,omitempty"`
+}
+
+// FleetJobMigrationResult aggregates backup portability execution across multiple workloads.
+type FleetJobMigrationResult struct {
+	// Results contains per-workload execution results keyed by target VM name.
+	Results map[string]JobMigrationResult `json:"results" yaml:"results"`
+	// Errors contains any fleet-level execution errors.
 	Errors []string `json:"errors,omitempty" yaml:"errors,omitempty"`
 }
 
@@ -93,11 +131,12 @@ func (m *PortabilityManager) PlanJobMigration(ctx context.Context, sourceVM, tar
 	}
 
 	plan := &JobMigrationPlan{
-		SourceVM:           sourceVM,
-		TargetVM:           targetVM,
-		Jobs:               make([]BackupJobTemplate, 0),
-		RepositoryMappings: cloneStringMap(repositoryMappings),
-		Warnings:           make([]string, 0),
+		SourceVM:                sourceVM,
+		TargetVM:                targetVM,
+		Jobs:                    make([]BackupJobTemplate, 0),
+		RepositoryMappings:      cloneStringMap(repositoryMappings),
+		Warnings:                make([]string, 0),
+		RepositoryCompatibility: make([]RepositoryCompatibility, 0),
 	}
 
 	for _, item := range jobItems {
@@ -107,9 +146,11 @@ func (m *PortabilityManager) PlanJobMigration(ctx context.Context, sourceVM, tar
 		}
 
 		targetRepository := resolveRepository(job.TargetRepo, repositoryMappings)
-		if _, ok := repositories[strings.ToLower(targetRepository)]; !ok {
+		compatibility := evaluateRepositoryCompatibility(job.TargetRepo, targetRepository, repositories)
+		if !compatibility.Compatible {
 			plan.Warnings = append(plan.Warnings, fmt.Sprintf("repository %q is not present on the target side", targetRepository))
 		}
+		plan.RepositoryCompatibility = append(plan.RepositoryCompatibility, compatibility)
 
 		plan.Jobs = append(plan.Jobs, BackupJobTemplate{
 			Name:          rewriteJobName(job.Name, sourceVM.Name, targetVM.Name),
@@ -120,6 +161,28 @@ func (m *PortabilityManager) PlanJobMigration(ctx context.Context, sourceVM, tar
 			ProtectedVMs:  []string{targetVM.Name},
 			Enabled:       job.Enabled,
 		})
+	}
+
+	return plan, nil
+}
+
+// PlanFleetMigration builds portable backup job plans for multiple workload migrations.
+func (m *PortabilityManager) PlanFleetMigration(ctx context.Context, mappings []WorkloadMapping, repositoryMappings map[string]string) (*FleetJobMigrationPlan, error) {
+	if m == nil || m.client == nil {
+		return nil, fmt.Errorf("plan fleet migration: client is nil")
+	}
+
+	plan := &FleetJobMigrationPlan{
+		Plans:    make([]JobMigrationPlan, 0, len(mappings)),
+		Warnings: make([]string, 0),
+	}
+	for _, mapping := range mappings {
+		workloadPlan, err := m.PlanJobMigration(ctx, mapping.SourceVM, mapping.TargetVM, repositoryMappings)
+		if err != nil {
+			return nil, fmt.Errorf("plan fleet migration for %s: %w", mapping.TargetVM.Name, err)
+		}
+		plan.Plans = append(plan.Plans, *workloadPlan)
+		plan.Warnings = append(plan.Warnings, workloadPlan.Warnings...)
 	}
 
 	return plan, nil
@@ -166,6 +229,40 @@ func (m *PortabilityManager) ExecuteJobMigration(ctx context.Context, plan *JobM
 		return result, fmt.Errorf("execute job migration: completed with %d error(s): %s", len(result.Errors), strings.Join(result.Errors, "; "))
 	}
 
+	return result, nil
+}
+
+// ExecuteFleetMigration recreates backup jobs for multiple migrated workloads.
+func (m *PortabilityManager) ExecuteFleetMigration(ctx context.Context, plan *FleetJobMigrationPlan) (*FleetJobMigrationResult, error) {
+	if m == nil || m.client == nil {
+		return nil, fmt.Errorf("execute fleet migration: client is nil")
+	}
+	if plan == nil {
+		return nil, fmt.Errorf("execute fleet migration: plan is nil")
+	}
+
+	result := &FleetJobMigrationResult{
+		Results: make(map[string]JobMigrationResult, len(plan.Plans)),
+		Errors:  make([]string, 0),
+	}
+
+	for _, workloadPlan := range plan.Plans {
+		workloadResult, err := m.ExecuteJobMigration(ctx, &workloadPlan)
+		key := workloadPlan.TargetVM.Name
+		if strings.TrimSpace(key) == "" {
+			key = workloadPlan.SourceVM.Name
+		}
+		if workloadResult != nil {
+			result.Results[key] = *workloadResult
+		}
+		if err != nil {
+			result.Errors = append(result.Errors, err.Error())
+		}
+	}
+
+	if len(result.Errors) > 0 {
+		return result, fmt.Errorf("execute fleet migration: completed with %d error(s): %s", len(result.Errors), strings.Join(result.Errors, "; "))
+	}
 	return result, nil
 }
 
@@ -241,4 +338,31 @@ func cloneStringMap(input map[string]string) map[string]string {
 		cloned[key] = value
 	}
 	return cloned
+}
+
+func evaluateRepositoryCompatibility(sourceRepository, targetRepository string, repositories map[string]models.BackupRepository) RepositoryCompatibility {
+	report := RepositoryCompatibility{
+		SourceRepository: sourceRepository,
+		TargetRepository: targetRepository,
+		Compatible:       true,
+	}
+
+	target, ok := repositories[strings.ToLower(targetRepository)]
+	if !ok {
+		report.Compatible = false
+		report.Reason = "target repository not found"
+		return report
+	}
+
+	if target.FreeMB <= 0 {
+		report.Compatible = false
+		report.Reason = "target repository has no reported free capacity"
+		return report
+	}
+
+	if target.Type == "" {
+		report.Reason = "target repository type not reported"
+	}
+
+	return report
 }
