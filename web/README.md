@@ -8,6 +8,7 @@ The dashboard surfaces inventory, migration workflows, dependency views, lifecyc
 ## Development
 
 ```bash
+node --version
 npm ci
 npm run dev
 ```
@@ -34,5 +35,6 @@ Built assets are packaged into release bundles through `make package-release`.
 See [./.env.example](./.env.example).
 
 ## Notes
+- Vite 8 and the current React plugin require Node.js 20.19+ or a newer supported major.
 - The Vite dev server is for local development only and should not be exposed as a public production surface.
 - The dashboard depends on the same backend state as the CLI and API; avoid frontend-only assumptions about migration or policy state.

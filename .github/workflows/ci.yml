@@ -19,9 +19,9 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
-          node-version: "20"
+          node-version: "20.19.0"
           cache: "npm"
           cache-dependency-path: web/package-lock.json
 
@@ -35,7 +35,7 @@ jobs:
         run: make release-gate
 
       - name: Upload Release Bundle
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: viaduct-release-bundle
           path: dist/**

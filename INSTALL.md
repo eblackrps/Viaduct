@@ -4,7 +4,7 @@ This document is the top-level installation entrypoint for Viaduct. For a deeper
 
 ## Requirements
 - Go 1.24 or newer
-- Node.js 20 or newer if you want to build the dashboard
+- Node.js 20.19 or newer if you want to build the dashboard
 - `make` for the standard workflow
 - `golangci-lint` for local linting
 

@@ -23,6 +23,10 @@ This changelog tracks published releases and the major implementation milestones
 - multi-tenancy, tenant-scoped API access, persistent state backends, and plugin hosting
 - React dashboard, reproducible release packaging, install scripts, and a shared release gate
 
+### Maintenance
+- refreshed the dashboard stack to React 19, Vite 8, and `@vitejs/plugin-react` 6 with a Node 20.19+ baseline
+- grouped Dependabot updates more conservatively and ignored Docker base-image major jumps until they are evaluated intentionally
+
 ### Repository Professionalization
 - aligned top-level docs, roadmap archives, examples, and community files with the implemented codebase
 - added release-era install, quickstart, upgrade, release, support, and troubleshooting entrypoints

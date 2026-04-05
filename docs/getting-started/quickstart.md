@@ -4,7 +4,7 @@ This quickstart uses the local KVM fixture lab so you can evaluate Viaduct end t
 
 ## Prerequisites
 - Go 1.24+
-- Node.js 20+
+- Node.js 20.19+
 - `make` if you want the convenience targets
 
 ## 1. Build Viaduct

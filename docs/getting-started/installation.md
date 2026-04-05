@@ -6,7 +6,7 @@ Viaduct can be evaluated from source or from a packaged release bundle.
 
 ### Prerequisites
 - Go 1.24+
-- Node.js 20+ for the dashboard
+- Node.js 20.19+ for the dashboard
 - `make` for the standard build flow
 - `qemu-img` if you want live disk-conversion execution outside tests
 
