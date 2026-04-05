@@ -26,6 +26,7 @@ This changelog tracks published releases and the major implementation milestones
 ### Maintenance
 - refreshed the dashboard stack to React 19, Vite 8, and `@vitejs/plugin-react` 6 with a Node 20.19+ baseline
 - grouped Dependabot updates more conservatively and ignored Docker base-image major jumps until they are evaluated intentionally
+- aligned the web TypeScript configuration with Vite's bundler module resolution and deferred semver-major Tailwind CSS and TypeScript jumps until a dedicated migration pass
 
 ### Repository Professionalization
 - aligned top-level docs, roadmap archives, examples, and community files with the implemented codebase
