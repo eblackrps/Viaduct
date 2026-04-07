@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/eblackrps/viaduct/internal/models"
 )
@@ -52,6 +53,50 @@ type JobMigrationResult struct {
 	VerificationStatus map[string]string `json:"verification_status" yaml:"verification_status"`
 	// Errors contains any non-fatal job migration errors.
 	Errors []string `json:"errors,omitempty" yaml:"errors,omitempty"`
+}
+
+// BackupPolicyDrift captures a mismatch between the expected and observed backup policy after migration.
+type BackupPolicyDrift struct {
+	// JobName is the recreated backup job with the observed drift.
+	JobName string `json:"job_name" yaml:"job_name"`
+	// Field is the job setting that drifted.
+	Field string `json:"field" yaml:"field"`
+	// Expected is the desired value recorded in the portability plan.
+	Expected string `json:"expected" yaml:"expected"`
+	// Actual is the observed value returned by the backup platform.
+	Actual string `json:"actual" yaml:"actual"`
+	// Severity is a concise indicator for operators and reports.
+	Severity string `json:"severity" yaml:"severity"`
+}
+
+// BackupContinuityReport summarizes post-migration backup continuity for one workload.
+type BackupContinuityReport struct {
+	// TargetVM is the migrated workload being validated.
+	TargetVM models.VirtualMachine `json:"target_vm" yaml:"target_vm"`
+	// Status is the overall continuity state for the migrated workload.
+	Status string `json:"status" yaml:"status"`
+	// JobsValidated is the number of planned jobs evaluated against the target platform.
+	JobsValidated int `json:"jobs_validated" yaml:"jobs_validated"`
+	// RestorePointCount is the number of restore points currently protecting the target VM.
+	RestorePointCount int `json:"restore_point_count" yaml:"restore_point_count"`
+	// LatestRestorePointAt is the newest restore point timestamp when present.
+	LatestRestorePointAt time.Time `json:"latest_restore_point_at,omitempty" yaml:"latest_restore_point_at,omitempty"`
+	// RepositoryCompatibility contains repository validation details for the recreated jobs.
+	RepositoryCompatibility []RepositoryCompatibility `json:"repository_compatibility,omitempty" yaml:"repository_compatibility,omitempty"`
+	// PolicyDrifts contains detected post-migration drift in recreated jobs.
+	PolicyDrifts []BackupPolicyDrift `json:"policy_drifts,omitempty" yaml:"policy_drifts,omitempty"`
+	// VerificationStatus records per-job verification state from execution when available.
+	VerificationStatus map[string]string `json:"verification_status,omitempty" yaml:"verification_status,omitempty"`
+	// Warnings contains actionable continuity warnings.
+	Warnings []string `json:"warnings,omitempty" yaml:"warnings,omitempty"`
+}
+
+// FleetBackupContinuityReport aggregates post-migration backup continuity across multiple workloads.
+type FleetBackupContinuityReport struct {
+	// Reports contains one continuity report per migrated target workload.
+	Reports map[string]BackupContinuityReport `json:"reports" yaml:"reports"`
+	// Warnings contains fleet-level warnings gathered during validation.
+	Warnings []string `json:"warnings,omitempty" yaml:"warnings,omitempty"`
 }
 
 // RepositoryCompatibility summarizes compatibility findings for a repository mapping.
@@ -266,6 +311,151 @@ func (m *PortabilityManager) ExecuteFleetMigration(ctx context.Context, plan *Fl
 	return result, nil
 }
 
+// ValidateBackupContinuity verifies that recreated jobs and restore points match the expected post-migration policy.
+func (m *PortabilityManager) ValidateBackupContinuity(ctx context.Context, plan *JobMigrationPlan, result *JobMigrationResult) (*BackupContinuityReport, error) {
+	if m == nil || m.client == nil {
+		return nil, fmt.Errorf("validate backup continuity: client is nil")
+	}
+	if plan == nil {
+		return nil, fmt.Errorf("validate backup continuity: plan is nil")
+	}
+
+	jobPayload, err := m.client.Get(ctx, "/v1/jobs")
+	if err != nil {
+		return nil, fmt.Errorf("validate backup continuity: list jobs: %w", err)
+	}
+	restorePayload, err := m.client.Get(ctx, "/v1/objectRestorePoints")
+	if err != nil {
+		return nil, fmt.Errorf("validate backup continuity: list restore points: %w", err)
+	}
+	repositoryPayload, err := m.client.Get(ctx, "/v1/backupInfrastructure/repositories")
+	if err != nil {
+		return nil, fmt.Errorf("validate backup continuity: list repositories: %w", err)
+	}
+
+	jobItems, err := decodeObjectSlice(jobPayload)
+	if err != nil {
+		return nil, fmt.Errorf("validate backup continuity: decode jobs: %w", err)
+	}
+	restoreItems, err := decodeObjectSlice(restorePayload)
+	if err != nil {
+		return nil, fmt.Errorf("validate backup continuity: decode restore points: %w", err)
+	}
+	repositoryItems, err := decodeObjectSlice(repositoryPayload)
+	if err != nil {
+		return nil, fmt.Errorf("validate backup continuity: decode repositories: %w", err)
+	}
+
+	currentJobs := make(map[string]models.BackupJob, len(jobItems))
+	for _, item := range jobItems {
+		job := mapJob(item)
+		currentJobs[strings.ToLower(strings.TrimSpace(job.Name))] = job
+	}
+	repositories := make(map[string]models.BackupRepository, len(repositoryItems))
+	for _, item := range repositoryItems {
+		repo := mapRepository(item)
+		repositories[strings.ToLower(strings.TrimSpace(repo.Name))] = repo
+	}
+
+	report := &BackupContinuityReport{
+		TargetVM:                plan.TargetVM,
+		Status:                  "healthy",
+		JobsValidated:           len(plan.Jobs),
+		RepositoryCompatibility: make([]RepositoryCompatibility, 0, len(plan.Jobs)),
+		PolicyDrifts:            make([]BackupPolicyDrift, 0),
+		VerificationStatus:      make(map[string]string),
+		Warnings:                append([]string(nil), plan.Warnings...),
+	}
+	if result != nil {
+		for key, value := range result.VerificationStatus {
+			report.VerificationStatus[key] = value
+		}
+	}
+
+	for _, job := range plan.Jobs {
+		actual, ok := currentJobs[strings.ToLower(strings.TrimSpace(job.Name))]
+		if !ok {
+			report.PolicyDrifts = append(report.PolicyDrifts, BackupPolicyDrift{
+				JobName:  job.Name,
+				Field:    "presence",
+				Expected: "present",
+				Actual:   "missing",
+				Severity: "error",
+			})
+			report.Warnings = append(report.Warnings, fmt.Sprintf("backup job %q is missing on the target side", job.Name))
+			report.Status = "degraded"
+			continue
+		}
+
+		report.RepositoryCompatibility = append(report.RepositoryCompatibility, evaluateRepositoryCompatibility(job.TargetRepo, actual.TargetRepo, repositories))
+		report.PolicyDrifts = append(report.PolicyDrifts, detectPolicyDrift(job, actual)...)
+	}
+
+	restorePoints := matchingRestorePoints(restoreItems, plan.TargetVM, plan.Jobs)
+	report.RestorePointCount = len(restorePoints)
+	report.LatestRestorePointAt = latestRestorePointAt(restorePoints)
+	if report.RestorePointCount == 0 {
+		report.Warnings = append(report.Warnings, fmt.Sprintf("no restore points found yet for %q", plan.TargetVM.Name))
+		if report.Status == "healthy" {
+			report.Status = "warning"
+		}
+	}
+	if report.Status == "healthy" && len(report.PolicyDrifts) > 0 {
+		report.Status = "warning"
+	}
+	for _, compatibility := range report.RepositoryCompatibility {
+		if !compatibility.Compatible {
+			if report.Status == "healthy" {
+				report.Status = "warning"
+			}
+			report.Warnings = append(report.Warnings, fmt.Sprintf("repository compatibility warning for %q: %s", compatibility.TargetRepository, compatibility.Reason))
+		}
+	}
+	for _, drift := range report.PolicyDrifts {
+		if drift.Severity == "error" {
+			report.Status = "degraded"
+			break
+		}
+	}
+
+	return report, nil
+}
+
+// ValidateFleetContinuity verifies backup continuity for multiple workload migrations.
+func (m *PortabilityManager) ValidateFleetContinuity(ctx context.Context, plan *FleetJobMigrationPlan, result *FleetJobMigrationResult) (*FleetBackupContinuityReport, error) {
+	if m == nil || m.client == nil {
+		return nil, fmt.Errorf("validate fleet continuity: client is nil")
+	}
+	if plan == nil {
+		return nil, fmt.Errorf("validate fleet continuity: plan is nil")
+	}
+
+	report := &FleetBackupContinuityReport{
+		Reports:  make(map[string]BackupContinuityReport, len(plan.Plans)),
+		Warnings: append([]string(nil), plan.Warnings...),
+	}
+
+	for _, workloadPlan := range plan.Plans {
+		key := workloadPlan.TargetVM.Name
+		workloadResult := (*JobMigrationResult)(nil)
+		if result != nil {
+			if current, ok := result.Results[key]; ok {
+				copy := current
+				workloadResult = &copy
+			}
+		}
+
+		continuity, err := m.ValidateBackupContinuity(ctx, &workloadPlan, workloadResult)
+		if err != nil {
+			return nil, fmt.Errorf("validate fleet continuity for %s: %w", key, err)
+		}
+		report.Reports[key] = *continuity
+		report.Warnings = append(report.Warnings, continuity.Warnings...)
+	}
+
+	return report, nil
+}
+
 // RollbackJobMigration removes created backup jobs after a rollback.
 func (m *PortabilityManager) RollbackJobMigration(ctx context.Context, result *JobMigrationResult) error {
 	if m == nil || m.client == nil {
@@ -316,6 +506,60 @@ func rewriteJobName(name, sourceVMName, targetVMName string) string {
 		return name + " - " + targetVMName
 	}
 	return replaced
+}
+
+func detectPolicyDrift(expected BackupJobTemplate, actual models.BackupJob) []BackupPolicyDrift {
+	drifts := make([]BackupPolicyDrift, 0)
+	appendDrift := func(field, expectedValue, actualValue, severity string) {
+		if expectedValue == actualValue {
+			return
+		}
+		drifts = append(drifts, BackupPolicyDrift{
+			JobName:  expected.Name,
+			Field:    field,
+			Expected: expectedValue,
+			Actual:   actualValue,
+			Severity: severity,
+		})
+	}
+
+	appendDrift("schedule", expected.Schedule, actual.Schedule, "warning")
+	appendDrift("target_repo", expected.TargetRepo, actual.TargetRepo, "error")
+	appendDrift("retention_days", fmt.Sprintf("%d", expected.RetentionDays), fmt.Sprintf("%d", actual.RetentionDays), "warning")
+	appendDrift("enabled", fmt.Sprintf("%t", expected.Enabled), fmt.Sprintf("%t", actual.Enabled), "warning")
+	appendDrift("protected_vms", strings.Join(expected.ProtectedVMs, ","), strings.Join(actual.ProtectedVMs, ","), "error")
+
+	return drifts
+}
+
+func matchingRestorePoints(items []map[string]interface{}, targetVM models.VirtualMachine, jobs []BackupJobTemplate) []models.RestorePoint {
+	jobNames := make(map[string]struct{}, len(jobs))
+	for _, job := range jobs {
+		jobNames[strings.ToLower(strings.TrimSpace(job.Name))] = struct{}{}
+	}
+
+	points := make([]models.RestorePoint, 0)
+	for _, item := range items {
+		point := mapRestorePoint(item)
+		if strings.EqualFold(point.VMName, targetVM.Name) || strings.EqualFold(point.VMID, targetVM.ID) {
+			points = append(points, point)
+			continue
+		}
+		if _, ok := jobNames[strings.ToLower(strings.TrimSpace(point.JobName))]; ok {
+			points = append(points, point)
+		}
+	}
+	return points
+}
+
+func latestRestorePointAt(points []models.RestorePoint) time.Time {
+	latest := time.Time{}
+	for _, point := range points {
+		if point.CreatedAt.After(latest) {
+			latest = point.CreatedAt
+		}
+	}
+	return latest
 }
 
 func parseCreatedJobID(payload []byte, fallback string) string {

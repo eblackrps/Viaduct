@@ -8,9 +8,9 @@ Viaduct has completed its first four implementation phases and is now in the rel
 - Short-term work should favor compatibility, connector depth, installability, observability, certification, and contributor leverage over speculative rewrites.
 
 ## Current Priorities
-- polish release bundles, installation paths, and upgrade / rollback guidance
-- keep public docs aligned with the implemented API, CLI, dashboard, and packaging surfaces
-- deepen operational confidence through release-gate discipline, example environments, and troubleshooting guidance
+- deepen operational confidence with live-environment certification, soak validation, and reproducible release gating
+- strengthen install, upgrade, deployment, and rollback guidance so packaged adoption is low-friction
+- improve observability, API-contract discipline, and operator diagnostics without breaking current workflows
 - strengthen connector and plugin adoption with compatibility rules, reference examples, and contributor documentation
 
 ## Phase 0: Foundation

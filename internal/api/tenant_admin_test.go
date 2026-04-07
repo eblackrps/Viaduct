@@ -56,6 +56,9 @@ func TestServer_HandleCurrentTenant_ServiceAccountResponseRedactsKeys_Expected(t
 	if response.ServiceAccountID != "sa-1" || response.Role != models.TenantRoleOperator {
 		t.Fatalf("unexpected current tenant response: %#v", response)
 	}
+	if len(response.Permissions) == 0 {
+		t.Fatalf("Permissions is empty: %#v", response)
+	}
 	if response.Quotas.RequestsPerMinute != 42 {
 		t.Fatalf("RequestsPerMinute = %d, want 42", response.Quotas.RequestsPerMinute)
 	}
@@ -89,7 +92,7 @@ func TestServer_HandleServiceAccounts_CreateAndRotate_Expected(t *testing.T) {
 		}
 	}))
 
-	createRequest := httptest.NewRequest(http.MethodPost, "/api/v1/service-accounts", bytes.NewBufferString(`{"id":"sa-1","name":"Automation","role":"operator"}`))
+	createRequest := httptest.NewRequest(http.MethodPost, "/api/v1/service-accounts", bytes.NewBufferString(`{"id":"sa-1","name":"Automation","role":"operator","permissions":["migration.manage","tenant.read"]}`))
 	createRequest.Header.Set(tenantAPIKeyHeader, "tenant-a-key")
 	createRecorder := httptest.NewRecorder()
 
@@ -104,6 +107,9 @@ func TestServer_HandleServiceAccounts_CreateAndRotate_Expected(t *testing.T) {
 	}
 	if created.APIKey == "" || created.Role != models.TenantRoleOperator {
 		t.Fatalf("unexpected created service account: %#v", created)
+	}
+	if len(created.Permissions) != 2 {
+		t.Fatalf("unexpected created permissions: %#v", created)
 	}
 
 	listRequest := httptest.NewRequest(http.MethodGet, "/api/v1/service-accounts", nil)

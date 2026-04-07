@@ -37,5 +37,7 @@ plugins:
 
 ## Validation Tips
 - start with the plugin author guide in [`../../docs/reference/plugin-author-guide.md`](../../docs/reference/plugin-author-guide.md)
+- use the certification checklist in [`../../docs/reference/plugin-certification.md`](../../docs/reference/plugin-certification.md)
+- run `go run ./scripts/plugin_manifest_check -manifest examples/plugin-example/plugin.json -host-version <viaduct-version>` before publishing
 - use the host behavior in `internal/connectors/plugin/host.go` as the compatibility contract
 - ensure your plugin returns a non-empty platform and a non-nil discovery result

@@ -1,0 +1,454 @@
+openapi: 3.1.0
+info:
+  title: Viaduct Operator API
+  version: v1
+  description: >
+    Stable Viaduct operator and automation endpoints. This document covers the
+    release-grade API surfaces used by the packaged dashboard, CLI-assisted
+    workflows, and tenant automation. It is additive and may omit internal or
+    less frequently used route variants.
+servers:
+  - url: http://localhost:8080
+paths:
+  /api/v1/health:
+    get:
+      summary: Liveness probe
+      responses:
+        "200":
+          description: API is running
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+  /api/v1/about:
+    get:
+      summary: Build and compatibility metadata
+      responses:
+        "200":
+          description: Current build metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AboutResponse"
+  /api/v1/metrics:
+    get:
+      summary: Prometheus metrics
+      responses:
+        "200":
+          description: Prometheus metrics payload
+          content:
+            text/plain:
+              schema:
+                type: string
+  /api/v1/inventory:
+    get:
+      summary: Latest tenant inventory
+      security:
+        - TenantAPIKey: []
+        - ServiceAccountKey: []
+      parameters:
+        - in: query
+          name: platform
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Latest inventory view
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DiscoveryResult"
+  /api/v1/summary:
+    get:
+      summary: Tenant fleet summary
+      security:
+        - TenantAPIKey: []
+        - ServiceAccountKey: []
+      responses:
+        "200":
+          description: Summary of current tenant state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantSummary"
+  /api/v1/tenants/current:
+    get:
+      summary: Current tenant and effective principal
+      security:
+        - TenantAPIKey: []
+        - ServiceAccountKey: []
+      responses:
+        "200":
+          description: Effective tenant and auth context
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentTenant"
+  /api/v1/service-accounts:
+    get:
+      summary: List tenant service accounts
+      security:
+        - TenantAPIKey: []
+        - ServiceAccountKey: []
+      responses:
+        "200":
+          description: Service accounts for the current tenant
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ServiceAccount"
+    post:
+      summary: Create a tenant service account
+      security:
+        - TenantAPIKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ServiceAccountCreateRequest"
+      responses:
+        "201":
+          description: Service account created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceAccount"
+  /api/v1/service-accounts/{serviceAccountID}/rotate:
+    post:
+      summary: Rotate a tenant service-account API key
+      security:
+        - TenantAPIKey: []
+      parameters:
+        - in: path
+          name: serviceAccountID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                api_key:
+                  type: string
+      responses:
+        "200":
+          description: Service account rotated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceAccount"
+  /api/v1/preflight:
+    post:
+      summary: Run migration preflight checks
+      security:
+        - TenantAPIKey: []
+        - ServiceAccountKey: []
+      requestBody:
+        required: true
+        content:
+          application/x-yaml:
+            schema:
+              type: string
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Preflight report
+          content:
+            application/json:
+              schema:
+                type: object
+  /api/v1/migrations:
+    get:
+      summary: List tenant migrations
+      security:
+        - TenantAPIKey: []
+        - ServiceAccountKey: []
+      responses:
+        "200":
+          description: Migration history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MigrationMeta"
+    post:
+      summary: Create or plan a migration
+      security:
+        - TenantAPIKey: []
+        - ServiceAccountKey: []
+      requestBody:
+        required: true
+        content:
+          application/x-yaml:
+            schema:
+              type: string
+          application/json:
+            schema:
+              type: object
+      responses:
+        "201":
+          description: Migration created
+          content:
+            application/json:
+              schema:
+                type: object
+  /api/v1/migrations/{migrationID}:
+    get:
+      summary: Get migration state
+      security:
+        - TenantAPIKey: []
+        - ServiceAccountKey: []
+      parameters:
+        - in: path
+          name: migrationID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Migration state
+          content:
+            application/json:
+              schema:
+                type: object
+  /api/v1/reports/{name}:
+    get:
+      summary: Export tenant report
+      security:
+        - TenantAPIKey: []
+        - ServiceAccountKey: []
+      parameters:
+        - in: path
+          name: name
+          required: true
+          schema:
+            type: string
+            enum: [summary, migrations, audit]
+        - in: query
+          name: format
+          schema:
+            type: string
+            enum: [json, csv]
+      responses:
+        "200":
+          description: Requested report
+          content:
+            application/json:
+              schema:
+                type: object
+            text/csv:
+              schema:
+                type: string
+components:
+  securitySchemes:
+    TenantAPIKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+    ServiceAccountKey:
+      type: apiKey
+      in: header
+      name: X-Service-Account-Key
+    AdminAPIKey:
+      type: apiKey
+      in: header
+      name: X-Admin-Key
+  schemas:
+    AboutResponse:
+      type: object
+      properties:
+        name:
+          type: string
+        api_version:
+          type: string
+        version:
+          type: string
+        commit:
+          type: string
+        built_at:
+          type: string
+        go_version:
+          type: string
+        plugin_protocol:
+          type: string
+        supported_platforms:
+          type: array
+          items:
+            type: string
+        supported_permissions:
+          type: array
+          items:
+            type: string
+        store_backend:
+          type: string
+        store_schema_version:
+          type: integer
+        persistent_store:
+          type: boolean
+    DiscoveryResult:
+      type: object
+      properties:
+        source:
+          type: string
+        platform:
+          type: string
+        discovered_at:
+          type: string
+          format: date-time
+        vms:
+          type: array
+          items:
+            $ref: "#/components/schemas/VirtualMachine"
+    VirtualMachine:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        platform:
+          type: string
+        power_state:
+          type: string
+        cpu_count:
+          type: integer
+        memory_mb:
+          type: integer
+        guest_os:
+          type: string
+        host:
+          type: string
+    TenantSummary:
+      type: object
+      properties:
+        tenant_id:
+          type: string
+        workload_count:
+          type: integer
+        snapshot_count:
+          type: integer
+        active_migrations:
+          type: integer
+        completed_migrations:
+          type: integer
+        failed_migrations:
+          type: integer
+        pending_approvals:
+          type: integer
+        recommendation_count:
+          type: integer
+        quotas:
+          $ref: "#/components/schemas/TenantQuota"
+    TenantQuota:
+      type: object
+      properties:
+        requests_per_minute:
+          type: integer
+        max_snapshots:
+          type: integer
+        max_migrations:
+          type: integer
+    CurrentTenant:
+      type: object
+      properties:
+        tenant_id:
+          type: string
+        name:
+          type: string
+        active:
+          type: boolean
+        quotas:
+          $ref: "#/components/schemas/TenantQuota"
+        role:
+          type: string
+        permissions:
+          type: array
+          items:
+            type: string
+        auth_method:
+          type: string
+        service_account_id:
+          type: string
+        service_account_name:
+          type: string
+        service_account_count:
+          type: integer
+    ServiceAccountCreateRequest:
+      type: object
+      required: [name]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        api_key:
+          type: string
+        role:
+          type: string
+        permissions:
+          type: array
+          items:
+            type: string
+        active:
+          type: boolean
+        expires_at:
+          type: string
+          format: date-time
+    ServiceAccount:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        api_key:
+          type: string
+        role:
+          type: string
+        permissions:
+          type: array
+          items:
+            type: string
+        active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        last_rotated_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+    MigrationMeta:
+      type: object
+      properties:
+        id:
+          type: string
+        spec_name:
+          type: string
+        phase:
+          type: string
+        started_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time

@@ -4,12 +4,37 @@ This directory contains reference deployment assets for evaluating or packaging 
 
 ## Contents
 
-- `docker-compose.yml`: single-host deployment for API and bundled dashboard assets
-- `systemd/viaduct.service`: service unit for Linux package installs
-- `kubernetes/`: reference manifests for a basic in-cluster API deployment
+- `docker-compose.yml`: single-host deployment for the API and bundled dashboard assets
+- `viaduct.env.example`: example environment file for Compose and pilot installs
+- `systemd/viaduct.service`: hardened service unit for Linux package installs
+- `kubernetes/`: reference manifests for a basic in-cluster API deployment with probes and secret-based admin auth
+
+## Docker Compose
+
+```bash
+mkdir -p examples/deploy/config
+cp configs/config.example.yaml examples/deploy/config/config.yaml
+docker build -t viaduct:latest .
+docker compose -f examples/deploy/docker-compose.yml up
+```
+
+The Compose stack expects `examples/deploy/config/config.yaml` and reads environment overrides from `examples/deploy/viaduct.env.example`.
+
+## systemd
+
+Use `systemd/viaduct.service` as a starting point for package-based installs. The unit expects:
+- the `viaduct` binary to be in `/usr/local/bin`
+- a config file at `/etc/viaduct/config.yaml`
+- an optional environment file at `/etc/viaduct/viaduct.env`
+- persistent writable state under `/var/lib/viaduct`
+
+## Kubernetes
+
+See [kubernetes/README.md](kubernetes/README.md) for apply order and manifest notes.
 
 ## Notes
 
 - These examples are intended for evaluation and controlled internal environments.
 - Persistent environments should point `state_store_dsn` at PostgreSQL instead of using the in-memory store.
 - The bundled dashboard is built into the release package; the Vite dev server is not part of these deployment examples.
+- Treat the manifests here as pilot-ready references, not turnkey production hardening.

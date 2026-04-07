@@ -123,6 +123,22 @@ func RequireTenantRole(required models.TenantRole, next http.Handler) http.Handl
 	})
 }
 
+// RequireTenantPermission enforces a tenant-scoped capability for a request.
+func RequireTenantPermission(required models.TenantPermission, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		principal, err := RequirePrincipal(r.Context())
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusUnauthorized)
+			return
+		}
+		if !principalAllowsPermission(*principal, required) {
+			http.Error(w, fmt.Sprintf("tenant principal cannot access %q", required), http.StatusForbidden)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 // AdminAuthMiddleware authenticates administrative API requests.
 func AdminAuthMiddleware(adminAPIKey string, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -239,6 +255,10 @@ func serviceAccountUsable(account models.ServiceAccount, now time.Time) bool {
 
 func withPrincipal(ctx context.Context, principal AuthenticatedPrincipal) context.Context {
 	tenant := cloneTenant(principal.Tenant)
+	if scope := requestScopeFromContext(ctx); scope != nil {
+		scope.tenantID = tenant.ID
+		scope.authMethod = principal.AuthMethod
+	}
 	ctx = store.ContextWithTenantID(ctx, tenant.ID)
 	ctx = context.WithValue(ctx, tenantContextKey{}, tenant)
 	return context.WithValue(ctx, principalContextKey{}, principal)
@@ -259,9 +279,27 @@ func cloneServiceAccounts(accounts []models.ServiceAccount) []models.ServiceAcco
 	for _, account := range accounts {
 		item := account
 		item.Metadata = copyStringMap(account.Metadata)
+		if len(account.Permissions) > 0 {
+			item.Permissions = append([]models.TenantPermission(nil), account.Permissions...)
+		}
 		cloned = append(cloned, item)
 	}
 	return cloned
+}
+
+func principalAllowsPermission(principal AuthenticatedPrincipal, permission models.TenantPermission) bool {
+	if !permission.Valid() {
+		return false
+	}
+	if principal.ServiceAccount != nil {
+		return principal.ServiceAccount.Allows(permission)
+	}
+	for _, granted := range principal.Role.DefaultPermissions() {
+		if granted == permission {
+			return true
+		}
+	}
+	return false
 }
 
 func copyStringMap(input map[string]string) map[string]string {

@@ -344,4 +344,10 @@ func TestServer_HandleAbout_ReturnsBuildInfo_Expected(t *testing.T) {
 	if len(response.SupportedPlatforms) == 0 {
 		t.Fatal("SupportedPlatforms is empty")
 	}
+	if response.StoreBackend != "memory" || response.PersistentStore {
+		t.Fatalf("unexpected store diagnostics: %#v", response)
+	}
+	if len(response.SupportedPermissions) == 0 {
+		t.Fatal("SupportedPermissions is empty")
+	}
 }

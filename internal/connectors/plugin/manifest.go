@@ -82,6 +82,11 @@ func ValidateManifest(manifest *Manifest) error {
 	return nil
 }
 
+// ValidateManifestCompatibility validates plugin compatibility markers against the supplied Viaduct host version.
+func ValidateManifestCompatibility(manifest *Manifest, hostVersion string) error {
+	return manifestSupportsHost(manifest, hostVersion)
+}
+
 func manifestSupportsHost(manifest *Manifest, hostVersion string) error {
 	if manifest == nil {
 		return nil

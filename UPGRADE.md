@@ -13,6 +13,7 @@ This document is the top-level upgrade entrypoint. For the detailed operational 
 ## Upgrade Notes
 - Viaduct's PostgreSQL backend handles additive schema initialization and compatibility updates on startup.
 - Keep tenant-scoped migration and recovery-point data intact; do not manually rewrite tenant keys.
+- Validate `/api/v1/about` after startup so the reported store backend and schema version match the expected deployment state.
 - If you have active migrations, finish or intentionally pause them before upgrading.
 
 ## Rollback

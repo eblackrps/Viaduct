@@ -4,9 +4,19 @@ All notable changes to Viaduct should be documented in this file.
 
 This changelog tracks published releases and the major implementation milestones that shaped the current repository state.
 
-## Unreleased
+## [1.3.0] - 2026-04-07
 
-- no unreleased changes currently tracked
+### Tenant Isolation And Operability
+- added tenant-scoped permission enforcement and richer tenant introspection for service-account automation
+- added store diagnostics, API build metadata, and operational metrics/reporting surfaces
+
+### Backup And Plugin Ecosystem
+- added backup continuity and backup-policy drift validation for post-migration portability checks
+- added plugin manifest validation tooling and a release-facing plugin certification guide
+
+### Release And Deployment Experience
+- added OpenAPI contract checks to the release workflow and published the stable operator contract reference
+- hardened deployment references for Docker Compose, systemd, and Kubernetes pilots
 
 ## [1.2.0] - 2026-04-07
 

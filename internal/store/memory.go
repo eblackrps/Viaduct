@@ -559,6 +559,14 @@ func (s *MemoryStore) Close() error {
 	return nil
 }
 
+// Diagnostics returns backend metadata for the in-memory store.
+func (s *MemoryStore) Diagnostics(ctx context.Context) (Diagnostics, error) {
+	return Diagnostics{
+		Backend:    "memory",
+		Persistent: false,
+	}, nil
+}
+
 func (s *MemoryStore) ensureTenantLocked(tenantID string) (models.Tenant, error) {
 	if tenant, ok := s.tenants[tenantID]; ok {
 		return tenant, nil
@@ -654,6 +662,9 @@ func cloneServiceAccounts(accounts []models.ServiceAccount) []models.ServiceAcco
 	for _, account := range accounts {
 		item := account
 		item.Metadata = copyStringMap(account.Metadata)
+		if len(account.Permissions) > 0 {
+			item.Permissions = append([]models.TenantPermission(nil), account.Permissions...)
+		}
 		cloned = append(cloned, item)
 	}
 	return cloned
@@ -673,11 +684,23 @@ func normalizeTenant(tenant models.Tenant) models.Tenant {
 		tenant.Settings = make(map[string]string)
 	}
 	for index := range tenant.ServiceAccounts {
+		if tenant.ServiceAccounts[index].Role == "" {
+			tenant.ServiceAccounts[index].Role = models.TenantRoleViewer
+		}
 		if tenant.ServiceAccounts[index].CreatedAt.IsZero() {
 			tenant.ServiceAccounts[index].CreatedAt = tenant.CreatedAt
 		}
 		if tenant.ServiceAccounts[index].Metadata == nil {
 			tenant.ServiceAccounts[index].Metadata = make(map[string]string)
+		}
+		if len(tenant.ServiceAccounts[index].Permissions) > 0 {
+			permissions := make([]models.TenantPermission, 0, len(tenant.ServiceAccounts[index].Permissions))
+			for _, permission := range tenant.ServiceAccounts[index].Permissions {
+				if permission.Valid() {
+					permissions = append(permissions, permission)
+				}
+			}
+			tenant.ServiceAccounts[index].Permissions = permissions
 		}
 	}
 	return tenant

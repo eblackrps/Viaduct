@@ -12,7 +12,28 @@ import (
 	_ "github.com/lib/pq"
 )
 
+const currentStoreSchemaVersion = 5
+
+type storeSchemaVersion struct {
+	version     int
+	description string
+}
+
+var storeSchemaHistory = []storeSchemaVersion{
+	{version: 1, description: "initial tenant, snapshot, migration, and recovery-point schema"},
+	{version: 2, description: "tenant-scoped migration and recovery-point identifiers"},
+	{version: 3, description: "tenant-scoped audit event history"},
+	{version: 4, description: "tenant quotas and service-account metadata"},
+	{version: 5, description: "schema version tracking and operator diagnostics"},
+}
+
 const createStoreSchemaSQL = `
+CREATE TABLE IF NOT EXISTS schema_migrations (
+	version INTEGER PRIMARY KEY,
+	description TEXT NOT NULL,
+	applied_at TIMESTAMPTZ NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS tenants (
 	id TEXT PRIMARY KEY,
 	name TEXT NOT NULL,
@@ -127,6 +148,10 @@ func NewPostgresStore(ctx context.Context, dsn string) (*PostgresStore, error) {
 	if _, err := db.ExecContext(ctx, createStoreSchemaSQL); err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("postgres store: run migrations: %w", err)
+	}
+	if err := recordStoreSchemaHistory(ctx, db); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("postgres store: record schema history: %w", err)
 	}
 
 	return &PostgresStore{db: db}, nil
@@ -660,6 +685,24 @@ func (s *PostgresStore) Close() error {
 	return s.db.Close()
 }
 
+// Diagnostics returns backend metadata for the PostgreSQL store.
+func (s *PostgresStore) Diagnostics(ctx context.Context) (Diagnostics, error) {
+	if s == nil || s.db == nil {
+		return Diagnostics{}, fmt.Errorf("postgres store: diagnostics: database is not configured")
+	}
+
+	var version int
+	if err := s.db.QueryRowContext(ctx, `SELECT COALESCE(MAX(version), 0) FROM schema_migrations`).Scan(&version); err != nil {
+		return Diagnostics{}, fmt.Errorf("postgres store: diagnostics: query schema version: %w", err)
+	}
+
+	return Diagnostics{
+		Backend:       "postgres",
+		SchemaVersion: version,
+		Persistent:    true,
+	}, nil
+}
+
 // SaveAuditEvent persists a tenant-scoped audit event to PostgreSQL.
 func (s *PostgresStore) SaveAuditEvent(ctx context.Context, event models.AuditEvent) error {
 	event.TenantID = normalizeTenantID(event.TenantID)
@@ -854,4 +897,23 @@ func nullTime(value time.Time) interface{} {
 	}
 
 	return value
+}
+
+func recordStoreSchemaHistory(ctx context.Context, db *sql.DB) error {
+	if len(storeSchemaHistory) == 0 || storeSchemaHistory[len(storeSchemaHistory)-1].version != currentStoreSchemaVersion {
+		return fmt.Errorf("store schema history is out of sync with current schema version %d", currentStoreSchemaVersion)
+	}
+	for _, item := range storeSchemaHistory {
+		if _, err := db.ExecContext(
+			ctx,
+			`INSERT INTO schema_migrations (version, description, applied_at)
+			 VALUES ($1, $2, NOW())
+			 ON CONFLICT (version) DO NOTHING`,
+			item.version,
+			item.description,
+		); err != nil {
+			return err
+		}
+	}
+	return nil
 }

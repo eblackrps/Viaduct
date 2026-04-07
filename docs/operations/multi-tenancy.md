@@ -13,6 +13,16 @@ Viaduct's API and store layers are tenant-scoped. Tenant isolation should be tre
 - `operator`: viewer access plus preflight, simulation, planning, execution, resume, and rollback routes
 - `admin`: full tenant-scoped access including service-account administration
 
+## Tenant Permissions
+- `inventory.read`: inventory, graph, and snapshot routes
+- `reports.read`: audit and reporting routes
+- `lifecycle.read`: cost, policy, drift, remediation, and summary routes
+- `migration.manage`: preflight, planning, execution, resume, rollback, and simulation routes
+- `tenant.read`: current-tenant introspection
+- `tenant.manage`: service-account administration
+
+Service accounts inherit their role defaults unless an explicit permission list is supplied. Explicit permissions let you scope automation more narrowly than the broad viewer/operator/admin presets.
+
 ## Service Accounts
 - `GET /api/v1/tenants/current` returns the effective tenant context, role, quotas, and auth method without leaking API keys
 - `GET /api/v1/service-accounts` lists existing tenant service accounts
@@ -20,11 +30,29 @@ Viaduct's API and store layers are tenant-scoped. Tenant isolation should be tre
 - `POST /api/v1/service-accounts/<service-account-id>/rotate` rotates a service-account API key
 - Service-account list responses intentionally redact API keys; create and rotate responses return the new key once
 
+Example scoped operator service account:
+
+```json
+{
+  "name": "migration-bot",
+  "role": "operator",
+  "permissions": [
+    "inventory.read",
+    "migration.manage",
+    "tenant.read"
+  ],
+  "metadata": {
+    "owner": "platform-team"
+  }
+}
+```
+
 ## Quotas
 - Tenants can define `requests_per_minute`, `max_snapshots`, and `max_migrations`
 - request quotas feed the API rate limiter
 - snapshot and migration quotas are enforced by the shared store, so CLI, API, and background workflows see the same limit behavior
 - tenant summaries expose remaining snapshot and migration quota headroom when configured
+- `/api/v1/metrics` exports tenant-scoped workload, snapshot, service-account, migration, and quota visibility for operators
 
 ## Key Routes
 - `GET /api/v1/inventory`

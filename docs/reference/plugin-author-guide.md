@@ -44,7 +44,7 @@ Example manifest:
   "platform": "example",
   "version": "1.0.0",
   "protocol_version": "v1",
-  "minimum_viaduct_version": "v1.2.0"
+  "minimum_viaduct_version": "v1.0.0"
 }
 ```
 
@@ -73,6 +73,14 @@ plugins:
 - discovery returns normalized VMs and metadata
 - shutdown path is safe
 - regression tests cover unhealthy plugin, empty platform, config propagation, and nil discovery results
+
+Run the manifest validator directly:
+
+```bash
+go run ./scripts/plugin_manifest_check -manifest examples/plugin-example/plugin.json -host-version <viaduct-version>
+```
+
+For the broader checklist and release-facing expectations, see [plugin-certification.md](plugin-certification.md).
 
 ## Developer Tips
 - keep fixture payloads close to the connector package

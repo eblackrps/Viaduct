@@ -194,6 +194,82 @@ func TestRequireTenantRole_ViewerDeniedOperatorRoute_Expected(t *testing.T) {
 	}
 }
 
+func TestRequireTenantPermission_ServiceAccountExplicitScopeDenied_Expected(t *testing.T) {
+	t.Parallel()
+
+	stateStore := newTenantTestStore(t)
+	if err := stateStore.UpdateTenant(context.Background(), models.Tenant{
+		ID:     "tenant-a",
+		Name:   "Tenant A",
+		APIKey: "tenant-a-key",
+		Active: true,
+		ServiceAccounts: []models.ServiceAccount{
+			{
+				ID:          "sa-inventory",
+				Name:        "Inventory Only",
+				APIKey:      "inventory-key",
+				Role:        models.TenantRoleAdmin,
+				Permissions: []models.TenantPermission{models.TenantPermissionInventoryRead},
+				Active:      true,
+				CreatedAt:   time.Now().UTC(),
+			},
+		},
+	}); err != nil {
+		t.Fatalf("UpdateTenant() error = %v", err)
+	}
+
+	handler := TenantAuthMiddleware(stateStore, RequireTenantPermission(models.TenantPermissionMigrationManage, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	})))
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/migrations", nil)
+	req.Header.Set(serviceAccountAPIKeyHeader, "inventory-key")
+	recorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(recorder, req)
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusForbidden)
+	}
+}
+
+func TestRequireTenantPermission_ServiceAccountExplicitScopeAllows_Expected(t *testing.T) {
+	t.Parallel()
+
+	stateStore := newTenantTestStore(t)
+	if err := stateStore.UpdateTenant(context.Background(), models.Tenant{
+		ID:     "tenant-a",
+		Name:   "Tenant A",
+		APIKey: "tenant-a-key",
+		Active: true,
+		ServiceAccounts: []models.ServiceAccount{
+			{
+				ID:          "sa-reports",
+				Name:        "Reports",
+				APIKey:      "reports-key",
+				Role:        models.TenantRoleViewer,
+				Permissions: []models.TenantPermission{models.TenantPermissionReportsRead},
+				Active:      true,
+				CreatedAt:   time.Now().UTC(),
+			},
+		},
+	}); err != nil {
+		t.Fatalf("UpdateTenant() error = %v", err)
+	}
+
+	handler := TenantAuthMiddleware(stateStore, RequireTenantPermission(models.TenantPermissionReportsRead, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	})))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/reports/audit", nil)
+	req.Header.Set(serviceAccountAPIKeyHeader, "reports-key")
+	recorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(recorder, req)
+	if recorder.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusNoContent)
+	}
+}
+
 func newTenantTestStore(t *testing.T) store.Store {
 	t.Helper()
 

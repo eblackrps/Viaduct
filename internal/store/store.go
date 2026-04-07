@@ -69,6 +69,22 @@ type Store interface {
 	Close() error
 }
 
+// Diagnostics summarizes operator-visible details about the active state store.
+type Diagnostics struct {
+	// Backend identifies the store implementation, such as memory or postgres.
+	Backend string `json:"backend" yaml:"backend"`
+	// SchemaVersion reports the latest applied schema version when the backend persists versioned metadata.
+	SchemaVersion int `json:"schema_version,omitempty" yaml:"schema_version,omitempty"`
+	// Persistent reports whether the backend survives process restarts.
+	Persistent bool `json:"persistent" yaml:"persistent"`
+}
+
+// DiagnosticsProvider is implemented by stores that expose operator-visible backend metadata.
+type DiagnosticsProvider interface {
+	// Diagnostics returns backend metadata suitable for API about and troubleshooting output.
+	Diagnostics(ctx context.Context) (Diagnostics, error)
+}
+
 // SnapshotMeta summarizes a persisted discovery snapshot.
 type SnapshotMeta struct {
 	// ID is the snapshot identifier.

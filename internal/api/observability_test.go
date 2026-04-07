@@ -43,6 +43,35 @@ func TestServer_WithObservability_AddsRequestIDAndMetrics_Expected(t *testing.T)
 	}
 }
 
+func TestServer_WithObservability_CapturesAuthenticatedTenantScope_Expected(t *testing.T) {
+	t.Parallel()
+
+	stateStore := newTenantTestStore(t)
+	server := NewServer(nil, stateStore, 0, nil)
+	handler := server.withObservability(TenantAuthMiddleware(stateStore, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		scope := requestScopeFromContext(r.Context())
+		if scope == nil {
+			t.Fatal("request scope missing from context")
+		}
+		if scope.tenantID != "tenant-a" {
+			t.Fatalf("scope.tenantID = %q, want tenant-a", scope.tenantID)
+		}
+		if scope.authMethod != "tenant-api-key" {
+			t.Fatalf("scope.authMethod = %q, want tenant-api-key", scope.authMethod)
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/inventory", nil)
+	req.Header.Set(tenantAPIKeyHeader, "tenant-a-key")
+	recorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(recorder, req)
+	if recorder.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusNoContent)
+	}
+}
+
 func TestTenantRateLimitMiddleware_LimitExceeded_ReturnsTooManyRequests(t *testing.T) {
 	t.Parallel()
 
@@ -91,5 +120,72 @@ func TestTenantRateLimitMiddleware_UsesTenantQuotaOverride_Expected(t *testing.T
 		if recorder.Code != expectedStatus {
 			t.Fatalf("request %d status = %d, want %d", idx, recorder.Code, expectedStatus)
 		}
+	}
+}
+
+func TestServer_HandleMetrics_OperationalMetricsIncluded_Expected(t *testing.T) {
+	t.Parallel()
+
+	stateStore := store.NewMemoryStore()
+	if err := stateStore.CreateTenant(context.Background(), models.Tenant{
+		ID:     "tenant-a",
+		Name:   "Tenant A",
+		APIKey: "tenant-a-key",
+		Active: true,
+		Quotas: models.TenantQuota{
+			MaxSnapshots:  3,
+			MaxMigrations: 4,
+		},
+		ServiceAccounts: []models.ServiceAccount{
+			{
+				ID:        "sa-1",
+				Name:      "Automation",
+				APIKey:    "sa-1-key",
+				Role:      models.TenantRoleOperator,
+				Active:    true,
+				CreatedAt: time.Now().UTC(),
+			},
+		},
+	}); err != nil {
+		t.Fatalf("CreateTenant() error = %v", err)
+	}
+	if _, err := stateStore.SaveDiscovery(context.Background(), "tenant-a", &models.DiscoveryResult{
+		Source:       "tenant-a-source",
+		Platform:     models.PlatformVMware,
+		DiscoveredAt: time.Now().UTC(),
+	}); err != nil {
+		t.Fatalf("SaveDiscovery() error = %v", err)
+	}
+	if err := stateStore.SaveMigration(context.Background(), "tenant-a", store.MigrationRecord{
+		ID:        "migration-1",
+		TenantID:  "tenant-a",
+		SpecName:  "metrics",
+		Phase:     "complete",
+		StartedAt: time.Now().UTC(),
+		UpdatedAt: time.Now().UTC(),
+	}); err != nil {
+		t.Fatalf("SaveMigration() error = %v", err)
+	}
+
+	server := NewServer(nil, stateStore, 0, nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/metrics", nil)
+	recorder := httptest.NewRecorder()
+
+	server.handleMetrics(recorder, req)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusOK)
+	}
+	body := recorder.Body.String()
+	if !strings.Contains(body, `viaduct_store_info{backend="memory",persistent="false"} 1`) {
+		t.Fatalf("metrics missing store info: %s", body)
+	}
+	if !strings.Contains(body, `viaduct_tenant_service_accounts{tenant="tenant-a"} 1`) {
+		t.Fatalf("metrics missing service-account gauge: %s", body)
+	}
+	if !strings.Contains(body, `viaduct_tenant_quota_remaining{tenant="tenant-a",resource="snapshots"} 2`) {
+		t.Fatalf("metrics missing snapshot quota gauge: %s", body)
+	}
+	if !strings.Contains(body, `viaduct_tenant_migrations{tenant="tenant-a",phase="complete"} 1`) {
+		t.Fatalf("metrics missing migration phase gauge: %s", body)
 	}
 }

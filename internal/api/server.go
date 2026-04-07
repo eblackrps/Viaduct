@@ -63,14 +63,18 @@ type buildInfo struct {
 }
 
 type aboutResponse struct {
-	Name               string            `json:"name"`
-	APIVersion         string            `json:"api_version"`
-	Version            string            `json:"version"`
-	Commit             string            `json:"commit"`
-	BuiltAt            string            `json:"built_at"`
-	GoVersion          string            `json:"go_version"`
-	PluginProtocol     string            `json:"plugin_protocol"`
-	SupportedPlatforms []models.Platform `json:"supported_platforms"`
+	Name                 string                    `json:"name"`
+	APIVersion           string                    `json:"api_version"`
+	Version              string                    `json:"version"`
+	Commit               string                    `json:"commit"`
+	BuiltAt              string                    `json:"built_at"`
+	GoVersion            string                    `json:"go_version"`
+	PluginProtocol       string                    `json:"plugin_protocol"`
+	SupportedPlatforms   []models.Platform         `json:"supported_platforms"`
+	SupportedPermissions []models.TenantPermission `json:"supported_permissions"`
+	StoreBackend         string                    `json:"store_backend"`
+	StoreSchemaVersion   int                       `json:"store_schema_version,omitempty"`
+	PersistentStore      bool                      `json:"persistent_store"`
 }
 
 // Server serves Viaduct REST API endpoints for discovery, migration, and lifecycle workflows.
@@ -170,24 +174,27 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.Handle("/api/v1/admin/tenants/", AdminAuthMiddleware(s.adminAPIKey, http.HandlerFunc(s.handleAdminTenantByID)))
 
 	tenantMux := http.NewServeMux()
-	tenantMux.Handle("/api/v1/inventory", RequireTenantRole(models.TenantRoleViewer, http.HandlerFunc(s.handleInventory)))
-	tenantMux.Handle("/api/v1/audit", RequireTenantRole(models.TenantRoleViewer, http.HandlerFunc(s.handleAudit)))
-	tenantMux.Handle("/api/v1/snapshots", RequireTenantRole(models.TenantRoleViewer, http.HandlerFunc(s.handleSnapshots)))
-	tenantMux.Handle("/api/v1/snapshots/", RequireTenantRole(models.TenantRoleViewer, http.HandlerFunc(s.handleSnapshotByID)))
-	tenantMux.Handle("/api/v1/graph", RequireTenantRole(models.TenantRoleViewer, http.HandlerFunc(s.handleGraph)))
-	tenantMux.Handle("/api/v1/preflight", RequireTenantRole(models.TenantRoleOperator, http.HandlerFunc(s.handlePreflight)))
-	tenantMux.Handle("/api/v1/migrations", RequireTenantRole(models.TenantRoleOperator, http.HandlerFunc(s.handleMigrations)))
-	tenantMux.Handle("/api/v1/migrations/", RequireTenantRole(models.TenantRoleOperator, http.HandlerFunc(s.handleMigrationByID)))
-	tenantMux.Handle("/api/v1/costs", RequireTenantRole(models.TenantRoleViewer, http.HandlerFunc(s.handleCosts)))
-	tenantMux.Handle("/api/v1/policies", RequireTenantRole(models.TenantRoleViewer, http.HandlerFunc(s.handlePolicies)))
-	tenantMux.Handle("/api/v1/drift", RequireTenantRole(models.TenantRoleViewer, http.HandlerFunc(s.handleDrift)))
-	tenantMux.Handle("/api/v1/remediation", RequireTenantRole(models.TenantRoleViewer, http.HandlerFunc(s.handleRemediation)))
-	tenantMux.Handle("/api/v1/simulation", RequireTenantRole(models.TenantRoleOperator, http.HandlerFunc(s.handleSimulation)))
-	tenantMux.Handle("/api/v1/summary", RequireTenantRole(models.TenantRoleViewer, http.HandlerFunc(s.handleSummary)))
-	tenantMux.Handle("/api/v1/reports/", RequireTenantRole(models.TenantRoleViewer, http.HandlerFunc(s.handleReports)))
-	tenantMux.Handle("/api/v1/tenants/current", RequireTenantRole(models.TenantRoleViewer, http.HandlerFunc(s.handleCurrentTenant)))
-	tenantMux.Handle("/api/v1/service-accounts", RequireTenantRole(models.TenantRoleAdmin, http.HandlerFunc(s.handleServiceAccounts)))
-	tenantMux.Handle("/api/v1/service-accounts/", RequireTenantRole(models.TenantRoleAdmin, http.HandlerFunc(s.handleServiceAccountByID)))
+	tenantRoute := func(requiredRole models.TenantRole, requiredPermission models.TenantPermission, handler http.HandlerFunc) http.Handler {
+		return RequireTenantRole(requiredRole, RequireTenantPermission(requiredPermission, handler))
+	}
+	tenantMux.Handle("/api/v1/inventory", tenantRoute(models.TenantRoleViewer, models.TenantPermissionInventoryRead, s.handleInventory))
+	tenantMux.Handle("/api/v1/audit", tenantRoute(models.TenantRoleViewer, models.TenantPermissionReportsRead, s.handleAudit))
+	tenantMux.Handle("/api/v1/snapshots", tenantRoute(models.TenantRoleViewer, models.TenantPermissionInventoryRead, s.handleSnapshots))
+	tenantMux.Handle("/api/v1/snapshots/", tenantRoute(models.TenantRoleViewer, models.TenantPermissionInventoryRead, s.handleSnapshotByID))
+	tenantMux.Handle("/api/v1/graph", tenantRoute(models.TenantRoleViewer, models.TenantPermissionInventoryRead, s.handleGraph))
+	tenantMux.Handle("/api/v1/preflight", tenantRoute(models.TenantRoleOperator, models.TenantPermissionMigrationManage, s.handlePreflight))
+	tenantMux.Handle("/api/v1/migrations", tenantRoute(models.TenantRoleOperator, models.TenantPermissionMigrationManage, s.handleMigrations))
+	tenantMux.Handle("/api/v1/migrations/", tenantRoute(models.TenantRoleOperator, models.TenantPermissionMigrationManage, s.handleMigrationByID))
+	tenantMux.Handle("/api/v1/costs", tenantRoute(models.TenantRoleViewer, models.TenantPermissionLifecycleRead, s.handleCosts))
+	tenantMux.Handle("/api/v1/policies", tenantRoute(models.TenantRoleViewer, models.TenantPermissionLifecycleRead, s.handlePolicies))
+	tenantMux.Handle("/api/v1/drift", tenantRoute(models.TenantRoleViewer, models.TenantPermissionLifecycleRead, s.handleDrift))
+	tenantMux.Handle("/api/v1/remediation", tenantRoute(models.TenantRoleViewer, models.TenantPermissionLifecycleRead, s.handleRemediation))
+	tenantMux.Handle("/api/v1/simulation", tenantRoute(models.TenantRoleOperator, models.TenantPermissionMigrationManage, s.handleSimulation))
+	tenantMux.Handle("/api/v1/summary", tenantRoute(models.TenantRoleViewer, models.TenantPermissionLifecycleRead, s.handleSummary))
+	tenantMux.Handle("/api/v1/reports/", tenantRoute(models.TenantRoleViewer, models.TenantPermissionReportsRead, s.handleReports))
+	tenantMux.Handle("/api/v1/tenants/current", tenantRoute(models.TenantRoleViewer, models.TenantPermissionTenantRead, s.handleCurrentTenant))
+	tenantMux.Handle("/api/v1/service-accounts", tenantRoute(models.TenantRoleAdmin, models.TenantPermissionTenantManage, s.handleServiceAccounts))
+	tenantMux.Handle("/api/v1/service-accounts/", tenantRoute(models.TenantRoleAdmin, models.TenantPermissionTenantManage, s.handleServiceAccountByID))
 
 	tenantHandler := TenantAuthMiddleware(s.store, TenantRateLimitMiddleware(s.rateLimiter, tenantMux))
 	mux.Handle("/api/v1/inventory", tenantHandler)
@@ -244,15 +251,29 @@ func (s *Server) handleAbout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	diagnostics := store.Diagnostics{
+		Backend:    "unknown",
+		Persistent: false,
+	}
+	if provider, ok := s.store.(store.DiagnosticsProvider); ok {
+		if reported, err := provider.Diagnostics(r.Context()); err == nil {
+			diagnostics = reported
+		}
+	}
+
 	writeJSON(w, http.StatusOK, aboutResponse{
-		Name:               "Viaduct",
-		APIVersion:         "v1",
-		Version:            s.build.version,
-		Commit:             s.build.commit,
-		BuiltAt:            s.build.date,
-		GoVersion:          runtime.Version(),
-		PluginProtocol:     pluginhost.ProtocolVersion,
-		SupportedPlatforms: s.supportedPlatforms(),
+		Name:                 "Viaduct",
+		APIVersion:           "v1",
+		Version:              s.build.version,
+		Commit:               s.build.commit,
+		BuiltAt:              s.build.date,
+		GoVersion:            runtime.Version(),
+		PluginProtocol:       pluginhost.ProtocolVersion,
+		SupportedPlatforms:   s.supportedPlatforms(),
+		SupportedPermissions: models.TenantRoleAdmin.DefaultPermissions(),
+		StoreBackend:         diagnostics.Backend,
+		StoreSchemaVersion:   diagnostics.SchemaVersion,
+		PersistentStore:      diagnostics.Persistent,
 	})
 }
 

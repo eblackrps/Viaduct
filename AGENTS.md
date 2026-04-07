@@ -21,6 +21,7 @@ Connectors: vmware/ (govmomi), proxmox/ (REST), hyperv/ (WinRM/PowerShell), kvm/
 - The KVM connector supports a real libvirt-backed implementation behind the `libvirt` build tag; the default build keeps an XML-backed fallback so the repo remains portable on machines without libvirt development tooling.
 - Community plugins are loaded through `internal/connectors/plugin/`, which exposes a gRPC-based plugin host and a sample plugin under `examples/plugin-example/`.
 - Plugin manifests may optionally declare `minimum_viaduct_version` and `maximum_viaduct_version` so host/plugin compatibility stays explicit once releases are published.
+- Use `scripts/plugin_manifest_check` and the guidance in `docs/reference/plugin-certification.md` when changing manifest compatibility rules or reference plugins.
 ## Code Standards
 - Run golangci-lint before committing. Config in .golangci.yml.
 - All exported functions require doc comments.
@@ -118,8 +119,10 @@ Scopes: cli, discovery, vmware, proxmox, hyperv, kvm, nutanix, migrate, deps, li
 - Release verification should exercise packaging as well as builds and tests. If packaging breaks, the release is not ready even if `go build` passes.
 - Plugin executable launches now expect a `plugin.json` sidecar manifest with name, platform, version, and protocol version metadata. Keep the manifest aligned with the plugin’s reported platform.
 - Release bundles now include a machine-readable `dependency-manifest.json` alongside the release manifest and checksums. Treat it as part of the public artifact contract.
+- `docs/reference/openapi.yaml` is now part of the public operator contract. Stable API route changes should update the spec and keep `make contract-check` green in the same change.
 - Tenant-scoped audit, reporting, and request-correlation behavior are part of the operator surface. Changes to those routes should update both the API docs and troubleshooting guidance.
 - Tenant automation should prefer service accounts over shared tenant API keys. Viewer, operator, and admin roles are part of the tenant isolation model and should stay explicit in API routing.
+- Service-account permissions are now first-class alongside roles. Narrow explicit permissions are preferred for automation rather than over-granting an operator or admin role.
 - The API route `/api/v1/about` is the canonical operator-visible build metadata surface for packaged environments and should stay aligned with CLI version output and release manifests.
 - Migration `credential_ref` handling is operator-visible behavior. If it changes, update `configs/config.example.yaml` and the configuration docs in the same change.
 - Treat install, upgrade, and rollback documentation as operational code. Broken runbooks are production bugs.
@@ -127,6 +130,8 @@ Scopes: cli, discovery, vmware, proxmox, hyperv, kvm, nutanix, migrate, deps, li
 - Discovery is implemented for VMware, Proxmox, Hyper-V, KVM, and Nutanix, with Veeam available for backup and restore-point enrichment plus portability planning.
 - `internal/migrate/` includes declarative spec parsing, workload matching, pre-flight checks, execution windows, approval gates, wave planning, resumable checkpoints, disk conversion, cold and warm migration orchestration, replication progress tracking, boot verification, cutover coordination, and rollback support.
 - `internal/lifecycle/` provides cost modeling, policy evaluation/simulation, waiver-aware remediation guidance, and drift detection backed by sample cost profiles and policy definitions under `configs/`.
-- `internal/store/` persists discovery snapshots, migration state, recovery points, and tenant metadata in both in-memory and PostgreSQL backends, including tenant quotas and service-account definitions.
+- `internal/store/` persists discovery snapshots, migration state, recovery points, and tenant metadata in both in-memory and PostgreSQL backends, including tenant quotas, service-account definitions, and backend diagnostics.
 - The Go API server and React dashboard are both present, and `web/` builds into production static assets with inventory, migration, history, dependency-graph, tenant summary, runbook, and lifecycle remediation views.
+- The API now exposes tenant-scoped metrics, build metadata, service-account permission introspection, and a published OpenAPI reference under `docs/reference/openapi.yaml`.
+- Veeam portability now includes post-migration continuity and backup-policy drift validation in addition to planning, execution, and rollback cleanup.
 - Integration coverage includes discovery, cold migration, scheduled-window pre-flight gating, migration resume after interruption, warm migration resume, cutover rollback on boot failure, tenant isolation under concurrent access, lifecycle recommendation/simulation flows, plugin crash handling, and backup portability workflows.

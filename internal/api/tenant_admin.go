@@ -14,14 +14,15 @@ import (
 )
 
 type serviceAccountCreateRequest struct {
-	ID          string            `json:"id"`
-	Name        string            `json:"name"`
-	Description string            `json:"description,omitempty"`
-	APIKey      string            `json:"api_key,omitempty"`
-	Role        models.TenantRole `json:"role,omitempty"`
-	Active      *bool             `json:"active,omitempty"`
-	ExpiresAt   time.Time         `json:"expires_at,omitempty"`
-	Metadata    map[string]string `json:"metadata,omitempty"`
+	ID          string                    `json:"id"`
+	Name        string                    `json:"name"`
+	Description string                    `json:"description,omitempty"`
+	APIKey      string                    `json:"api_key,omitempty"`
+	Role        models.TenantRole         `json:"role,omitempty"`
+	Permissions []models.TenantPermission `json:"permissions,omitempty"`
+	Active      *bool                     `json:"active,omitempty"`
+	ExpiresAt   time.Time                 `json:"expires_at,omitempty"`
+	Metadata    map[string]string         `json:"metadata,omitempty"`
 }
 
 type serviceAccountRotateRequest struct {
@@ -29,29 +30,31 @@ type serviceAccountRotateRequest struct {
 }
 
 type currentTenantResponse struct {
-	TenantID            string             `json:"tenant_id"`
-	Name                string             `json:"name"`
-	Active              bool               `json:"active"`
-	Settings            map[string]string  `json:"settings,omitempty"`
-	Quotas              models.TenantQuota `json:"quotas,omitempty"`
-	Role                models.TenantRole  `json:"role"`
-	AuthMethod          string             `json:"auth_method"`
-	ServiceAccountID    string             `json:"service_account_id,omitempty"`
-	ServiceAccountName  string             `json:"service_account_name,omitempty"`
-	ServiceAccountCount int                `json:"service_account_count"`
+	TenantID            string                    `json:"tenant_id"`
+	Name                string                    `json:"name"`
+	Active              bool                      `json:"active"`
+	Settings            map[string]string         `json:"settings,omitempty"`
+	Quotas              models.TenantQuota        `json:"quotas,omitempty"`
+	Role                models.TenantRole         `json:"role"`
+	Permissions         []models.TenantPermission `json:"permissions,omitempty"`
+	AuthMethod          string                    `json:"auth_method"`
+	ServiceAccountID    string                    `json:"service_account_id,omitempty"`
+	ServiceAccountName  string                    `json:"service_account_name,omitempty"`
+	ServiceAccountCount int                       `json:"service_account_count"`
 }
 
 type serviceAccountResponse struct {
-	ID            string            `json:"id"`
-	Name          string            `json:"name"`
-	Description   string            `json:"description,omitempty"`
-	APIKey        string            `json:"api_key,omitempty"`
-	Role          models.TenantRole `json:"role"`
-	Active        bool              `json:"active"`
-	CreatedAt     time.Time         `json:"created_at"`
-	LastRotatedAt time.Time         `json:"last_rotated_at,omitempty"`
-	ExpiresAt     time.Time         `json:"expires_at,omitempty"`
-	Metadata      map[string]string `json:"metadata,omitempty"`
+	ID            string                    `json:"id"`
+	Name          string                    `json:"name"`
+	Description   string                    `json:"description,omitempty"`
+	APIKey        string                    `json:"api_key,omitempty"`
+	Role          models.TenantRole         `json:"role"`
+	Permissions   []models.TenantPermission `json:"permissions,omitempty"`
+	Active        bool                      `json:"active"`
+	CreatedAt     time.Time                 `json:"created_at"`
+	LastRotatedAt time.Time                 `json:"last_rotated_at,omitempty"`
+	ExpiresAt     time.Time                 `json:"expires_at,omitempty"`
+	Metadata      map[string]string         `json:"metadata,omitempty"`
 }
 
 type adminTenantResponse struct {
@@ -90,6 +93,9 @@ func (s *Server) handleCurrentTenant(w http.ResponseWriter, r *http.Request) {
 	if principal.ServiceAccount != nil {
 		response.ServiceAccountID = principal.ServiceAccount.ID
 		response.ServiceAccountName = principal.ServiceAccount.Name
+		response.Permissions = append([]models.TenantPermission(nil), principal.ServiceAccount.EffectivePermissions()...)
+	} else {
+		response.Permissions = append([]models.TenantPermission(nil), principal.Role.DefaultPermissions()...)
 	}
 
 	writeJSON(w, http.StatusOK, response)
@@ -233,6 +239,13 @@ func newServiceAccountFromRequest(request serviceAccountCreateRequest) (models.S
 	if !validTenantRole(role) {
 		return models.ServiceAccount{}, fmt.Errorf("service account role %q is invalid", role)
 	}
+	permissions := make([]models.TenantPermission, 0, len(request.Permissions))
+	for _, permission := range request.Permissions {
+		if !permission.Valid() {
+			return models.ServiceAccount{}, fmt.Errorf("service account permission %q is invalid", permission)
+		}
+		permissions = append(permissions, permission)
+	}
 
 	active := true
 	if request.Active != nil {
@@ -254,6 +267,7 @@ func newServiceAccountFromRequest(request serviceAccountCreateRequest) (models.S
 		Description: strings.TrimSpace(request.Description),
 		APIKey:      apiKey,
 		Role:        role,
+		Permissions: permissions,
 		Active:      active,
 		CreatedAt:   time.Now().UTC(),
 		ExpiresAt:   request.ExpiresAt,
@@ -279,6 +293,7 @@ func toServiceAccountResponse(account models.ServiceAccount, revealKey bool) ser
 		Name:          account.Name,
 		Description:   account.Description,
 		Role:          account.Role,
+		Permissions:   append([]models.TenantPermission(nil), account.EffectivePermissions()...),
 		Active:        account.Active,
 		CreatedAt:     account.CreatedAt,
 		LastRotatedAt: account.LastRotatedAt,

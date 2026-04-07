@@ -33,6 +33,7 @@ Release bundles produced by `make package-release-matrix` include:
 - built web assets
 - docs and sample configs
 - install scripts
+- deployment reference assets
 - checksums, a release manifest, and a dependency manifest
 
 On POSIX systems:
@@ -56,4 +57,4 @@ viaduct --help
 
 The fastest no-infrastructure evaluation path is the local KVM lab in [examples/lab](examples/lab). Continue with [QUICKSTART.md](QUICKSTART.md).
 
-Reference deployment assets for Docker Compose, systemd, and Kubernetes live in [examples/deploy](examples/deploy).
+Reference deployment assets for Docker Compose, systemd, and Kubernetes live in [examples/deploy](examples/deploy). Start with [examples/deploy/README.md](examples/deploy/README.md) and use the Kubernetes notes in [examples/deploy/kubernetes/README.md](examples/deploy/kubernetes/README.md) if you want a pilot-style in-cluster evaluation.

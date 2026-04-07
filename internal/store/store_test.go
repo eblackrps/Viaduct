@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -450,10 +451,13 @@ func TestMemoryStore_UpdateTenant_ServiceAccountsPersisted_Expected(t *testing.T
 
 	tenant.ServiceAccounts = []models.ServiceAccount{
 		{
-			ID:        "sa-1",
-			Name:      "Read Only",
-			APIKey:    "sa-1-key",
-			Role:      models.TenantRoleViewer,
+			ID:     "sa-1",
+			Name:   "Read Only",
+			APIKey: "sa-1-key",
+			Role:   models.TenantRoleViewer,
+			Permissions: []models.TenantPermission{
+				models.TenantPermissionInventoryRead,
+			},
 			Active:    true,
 			CreatedAt: time.Date(2026, time.April, 7, 10, 0, 0, 0, time.UTC),
 			Metadata:  map[string]string{"owner": "ops"},
@@ -476,5 +480,35 @@ func TestMemoryStore_UpdateTenant_ServiceAccountsPersisted_Expected(t *testing.T
 	}
 	if persisted.ServiceAccounts[0].Metadata["owner"] != "ops" {
 		t.Fatalf("unexpected service-account metadata: %#v", persisted.ServiceAccounts[0].Metadata)
+	}
+	if len(persisted.ServiceAccounts[0].Permissions) != 1 || persisted.ServiceAccounts[0].Permissions[0] != models.TenantPermissionInventoryRead {
+		t.Fatalf("unexpected service-account permissions: %#v", persisted.ServiceAccounts[0].Permissions)
+	}
+}
+
+func TestMemoryStore_Diagnostics_ReturnsBackendMetadata_Expected(t *testing.T) {
+	t.Parallel()
+
+	stateStore := NewMemoryStore()
+	diagnostics, err := stateStore.Diagnostics(context.Background())
+	if err != nil {
+		t.Fatalf("Diagnostics() error = %v", err)
+	}
+	if diagnostics.Backend != "memory" || diagnostics.Persistent {
+		t.Fatalf("unexpected diagnostics: %#v", diagnostics)
+	}
+}
+
+func TestPostgresSchemaHistory_CurrentVersionSynchronized_Expected(t *testing.T) {
+	t.Parallel()
+
+	if len(storeSchemaHistory) == 0 {
+		t.Fatal("storeSchemaHistory is empty")
+	}
+	if storeSchemaHistory[len(storeSchemaHistory)-1].version != currentStoreSchemaVersion {
+		t.Fatalf("latest schema version = %d, want %d", storeSchemaHistory[len(storeSchemaHistory)-1].version, currentStoreSchemaVersion)
+	}
+	if !strings.Contains(createStoreSchemaSQL, "schema_migrations") {
+		t.Fatalf("createStoreSchemaSQL missing schema_migrations table: %s", createStoreSchemaSQL)
 	}
 }

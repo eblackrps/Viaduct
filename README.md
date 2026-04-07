@@ -19,6 +19,7 @@ Viaduct is ready for broad evaluation, operator pilots, and community contributi
 - Lifecycle analysis: Evaluates cost, policy, and drift, then turns those signals into remediation guidance and simulation output.
 - Multi-tenancy and extensibility: Provides tenant-scoped API access, service-account and role-based access controls, persistent state backends, and a gRPC-based plugin host for community connectors.
 - Operator surfaces: Exposes the same core workflows through a CLI, REST API, and React dashboard.
+- Operability: Ships request correlation, tenant-scoped audit and reporting routes, Prometheus-style metrics, an OpenAPI reference, deployment examples, and packaged release metadata.
 
 ## Supported Connectors And Integrations
 | Platform / Integration | Status | Notes |
@@ -65,6 +66,8 @@ make build
 go test ./... -v -race -count=1
 make certification-test
 make soak-test
+make plugin-check
+make contract-check
 go vet ./...
 golangci-lint run ./...
 cd web && npm run build
@@ -83,17 +86,21 @@ make release-gate
 - Backup portability: [docs/operations/backup-portability.md](docs/operations/backup-portability.md)
 - Multi-tenancy: [docs/operations/multi-tenancy.md](docs/operations/multi-tenancy.md)
 - Troubleshooting: [docs/reference/troubleshooting.md](docs/reference/troubleshooting.md)
+- API contract: [docs/reference/openapi.yaml](docs/reference/openapi.yaml)
+- Deployment examples: [examples/deploy/README.md](examples/deploy/README.md)
 
 ## Documentation Index
 - Repository docs index: [docs/README.md](docs/README.md)
 - Architecture overview: [docs/architecture.md](docs/architecture.md)
 - Support matrix: [docs/reference/support-matrix.md](docs/reference/support-matrix.md)
 - Plugin author guide: [docs/reference/plugin-author-guide.md](docs/reference/plugin-author-guide.md)
+- Plugin certification guide: [docs/reference/plugin-certification.md](docs/reference/plugin-certification.md)
 - Codebase map: [docs/reference/codebase-map.md](docs/reference/codebase-map.md)
 - Historical phase roadmaps: [docs/roadmaps/README.md](docs/roadmaps/README.md)
 
 ## Extensibility
 - Plugin and connector author guide: [docs/reference/plugin-author-guide.md](docs/reference/plugin-author-guide.md)
+- Plugin certification checklist: [docs/reference/plugin-certification.md](docs/reference/plugin-certification.md)
 - Example plugin: [examples/plugin-example/README.md](examples/plugin-example/README.md)
 - Deployment examples: [examples/deploy/README.md](examples/deploy/README.md)
 - Example and lab assets: [examples/README.md](examples/README.md)

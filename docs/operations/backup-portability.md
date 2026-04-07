@@ -6,9 +6,13 @@ Viaduct includes Veeam discovery and backup portability planning so workload mig
 - backup job discovery
 - restore point discovery
 - repository discovery
+- repository compatibility reporting
 - portable backup job template generation
+- multi-VM portability planning
 - repository mapping
 - post-create verification runs
+- post-migration continuity validation
+- backup policy drift detection
 - rollback cleanup for created jobs
 
 ## Current Operating Model
@@ -29,6 +33,16 @@ The portability planner rewrites protected object names toward the target worklo
 - collect created job IDs and verification state
 - return actionable errors if any job create or verification step fails
 
+## Continuity Validation
+
+After portability execution, Viaduct can validate:
+- whether the recreated jobs exist on the target side
+- whether repository mappings stayed compatible
+- whether schedule, retention, enabled state, or protected-VM membership drifted
+- whether restore points for the migrated VM have resumed
+
+The continuity report is intended for API, automation, and reporting flows. It is especially useful when migration cutover and backup operations are owned by different teams.
+
 ## Rollback Behavior
 
 On migration rollback, Viaduct can remove portable backup jobs it created during the portability run. Partial cleanup failures are surfaced as explicit errors and should be treated as operator follow-up work.
@@ -43,4 +57,5 @@ On migration rollback, Viaduct can remove portable backup jobs it created during
 ## Recovery Expectations
 - Missing repositories should be treated as blocking portability warnings.
 - Failed verification runs should block acceptance of the migrated backup posture.
+- Post-migration policy drift should be treated as a follow-up incident until the recreated jobs match the intended protection policy.
 - Rollback cleanup errors must be reviewed before calling the environment stable again.

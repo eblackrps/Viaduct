@@ -7,6 +7,8 @@ This document describes the stable packaging and release process for Viaduct.
 - `make package-release-matrix`: produce release bundles in `dist/` for the supported packaging targets
 - `make certification-test`: run connector certification fixtures
 - `make soak-test`: run the tagged migration soak workflow
+- `make plugin-check`: validate plugin manifest compatibility against the host version
+- `make contract-check`: verify the published OpenAPI reference still covers the stable operator routes
 
 ## Release Checklist
 1. Ensure the working tree is in the intended state and public docs are current.
@@ -14,8 +16,9 @@ This document describes the stable packaging and release process for Viaduct.
 3. Inspect the generated bundles in `dist/`.
 4. Verify `release-manifest.json`, `dependency-manifest.json`, and `SHA256SUMS.txt`.
 5. Smoke-test the packaged binary with `viaduct version` and `viaduct --help`.
-6. Confirm install docs, upgrade docs, and rollback docs still match the artifact layout.
-7. Tag and publish only after the verification and smoke checks are clean.
+6. Confirm install docs, upgrade docs, rollback docs, and deployment examples still match the artifact layout.
+7. Verify the plugin manifest check and OpenAPI contract check remain green.
+8. Tag and publish only after the verification and smoke checks are clean.
 
 ## Bundle Contents
 The release bundle should include:

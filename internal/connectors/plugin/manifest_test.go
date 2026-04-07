@@ -62,7 +62,7 @@ func TestValidateManifest_InvalidVersionConstraint_ReturnsError(t *testing.T) {
 func TestManifestSupportsHost_OutOfRange_ReturnsError(t *testing.T) {
 	t.Parallel()
 
-	err := manifestSupportsHost(&Manifest{
+	err := ValidateManifestCompatibility(&Manifest{
 		Name:                  "Example Plugin",
 		Platform:              "example",
 		Version:               "1.0.0",
@@ -70,6 +70,6 @@ func TestManifestSupportsHost_OutOfRange_ReturnsError(t *testing.T) {
 		MinimumViaductVersion: "v1.2.0",
 	}, "v1.1.0")
 	if err == nil {
-		t.Fatal("manifestSupportsHost() error = nil, want out-of-range error")
+		t.Fatal("ValidateManifestCompatibility() error = nil, want out-of-range error")
 	}
 }

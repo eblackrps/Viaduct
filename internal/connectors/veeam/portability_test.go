@@ -210,18 +210,135 @@ func TestPortabilityManager_ExecuteFleetMigration_AggregatesResults(t *testing.T
 	}
 }
 
+func TestPortabilityManager_ValidateBackupContinuity_Healthy_Expected(t *testing.T) {
+	t.Parallel()
+
+	manager, cleanup := newPortabilityManagerTestServerWithInventory(
+		t,
+		[]map[string]interface{}{
+			{
+				"id":            "job-1",
+				"name":          "Daily web-01-target",
+				"schedule":      "0 2 * * *",
+				"targetRepo":    "target-repo",
+				"retentionDays": 14,
+				"protectedVMs":  []string{"web-01-target"},
+				"enabled":       true,
+			},
+		},
+		[]map[string]interface{}{
+			{
+				"id":        "rp-1",
+				"vmId":      "vm-target",
+				"vmName":    "web-01-target",
+				"jobName":   "Daily web-01-target",
+				"createdAt": "2026-04-07T03:00:00Z",
+				"sizeMB":    1024,
+				"type":      "incremental",
+			},
+		},
+		nil,
+	)
+	defer cleanup()
+
+	report, err := manager.ValidateBackupContinuity(context.Background(), &JobMigrationPlan{
+		TargetVM: sampleBackupTargetVM(),
+		Jobs: []BackupJobTemplate{
+			{
+				Name:          "Daily web-01-target",
+				Schedule:      "0 2 * * *",
+				TargetRepo:    "target-repo",
+				RetentionDays: 14,
+				ProtectedVMs:  []string{"web-01-target"},
+				Enabled:       true,
+			},
+		},
+	}, &JobMigrationResult{
+		VerificationStatus: map[string]string{"job-created-1": "verified"},
+	})
+	if err != nil {
+		t.Fatalf("ValidateBackupContinuity() error = %v", err)
+	}
+	if report.Status != "healthy" || report.RestorePointCount != 1 {
+		t.Fatalf("unexpected continuity report: %#v", report)
+	}
+	if len(report.PolicyDrifts) != 0 {
+		t.Fatalf("PolicyDrifts = %#v, want none", report.PolicyDrifts)
+	}
+}
+
+func TestPortabilityManager_ValidateBackupContinuity_DetectsPolicyDrift_Expected(t *testing.T) {
+	t.Parallel()
+
+	manager, cleanup := newPortabilityManagerTestServerWithInventory(
+		t,
+		[]map[string]interface{}{
+			{
+				"id":            "job-1",
+				"name":          "Daily web-01-target",
+				"schedule":      "0 4 * * *",
+				"targetRepo":    "archive-repo",
+				"retentionDays": 7,
+				"protectedVMs":  []string{"web-01-target"},
+				"enabled":       false,
+			},
+		},
+		[]map[string]interface{}{},
+		nil,
+	)
+	defer cleanup()
+
+	report, err := manager.ValidateBackupContinuity(context.Background(), &JobMigrationPlan{
+		TargetVM: sampleBackupTargetVM(),
+		Jobs: []BackupJobTemplate{
+			{
+				Name:          "Daily web-01-target",
+				Schedule:      "0 2 * * *",
+				TargetRepo:    "target-repo",
+				RetentionDays: 14,
+				ProtectedVMs:  []string{"web-01-target"},
+				Enabled:       true,
+			},
+		},
+	}, nil)
+	if err != nil {
+		t.Fatalf("ValidateBackupContinuity() error = %v", err)
+	}
+	if report.Status != "degraded" {
+		t.Fatalf("Status = %q, want degraded", report.Status)
+	}
+	if len(report.PolicyDrifts) == 0 {
+		t.Fatal("PolicyDrifts is empty, want detected drift")
+	}
+	if report.RestorePointCount != 0 {
+		t.Fatalf("RestorePointCount = %d, want 0", report.RestorePointCount)
+	}
+}
+
 func newPortabilityManagerTestServer(t *testing.T, jobs []map[string]interface{}) (*PortabilityManager, func()) {
 	t.Helper()
+	return newPortabilityManagerTestServerWithInventory(t, jobs, nil, nil)
+}
 
-	repositories := []map[string]interface{}{
-		{"id": "repo-1", "name": "primary-repo", "type": "xfs", "capacityMB": 102400, "freeMB": 51200, "usedMB": 51200},
-		{"id": "repo-2", "name": "target-repo", "type": "xfs", "capacityMB": 102400, "freeMB": 90000, "usedMB": 12400},
+func newPortabilityManagerTestServerWithInventory(t *testing.T, jobs, restorePoints, repositories []map[string]interface{}) (*PortabilityManager, func()) {
+	t.Helper()
+
+	if repositories == nil {
+		repositories = []map[string]interface{}{
+			{"id": "repo-1", "name": "primary-repo", "type": "xfs", "capacityMB": 102400, "freeMB": 51200, "usedMB": 51200},
+			{"id": "repo-2", "name": "target-repo", "type": "xfs", "capacityMB": 102400, "freeMB": 90000, "usedMB": 12400},
+		}
+	}
+	if restorePoints == nil {
+		restorePoints = []map[string]interface{}{}
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/jobs":
 			writePortabilityJSON(t, w, jobs)
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/objectRestorePoints":
+			writePortabilityJSON(t, w, restorePoints)
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/backupInfrastructure/repositories":
 			writePortabilityJSON(t, w, repositories)
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/jobs":

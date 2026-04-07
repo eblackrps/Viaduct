@@ -18,6 +18,13 @@ import (
 const requestIDHeader = "X-Request-ID"
 
 type requestIDContextKey struct{}
+type requestScopeContextKey struct{}
+
+type requestScope struct {
+	requestID  string
+	tenantID   string
+	authMethod string
+}
 
 type responseRecorder struct {
 	http.ResponseWriter
@@ -192,7 +199,8 @@ func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/plain; version=0.0.4")
-	_, _ = w.Write([]byte(s.metrics.render()))
+	metrics := s.metrics.render() + s.renderOperationalMetrics(r.Context())
+	_, _ = w.Write([]byte(metrics))
 }
 
 func (s *Server) withObservability(next http.Handler) http.Handler {
@@ -207,19 +215,25 @@ func (s *Server) withObservability(next http.Handler) http.Handler {
 		recorder := &responseRecorder{ResponseWriter: w, status: http.StatusOK}
 		recorder.Header().Set(requestIDHeader, requestID)
 
+		scope := &requestScope{
+			requestID: requestID,
+			tenantID:  store.TenantIDFromContext(r.Context()),
+		}
 		ctx := context.WithValue(r.Context(), requestIDContextKey{}, requestID)
+		ctx = context.WithValue(ctx, requestScopeContextKey{}, scope)
 		next.ServeHTTP(recorder, r.WithContext(ctx))
 
 		duration := time.Since(startedAt)
 		done(r.Method, r.URL.Path, recorder.status, duration)
 		log.Printf(
-			"component=api request_id=%s method=%s path=%s status=%d duration_ms=%d tenant=%s",
+			"component=api request_id=%s method=%s path=%s status=%d duration_ms=%d tenant=%s auth=%s",
 			requestID,
 			r.Method,
 			r.URL.Path,
 			recorder.status,
 			duration.Milliseconds(),
-			store.TenantIDFromContext(ctx),
+			scope.tenantID,
+			scope.authMethod,
 		)
 	})
 }
@@ -255,6 +269,14 @@ func RequestIDFromContext(ctx context.Context) string {
 	return value
 }
 
+func requestScopeFromContext(ctx context.Context) *requestScope {
+	if ctx == nil {
+		return nil
+	}
+	scope, _ := ctx.Value(requestScopeContextKey{}).(*requestScope)
+	return scope
+}
+
 func normalizeMetricsPath(path string) string {
 	switch {
 	case strings.HasPrefix(path, "/api/v1/migrations/"):
@@ -278,4 +300,99 @@ func normalizeMetricsPath(path string) string {
 		}
 	}
 	return path
+}
+
+func (s *Server) renderOperationalMetrics(ctx context.Context) string {
+	if s == nil || s.store == nil {
+		return ""
+	}
+
+	lines := []string{
+		"# HELP viaduct_tenant_snapshots Total persisted discovery snapshots per tenant.",
+		"# TYPE viaduct_tenant_snapshots gauge",
+		"# HELP viaduct_tenant_service_accounts Total service accounts configured per tenant.",
+		"# TYPE viaduct_tenant_service_accounts gauge",
+		"# HELP viaduct_tenant_migrations Total persisted migrations per tenant and phase.",
+		"# TYPE viaduct_tenant_migrations gauge",
+		"# HELP viaduct_tenant_quota_remaining Remaining tenant quota budget by resource.",
+		"# TYPE viaduct_tenant_quota_remaining gauge",
+	}
+
+	if provider, ok := s.store.(store.DiagnosticsProvider); ok {
+		if diagnostics, err := provider.Diagnostics(ctx); err == nil {
+			lines = append(lines,
+				"# HELP viaduct_store_info Store backend metadata.",
+				"# TYPE viaduct_store_info gauge",
+				fmt.Sprintf(`viaduct_store_info{backend=%q,persistent=%q} 1`, diagnostics.Backend, strconv.FormatBool(diagnostics.Persistent)),
+			)
+			if diagnostics.SchemaVersion > 0 {
+				lines = append(lines,
+					"# HELP viaduct_store_schema_version Latest applied store schema version.",
+					"# TYPE viaduct_store_schema_version gauge",
+					fmt.Sprintf("viaduct_store_schema_version %d", diagnostics.SchemaVersion),
+				)
+			}
+		}
+	}
+
+	tenants, err := s.store.ListTenants(ctx)
+	if err != nil {
+		log.Printf("component=api category=metrics action=list-tenants outcome=failure message=%q", err.Error())
+		return strings.Join(lines, "\n") + "\n"
+	}
+
+	sort.Slice(tenants, func(i, j int) bool {
+		return tenants[i].ID < tenants[j].ID
+	})
+	for _, tenant := range tenants {
+		snapshots, err := s.store.ListSnapshots(store.ContextWithTenantID(ctx, tenant.ID), tenant.ID, "", 0)
+		if err != nil {
+			log.Printf("component=api category=metrics action=list-snapshots outcome=failure tenant=%s message=%q", tenant.ID, err.Error())
+			continue
+		}
+		migrations, err := s.store.ListMigrations(store.ContextWithTenantID(ctx, tenant.ID), tenant.ID, 0)
+		if err != nil {
+			log.Printf("component=api category=metrics action=list-migrations outcome=failure tenant=%s message=%q", tenant.ID, err.Error())
+			continue
+		}
+
+		lines = append(lines,
+			fmt.Sprintf(`viaduct_tenant_snapshots{tenant=%q} %d`, tenant.ID, len(snapshots)),
+			fmt.Sprintf(`viaduct_tenant_service_accounts{tenant=%q} %d`, tenant.ID, len(tenant.ServiceAccounts)),
+		)
+
+		phaseCounts := make(map[string]int)
+		for _, migration := range migrations {
+			phase := migration.Phase
+			if phase == "" {
+				phase = "unknown"
+			}
+			phaseCounts[phase]++
+		}
+		phases := make([]string, 0, len(phaseCounts))
+		for phase := range phaseCounts {
+			phases = append(phases, phase)
+		}
+		sort.Strings(phases)
+		for _, phase := range phases {
+			lines = append(lines, fmt.Sprintf(`viaduct_tenant_migrations{tenant=%q,phase=%q} %d`, tenant.ID, phase, phaseCounts[phase]))
+		}
+
+		if tenant.Quotas.MaxSnapshots > 0 {
+			remaining := tenant.Quotas.MaxSnapshots - len(snapshots)
+			if remaining < 0 {
+				remaining = 0
+			}
+			lines = append(lines, fmt.Sprintf(`viaduct_tenant_quota_remaining{tenant=%q,resource="snapshots"} %d`, tenant.ID, remaining))
+		}
+		if tenant.Quotas.MaxMigrations > 0 {
+			remaining := tenant.Quotas.MaxMigrations - len(migrations)
+			if remaining < 0 {
+				remaining = 0
+			}
+			lines = append(lines, fmt.Sprintf(`viaduct_tenant_quota_remaining{tenant=%q,resource="migrations"} %d`, tenant.ID, remaining))
+		}
+	}
+
+	return strings.Join(lines, "\n") + "\n"
 }

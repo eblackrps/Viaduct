@@ -33,10 +33,11 @@ GO_BUILD_WINDOWS = CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags "-X
 endif
 
 COVER_MIN ?= 50.0
+PLUGIN_MANIFEST ?= examples/plugin-example/plugin.json
 LINUX_BINARY = bin/viaduct-linux-amd64
 WINDOWS_BINARY = bin/viaduct.exe
 
-.PHONY: all build build-linux build-windows test lint proto docker dashboard serve web-build package-release package-release-linux package-release-windows package-release-matrix certification-test soak-test release-gate clean
+.PHONY: all build build-linux build-windows test lint proto docker dashboard serve web-build package-release package-release-linux package-release-windows package-release-matrix certification-test soak-test plugin-check contract-check release-gate clean
 
 all: lint test build
 
@@ -106,6 +107,12 @@ certification-test:
 soak-test:
 	go test -tags soak ./tests/soak/... -count=1
 
+plugin-check:
+	go run ./scripts/plugin_manifest_check -manifest $(PLUGIN_MANIFEST) -host-version $(VERSION)
+
+contract-check:
+	go test ./tests/integration/... -run TestOpenAPISpec_StableRoutesDocumented_Expected -count=1
+
 release-gate:
 	$(RM_DIST)
 	$(RM_COVER)
@@ -115,6 +122,8 @@ release-gate:
 	golangci-lint run ./...
 	go test ./... -v -race -count=1
 	$(MAKE) soak-test
+	$(MAKE) plugin-check
+	$(MAKE) contract-check
 	$(MAKE) build
 	$(RUN_BIN) --help
 	$(RUN_BIN) version

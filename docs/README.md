@@ -18,7 +18,9 @@ This directory contains the detailed Viaduct documentation set. The repo-root do
 - [Configuration Reference](reference/configuration.md)
 - [Support Matrix](reference/support-matrix.md)
 - [Troubleshooting](reference/troubleshooting.md)
+- [OpenAPI Reference](reference/openapi.yaml)
 - [Plugin Author Guide](reference/plugin-author-guide.md)
+- [Plugin Certification Guide](reference/plugin-certification.md)
 - [Codebase Map](reference/codebase-map.md)
 
 ## Historical Roadmaps

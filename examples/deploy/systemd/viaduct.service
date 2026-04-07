@@ -6,10 +6,22 @@ Wants=network-online.target
 [Service]
 Type=simple
 WorkingDirectory=/opt/viaduct
+EnvironmentFile=-/etc/viaduct/viaduct.env
 Environment=VIADUCT_ADMIN_KEY=change-me
 ExecStart=/opt/viaduct/bin/viaduct serve-api --config /etc/viaduct/config.yaml --port 8080
 Restart=on-failure
 RestartSec=5
+StateDirectory=viaduct
+RuntimeDirectory=viaduct
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+ReadWritePaths=/var/lib/viaduct
 
 [Install]
 WantedBy=multi-user.target
