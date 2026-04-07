@@ -9,8 +9,8 @@ import (
 )
 
 func connectorsForSpec(cfg *appConfig, catalog *connectorcatalog.Catalog, spec *migratepkg.MigrationSpec) (sourceConnector connectors.Connector, targetConnector connectors.Connector, err error) {
-	sourceConfig := resolveConnectorConfig(spec.Source.Address, string(spec.Source.Platform), "", "", false, cfg)
-	targetConfig := resolveConnectorConfig(spec.Target.Address, string(spec.Target.Platform), "", "", false, cfg)
+	sourceConfig := resolveMigrationConnectorConfig(spec.Source.Address, string(spec.Source.Platform), spec.Source.CredentialRef, cfg)
+	targetConfig := resolveMigrationConnectorConfig(spec.Target.Address, string(spec.Target.Platform), spec.Target.CredentialRef, cfg)
 
 	sourceConnector, err = catalog.Build(spec.Source.Platform, sourceConfig)
 	if err != nil {

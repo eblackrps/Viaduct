@@ -30,6 +30,7 @@ plugins:
 - health reporting
 - platform lookup
 - manifest-based compatibility metadata
+- optional host-version compatibility markers
 - returning normalized discovery results
 - clean plugin shutdown
 - receiving connector config from Viaduct during `Connect`

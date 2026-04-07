@@ -255,6 +255,32 @@ func TestPluginHost_Factory_ForwardsConnectorConfig_Expected(t *testing.T) {
 	}
 }
 
+func TestPluginHost_ConnectPlugin_IncompatibleHostVersionRejected_Expected(t *testing.T) {
+	t.Parallel()
+
+	address, shutdown := startTestPluginServer(t, &testPluginServer{
+		status:    "ok",
+		platform:  "example",
+		connectOK: true,
+		closeOK:   true,
+	})
+	defer shutdown()
+
+	host := NewPluginHostWithVersion("v1.1.0")
+	defer host.ShutdownAll()
+
+	_, err := host.connectPlugin(nil, address, "grpc://"+address, &Manifest{
+		Name:                  "Example Plugin",
+		Platform:              "example",
+		Version:               "1.0.0",
+		ProtocolVersion:       "v1",
+		MinimumViaductVersion: "v1.2.0",
+	})
+	if err == nil {
+		t.Fatal("connectPlugin() error = nil, want incompatible host-version rejection")
+	}
+}
+
 func startTestPluginServer(t *testing.T, plugin *testPluginServer) (string, func()) {
 	t.Helper()
 

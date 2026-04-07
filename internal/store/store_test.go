@@ -360,3 +360,121 @@ func TestMemoryStore_SaveAndListAuditEvents_TenantScoped(t *testing.T) {
 		t.Fatalf("unexpected audit event: %#v", items[0])
 	}
 }
+
+func TestMemoryStore_SaveDiscovery_SnapshotQuotaExceeded_ReturnsError(t *testing.T) {
+	t.Parallel()
+
+	stateStore := NewMemoryStore()
+	ctx := context.Background()
+	if err := stateStore.CreateTenant(ctx, models.Tenant{
+		ID:     "tenant-quota",
+		Name:   "Quota Tenant",
+		APIKey: "tenant-quota-key",
+		Active: true,
+		Quotas: models.TenantQuota{
+			MaxSnapshots: 1,
+		},
+	}); err != nil {
+		t.Fatalf("CreateTenant() error = %v", err)
+	}
+
+	for index := 0; index < 2; index++ {
+		_, err := stateStore.SaveDiscovery(ctx, "tenant-quota", &models.DiscoveryResult{
+			Source:       "source",
+			Platform:     models.PlatformVMware,
+			DiscoveredAt: time.Now().UTC(),
+		})
+		if index == 0 && err != nil {
+			t.Fatalf("SaveDiscovery(first) error = %v", err)
+		}
+		if index == 1 && err == nil {
+			t.Fatal("SaveDiscovery(second) error = nil, want quota exceeded")
+		}
+	}
+}
+
+func TestMemoryStore_SaveMigration_MigrationQuotaExceeded_ReturnsError(t *testing.T) {
+	t.Parallel()
+
+	stateStore := NewMemoryStore()
+	ctx := context.Background()
+	if err := stateStore.CreateTenant(ctx, models.Tenant{
+		ID:     "tenant-migration-quota",
+		Name:   "Migration Quota Tenant",
+		APIKey: "tenant-migration-quota-key",
+		Active: true,
+		Quotas: models.TenantQuota{
+			MaxMigrations: 1,
+		},
+	}); err != nil {
+		t.Fatalf("CreateTenant() error = %v", err)
+	}
+
+	first := MigrationRecord{
+		ID:        "migration-1",
+		SpecName:  "quota-test",
+		Phase:     "plan",
+		StartedAt: time.Now().UTC(),
+		UpdatedAt: time.Now().UTC(),
+		RawJSON:   json.RawMessage(`{"id":"migration-1"}`),
+	}
+	if err := stateStore.SaveMigration(ctx, "tenant-migration-quota", first); err != nil {
+		t.Fatalf("SaveMigration(first) error = %v", err)
+	}
+	if err := stateStore.SaveMigration(ctx, "tenant-migration-quota", MigrationRecord{
+		ID:        "migration-2",
+		SpecName:  "quota-test",
+		Phase:     "plan",
+		StartedAt: time.Now().UTC(),
+		UpdatedAt: time.Now().UTC(),
+		RawJSON:   json.RawMessage(`{"id":"migration-2"}`),
+	}); err == nil {
+		t.Fatal("SaveMigration(second) error = nil, want quota exceeded")
+	}
+}
+
+func TestMemoryStore_UpdateTenant_ServiceAccountsPersisted_Expected(t *testing.T) {
+	t.Parallel()
+
+	stateStore := NewMemoryStore()
+	ctx := context.Background()
+	tenant := models.Tenant{
+		ID:     "tenant-service-accounts",
+		Name:   "Service Account Tenant",
+		APIKey: "tenant-service-accounts-key",
+		Active: true,
+	}
+	if err := stateStore.CreateTenant(ctx, tenant); err != nil {
+		t.Fatalf("CreateTenant() error = %v", err)
+	}
+
+	tenant.ServiceAccounts = []models.ServiceAccount{
+		{
+			ID:        "sa-1",
+			Name:      "Read Only",
+			APIKey:    "sa-1-key",
+			Role:      models.TenantRoleViewer,
+			Active:    true,
+			CreatedAt: time.Date(2026, time.April, 7, 10, 0, 0, 0, time.UTC),
+			Metadata:  map[string]string{"owner": "ops"},
+		},
+	}
+	tenant.Quotas = models.TenantQuota{RequestsPerMinute: 120}
+	if err := stateStore.UpdateTenant(ctx, tenant); err != nil {
+		t.Fatalf("UpdateTenant() error = %v", err)
+	}
+
+	persisted, err := stateStore.GetTenant(ctx, tenant.ID)
+	if err != nil {
+		t.Fatalf("GetTenant() error = %v", err)
+	}
+	if persisted.Quotas.RequestsPerMinute != 120 {
+		t.Fatalf("RequestsPerMinute = %d, want 120", persisted.Quotas.RequestsPerMinute)
+	}
+	if len(persisted.ServiceAccounts) != 1 || persisted.ServiceAccounts[0].ID != "sa-1" {
+		t.Fatalf("unexpected service accounts: %#v", persisted.ServiceAccounts)
+	}
+	if persisted.ServiceAccounts[0].Metadata["owner"] != "ops" {
+		t.Fatalf("unexpected service-account metadata: %#v", persisted.ServiceAccounts[0].Metadata)
+	}
+}

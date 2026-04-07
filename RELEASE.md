@@ -12,7 +12,7 @@ This document describes the stable packaging and release process for Viaduct.
 1. Ensure the working tree is in the intended state and public docs are current.
 2. Run `make release-gate`.
 3. Inspect the generated bundles in `dist/`.
-4. Verify `release-manifest.json` and `SHA256SUMS.txt`.
+4. Verify `release-manifest.json`, `dependency-manifest.json`, and `SHA256SUMS.txt`.
 5. Smoke-test the packaged binary with `viaduct version` and `viaduct --help`.
 6. Confirm install docs, upgrade docs, and rollback docs still match the artifact layout.
 7. Tag and publish only after the verification and smoke checks are clean.
@@ -25,7 +25,7 @@ The release bundle should include:
 - docs
 - sample configs
 - examples
-- manifest and checksums
+- release manifest, dependency manifest, and checksums
 - deployment reference assets
 
 ## Release Notes Guidance

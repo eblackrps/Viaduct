@@ -2,6 +2,7 @@ package main
 
 import (
 	"archive/zip"
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -10,6 +11,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -35,16 +37,30 @@ type releaseOptions struct {
 }
 
 type releaseManifest struct {
-	Name       string    `json:"name"`
-	Version    string    `json:"version"`
-	Commit     string    `json:"commit"`
-	BuiltAt    string    `json:"built_at"`
-	PackagedAt time.Time `json:"packaged_at"`
-	GOOS       string    `json:"goos"`
-	GOARCH     string    `json:"goarch"`
-	Binary     string    `json:"binary"`
-	WebDir     string    `json:"web_dir"`
-	Files      []string  `json:"files"`
+	Name               string    `json:"name"`
+	Version            string    `json:"version"`
+	Commit             string    `json:"commit"`
+	BuiltAt            string    `json:"built_at"`
+	PackagedAt         time.Time `json:"packaged_at"`
+	GOOS               string    `json:"goos"`
+	GOARCH             string    `json:"goarch"`
+	Binary             string    `json:"binary"`
+	WebDir             string    `json:"web_dir"`
+	DependencyManifest string    `json:"dependency_manifest"`
+	Files              []string  `json:"files"`
+}
+
+type dependencyManifest struct {
+	GeneratedAt        time.Time           `json:"generated_at"`
+	GoModule           string              `json:"go_module,omitempty"`
+	GoDependencies     []dependencyVersion `json:"go_dependencies,omitempty"`
+	WebDependencies    []dependencyVersion `json:"web_dependencies,omitempty"`
+	WebDevDependencies []dependencyVersion `json:"web_dev_dependencies,omitempty"`
+}
+
+type dependencyVersion struct {
+	Name    string `json:"name"`
+	Version string `json:"version"`
 }
 
 func main() {
@@ -148,6 +164,9 @@ func packageRelease(options releaseOptions) error {
 	if err := writeExampleModuleMarkers(filepath.Join(bundleDir, "examples")); err != nil {
 		return fmt.Errorf("package release: write example module markers: %w", err)
 	}
+	if err := writeDependencyManifest(workspace, bundleDir); err != nil {
+		return fmt.Errorf("package release: write dependency manifest: %w", err)
+	}
 
 	files, err := collectFiles(bundleDir)
 	if err != nil {
@@ -155,16 +174,17 @@ func packageRelease(options releaseOptions) error {
 	}
 
 	manifest := releaseManifest{
-		Name:       "Viaduct",
-		Version:    options.Version,
-		Commit:     options.Commit,
-		BuiltAt:    options.Date,
-		PackagedAt: time.Now().UTC(),
-		GOOS:       packageGOOS,
-		GOARCH:     packageGOARCH,
-		Binary:     filepath.ToSlash(filepath.Join("bin", filepath.Base(binaryPath))),
-		WebDir:     "web",
-		Files:      files,
+		Name:               "Viaduct",
+		Version:            options.Version,
+		Commit:             options.Commit,
+		BuiltAt:            options.Date,
+		PackagedAt:         time.Now().UTC(),
+		GOOS:               packageGOOS,
+		GOARCH:             packageGOARCH,
+		Binary:             filepath.ToSlash(filepath.Join("bin", filepath.Base(binaryPath))),
+		WebDir:             "web",
+		DependencyManifest: "dependency-manifest.json",
+		Files:              files,
 	}
 
 	if err := writeJSON(filepath.Join(bundleDir, "release-manifest.json"), manifest); err != nil {
@@ -359,6 +379,123 @@ func writeChecksums(root string) error {
 	}
 	sort.Strings(lines)
 	return os.WriteFile(filepath.Join(root, "SHA256SUMS.txt"), []byte(strings.Join(lines, "\n")+"\n"), 0o644)
+}
+
+func writeDependencyManifest(workspace, bundleDir string) error {
+	manifest, err := collectDependencyManifest(workspace)
+	if err != nil {
+		return err
+	}
+	return writeJSON(filepath.Join(bundleDir, "dependency-manifest.json"), manifest)
+}
+
+func collectDependencyManifest(workspace string) (*dependencyManifest, error) {
+	manifest := &dependencyManifest{
+		GeneratedAt: time.Now().UTC(),
+	}
+
+	goModulePath := filepath.Join(workspace, "go.mod")
+	if _, err := os.Stat(goModulePath); err == nil {
+		goModule, dependencies, err := collectGoDependencies(workspace)
+		if err != nil {
+			return nil, err
+		}
+		manifest.GoModule = goModule
+		manifest.GoDependencies = dependencies
+	} else if err != nil && !os.IsNotExist(err) {
+		return nil, err
+	}
+
+	webPackagePath := filepath.Join(workspace, "web", "package.json")
+	if _, err := os.Stat(webPackagePath); err == nil {
+		webDependencies, webDevDependencies, err := collectWebDependencies(webPackagePath)
+		if err != nil {
+			return nil, err
+		}
+		manifest.WebDependencies = webDependencies
+		manifest.WebDevDependencies = webDevDependencies
+	} else if err != nil && !os.IsNotExist(err) {
+		return nil, err
+	}
+
+	return manifest, nil
+}
+
+func collectGoDependencies(workspace string) (string, []dependencyVersion, error) {
+	command := exec.Command("go", "list", "-m", "-json", "all")
+	command.Dir = workspace
+	output, err := command.Output()
+	if err != nil {
+		return "", nil, fmt.Errorf("collect go dependencies: %w", err)
+	}
+
+	type goModule struct {
+		Path    string    `json:"Path"`
+		Version string    `json:"Version"`
+		Main    bool      `json:"Main"`
+		Replace *goModule `json:"Replace,omitempty"`
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(output))
+	dependencies := make([]dependencyVersion, 0)
+	rootModule := ""
+	for decoder.More() {
+		var module goModule
+		if err := decoder.Decode(&module); err != nil {
+			return "", nil, fmt.Errorf("decode go dependencies: %w", err)
+		}
+		if module.Main {
+			rootModule = module.Path
+			continue
+		}
+
+		version := module.Version
+		if module.Replace != nil {
+			if strings.TrimSpace(module.Replace.Version) != "" {
+				version = module.Replace.Version
+			} else {
+				version = module.Replace.Path
+			}
+		}
+		dependencies = append(dependencies, dependencyVersion{Name: module.Path, Version: version})
+	}
+
+	sort.Slice(dependencies, func(i, j int) bool {
+		return dependencies[i].Name < dependencies[j].Name
+	})
+	return rootModule, dependencies, nil
+}
+
+func collectWebDependencies(packageJSONPath string) ([]dependencyVersion, []dependencyVersion, error) {
+	var packageManifest struct {
+		Dependencies    map[string]string `json:"dependencies"`
+		DevDependencies map[string]string `json:"devDependencies"`
+	}
+
+	payload, err := os.ReadFile(packageJSONPath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("collect web dependencies: read %s: %w", packageJSONPath, err)
+	}
+	if err := json.Unmarshal(payload, &packageManifest); err != nil {
+		return nil, nil, fmt.Errorf("collect web dependencies: decode %s: %w", packageJSONPath, err)
+	}
+
+	return dependencyVersionsFromMap(packageManifest.Dependencies), dependencyVersionsFromMap(packageManifest.DevDependencies), nil
+}
+
+func dependencyVersionsFromMap(items map[string]string) []dependencyVersion {
+	if len(items) == 0 {
+		return nil
+	}
+
+	dependencies := make([]dependencyVersion, 0, len(items))
+	for name, version := range items {
+		dependencies = append(dependencies, dependencyVersion{Name: name, Version: version})
+	}
+	sort.Slice(dependencies, func(i, j int) bool {
+		return dependencies[i].Name < dependencies[j].Name
+	})
+	return dependencies
 }
 
 func checksumFile(path string) (string, error) {

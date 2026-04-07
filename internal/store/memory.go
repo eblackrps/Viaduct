@@ -74,8 +74,12 @@ func (s *MemoryStore) SaveDiscovery(ctx context.Context, tenantID string, result
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if err := s.ensureTenantLocked(tenantID); err != nil {
+	tenant, err := s.ensureTenantLocked(tenantID)
+	if err != nil {
 		return "", fmt.Errorf("memory store: save discovery: %w", err)
+	}
+	if limit := tenant.Quotas.MaxSnapshots; limit > 0 && s.snapshotCountLocked(tenantID) >= limit {
+		return "", fmt.Errorf("memory store: save discovery: snapshot quota exceeded for tenant %s", tenantID)
 	}
 
 	s.snapshots[snapshotID] = storedSnapshot{
@@ -206,8 +210,14 @@ func (s *MemoryStore) SaveMigration(ctx context.Context, tenantID string, record
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if err := s.ensureTenantLocked(tenantID); err != nil {
+	tenant, err := s.ensureTenantLocked(tenantID)
+	if err != nil {
 		return fmt.Errorf("memory store: save migration: %w", err)
+	}
+	if _, exists := s.migrations[tenantMigrationKey(tenantID, record.ID)]; !exists {
+		if limit := tenant.Quotas.MaxMigrations; limit > 0 && s.migrationCountLocked(tenantID) >= limit {
+			return fmt.Errorf("memory store: save migration: migration quota exceeded for tenant %s", tenantID)
+		}
 	}
 
 	s.migrations[tenantMigrationKey(tenantID, record.ID)] = storedMigration{
@@ -298,7 +308,7 @@ func (s *MemoryStore) SaveRecoveryPoint(ctx context.Context, tenantID string, re
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if err := s.ensureTenantLocked(tenantID); err != nil {
+	if _, err := s.ensureTenantLocked(tenantID); err != nil {
 		return fmt.Errorf("memory store: save recovery point: %w", err)
 	}
 
@@ -346,12 +356,7 @@ func (s *MemoryStore) CreateTenant(ctx context.Context, tenant models.Tenant) er
 	if tenant.Name == "" {
 		return fmt.Errorf("memory store: create tenant: tenant name is empty")
 	}
-	if tenant.CreatedAt.IsZero() {
-		tenant.CreatedAt = time.Now().UTC()
-	}
-	if tenant.Settings == nil {
-		tenant.Settings = make(map[string]string)
-	}
+	tenant = normalizeTenant(tenant)
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -360,7 +365,42 @@ func (s *MemoryStore) CreateTenant(ctx context.Context, tenant models.Tenant) er
 		return fmt.Errorf("memory store: create tenant %s: already exists", tenant.ID)
 	}
 
-	s.tenants[tenant.ID] = tenant
+	s.tenants[tenant.ID] = cloneTenant(tenant)
+	return nil
+}
+
+// UpdateTenant overwrites persisted tenant metadata in memory.
+func (s *MemoryStore) UpdateTenant(ctx context.Context, tenant models.Tenant) error {
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("memory store: update tenant: %w", ctx.Err())
+	default:
+	}
+
+	tenant.ID = normalizeTenantID(tenant.ID)
+	if tenant.Name == "" {
+		return fmt.Errorf("memory store: update tenant: tenant name is empty")
+	}
+	if tenant.ID == DefaultTenantID {
+		existing := defaultTenant()
+		existing.APIKey = tenant.APIKey
+		existing.Active = tenant.Active
+		existing.Settings = copyStringMap(tenant.Settings)
+		existing.Quotas = tenant.Quotas
+		existing.ServiceAccounts = cloneServiceAccounts(tenant.ServiceAccounts)
+		tenant = existing
+	} else {
+		tenant = normalizeTenant(tenant)
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if _, ok := s.tenants[tenant.ID]; !ok {
+		return fmt.Errorf("memory store: update tenant %s: not found", tenant.ID)
+	}
+
+	s.tenants[tenant.ID] = cloneTenant(tenant)
 	return nil
 }
 
@@ -382,8 +422,7 @@ func (s *MemoryStore) GetTenant(ctx context.Context, tenantID string) (*models.T
 		return nil, fmt.Errorf("memory store: get tenant %s: not found", tenantID)
 	}
 
-	cloned := tenant
-	cloned.Settings = copyStringMap(tenant.Settings)
+	cloned := cloneTenant(tenant)
 	return &cloned, nil
 }
 
@@ -400,9 +439,7 @@ func (s *MemoryStore) ListTenants(ctx context.Context) ([]models.Tenant, error) 
 
 	items := make([]models.Tenant, 0, len(s.tenants))
 	for _, tenant := range s.tenants {
-		cloned := tenant
-		cloned.Settings = copyStringMap(tenant.Settings)
-		items = append(items, cloned)
+		items = append(items, cloneTenant(tenant))
 	}
 
 	sort.Slice(items, func(i, j int) bool {
@@ -475,7 +512,7 @@ func (s *MemoryStore) SaveAuditEvent(ctx context.Context, event models.AuditEven
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if err := s.ensureTenantLocked(event.TenantID); err != nil {
+	if _, err := s.ensureTenantLocked(event.TenantID); err != nil {
 		return fmt.Errorf("memory store: save audit event: %w", err)
 	}
 
@@ -522,16 +559,37 @@ func (s *MemoryStore) Close() error {
 	return nil
 }
 
-func (s *MemoryStore) ensureTenantLocked(tenantID string) error {
-	if _, ok := s.tenants[tenantID]; ok {
-		return nil
+func (s *MemoryStore) ensureTenantLocked(tenantID string) (models.Tenant, error) {
+	if tenant, ok := s.tenants[tenantID]; ok {
+		return tenant, nil
 	}
 	if tenantID == DefaultTenantID {
-		s.tenants[tenantID] = defaultTenant()
-		return nil
+		tenant := defaultTenant()
+		s.tenants[tenantID] = tenant
+		return tenant, nil
 	}
 
-	return fmt.Errorf("tenant %s not found", tenantID)
+	return models.Tenant{}, fmt.Errorf("tenant %s not found", tenantID)
+}
+
+func (s *MemoryStore) snapshotCountLocked(tenantID string) int {
+	count := 0
+	for _, snapshot := range s.snapshots {
+		if snapshot.tenantID == tenantID {
+			count++
+		}
+	}
+	return count
+}
+
+func (s *MemoryStore) migrationCountLocked(tenantID string) int {
+	count := 0
+	for _, migration := range s.migrations {
+		if migration.tenantID == tenantID {
+			count++
+		}
+	}
+	return count
 }
 
 func matchesFilter(vm models.VirtualMachine, filter VMFilter) bool {
@@ -585,6 +643,44 @@ func copyStringMap(input map[string]string) map[string]string {
 	}
 
 	return cloned
+}
+
+func cloneServiceAccounts(accounts []models.ServiceAccount) []models.ServiceAccount {
+	if len(accounts) == 0 {
+		return nil
+	}
+
+	cloned := make([]models.ServiceAccount, 0, len(accounts))
+	for _, account := range accounts {
+		item := account
+		item.Metadata = copyStringMap(account.Metadata)
+		cloned = append(cloned, item)
+	}
+	return cloned
+}
+
+func cloneTenant(tenant models.Tenant) models.Tenant {
+	tenant.Settings = copyStringMap(tenant.Settings)
+	tenant.ServiceAccounts = cloneServiceAccounts(tenant.ServiceAccounts)
+	return tenant
+}
+
+func normalizeTenant(tenant models.Tenant) models.Tenant {
+	if tenant.CreatedAt.IsZero() {
+		tenant.CreatedAt = time.Now().UTC()
+	}
+	if tenant.Settings == nil {
+		tenant.Settings = make(map[string]string)
+	}
+	for index := range tenant.ServiceAccounts {
+		if tenant.ServiceAccounts[index].CreatedAt.IsZero() {
+			tenant.ServiceAccounts[index].CreatedAt = tenant.CreatedAt
+		}
+		if tenant.ServiceAccounts[index].Metadata == nil {
+			tenant.ServiceAccounts[index].Metadata = make(map[string]string)
+		}
+	}
+	return tenant
 }
 
 func defaultTenant() models.Tenant {

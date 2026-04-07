@@ -53,6 +53,8 @@ type Store interface {
 	GetRecoveryPoint(ctx context.Context, tenantID, migrationID string) (*RecoveryPointRecord, error)
 	// CreateTenant persists tenant metadata and credentials for API isolation.
 	CreateTenant(ctx context.Context, tenant models.Tenant) error
+	// UpdateTenant overwrites persisted tenant metadata, quotas, and service accounts.
+	UpdateTenant(ctx context.Context, tenant models.Tenant) error
 	// GetTenant retrieves a tenant by identifier.
 	GetTenant(ctx context.Context, tenantID string) (*models.Tenant, error)
 	// ListTenants returns all configured tenants ordered from oldest to newest.

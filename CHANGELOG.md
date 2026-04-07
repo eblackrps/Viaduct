@@ -4,18 +4,27 @@ All notable changes to Viaduct should be documented in this file.
 
 This changelog tracks published releases and the major implementation milestones that shaped the current repository state.
 
-## [1.0.0] - 2026-04-05
-
-### Highlights
-- shipped the first tagged Viaduct release with a release-gated CLI, API, dashboard, install scripts, packaged web assets, checksums, and release manifest generation
-- delivered multi-platform discovery for VMware, Proxmox, Hyper-V, KVM, Nutanix, and Veeam-related backup inventory
-- delivered dependency-aware migration planning, cold and warm migration workflows, execution windows, approval gates, checkpoints, resume support, verification, and rollback
-- delivered lifecycle cost, policy, drift, remediation, and simulation workflows
-- delivered tenant-scoped API access, persistent state backends, plugin hosting, contributor docs, operator runbooks, and example lab environments
-
 ## Unreleased
 
 - no unreleased changes currently tracked
+
+## [1.2.0] - 2026-04-07
+
+### Tenant Security And Scale
+- added tenant-scoped service accounts with viewer, operator, and admin roles for API authentication
+- added role-gated tenant routes and a current-tenant introspection route without leaking API keys
+- added tenant quotas for API request rate, snapshot count, and migration count
+
+### Migration And API Correctness
+- fixed current-inventory aggregation so the API no longer misses sources once snapshot history grows past twenty entries
+- replaced brittle pending-approval summary detection with real migration-state decoding
+- wired migration `credential_ref` resolution through the CLI config and API server connector-resolution paths
+- added the `/api/v1/about` route for operator-visible build and compatibility metadata
+
+### Plugin And Release Operability
+- added optional plugin host-version compatibility markers in `plugin.json`
+- added a machine-readable `dependency-manifest.json` to packaged release bundles
+- expanded regression coverage for service-account auth, quota enforcement, plugin compatibility, packaging metadata, and summary correctness
 
 ## [1.1.0] - 2026-04-05
 
@@ -42,6 +51,15 @@ This changelog tracks published releases and the major implementation milestones
 - aligned top-level docs, roadmap archives, examples, and community files with the implemented codebase
 - added release-era install, quickstart, upgrade, release, support, and troubleshooting entrypoints
 - improved directory onboarding for docs, configs, examples, API assets, tests, and the dashboard
+
+## [1.0.0] - 2026-04-05
+
+### Highlights
+- shipped the first tagged Viaduct release with a release-gated CLI, API, dashboard, install scripts, packaged web assets, checksums, and release manifest generation
+- delivered multi-platform discovery for VMware, Proxmox, Hyper-V, KVM, Nutanix, and Veeam-related backup inventory
+- delivered dependency-aware migration planning, cold and warm migration workflows, execution windows, approval gates, checkpoints, resume support, verification, and rollback
+- delivered lifecycle cost, policy, drift, remediation, and simulation workflows
+- delivered tenant-scoped API access, persistent state backends, plugin hosting, contributor docs, operator runbooks, and example lab environments
 
 ## Historical Implementation Milestones
 

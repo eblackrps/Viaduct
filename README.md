@@ -10,14 +10,14 @@ Viaduct is an open source control plane for discovering, migrating, and operatin
 Broadcom's VMware licensing changes forced many teams into urgent platform decisions, but most migration tooling still assumes a one-time move into a single destination. Viaduct is built for operators who need a durable mixed-platform operating model: discover what exists, understand the blast radius, move workloads safely, preserve backup coverage, and keep managing cost, policy, and drift after cutover.
 
 ## Project Status
-Viaduct is ready for broad evaluation, operator pilots, and community contribution. The repository includes multi-platform discovery, dependency graphing, declarative migration orchestration, warm-migration primitives, lifecycle remediation, backup portability, multi-tenancy, plugin hosting, a web dashboard, reproducible release packaging, and a shared release gate for CI and local verification.
+Viaduct is ready for broad evaluation, operator pilots, and community contribution. The repository includes multi-platform discovery, dependency graphing, declarative migration orchestration, warm-migration primitives, lifecycle remediation, backup portability, multi-tenancy with service accounts and quota controls, plugin hosting, a web dashboard, reproducible release packaging, and a shared release gate for CI and local verification.
 
 ## Supported Capabilities
 - Discovery engine: Collects normalized inventory from VMware, Proxmox, Hyper-V, KVM, Nutanix, and Veeam-related backup systems into a universal schema.
 - Dependency mapping: Builds graph views across workloads, networks, storage, and backup relationships to support safer migration planning.
 - Migration orchestration: Supports declarative planning, preflight validation, cold and warm migration flows, execution windows, approval gates, checkpoints, resume support, and rollback.
 - Lifecycle analysis: Evaluates cost, policy, and drift, then turns those signals into remediation guidance and simulation output.
-- Multi-tenancy and extensibility: Provides tenant-scoped API access, persistent state backends, and a gRPC-based plugin host for community connectors.
+- Multi-tenancy and extensibility: Provides tenant-scoped API access, service-account and role-based access controls, persistent state backends, and a gRPC-based plugin host for community connectors.
 - Operator surfaces: Exposes the same core workflows through a CLI, REST API, and React dashboard.
 
 ## Supported Connectors And Integrations
@@ -49,6 +49,7 @@ make build
 ./bin/viaduct discover --type kvm --source examples/lab/kvm --save
 ./bin/viaduct plan --spec examples/lab/migration-window.yaml
 ./bin/viaduct serve-api --port 8080
+curl http://localhost:8080/api/v1/about
 
 cd web
 npm ci

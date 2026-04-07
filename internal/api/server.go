@@ -8,12 +8,14 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/eblackrps/viaduct/internal/connectorcatalog"
 	"github.com/eblackrps/viaduct/internal/connectors"
+	pluginhost "github.com/eblackrps/viaduct/internal/connectors/plugin"
 	"github.com/eblackrps/viaduct/internal/deps"
 	"github.com/eblackrps/viaduct/internal/discovery"
 	"github.com/eblackrps/viaduct/internal/lifecycle"
@@ -24,12 +26,13 @@ import (
 )
 
 type tenantCreateRequest struct {
-	ID        string            `json:"id"`
-	Name      string            `json:"name"`
-	APIKey    string            `json:"api_key"`
-	CreatedAt time.Time         `json:"created_at"`
-	Active    *bool             `json:"active,omitempty"`
-	Settings  map[string]string `json:"settings,omitempty"`
+	ID        string             `json:"id"`
+	Name      string             `json:"name"`
+	APIKey    string             `json:"api_key"`
+	CreatedAt time.Time          `json:"created_at"`
+	Active    *bool              `json:"active,omitempty"`
+	Settings  map[string]string  `json:"settings,omitempty"`
+	Quotas    models.TenantQuota `json:"quotas,omitempty"`
 }
 
 type migrationExecutionRequest struct {
@@ -38,16 +41,36 @@ type migrationExecutionRequest struct {
 }
 
 type tenantSummary struct {
-	TenantID            string         `json:"tenant_id"`
-	WorkloadCount       int            `json:"workload_count"`
-	SnapshotCount       int            `json:"snapshot_count"`
-	ActiveMigrations    int            `json:"active_migrations"`
-	CompletedMigrations int            `json:"completed_migrations"`
-	FailedMigrations    int            `json:"failed_migrations"`
-	PendingApprovals    int            `json:"pending_approvals"`
-	RecommendationCount int            `json:"recommendation_count"`
-	PlatformCounts      map[string]int `json:"platform_counts"`
-	LastDiscoveryAt     time.Time      `json:"last_discovery_at,omitempty"`
+	TenantID            string             `json:"tenant_id"`
+	WorkloadCount       int                `json:"workload_count"`
+	SnapshotCount       int                `json:"snapshot_count"`
+	ActiveMigrations    int                `json:"active_migrations"`
+	CompletedMigrations int                `json:"completed_migrations"`
+	FailedMigrations    int                `json:"failed_migrations"`
+	PendingApprovals    int                `json:"pending_approvals"`
+	RecommendationCount int                `json:"recommendation_count"`
+	PlatformCounts      map[string]int     `json:"platform_counts"`
+	LastDiscoveryAt     time.Time          `json:"last_discovery_at,omitempty"`
+	Quotas              models.TenantQuota `json:"quotas,omitempty"`
+	SnapshotQuotaFree   int                `json:"snapshot_quota_free,omitempty"`
+	MigrationQuotaFree  int                `json:"migration_quota_free,omitempty"`
+}
+
+type buildInfo struct {
+	version string
+	commit  string
+	date    string
+}
+
+type aboutResponse struct {
+	Name               string            `json:"name"`
+	APIVersion         string            `json:"api_version"`
+	Version            string            `json:"version"`
+	Commit             string            `json:"commit"`
+	BuiltAt            string            `json:"built_at"`
+	GoVersion          string            `json:"go_version"`
+	PluginProtocol     string            `json:"plugin_protocol"`
+	SupportedPlatforms []models.Platform `json:"supported_platforms"`
 }
 
 // Server serves Viaduct REST API endpoints for discovery, migration, and lifecycle workflows.
@@ -59,11 +82,13 @@ type Server struct {
 	catalog              *connectorcatalog.Catalog
 	metrics              *apiMetrics
 	rateLimiter          *tenantRateLimiter
+	build                buildInfo
 	backups              *models.BackupDiscoveryResult
 	costEngine           *lifecycle.CostEngine
 	policyEngine         *lifecycle.PolicyEngine
 	recommendationEngine *lifecycle.RecommendationEngine
 	driftDetector        *lifecycle.DriftDetector
+	resolveConfig        func(platform models.Platform, address, credentialRef string) connectors.Config
 
 	mu    sync.RWMutex
 	specs map[string]*migratepkg.MigrationSpec
@@ -99,38 +124,70 @@ func NewServer(engine *discovery.Engine, stateStore store.Store, port int, catal
 		catalog:              catalog,
 		metrics:              newAPIMetrics(),
 		rateLimiter:          newTenantRateLimiter(300, time.Minute),
+		build:                buildInfo{version: "dev", commit: "none", date: "unknown"},
 		costEngine:           costEngine,
 		policyEngine:         policyEngine,
 		recommendationEngine: lifecycle.NewRecommendationEngine(costEngine, policyEngine),
 		driftDetector:        lifecycle.NewDriftDetector(stateStore, policyEngine, lifecycle.DriftConfig{}),
-		specs:                make(map[string]*migratepkg.MigrationSpec),
+		resolveConfig: func(platform models.Platform, address, credentialRef string) connectors.Config {
+			return connectors.Config{Address: address}
+		},
+		specs: make(map[string]*migratepkg.MigrationSpec),
 	}
+}
+
+// SetBuildInfo configures operator-visible release metadata exposed by the API server.
+func (s *Server) SetBuildInfo(version, commit, date string) {
+	if s == nil {
+		return
+	}
+	if strings.TrimSpace(version) != "" {
+		s.build.version = strings.TrimSpace(version)
+	}
+	if strings.TrimSpace(commit) != "" {
+		s.build.commit = strings.TrimSpace(commit)
+	}
+	if strings.TrimSpace(date) != "" {
+		s.build.date = strings.TrimSpace(date)
+	}
+}
+
+// SetConnectorConfigResolver configures how migration specs resolve connector credentials and transport settings.
+func (s *Server) SetConnectorConfigResolver(resolver func(platform models.Platform, address, credentialRef string) connectors.Config) {
+	if s == nil || resolver == nil {
+		return
+	}
+	s.resolveConfig = resolver
 }
 
 // Start runs the HTTP server until the context is canceled.
 func (s *Server) Start(ctx context.Context) error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/v1/health", s.handleHealth)
+	mux.HandleFunc("/api/v1/about", s.handleAbout)
 	mux.HandleFunc("/api/v1/metrics", s.handleMetrics)
 	mux.Handle("/api/v1/admin/tenants", AdminAuthMiddleware(s.adminAPIKey, http.HandlerFunc(s.handleAdminTenants)))
 	mux.Handle("/api/v1/admin/tenants/", AdminAuthMiddleware(s.adminAPIKey, http.HandlerFunc(s.handleAdminTenantByID)))
 
 	tenantMux := http.NewServeMux()
-	tenantMux.HandleFunc("/api/v1/inventory", s.handleInventory)
-	tenantMux.HandleFunc("/api/v1/audit", s.handleAudit)
-	tenantMux.HandleFunc("/api/v1/snapshots", s.handleSnapshots)
-	tenantMux.HandleFunc("/api/v1/snapshots/", s.handleSnapshotByID)
-	tenantMux.HandleFunc("/api/v1/graph", s.handleGraph)
-	tenantMux.HandleFunc("/api/v1/preflight", s.handlePreflight)
-	tenantMux.HandleFunc("/api/v1/migrations", s.handleMigrations)
-	tenantMux.HandleFunc("/api/v1/migrations/", s.handleMigrationByID)
-	tenantMux.HandleFunc("/api/v1/costs", s.handleCosts)
-	tenantMux.HandleFunc("/api/v1/policies", s.handlePolicies)
-	tenantMux.HandleFunc("/api/v1/drift", s.handleDrift)
-	tenantMux.HandleFunc("/api/v1/remediation", s.handleRemediation)
-	tenantMux.HandleFunc("/api/v1/simulation", s.handleSimulation)
-	tenantMux.HandleFunc("/api/v1/summary", s.handleSummary)
-	tenantMux.HandleFunc("/api/v1/reports/", s.handleReports)
+	tenantMux.Handle("/api/v1/inventory", RequireTenantRole(models.TenantRoleViewer, http.HandlerFunc(s.handleInventory)))
+	tenantMux.Handle("/api/v1/audit", RequireTenantRole(models.TenantRoleViewer, http.HandlerFunc(s.handleAudit)))
+	tenantMux.Handle("/api/v1/snapshots", RequireTenantRole(models.TenantRoleViewer, http.HandlerFunc(s.handleSnapshots)))
+	tenantMux.Handle("/api/v1/snapshots/", RequireTenantRole(models.TenantRoleViewer, http.HandlerFunc(s.handleSnapshotByID)))
+	tenantMux.Handle("/api/v1/graph", RequireTenantRole(models.TenantRoleViewer, http.HandlerFunc(s.handleGraph)))
+	tenantMux.Handle("/api/v1/preflight", RequireTenantRole(models.TenantRoleOperator, http.HandlerFunc(s.handlePreflight)))
+	tenantMux.Handle("/api/v1/migrations", RequireTenantRole(models.TenantRoleOperator, http.HandlerFunc(s.handleMigrations)))
+	tenantMux.Handle("/api/v1/migrations/", RequireTenantRole(models.TenantRoleOperator, http.HandlerFunc(s.handleMigrationByID)))
+	tenantMux.Handle("/api/v1/costs", RequireTenantRole(models.TenantRoleViewer, http.HandlerFunc(s.handleCosts)))
+	tenantMux.Handle("/api/v1/policies", RequireTenantRole(models.TenantRoleViewer, http.HandlerFunc(s.handlePolicies)))
+	tenantMux.Handle("/api/v1/drift", RequireTenantRole(models.TenantRoleViewer, http.HandlerFunc(s.handleDrift)))
+	tenantMux.Handle("/api/v1/remediation", RequireTenantRole(models.TenantRoleViewer, http.HandlerFunc(s.handleRemediation)))
+	tenantMux.Handle("/api/v1/simulation", RequireTenantRole(models.TenantRoleOperator, http.HandlerFunc(s.handleSimulation)))
+	tenantMux.Handle("/api/v1/summary", RequireTenantRole(models.TenantRoleViewer, http.HandlerFunc(s.handleSummary)))
+	tenantMux.Handle("/api/v1/reports/", RequireTenantRole(models.TenantRoleViewer, http.HandlerFunc(s.handleReports)))
+	tenantMux.Handle("/api/v1/tenants/current", RequireTenantRole(models.TenantRoleViewer, http.HandlerFunc(s.handleCurrentTenant)))
+	tenantMux.Handle("/api/v1/service-accounts", RequireTenantRole(models.TenantRoleAdmin, http.HandlerFunc(s.handleServiceAccounts)))
+	tenantMux.Handle("/api/v1/service-accounts/", RequireTenantRole(models.TenantRoleAdmin, http.HandlerFunc(s.handleServiceAccountByID)))
 
 	tenantHandler := TenantAuthMiddleware(s.store, TenantRateLimitMiddleware(s.rateLimiter, tenantMux))
 	mux.Handle("/api/v1/inventory", tenantHandler)
@@ -148,6 +205,9 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.Handle("/api/v1/simulation", tenantHandler)
 	mux.Handle("/api/v1/summary", tenantHandler)
 	mux.Handle("/api/v1/reports/", tenantHandler)
+	mux.Handle("/api/v1/tenants/current", tenantHandler)
+	mux.Handle("/api/v1/service-accounts", tenantHandler)
+	mux.Handle("/api/v1/service-accounts/", tenantHandler)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", s.port),
@@ -178,6 +238,24 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
+func (s *Server) handleAbout(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, aboutResponse{
+		Name:               "Viaduct",
+		APIVersion:         "v1",
+		Version:            s.build.version,
+		Commit:             s.build.commit,
+		BuiltAt:            s.build.date,
+		GoVersion:          runtime.Version(),
+		PluginProtocol:     pluginhost.ProtocolVersion,
+		SupportedPlatforms: s.supportedPlatforms(),
+	})
+}
+
 func (s *Server) handleAdminTenants(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
@@ -186,7 +264,11 @@ func (s *Server) handleAdminTenants(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		writeJSON(w, http.StatusOK, tenants)
+		responses := make([]adminTenantResponse, 0, len(tenants))
+		for _, tenant := range tenants {
+			responses = append(responses, toAdminTenantResponse(tenant, false))
+		}
+		writeJSON(w, http.StatusOK, responses)
 	case http.MethodPost:
 		defer r.Body.Close()
 
@@ -201,6 +283,7 @@ func (s *Server) handleAdminTenants(w http.ResponseWriter, r *http.Request) {
 			APIKey:    request.APIKey,
 			CreatedAt: request.CreatedAt,
 			Settings:  request.Settings,
+			Quotas:    request.Quotas,
 		}
 		if tenant.ID == "" {
 			tenant.ID = uuid.NewString()
@@ -233,7 +316,7 @@ func (s *Server) handleAdminTenants(w http.ResponseWriter, r *http.Request) {
 			Outcome:  models.AuditOutcomeSuccess,
 			Message:  "tenant created",
 		})
-		writeJSON(w, http.StatusCreated, tenant)
+		writeJSON(w, http.StatusCreated, toAdminTenantResponse(tenant, true))
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
@@ -767,6 +850,15 @@ func (s *Server) handleSummary(w http.ResponseWriter, r *http.Request) {
 		RecommendationCount: len(recommendations.Recommendations),
 		PlatformCounts:      make(map[string]int),
 	}
+	if tenant, err := s.store.GetTenant(r.Context(), summary.TenantID); err == nil && tenant != nil {
+		summary.Quotas = tenant.Quotas
+		if tenant.Quotas.MaxSnapshots > 0 {
+			summary.SnapshotQuotaFree = tenant.Quotas.MaxSnapshots - len(snapshots)
+			if summary.SnapshotQuotaFree < 0 {
+				summary.SnapshotQuotaFree = 0
+			}
+		}
+	}
 	if len(snapshots) > 0 {
 		summary.LastDiscoveryAt = snapshots[0].DiscoveredAt
 	}
@@ -781,13 +873,19 @@ func (s *Server) handleSummary(w http.ResponseWriter, r *http.Request) {
 			summary.FailedMigrations++
 		case string(migratepkg.PhasePlan):
 			record, err := s.store.GetMigration(r.Context(), store.TenantIDFromContext(r.Context()), migration.ID)
-			if err == nil && strings.Contains(string(record.RawJSON), `"pending_approval":true`) {
+			if err == nil && pendingApprovalFromRecord(record) {
 				summary.PendingApprovals++
 			}
 			summary.ActiveMigrations++
 		case string(migratepkg.PhaseRolledBack):
 		default:
 			summary.ActiveMigrations++
+		}
+	}
+	if summary.Quotas.MaxMigrations > 0 {
+		summary.MigrationQuotaFree = summary.Quotas.MaxMigrations - len(migrations)
+		if summary.MigrationQuotaFree < 0 {
+			summary.MigrationQuotaFree = 0
 		}
 	}
 
@@ -807,7 +905,7 @@ func (s *Server) specKey(tenantID, migrationID string) string {
 
 func (s *Server) latestInventory(ctx context.Context, platform models.Platform) (*models.DiscoveryResult, error) {
 	tenantID := store.TenantIDFromContext(ctx)
-	items, err := s.store.ListSnapshots(ctx, tenantID, platform, 20)
+	items, err := s.store.ListSnapshots(ctx, tenantID, platform, 0)
 	if err != nil {
 		return nil, fmt.Errorf("load latest inventory: %w", err)
 	}
@@ -875,16 +973,19 @@ func (s *Server) connectorsForSpec(spec *migratepkg.MigrationSpec) (connectors.C
 		}
 	}
 
-	sourceConnector, err := catalog.Build(spec.Source.Platform, connectors.Config{
-		Address: spec.Source.Address,
-	})
+	resolveConfig := s.resolveConfig
+	if resolveConfig == nil {
+		resolveConfig = func(platform models.Platform, address, credentialRef string) connectors.Config {
+			return connectors.Config{Address: address}
+		}
+	}
+
+	sourceConnector, err := catalog.Build(spec.Source.Platform, resolveConfig(spec.Source.Platform, spec.Source.Address, spec.Source.CredentialRef))
 	if err != nil {
 		return nil, nil, err
 	}
 
-	targetConnector, err := catalog.Build(spec.Target.Platform, connectors.Config{
-		Address: spec.Target.Address,
-	})
+	targetConnector, err := catalog.Build(spec.Target.Platform, resolveConfig(spec.Target.Platform, spec.Target.Address, spec.Target.CredentialRef))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -963,7 +1064,7 @@ func validateExecutionRequest(spec migratepkg.MigrationSpec, now time.Time) erro
 func (s *Server) withCORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-API-Key, X-Admin-Key, X-Request-ID")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-API-Key, X-Service-Account-Key, X-Admin-Key, X-Request-ID")
 		w.Header().Set("Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS")
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
@@ -971,6 +1072,31 @@ func (s *Server) withCORS(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+func (s *Server) supportedPlatforms() []models.Platform {
+	if s == nil || s.catalog == nil {
+		return []models.Platform{
+			models.PlatformHyperV,
+			models.PlatformKVM,
+			models.PlatformNutanix,
+			models.PlatformProxmox,
+			models.PlatformVMware,
+		}
+	}
+	return s.catalog.Platforms()
+}
+
+func pendingApprovalFromRecord(record *store.MigrationRecord) bool {
+	if record == nil || len(record.RawJSON) == 0 {
+		return false
+	}
+
+	var state migratepkg.MigrationState
+	if err := json.Unmarshal(record.RawJSON, &state); err != nil {
+		return false
+	}
+	return state.PendingApproval
 }
 
 func writeJSON(w http.ResponseWriter, status int, payload interface{}) {

@@ -19,8 +19,12 @@ CREATE TABLE IF NOT EXISTS tenants (
 	api_key TEXT NOT NULL,
 	created_at TIMESTAMPTZ NOT NULL,
 	active BOOLEAN NOT NULL,
-	settings JSONB NOT NULL DEFAULT '{}'::jsonb
+	settings JSONB NOT NULL DEFAULT '{}'::jsonb,
+	quotas JSONB NOT NULL DEFAULT '{}'::jsonb,
+	service_accounts JSONB NOT NULL DEFAULT '[]'::jsonb
 );
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS quotas JSONB NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS service_accounts JSONB NOT NULL DEFAULT '[]'::jsonb;
 
 INSERT INTO tenants (id, name, api_key, created_at, active, settings)
 VALUES ('default', 'Default Tenant', '', to_timestamp(0), TRUE, '{}'::jsonb)
@@ -135,8 +139,18 @@ func (s *PostgresStore) SaveDiscovery(ctx context.Context, tenantID string, resu
 	}
 
 	tenantID = normalizeTenantID(tenantID)
-	if err := s.ensureTenant(ctx, tenantID); err != nil {
+	tenant, err := s.ensureTenant(ctx, tenantID)
+	if err != nil {
 		return "", fmt.Errorf("postgres store: save discovery: %w", err)
+	}
+	if tenant.Quotas.MaxSnapshots > 0 {
+		currentCount, err := s.snapshotCount(ctx, tenantID)
+		if err != nil {
+			return "", fmt.Errorf("postgres store: save discovery: %w", err)
+		}
+		if currentCount >= tenant.Quotas.MaxSnapshots {
+			return "", fmt.Errorf("postgres store: save discovery: snapshot quota exceeded for tenant %s", tenantID)
+		}
 	}
 
 	payload, err := json.Marshal(result)
@@ -280,11 +294,27 @@ func (s *PostgresStore) SaveMigration(ctx context.Context, tenantID string, reco
 
 	tenantID = normalizeTenantID(tenantID)
 	record.TenantID = tenantID
-	if err := s.ensureTenant(ctx, tenantID); err != nil {
+	tenant, err := s.ensureTenant(ctx, tenantID)
+	if err != nil {
 		return fmt.Errorf("postgres store: save migration: %w", err)
 	}
+	if tenant.Quotas.MaxMigrations > 0 {
+		exists, err := s.migrationExists(ctx, tenantID, record.ID)
+		if err != nil {
+			return fmt.Errorf("postgres store: save migration: %w", err)
+		}
+		if !exists {
+			currentCount, err := s.migrationCount(ctx, tenantID)
+			if err != nil {
+				return fmt.Errorf("postgres store: save migration: %w", err)
+			}
+			if currentCount >= tenant.Quotas.MaxMigrations {
+				return fmt.Errorf("postgres store: save migration: migration quota exceeded for tenant %s", tenantID)
+			}
+		}
+	}
 
-	_, err := s.db.ExecContext(
+	_, err = s.db.ExecContext(
 		ctx,
 		`INSERT INTO migrations (id, tenant_id, spec_name, phase, started_at, updated_at, completed_at, raw_json)
 		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -381,7 +411,7 @@ func (s *PostgresStore) SaveRecoveryPoint(ctx context.Context, tenantID string, 
 
 	tenantID = normalizeTenantID(tenantID)
 	record.TenantID = tenantID
-	if err := s.ensureTenant(ctx, tenantID); err != nil {
+	if _, err := s.ensureTenant(ctx, tenantID); err != nil {
 		return fmt.Errorf("postgres store: save recovery point: %w", err)
 	}
 
@@ -433,31 +463,98 @@ func (s *PostgresStore) CreateTenant(ctx context.Context, tenant models.Tenant) 
 	if tenant.Name == "" {
 		return fmt.Errorf("postgres store: create tenant: tenant name is empty")
 	}
-	if tenant.CreatedAt.IsZero() {
-		tenant.CreatedAt = time.Now().UTC()
-	}
-	if tenant.Settings == nil {
-		tenant.Settings = map[string]string{}
-	}
-
-	settings, err := json.Marshal(tenant.Settings)
+	tenant = normalizeTenant(tenant)
+	settingsPayload, err := marshalTenantComponent("settings", tenant.Settings)
 	if err != nil {
-		return fmt.Errorf("postgres store: create tenant: marshal settings: %w", err)
+		return fmt.Errorf("postgres store: create tenant: %w", err)
+	}
+	quotasPayload, err := marshalTenantComponent("quotas", tenant.Quotas)
+	if err != nil {
+		return fmt.Errorf("postgres store: create tenant: %w", err)
+	}
+	serviceAccountsPayload, err := marshalTenantComponent("service_accounts", tenant.ServiceAccounts)
+	if err != nil {
+		return fmt.Errorf("postgres store: create tenant: %w", err)
 	}
 
 	_, err = s.db.ExecContext(
 		ctx,
-		`INSERT INTO tenants (id, name, api_key, created_at, active, settings)
-		 VALUES ($1, $2, $3, $4, $5, $6)`,
+		`INSERT INTO tenants (id, name, api_key, created_at, active, settings, quotas, service_accounts)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
 		tenant.ID,
 		tenant.Name,
 		tenant.APIKey,
 		tenant.CreatedAt,
 		tenant.Active,
-		settings,
+		settingsPayload,
+		quotasPayload,
+		serviceAccountsPayload,
 	)
 	if err != nil {
 		return fmt.Errorf("postgres store: create tenant %s: %w", tenant.ID, err)
+	}
+
+	return nil
+}
+
+// UpdateTenant overwrites tenant metadata in PostgreSQL.
+func (s *PostgresStore) UpdateTenant(ctx context.Context, tenant models.Tenant) error {
+	tenant.ID = normalizeTenantID(tenant.ID)
+	if tenant.Name == "" {
+		return fmt.Errorf("postgres store: update tenant: tenant name is empty")
+	}
+	if tenant.ID == DefaultTenantID {
+		existing := defaultTenant()
+		existing.APIKey = tenant.APIKey
+		existing.Active = tenant.Active
+		existing.Settings = tenant.Settings
+		existing.Quotas = tenant.Quotas
+		existing.ServiceAccounts = tenant.ServiceAccounts
+		tenant = existing
+	}
+	tenant = normalizeTenant(tenant)
+	settingsPayload, err := marshalTenantComponent("settings", tenant.Settings)
+	if err != nil {
+		return fmt.Errorf("postgres store: update tenant %s: %w", tenant.ID, err)
+	}
+	quotasPayload, err := marshalTenantComponent("quotas", tenant.Quotas)
+	if err != nil {
+		return fmt.Errorf("postgres store: update tenant %s: %w", tenant.ID, err)
+	}
+	serviceAccountsPayload, err := marshalTenantComponent("service_accounts", tenant.ServiceAccounts)
+	if err != nil {
+		return fmt.Errorf("postgres store: update tenant %s: %w", tenant.ID, err)
+	}
+
+	result, err := s.db.ExecContext(
+		ctx,
+		`UPDATE tenants
+		 SET name = $2,
+		     api_key = $3,
+		     created_at = $4,
+		     active = $5,
+		     settings = $6,
+		     quotas = $7,
+		     service_accounts = $8
+		 WHERE id = $1`,
+		tenant.ID,
+		tenant.Name,
+		tenant.APIKey,
+		tenant.CreatedAt,
+		tenant.Active,
+		settingsPayload,
+		quotasPayload,
+		serviceAccountsPayload,
+	)
+	if err != nil {
+		return fmt.Errorf("postgres store: update tenant %s: %w", tenant.ID, err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("postgres store: update tenant %s: rows affected: %w", tenant.ID, err)
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("postgres store: update tenant %s: not found", tenant.ID)
 	}
 
 	return nil
@@ -467,20 +564,22 @@ func (s *PostgresStore) CreateTenant(ctx context.Context, tenant models.Tenant) 
 func (s *PostgresStore) GetTenant(ctx context.Context, tenantID string) (*models.Tenant, error) {
 	tenantID = normalizeTenantID(tenantID)
 
-	var tenant models.Tenant
-	var settingsPayload []byte
+	var (
+		tenant                 models.Tenant
+		settingsPayload        []byte
+		quotasPayload          []byte
+		serviceAccountsPayload []byte
+	)
 	if err := s.db.QueryRowContext(
 		ctx,
-		`SELECT id, name, api_key, created_at, active, settings FROM tenants WHERE id = $1`,
+		`SELECT id, name, api_key, created_at, active, settings, quotas, service_accounts FROM tenants WHERE id = $1`,
 		tenantID,
-	).Scan(&tenant.ID, &tenant.Name, &tenant.APIKey, &tenant.CreatedAt, &tenant.Active, &settingsPayload); err != nil {
+	).Scan(&tenant.ID, &tenant.Name, &tenant.APIKey, &tenant.CreatedAt, &tenant.Active, &settingsPayload, &quotasPayload, &serviceAccountsPayload); err != nil {
 		return nil, fmt.Errorf("postgres store: get tenant %s: %w", tenantID, err)
 	}
 
-	if len(settingsPayload) > 0 {
-		if err := json.Unmarshal(settingsPayload, &tenant.Settings); err != nil {
-			return nil, fmt.Errorf("postgres store: get tenant %s: decode settings: %w", tenantID, err)
-		}
+	if err := decodeTenantComponents(&tenant, settingsPayload, quotasPayload, serviceAccountsPayload); err != nil {
+		return nil, fmt.Errorf("postgres store: get tenant %s: %w", tenantID, err)
 	}
 
 	return &tenant, nil
@@ -488,7 +587,7 @@ func (s *PostgresStore) GetTenant(ctx context.Context, tenantID string) (*models
 
 // ListTenants returns all configured tenants from PostgreSQL.
 func (s *PostgresStore) ListTenants(ctx context.Context) ([]models.Tenant, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id, name, api_key, created_at, active, settings FROM tenants ORDER BY created_at ASC`)
+	rows, err := s.db.QueryContext(ctx, `SELECT id, name, api_key, created_at, active, settings, quotas, service_accounts FROM tenants ORDER BY created_at ASC`)
 	if err != nil {
 		return nil, fmt.Errorf("postgres store: list tenants: %w", err)
 	}
@@ -496,15 +595,17 @@ func (s *PostgresStore) ListTenants(ctx context.Context) ([]models.Tenant, error
 
 	items := make([]models.Tenant, 0)
 	for rows.Next() {
-		var tenant models.Tenant
-		var settingsPayload []byte
-		if err := rows.Scan(&tenant.ID, &tenant.Name, &tenant.APIKey, &tenant.CreatedAt, &tenant.Active, &settingsPayload); err != nil {
+		var (
+			tenant                 models.Tenant
+			settingsPayload        []byte
+			quotasPayload          []byte
+			serviceAccountsPayload []byte
+		)
+		if err := rows.Scan(&tenant.ID, &tenant.Name, &tenant.APIKey, &tenant.CreatedAt, &tenant.Active, &settingsPayload, &quotasPayload, &serviceAccountsPayload); err != nil {
 			return nil, fmt.Errorf("postgres store: scan tenant: %w", err)
 		}
-		if len(settingsPayload) > 0 {
-			if err := json.Unmarshal(settingsPayload, &tenant.Settings); err != nil {
-				return nil, fmt.Errorf("postgres store: decode tenant settings: %w", err)
-			}
+		if err := decodeTenantComponents(&tenant, settingsPayload, quotasPayload, serviceAccountsPayload); err != nil {
+			return nil, fmt.Errorf("postgres store: decode tenant %s: %w", tenant.ID, err)
 		}
 		items = append(items, tenant)
 	}
@@ -575,7 +676,7 @@ func (s *PostgresStore) SaveAuditEvent(ctx context.Context, event models.AuditEv
 		event.Details = map[string]string{}
 	}
 
-	if err := s.ensureTenant(ctx, event.TenantID); err != nil {
+	if _, err := s.ensureTenant(ctx, event.TenantID); err != nil {
 		return fmt.Errorf("postgres store: save audit event: %w", err)
 	}
 
@@ -661,12 +762,12 @@ func (s *PostgresStore) ListAuditEvents(ctx context.Context, tenantID string, li
 	return items, nil
 }
 
-func (s *PostgresStore) ensureTenant(ctx context.Context, tenantID string) error {
+func (s *PostgresStore) ensureTenant(ctx context.Context, tenantID string) (models.Tenant, error) {
 	if tenantID == DefaultTenantID {
 		_, err := s.db.ExecContext(
 			ctx,
-			`INSERT INTO tenants (id, name, api_key, created_at, active, settings)
-			 VALUES ($1, $2, $3, $4, $5, $6)
+			`INSERT INTO tenants (id, name, api_key, created_at, active, settings, quotas, service_accounts)
+			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 			 ON CONFLICT (id) DO NOTHING`,
 			DefaultTenantID,
 			defaultTenantName,
@@ -674,22 +775,77 @@ func (s *PostgresStore) ensureTenant(ctx context.Context, tenantID string) error
 			time.Unix(0, 0).UTC(),
 			true,
 			`{}`,
+			`{}`,
+			`[]`,
 		)
 		if err != nil {
-			return fmt.Errorf("ensure default tenant: %w", err)
+			return models.Tenant{}, fmt.Errorf("ensure default tenant: %w", err)
 		}
-		return nil
+		tenant, err := s.GetTenant(ctx, tenantID)
+		if err != nil {
+			return models.Tenant{}, fmt.Errorf("ensure default tenant: %w", err)
+		}
+		return *tenant, nil
 	}
 
+	tenant, err := s.GetTenant(ctx, tenantID)
+	if err != nil {
+		return models.Tenant{}, fmt.Errorf("check tenant %s: %w", tenantID, err)
+	}
+	return *tenant, nil
+}
+
+func (s *PostgresStore) snapshotCount(ctx context.Context, tenantID string) (int, error) {
+	var count int
+	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM snapshots WHERE tenant_id = $1`, tenantID).Scan(&count); err != nil {
+		return 0, fmt.Errorf("count snapshots for tenant %s: %w", tenantID, err)
+	}
+	return count, nil
+}
+
+func (s *PostgresStore) migrationExists(ctx context.Context, tenantID, migrationID string) (bool, error) {
 	var exists bool
-	if err := s.db.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM tenants WHERE id = $1)`, tenantID).Scan(&exists); err != nil {
-		return fmt.Errorf("check tenant %s: %w", tenantID, err)
+	if err := s.db.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM migrations WHERE tenant_id = $1 AND id = $2)`, tenantID, migrationID).Scan(&exists); err != nil {
+		return false, fmt.Errorf("check migration %s for tenant %s: %w", migrationID, tenantID, err)
 	}
-	if !exists {
-		return fmt.Errorf("tenant %s not found", tenantID)
-	}
+	return exists, nil
+}
 
+func (s *PostgresStore) migrationCount(ctx context.Context, tenantID string) (int, error) {
+	var count int
+	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM migrations WHERE tenant_id = $1`, tenantID).Scan(&count); err != nil {
+		return 0, fmt.Errorf("count migrations for tenant %s: %w", tenantID, err)
+	}
+	return count, nil
+}
+
+func decodeTenantComponents(tenant *models.Tenant, settingsPayload, quotasPayload, serviceAccountsPayload []byte) error {
+	if len(settingsPayload) > 0 {
+		if err := json.Unmarshal(settingsPayload, &tenant.Settings); err != nil {
+			return fmt.Errorf("decode settings: %w", err)
+		}
+	}
+	if len(quotasPayload) > 0 {
+		if err := json.Unmarshal(quotasPayload, &tenant.Quotas); err != nil {
+			return fmt.Errorf("decode quotas: %w", err)
+		}
+	}
+	if len(serviceAccountsPayload) > 0 {
+		if err := json.Unmarshal(serviceAccountsPayload, &tenant.ServiceAccounts); err != nil {
+			return fmt.Errorf("decode service accounts: %w", err)
+		}
+	}
+	tenant.Settings = copyStringMap(tenant.Settings)
+	tenant.ServiceAccounts = cloneServiceAccounts(tenant.ServiceAccounts)
 	return nil
+}
+
+func marshalTenantComponent(name string, value interface{}) ([]byte, error) {
+	payload, err := json.Marshal(value)
+	if err != nil {
+		return nil, fmt.Errorf("marshal %s: %w", name, err)
+	}
+	return payload, nil
 }
 
 func nullTime(value time.Time) interface{} {

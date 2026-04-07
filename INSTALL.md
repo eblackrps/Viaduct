@@ -33,7 +33,7 @@ Release bundles produced by `make package-release-matrix` include:
 - built web assets
 - docs and sample configs
 - install scripts
-- checksums and a release manifest
+- checksums, a release manifest, and a dependency manifest
 
 On POSIX systems:
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -23,6 +24,10 @@ type Manifest struct {
 	Version string `json:"version"`
 	// ProtocolVersion is the plugin RPC protocol version supported by the plugin.
 	ProtocolVersion string `json:"protocol_version"`
+	// MinimumViaductVersion is the oldest supported Viaduct host release when specified.
+	MinimumViaductVersion string `json:"minimum_viaduct_version,omitempty"`
+	// MaximumViaductVersion is the newest supported Viaduct host release when specified.
+	MaximumViaductVersion string `json:"maximum_viaduct_version,omitempty"`
 }
 
 // LoadManifest loads a plugin manifest from the executable directory when present.
@@ -68,6 +73,31 @@ func ValidateManifest(manifest *Manifest) error {
 	if strings.TrimSpace(manifest.ProtocolVersion) != ProtocolVersion {
 		return fmt.Errorf("plugin manifest: unsupported protocol version %q", manifest.ProtocolVersion)
 	}
+	if _, ok := parseSemanticVersion(manifest.MinimumViaductVersion); strings.TrimSpace(manifest.MinimumViaductVersion) != "" && !ok {
+		return fmt.Errorf("plugin manifest: minimum_viaduct_version %q is invalid", manifest.MinimumViaductVersion)
+	}
+	if _, ok := parseSemanticVersion(manifest.MaximumViaductVersion); strings.TrimSpace(manifest.MaximumViaductVersion) != "" && !ok {
+		return fmt.Errorf("plugin manifest: maximum_viaduct_version %q is invalid", manifest.MaximumViaductVersion)
+	}
+	return nil
+}
+
+func manifestSupportsHost(manifest *Manifest, hostVersion string) error {
+	if manifest == nil {
+		return nil
+	}
+
+	hostSemver, ok := parseSemanticVersion(hostVersion)
+	if !ok {
+		return nil
+	}
+
+	if minVersion, ok := parseSemanticVersion(manifest.MinimumViaductVersion); ok && compareSemanticVersions(hostSemver, minVersion) < 0 {
+		return fmt.Errorf("plugin manifest: requires Viaduct >= %s", manifest.MinimumViaductVersion)
+	}
+	if maxVersion, ok := parseSemanticVersion(manifest.MaximumViaductVersion); ok && compareSemanticVersions(hostSemver, maxVersion) > 0 {
+		return fmt.Errorf("plugin manifest: requires Viaduct <= %s", manifest.MaximumViaductVersion)
+	}
 	return nil
 }
 
@@ -76,4 +106,43 @@ func manifestPathForPlugin(path string) (string, bool) {
 		return "", false
 	}
 	return filepath.Join(filepath.Dir(path), "plugin.json"), true
+}
+
+func parseSemanticVersion(version string) ([3]int, bool) {
+	trimmed := strings.TrimSpace(version)
+	trimmed = strings.TrimPrefix(trimmed, "v")
+	if trimmed == "" {
+		return [3]int{}, false
+	}
+
+	core := trimmed
+	if index := strings.IndexAny(core, "-+"); index >= 0 {
+		core = core[:index]
+	}
+	parts := strings.Split(core, ".")
+	if len(parts) != 3 {
+		return [3]int{}, false
+	}
+
+	var parsed [3]int
+	for index, part := range parts {
+		value, err := strconv.Atoi(part)
+		if err != nil {
+			return [3]int{}, false
+		}
+		parsed[index] = value
+	}
+	return parsed, true
+}
+
+func compareSemanticVersions(left, right [3]int) int {
+	for index := range left {
+		switch {
+		case left[index] < right[index]:
+			return -1
+		case left[index] > right[index]:
+			return 1
+		}
+	}
+	return 0
 }

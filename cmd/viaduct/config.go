@@ -16,6 +16,7 @@ type appConfig struct {
 	Insecure      bool                         `yaml:"insecure"`
 	StateStoreDSN string                       `yaml:"state_store_dsn"`
 	Sources       map[string]connectors.Config `yaml:"sources"`
+	Credentials   map[string]connectors.Config `yaml:"credentials"`
 	Plugins       map[string]string            `yaml:"plugins"`
 }
 
@@ -106,6 +107,34 @@ func mergeConnectorConfig(target *connectors.Config, source connectors.Config) {
 	if target.Port == 0 && source.Port != 0 {
 		target.Port = source.Port
 	}
+}
+
+func mergeConnectorCredentialConfig(target *connectors.Config, source connectors.Config) {
+	if target.Username == "" && source.Username != "" {
+		target.Username = source.Username
+	}
+	if target.Password == "" && source.Password != "" {
+		target.Password = source.Password
+	}
+	if !target.Insecure && source.Insecure {
+		target.Insecure = true
+	}
+	if target.Port == 0 && source.Port != 0 {
+		target.Port = source.Port
+	}
+}
+
+func resolveMigrationConnectorConfig(address, platform, credentialRef string, cfg *appConfig) connectors.Config {
+	config := resolveConnectorConfig(address, platform, "", "", false, cfg)
+	if cfg == nil {
+		return config
+	}
+
+	if credentialConfig, ok := cfg.Credentials[strings.TrimSpace(credentialRef)]; ok {
+		mergeConnectorCredentialConfig(&config, credentialConfig)
+	}
+	config.Address = address
+	return config
 }
 
 func expandPath(path string) (string, error) {

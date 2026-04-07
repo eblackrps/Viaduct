@@ -35,6 +35,7 @@ The sample config already points the KVM source at the local lab fixtures.
 
 ```bash
 ./bin/viaduct serve-api --port 8080
+curl http://localhost:8080/api/v1/about
 ```
 
 ## 6. Start The Dashboard
@@ -46,6 +47,12 @@ npm run dev
 ```
 
 The dashboard expects the API at `/api` and can use `VITE_VIADUCT_API_KEY` from [web/.env.example](web/.env.example) when tenant-scoped access is enabled.
+
+If you create additional tenants or service accounts, use:
+
+```bash
+curl -H "X-API-Key: <tenant-key>" http://localhost:8080/api/v1/tenants/current
+```
 
 ## Next Steps
 - Review [docs/operations/migration-operations.md](docs/operations/migration-operations.md) for execution and rollback workflows.

@@ -11,6 +11,7 @@ func TestPackageRelease_CreatesBundleAndArchive(t *testing.T) {
 	workspace := t.TempDir()
 
 	mustWriteFile(t, filepath.Join(workspace, "README.md"), "# Viaduct\n")
+	mustWriteFile(t, filepath.Join(workspace, "go.mod"), "module github.com/eblackrps/viaduct\n\ngo 1.24\n")
 	mustWriteFile(t, filepath.Join(workspace, "LICENSE"), "Apache License\n")
 	mustWriteFile(t, filepath.Join(workspace, "CHANGELOG.md"), "# Changelog\n")
 	mustWriteFile(t, filepath.Join(workspace, "CODE_OF_CONDUCT.md"), "# Code of Conduct\n")
@@ -30,6 +31,7 @@ func TestPackageRelease_CreatesBundleAndArchive(t *testing.T) {
 	mustWriteFile(t, filepath.Join(workspace, "examples", "plugin-example", "main.go"), "package main\n")
 	mustWriteFile(t, filepath.Join(workspace, "bin", "viaduct"), "binary\n")
 	mustWriteFile(t, filepath.Join(workspace, "web", "dist", "index.html"), "<html></html>\n")
+	mustWriteFile(t, filepath.Join(workspace, "web", "package.json"), "{\"dependencies\":{\"react\":\"^19.2.4\"},\"devDependencies\":{\"vite\":\"^8.0.3\"}}\n")
 
 	options := releaseOptions{
 		Workspace:    workspace,
@@ -68,6 +70,21 @@ func TestPackageRelease_CreatesBundleAndArchive(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(bundleDir, "INSTALL.md")); err != nil {
 		t.Fatalf("install guide missing from bundle: %v", err)
 	}
+	dependencyManifestPath := filepath.Join(bundleDir, "dependency-manifest.json")
+	dependencyPayload, err := os.ReadFile(dependencyManifestPath)
+	if err != nil {
+		t.Fatalf("dependency manifest missing: %v", err)
+	}
+	var dependencyManifest dependencyManifest
+	if err := json.Unmarshal(dependencyPayload, &dependencyManifest); err != nil {
+		t.Fatalf("Unmarshal(dependency manifest) error = %v", err)
+	}
+	if dependencyManifest.GoModule != "github.com/eblackrps/viaduct" {
+		t.Fatalf("GoModule = %q, want github.com/eblackrps/viaduct", dependencyManifest.GoModule)
+	}
+	if len(dependencyManifest.WebDependencies) != 1 || dependencyManifest.WebDependencies[0].Name != "react" {
+		t.Fatalf("unexpected web dependencies: %#v", dependencyManifest.WebDependencies)
+	}
 	moduleMarker, err := os.ReadFile(filepath.Join(bundleDir, "go.mod"))
 	if err != nil {
 		t.Fatalf("bundle module marker missing: %v", err)
@@ -92,6 +109,7 @@ func TestPackageRelease_BundleTargetOverride_WritesManifestTarget(t *testing.T) 
 	workspace := t.TempDir()
 
 	mustWriteFile(t, filepath.Join(workspace, "README.md"), "# Viaduct\n")
+	mustWriteFile(t, filepath.Join(workspace, "go.mod"), "module github.com/eblackrps/viaduct\n\ngo 1.24\n")
 	mustWriteFile(t, filepath.Join(workspace, "LICENSE"), "Apache License\n")
 	mustWriteFile(t, filepath.Join(workspace, "CHANGELOG.md"), "# Changelog\n")
 	mustWriteFile(t, filepath.Join(workspace, "CODE_OF_CONDUCT.md"), "# Code of Conduct\n")
@@ -111,6 +129,7 @@ func TestPackageRelease_BundleTargetOverride_WritesManifestTarget(t *testing.T) 
 	mustWriteFile(t, filepath.Join(workspace, "examples", "plugin-example", "main.go"), "package main\n")
 	mustWriteFile(t, filepath.Join(workspace, "bin", "viaduct.exe"), "binary\n")
 	mustWriteFile(t, filepath.Join(workspace, "web", "dist", "index.html"), "<html></html>\n")
+	mustWriteFile(t, filepath.Join(workspace, "web", "package.json"), "{\"dependencies\":{\"react\":\"^19.2.4\"}}\n")
 
 	options := releaseOptions{
 		Workspace:    workspace,
@@ -140,6 +159,9 @@ func TestPackageRelease_BundleTargetOverride_WritesManifestTarget(t *testing.T) 
 	}
 	if manifest.GOOS != "windows" || manifest.GOARCH != "amd64" {
 		t.Fatalf("manifest target = %s/%s, want windows/amd64", manifest.GOOS, manifest.GOARCH)
+	}
+	if manifest.DependencyManifest != "dependency-manifest.json" {
+		t.Fatalf("DependencyManifest = %q, want dependency-manifest.json", manifest.DependencyManifest)
 	}
 }
 

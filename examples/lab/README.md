@@ -5,7 +5,7 @@ This directory contains a lightweight local evaluation environment for Viaduct.
 ## Contents
 - `kvm/`: KVM/libvirt XML fixtures for local discovery
 - `migration-window.yaml`: example migration spec with execution window, approval gate, and wave planning
-- `tenant-create.json`: sample tenant creation payload for the admin API
+- `tenant-create.json`: sample tenant creation payload for the admin API, including starter quotas
 - `config.yaml`: minimal local config for the lab
 
 ## Recommended Flow

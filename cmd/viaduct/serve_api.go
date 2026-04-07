@@ -8,7 +8,9 @@ import (
 	"syscall"
 
 	viaductapi "github.com/eblackrps/viaduct/internal/api"
+	"github.com/eblackrps/viaduct/internal/connectors"
 	"github.com/eblackrps/viaduct/internal/discovery"
+	"github.com/eblackrps/viaduct/internal/models"
 	"github.com/spf13/cobra"
 )
 
@@ -40,6 +42,10 @@ func newServeAPICommand() *cobra.Command {
 			defer stop()
 
 			server := viaductapi.NewServer(discovery.NewEngine(), stateStore, port, catalog)
+			server.SetBuildInfo(version, commit, date)
+			server.SetConnectorConfigResolver(func(platform models.Platform, address, credentialRef string) connectors.Config {
+				return resolveMigrationConnectorConfig(address, string(platform), credentialRef, cfg)
+			})
 			return server.Start(ctx)
 		},
 	}

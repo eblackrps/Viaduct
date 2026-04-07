@@ -37,6 +37,8 @@ var (
 )
 
 func init() {
+	_ = os.Setenv("VIADUCT_VERSION", version)
+
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
 	rootCmd.PersistentFlags().StringVarP(&output, "output", "o", "table", "Output format: table, json, yaml")
 	rootCmd.PersistentFlags().StringVarP(&configPath, "config", "c", "~/.viaduct/config.yaml", "Path to config file")

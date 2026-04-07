@@ -43,7 +43,8 @@ Example manifest:
   "name": "Viaduct Example Plugin",
   "platform": "example",
   "version": "1.0.0",
-  "protocol_version": "v1"
+  "protocol_version": "v1",
+  "minimum_viaduct_version": "v1.2.0"
 }
 ```
 
@@ -60,10 +61,13 @@ plugins:
 - keep connector auth and transport logic deterministic and testable
 - fail clearly on health, connect, or discover errors
 - ensure `Close` can be called even when the process is already unhealthy
+- keep `minimum_viaduct_version` and `maximum_viaduct_version` aligned with the host releases you actually test against
+- keep `protocol_version` aligned with the plugin host contract in `internal/connectors/plugin/manifest.go`
 
 ## Validation And Certification Checklist
 - host load test using `internal/connectors/plugin/host.go`
 - manifest validation succeeds with the expected platform and protocol version
+- host-version compatibility validation succeeds for the Viaduct releases you claim to support
 - health check returns `ok` or `healthy`
 - platform lookup returns a non-empty identifier
 - discovery returns normalized VMs and metadata

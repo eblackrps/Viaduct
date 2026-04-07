@@ -140,6 +140,7 @@ type tenantRateLimiter struct {
 type rateBucket struct {
 	windowStart time.Time
 	count       int
+	limit       int
 }
 
 func newTenantRateLimiter(limit int, window time.Duration) *tenantRateLimiter {
@@ -153,7 +154,7 @@ func newTenantRateLimiter(limit int, window time.Duration) *tenantRateLimiter {
 	}
 }
 
-func (l *tenantRateLimiter) allow(key string, now time.Time) (bool, time.Duration) {
+func (l *tenantRateLimiter) allow(key string, now time.Time, overrideLimit int) (bool, time.Duration) {
 	if l == nil {
 		return true, 0
 	}
@@ -161,11 +162,16 @@ func (l *tenantRateLimiter) allow(key string, now time.Time) (bool, time.Duratio
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	bucket := l.buckets[key]
-	if bucket.windowStart.IsZero() || now.Sub(bucket.windowStart) >= l.window {
-		bucket = rateBucket{windowStart: now, count: 0}
+	effectiveLimit := l.limit
+	if overrideLimit > 0 {
+		effectiveLimit = overrideLimit
 	}
-	if bucket.count >= l.limit {
+
+	bucket := l.buckets[key]
+	if bucket.windowStart.IsZero() || now.Sub(bucket.windowStart) >= l.window || bucket.limit != effectiveLimit {
+		bucket = rateBucket{windowStart: now, count: 0, limit: effectiveLimit}
+	}
+	if bucket.count >= effectiveLimit {
 		retryAfter := l.window - now.Sub(bucket.windowStart)
 		if retryAfter < 0 {
 			retryAfter = 0
@@ -174,6 +180,7 @@ func (l *tenantRateLimiter) allow(key string, now time.Time) (bool, time.Duratio
 	}
 
 	bucket.count++
+	bucket.limit = effectiveLimit
 	l.buckets[key] = bucket
 	return true, 0
 }
@@ -225,7 +232,11 @@ func TenantRateLimitMiddleware(limiter *tenantRateLimiter, next http.Handler) ht
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tenantID := store.TenantIDFromContext(r.Context())
-		allowed, retryAfter := limiter.allow(tenantID, time.Now().UTC())
+		overrideLimit := 0
+		if principal, err := RequirePrincipal(r.Context()); err == nil {
+			overrideLimit = principal.Tenant.Quotas.RequestsPerMinute
+		}
+		allowed, retryAfter := limiter.allow(tenantID, time.Now().UTC(), overrideLimit)
 		if !allowed {
 			w.Header().Set("Retry-After", strconv.Itoa(int(retryAfter.Seconds())+1))
 			http.Error(w, "tenant rate limit exceeded", http.StatusTooManyRequests)

@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -265,14 +266,21 @@ type PluginProcess struct {
 
 // PluginHost manages the lifecycle of community connector plugins.
 type PluginHost struct {
-	mu      sync.RWMutex
-	plugins map[string]*PluginProcess
+	mu          sync.RWMutex
+	hostVersion string
+	plugins     map[string]*PluginProcess
 }
 
 // NewPluginHost creates an empty plugin host.
 func NewPluginHost() *PluginHost {
+	return NewPluginHostWithVersion(inferHostVersion())
+}
+
+// NewPluginHostWithVersion creates an empty plugin host with an explicit host-version marker.
+func NewPluginHostWithVersion(version string) *PluginHost {
 	return &PluginHost{
-		plugins: make(map[string]*PluginProcess),
+		hostVersion: strings.TrimSpace(version),
+		plugins:     make(map[string]*PluginProcess),
 	}
 }
 
@@ -478,6 +486,10 @@ func (h *PluginHost) connectPlugin(command *exec.Cmd, address, path string, mani
 		_ = connection.Close()
 		return nil, fmt.Errorf("load plugin: manifest platform %q does not match plugin platform %q", manifest.Platform, platformResponse.Platform)
 	}
+	if err := manifestSupportsHost(manifest, h.hostVersion); err != nil {
+		_ = connection.Close()
+		return nil, fmt.Errorf("load plugin: %w", err)
+	}
 
 	return &PluginProcess{
 		path:     path,
@@ -541,3 +553,13 @@ func isIgnorablePluginCloseError(err error) bool {
 }
 
 var _ connectors.Connector = (*PluginConnector)(nil)
+
+func inferHostVersion() string {
+	if version := strings.TrimSpace(os.Getenv("VIADUCT_VERSION")); version != "" {
+		return version
+	}
+	if info, ok := debug.ReadBuildInfo(); ok && info != nil && strings.TrimSpace(info.Main.Version) != "" {
+		return info.Main.Version
+	}
+	return "dev"
+}

@@ -12,6 +12,18 @@ state_store_dsn: "postgres://viaduct:change-me@localhost:5432/viaduct?sslmode=di
 # Admin API authentication is read from the process environment.
 # Example: export VIADUCT_ADMIN_KEY="replace-me"
 
+# Optional reusable credential references for migration specs.
+# Use these keys from source.credential_ref and target.credential_ref.
+credentials:
+  source/vcenter:
+    username: "administrator@vsphere.local"
+    password: "replace-me"
+    insecure: true
+  target/proxmox:
+    username: "root@pam"
+    password: "replace-me"
+    insecure: true
+
 sources:
   vmware:
     address: "https://vcenter.example.local"

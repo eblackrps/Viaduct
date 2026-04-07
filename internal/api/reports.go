@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/csv"
 	"fmt"
 	"log"
@@ -193,11 +194,22 @@ func (s *Server) recordAuditEvent(r *http.Request, event models.AuditEvent) {
 		event.RequestID = RequestIDFromContext(r.Context())
 	}
 	if event.Actor == "" {
-		event.Actor = "tenant:" + store.TenantIDFromContext(r.Context())
+		event.Actor = actorFromContext(r.Context())
 	}
 	if err := s.store.SaveAuditEvent(r.Context(), event); err != nil {
 		log.Printf("component=api category=audit action=save outcome=failure message=%q", err.Error())
 	}
+}
+
+func actorFromContext(ctx context.Context) string {
+	principal, err := RequirePrincipal(ctx)
+	if err != nil {
+		return "tenant:" + store.TenantIDFromContext(ctx)
+	}
+	if principal.ServiceAccount != nil {
+		return "service-account:" + principal.ServiceAccount.ID
+	}
+	return "tenant:" + principal.Tenant.ID
 }
 
 func writeCSV(w http.ResponseWriter, filename string, headers []string, rows [][]string) {

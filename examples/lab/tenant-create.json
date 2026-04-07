@@ -3,6 +3,11 @@
   "name": "Lab Tenant",
   "api_key": "lab-tenant-key",
   "active": true,
+  "quotas": {
+    "requests_per_minute": 120,
+    "max_snapshots": 25,
+    "max_migrations": 10
+  },
   "settings": {
     "environment": "lab",
     "owner": "operations"

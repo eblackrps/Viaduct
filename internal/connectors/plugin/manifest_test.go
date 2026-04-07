@@ -43,3 +43,33 @@ func TestValidateManifest_UnsupportedProtocol_ReturnsError(t *testing.T) {
 		t.Fatal("ValidateManifest() error = nil, want unsupported protocol error")
 	}
 }
+
+func TestValidateManifest_InvalidVersionConstraint_ReturnsError(t *testing.T) {
+	t.Parallel()
+
+	err := ValidateManifest(&Manifest{
+		Name:                  "Example Plugin",
+		Platform:              "example",
+		Version:               "1.0.0",
+		ProtocolVersion:       "v1",
+		MinimumViaductVersion: "not-a-version",
+	})
+	if err == nil {
+		t.Fatal("ValidateManifest() error = nil, want invalid version-constraint error")
+	}
+}
+
+func TestManifestSupportsHost_OutOfRange_ReturnsError(t *testing.T) {
+	t.Parallel()
+
+	err := manifestSupportsHost(&Manifest{
+		Name:                  "Example Plugin",
+		Platform:              "example",
+		Version:               "1.0.0",
+		ProtocolVersion:       "v1",
+		MinimumViaductVersion: "v1.2.0",
+	}, "v1.1.0")
+	if err == nil {
+		t.Fatal("manifestSupportsHost() error = nil, want out-of-range error")
+	}
+}

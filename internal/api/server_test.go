@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -89,6 +90,71 @@ func TestServer_HandleAdminTenants_ExplicitInactiveTenantPreserved_Expected(t *t
 	}
 	if persisted.Active {
 		t.Fatalf("persisted tenant Active = %t, want false", persisted.Active)
+	}
+}
+
+func TestServer_HandleAdminTenants_ListRedactsSecrets_Expected(t *testing.T) {
+	t.Parallel()
+
+	stateStore := store.NewMemoryStore()
+	server := NewServer(nil, stateStore, 0, nil)
+	tenant := models.Tenant{
+		ID:        "tenant-a",
+		Name:      "Tenant A",
+		APIKey:    "tenant-secret",
+		CreatedAt: time.Date(2026, time.April, 7, 14, 0, 0, 0, time.UTC),
+		Active:    true,
+		Quotas:    models.TenantQuota{RequestsPerMinute: 120},
+		ServiceAccounts: []models.ServiceAccount{
+			{
+				ID:        "svc-a",
+				Name:      "automation",
+				APIKey:    "svc-secret",
+				Role:      models.TenantRoleOperator,
+				Active:    true,
+				CreatedAt: time.Date(2026, time.April, 7, 14, 5, 0, 0, time.UTC),
+			},
+		},
+	}
+	if err := stateStore.CreateTenant(context.Background(), tenant); err != nil {
+		t.Fatalf("CreateTenant() error = %v", err)
+	}
+
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/admin/tenants", nil)
+	recorder := httptest.NewRecorder()
+
+	server.handleAdminTenants(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d: %s", recorder.Code, http.StatusOK, recorder.Body.String())
+	}
+
+	var listed []map[string]any
+	if err := json.Unmarshal(recorder.Body.Bytes(), &listed); err != nil {
+		t.Fatalf("Unmarshal() error = %v", err)
+	}
+	var listedTenant map[string]any
+	for _, item := range listed {
+		if item["id"] == tenant.ID {
+			listedTenant = item
+			break
+		}
+	}
+	if listedTenant == nil {
+		t.Fatalf("tenant %q not found in admin list: %#v", tenant.ID, listed)
+	}
+	if _, ok := listedTenant["api_key"]; ok {
+		t.Fatalf("tenant list unexpectedly exposed api_key: %#v", listedTenant)
+	}
+	accounts, ok := listedTenant["service_accounts"].([]any)
+	if !ok || len(accounts) != 1 {
+		t.Fatalf("unexpected service_accounts payload: %#v", listedTenant["service_accounts"])
+	}
+	account, ok := accounts[0].(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected service account payload: %#v", accounts[0])
+	}
+	if _, ok := account["api_key"]; ok {
+		t.Fatalf("tenant list unexpectedly exposed service-account api_key: %#v", account)
 	}
 }
 
@@ -183,5 +249,99 @@ func TestServer_HandleMigrationByID_ExecuteApprovalRequiredConflict_Expected(t *
 	server.handleMigrationByID(recorder, req)
 	if recorder.Code != http.StatusConflict {
 		t.Fatalf("status = %d, want %d: %s", recorder.Code, http.StatusConflict, recorder.Body.String())
+	}
+}
+
+func TestServer_LatestInventory_MoreThanTwentySources_IncludesAllLatestSources(t *testing.T) {
+	t.Parallel()
+
+	stateStore := store.NewMemoryStore()
+	server := NewServer(nil, stateStore, 0, nil)
+	ctx := context.Background()
+
+	for index := 0; index < 25; index++ {
+		result := &models.DiscoveryResult{
+			Source:       fmt.Sprintf("source-%02d", index),
+			Platform:     models.PlatformVMware,
+			DiscoveredAt: time.Date(2026, time.April, 7, 10, index, 0, 0, time.UTC),
+			VMs: []models.VirtualMachine{
+				{ID: fmt.Sprintf("vm-%02d", index), Name: fmt.Sprintf("vm-%02d", index), Platform: models.PlatformVMware},
+			},
+		}
+		if _, err := stateStore.SaveDiscovery(ctx, store.DefaultTenantID, result); err != nil {
+			t.Fatalf("SaveDiscovery(%s) error = %v", result.Source, err)
+		}
+	}
+
+	inventory, err := server.latestInventory(store.ContextWithTenantID(ctx, store.DefaultTenantID), models.PlatformVMware)
+	if err != nil {
+		t.Fatalf("latestInventory() error = %v", err)
+	}
+	if len(inventory.VMs) != 25 {
+		t.Fatalf("len(inventory.VMs) = %d, want 25", len(inventory.VMs))
+	}
+}
+
+func TestServer_HandleSummary_PendingApprovalParsedFromRecord_Expected(t *testing.T) {
+	t.Parallel()
+
+	stateStore := store.NewMemoryStore()
+	server := NewServer(nil, stateStore, 0, nil)
+	if err := stateStore.SaveMigration(context.Background(), store.DefaultTenantID, store.MigrationRecord{
+		ID:        "migration-pending-approval",
+		SpecName:  "approval-test",
+		Phase:     string(migratepkg.PhasePlan),
+		StartedAt: time.Date(2026, time.April, 7, 12, 0, 0, 0, time.UTC),
+		UpdatedAt: time.Date(2026, time.April, 7, 12, 1, 0, 0, time.UTC),
+		RawJSON: json.RawMessage(`{
+  "id": "migration-pending-approval",
+  "phase": "plan",
+  "pending_approval": true
+}`),
+	}); err != nil {
+		t.Fatalf("SaveMigration() error = %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/summary", nil)
+	req = req.WithContext(store.ContextWithTenantID(req.Context(), store.DefaultTenantID))
+	recorder := httptest.NewRecorder()
+
+	server.handleSummary(recorder, req)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d: %s", recorder.Code, http.StatusOK, recorder.Body.String())
+	}
+
+	var summary tenantSummary
+	if err := json.Unmarshal(recorder.Body.Bytes(), &summary); err != nil {
+		t.Fatalf("Unmarshal() error = %v", err)
+	}
+	if summary.PendingApprovals != 1 {
+		t.Fatalf("PendingApprovals = %d, want 1", summary.PendingApprovals)
+	}
+}
+
+func TestServer_HandleAbout_ReturnsBuildInfo_Expected(t *testing.T) {
+	t.Parallel()
+
+	server := NewServer(nil, store.NewMemoryStore(), 0, nil)
+	server.SetBuildInfo("v1.2.0", "deadbee", "2026-04-07T15:00:00Z")
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/about", nil)
+	recorder := httptest.NewRecorder()
+
+	server.handleAbout(recorder, req)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusOK)
+	}
+
+	var response aboutResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Unmarshal() error = %v", err)
+	}
+	if response.Version != "v1.2.0" || response.Commit != "deadbee" || response.PluginProtocol == "" {
+		t.Fatalf("unexpected about response: %#v", response)
+	}
+	if len(response.SupportedPlatforms) == 0 {
+		t.Fatal("SupportedPlatforms is empty")
 	}
 }

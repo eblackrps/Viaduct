@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/eblackrps/viaduct/internal/models"
 	"github.com/eblackrps/viaduct/internal/store"
@@ -106,6 +107,90 @@ func TestTenantAuthMiddleware_TenantIsolation_ScopesStoreAccess(t *testing.T) {
 	handler.ServeHTTP(recorder, req)
 	if recorder.Code != http.StatusNoContent {
 		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusNoContent)
+	}
+}
+
+func TestTenantAuthMiddleware_ServiceAccountKey_AllowsScopedRequest(t *testing.T) {
+	t.Parallel()
+
+	stateStore := newTenantTestStore(t)
+	if err := stateStore.UpdateTenant(context.Background(), models.Tenant{
+		ID:     "tenant-a",
+		Name:   "Tenant A",
+		APIKey: "tenant-a-key",
+		Active: true,
+		ServiceAccounts: []models.ServiceAccount{
+			{
+				ID:        "sa-viewer",
+				Name:      "Viewer",
+				APIKey:    "service-key",
+				Role:      models.TenantRoleViewer,
+				Active:    true,
+				CreatedAt: time.Now().UTC(),
+			},
+		},
+	}); err != nil {
+		t.Fatalf("UpdateTenant() error = %v", err)
+	}
+
+	handler := TenantAuthMiddleware(stateStore, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		principal, err := RequirePrincipal(r.Context())
+		if err != nil {
+			t.Fatalf("RequirePrincipal() error = %v", err)
+		}
+		if principal.ServiceAccount == nil || principal.ServiceAccount.ID != "sa-viewer" {
+			t.Fatalf("unexpected principal: %#v", principal)
+		}
+		if principal.Role != models.TenantRoleViewer {
+			t.Fatalf("principal.Role = %q, want viewer", principal.Role)
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/inventory", nil)
+	req.Header.Set(serviceAccountAPIKeyHeader, "service-key")
+	recorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(recorder, req)
+	if recorder.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusNoContent)
+	}
+}
+
+func TestRequireTenantRole_ViewerDeniedOperatorRoute_Expected(t *testing.T) {
+	t.Parallel()
+
+	stateStore := newTenantTestStore(t)
+	if err := stateStore.UpdateTenant(context.Background(), models.Tenant{
+		ID:     "tenant-a",
+		Name:   "Tenant A",
+		APIKey: "tenant-a-key",
+		Active: true,
+		ServiceAccounts: []models.ServiceAccount{
+			{
+				ID:        "sa-viewer",
+				Name:      "Viewer",
+				APIKey:    "service-key",
+				Role:      models.TenantRoleViewer,
+				Active:    true,
+				CreatedAt: time.Now().UTC(),
+			},
+		},
+	}); err != nil {
+		t.Fatalf("UpdateTenant() error = %v", err)
+	}
+
+	handler := TenantAuthMiddleware(stateStore, RequireTenantRole(models.TenantRoleOperator, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	})))
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/migrations", nil)
+	req.Header.Set(serviceAccountAPIKeyHeader, "service-key")
+	recorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(recorder, req)
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusForbidden)
 	}
 }
 

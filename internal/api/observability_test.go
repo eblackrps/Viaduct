@@ -1,12 +1,14 @@
 package api
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/eblackrps/viaduct/internal/models"
 	"github.com/eblackrps/viaduct/internal/store"
 )
 
@@ -51,6 +53,38 @@ func TestTenantRateLimitMiddleware_LimitExceeded_ReturnsTooManyRequests(t *testi
 	for idx, expectedStatus := range []int{http.StatusNoContent, http.StatusTooManyRequests} {
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/inventory", nil)
 		req = req.WithContext(store.ContextWithTenantID(req.Context(), "tenant-a"))
+		recorder := httptest.NewRecorder()
+
+		handler.ServeHTTP(recorder, req)
+		if recorder.Code != expectedStatus {
+			t.Fatalf("request %d status = %d, want %d", idx, recorder.Code, expectedStatus)
+		}
+	}
+}
+
+func TestTenantRateLimitMiddleware_UsesTenantQuotaOverride_Expected(t *testing.T) {
+	t.Parallel()
+
+	stateStore := store.NewMemoryStore()
+	if err := stateStore.CreateTenant(context.Background(), models.Tenant{
+		ID:     "tenant-a",
+		Name:   "Tenant A",
+		APIKey: "tenant-a-key",
+		Active: true,
+		Quotas: models.TenantQuota{
+			RequestsPerMinute: 1,
+		},
+	}); err != nil {
+		t.Fatalf("CreateTenant() error = %v", err)
+	}
+
+	handler := TenantAuthMiddleware(stateStore, TenantRateLimitMiddleware(newTenantRateLimiter(5, time.Minute), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	})))
+
+	for idx, expectedStatus := range []int{http.StatusNoContent, http.StatusTooManyRequests} {
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/inventory", nil)
+		req.Header.Set(tenantAPIKeyHeader, "tenant-a-key")
 		recorder := httptest.NewRecorder()
 
 		handler.ServeHTTP(recorder, req)
