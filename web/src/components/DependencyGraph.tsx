@@ -7,6 +7,7 @@ import type { DependencyGraph as DependencyGraphModel, GraphEdge, GraphNode } fr
 
 type GraphSimulationNode = GraphNode & d3.SimulationNodeDatum;
 type GraphSimulationLink = GraphEdge & d3.SimulationLinkDatum<GraphSimulationNode>;
+type GraphSimulationEndpoint = GraphSimulationNode | string | number;
 
 interface GraphFilterState {
   nodeTypes: Record<GraphNode["type"], boolean>;
@@ -216,10 +217,10 @@ export function DependencyGraph() {
 
     simulation.on("tick", () => {
       edges
-        .attr("x1", (edge) => (typeof edge.source === "object" ? edge.source.x ?? 0 : 0))
-        .attr("y1", (edge) => (typeof edge.source === "object" ? edge.source.y ?? 0 : 0))
-        .attr("x2", (edge) => (typeof edge.target === "object" ? edge.target.x ?? 0 : 0))
-        .attr("y2", (edge) => (typeof edge.target === "object" ? edge.target.y ?? 0 : 0));
+        .attr("x1", (edge) => endpointPosition(edge.source, "x"))
+        .attr("y1", (edge) => endpointPosition(edge.source, "y"))
+        .attr("x2", (edge) => endpointPosition(edge.target, "x"))
+        .attr("y2", (edge) => endpointPosition(edge.target, "y"));
 
       nodes.attr("cx", (node) => node.x ?? 0).attr("cy", (node) => node.y ?? 0);
       labels.attr("x", (node) => (node.x ?? 0) + 18).attr("y", (node) => (node.y ?? 0) + 4);
@@ -460,4 +461,11 @@ function edgeTone(edgeType: GraphEdge["type"]): "neutral" | "info" | "warning" {
     default:
       return "neutral";
   }
+}
+
+function endpointPosition(endpoint: GraphSimulationEndpoint, axis: "x" | "y"): number {
+  if (typeof endpoint === "object" && endpoint !== null) {
+    return endpoint[axis] ?? 0;
+  }
+  return 0;
 }

@@ -4,6 +4,12 @@ All notable changes to Viaduct should be documented in this file.
 
 This changelog tracks published releases and the major implementation milestones that shaped the current repository state.
 
+## [1.4.2] - 2026-04-08
+
+### Release Reliability
+- completed the dependency graph TypeScript fix so the D3 link endpoint handlers compile cleanly during `make release-gate`
+- superseded the `v1.4.1` candidate tag before publishing a downloadable GitHub release
+
 ## [1.4.1] - 2026-04-08
 
 ### Release Reliability
