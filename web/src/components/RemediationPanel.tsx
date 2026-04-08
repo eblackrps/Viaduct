@@ -1,13 +1,14 @@
-import type { RecommendationReport, SimulationResult } from "../types";
+import type { Platform, RecommendationReport, SimulationResult } from "../types";
 
 interface RemediationPanelProps {
   report: RecommendationReport | null;
   simulation: SimulationResult | null;
-  onSimulate: (targetPlatform: "vmware" | "proxmox" | "hyperv" | "kvm" | "nutanix") => void;
+  onSimulate: (targetPlatform: Platform) => void;
   simulationLoading?: boolean;
+  error?: string | null;
 }
 
-export function RemediationPanel({ report, simulation, onSimulate, simulationLoading }: RemediationPanelProps) {
+export function RemediationPanel({ report, simulation, onSimulate, simulationLoading, error }: RemediationPanelProps) {
   return (
     <section className="panel p-5">
       <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
@@ -61,6 +62,7 @@ export function RemediationPanel({ report, simulation, onSimulate, simulationLoa
             </div>
           </div>
         )}
+        {error && <p className="mt-4 rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</p>}
       </div>
 
       <div className="mt-5 space-y-3">

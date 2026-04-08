@@ -4,6 +4,21 @@ All notable changes to Viaduct should be documented in this file.
 
 This changelog tracks published releases and the major implementation milestones that shaped the current repository state.
 
+## [1.4.0] - 2026-04-08
+
+### Dashboard Product Workflow
+- reorganized the React dashboard around a clearer app shell, navigation model, and feature-oriented page structure
+- turned migration planning into an operator workflow with intake, validation, saved-plan review, and execution-preparation states instead of a detached wizard
+- improved inventory, dependency, and remediation surfaces so planning context stays connected to the broader operator view
+
+### Operator Authentication And Configuration
+- added dashboard support for service-account API keys alongside tenant API keys
+- documented the new dashboard environment variable contract for local development and release packaging
+
+### Public Web Presence
+- added a standalone static `site/` for the public project surface
+- added a GitHub Pages workflow to publish the site independently from the product dashboard build
+
 ## [1.3.0] - 2026-04-07
 
 ### Tenant Isolation And Operability

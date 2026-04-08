@@ -58,6 +58,7 @@ Fields:
 
 ## Dashboard Environment Variables
 - `VITE_VIADUCT_API_KEY`: tenant API key injected into dashboard requests
+- `VITE_VIADUCT_SERVICE_ACCOUNT_KEY`: scoped service-account key injected into dashboard requests; when set, the dashboard prefers this header over `VITE_VIADUCT_API_KEY`
 
 The dashboard reads this through Vite. See [`../../web/.env.example`](../../web/.env.example).
 

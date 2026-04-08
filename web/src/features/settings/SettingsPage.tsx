@@ -1,0 +1,161 @@
+import { dashboardAuthMode, hasApiKeyConfigured } from "../../api";
+import { EmptyState } from "../../components/primitives/EmptyState";
+import { LoadingState } from "../../components/primitives/LoadingState";
+import { PageHeader } from "../../components/primitives/PageHeader";
+import { SectionCard } from "../../components/primitives/SectionCard";
+import { StatusBadge } from "../../components/primitives/StatusBadge";
+import type { TenantSummary } from "../../types";
+import { useSettingsData } from "./useSettingsData";
+
+interface SettingsPageProps {
+  summary: TenantSummary | null;
+}
+
+export function SettingsPage({ summary }: SettingsPageProps) {
+  const { about, currentTenant, loading, errors } = useSettingsData();
+  const supportedPlatforms = about?.supported_platforms ?? Object.keys(summary?.platform_counts ?? {});
+  const platformCounts = summary?.platform_counts ?? {};
+  const settingsError = [errors.about, errors.currentTenant].filter(Boolean).join(" ");
+  const showEmpty = !loading && !about && !currentTenant;
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        eyebrow="Settings"
+        title="Workspace settings"
+        description="Read-only runtime context for the current tenant, operator connection assumptions, and dashboard-side configuration."
+        badges={[
+          {
+            label:
+              dashboardAuthMode === "service-account"
+                ? "Service account auth"
+                : dashboardAuthMode === "tenant"
+                  ? "Tenant key auth"
+                  : "No dashboard auth",
+            tone: hasApiKeyConfigured ? "success" : "warning",
+          },
+          { label: currentTenant?.tenant_id ? `Tenant ${currentTenant.tenant_id}` : summary?.tenant_id ? `Tenant ${summary.tenant_id}` : "No tenant summary", tone: "neutral" },
+        ]}
+      />
+
+      {loading && !about && !currentTenant && (
+        <LoadingState
+          title="Loading workspace settings"
+          message="Retrieving operator build metadata and the effective tenant context from the Viaduct API."
+        />
+      )}
+
+      {showEmpty &&
+        (settingsError ? (
+          <InlineError message={settingsError} />
+        ) : (
+          <EmptyState
+            title="No runtime context available"
+            message="The dashboard could not load either build metadata or the current tenant context from the operator API."
+          />
+        ))}
+
+      <section className="grid gap-5 xl:grid-cols-2">
+        <SectionCard title="Operator connection" description="Current dashboard runtime assumptions for API access.">
+          {errors.about ? (
+            <InlineError message={errors.about} />
+          ) : (
+            <div className="space-y-4">
+              <SettingRow label="API base" value="/api/v1 via Vite proxy in development or packaged backend in release builds" />
+              <SettingRow
+                label="Authentication"
+                value={
+                  dashboardAuthMode === "service-account"
+                    ? "X-Service-Account-Key sourced from VITE_VIADUCT_SERVICE_ACCOUNT_KEY"
+                    : dashboardAuthMode === "tenant"
+                      ? "X-API-Key sourced from VITE_VIADUCT_API_KEY"
+                      : "No dashboard auth header configured in the web client environment"
+                }
+              />
+              <SettingRow label="Version" value={about ? `${about.name} ${about.version} (${about.api_version})` : "Unavailable"} />
+              <SettingRow label="Build commit" value={about?.commit || "Unavailable"} />
+              <SettingRow label="Plugin protocol" value={about?.plugin_protocol || "Unavailable"} />
+              <SettingRow label="Store backend" value={about ? `${about.store_backend}${about.persistent_store ? " (persistent)" : " (ephemeral)"}` : "Unavailable"} />
+            </div>
+          )}
+        </SectionCard>
+
+        <SectionCard title="Tenant context" description="Current summary-level state visible to the dashboard shell.">
+          {errors.currentTenant ? (
+            <InlineError message={errors.currentTenant} />
+          ) : (
+            <div className="grid gap-3 md:grid-cols-2">
+              <ContextStat label="Tenant name" value={currentTenant?.name ?? summary?.tenant_id ?? "Unavailable"} />
+              <ContextStat label="Role" value={currentTenant?.role ?? "Unavailable"} />
+              <ContextStat label="Auth method" value={currentTenant?.auth_method ?? "Unavailable"} />
+              <ContextStat label="Service account" value={currentTenant?.service_account_name ?? "Tenant credential"} />
+              <ContextStat label="Service accounts" value={String(currentTenant?.service_account_count ?? 0)} />
+              <ContextStat label="Workloads" value={String(summary?.workload_count ?? 0)} />
+              <ContextStat label="Snapshots" value={String(summary?.snapshot_count ?? 0)} />
+              <ContextStat label="Active migrations" value={String(summary?.active_migrations ?? 0)} />
+              <ContextStat label="Pending approvals" value={String(summary?.pending_approvals ?? 0)} />
+            </div>
+          )}
+        </SectionCard>
+
+        <SectionCard title="Permissions and quotas" description="Effective operator permissions and tenant-level fairness controls." className="xl:col-span-2">
+          {currentTenant ? (
+            <>
+              <div className="flex flex-wrap gap-2">
+                {currentTenant.permissions.map((permission) => (
+                  <StatusBadge key={permission} tone="info">
+                    {permission}
+                  </StatusBadge>
+                ))}
+                {currentTenant.permissions.length === 0 && <StatusBadge tone="neutral">No permissions reported</StatusBadge>}
+              </div>
+              <div className="mt-4 grid gap-3 md:grid-cols-3">
+                <ContextStat label="Requests/min" value={String(currentTenant.quotas?.requests_per_minute ?? 0)} />
+                <ContextStat label="Max snapshots" value={String(currentTenant.quotas?.max_snapshots ?? 0)} />
+                <ContextStat label="Max migrations" value={String(currentTenant.quotas?.max_migrations ?? 0)} />
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-slate-500">Tenant permissions and quotas appear here when the current tenant endpoint is available.</p>
+          )}
+        </SectionCard>
+
+        <SectionCard title="Observed platform coverage" description="Supported platforms from the operator build and workload counts from the current tenant summary." className="xl:col-span-2">
+          <div className="flex flex-wrap gap-2">
+            {supportedPlatforms.map((platform) => (
+              <StatusBadge key={platform} tone={(platformCounts[platform] ?? 0) > 0 ? "info" : "neutral"}>
+                {platform}: {platformCounts[platform] ?? 0}
+              </StatusBadge>
+            ))}
+            {supportedPlatforms.length === 0 && <StatusBadge tone="neutral">No platforms reported</StatusBadge>}
+          </div>
+          <p className="mt-4 text-sm text-slate-500">
+            Build metadata is sourced from `/api/v1/about`, while tenant role, auth method, and effective permissions come from `/api/v1/tenants/current`.
+          </p>
+        </SectionCard>
+      </section>
+    </div>
+  );
+}
+
+function SettingRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl bg-slate-50 px-4 py-4">
+      <p className="text-xs uppercase tracking-[0.18em] text-slate-500">{label}</p>
+      <p className="mt-2 text-sm font-semibold text-ink">{value}</p>
+    </div>
+  );
+}
+
+function ContextStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl bg-slate-50 px-4 py-4">
+      <p className="text-xs uppercase tracking-[0.18em] text-slate-500">{label}</p>
+      <p className="mt-2 font-semibold text-ink">{value}</p>
+    </div>
+  );
+}
+
+function InlineError({ message }: { message: string }) {
+  return <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700">{message}</p>;
+}

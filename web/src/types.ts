@@ -1,5 +1,13 @@
 export type Platform = "vmware" | "proxmox" | "hyperv" | "kvm" | "nutanix";
 export type PowerState = "on" | "off" | "suspended" | "unknown";
+export type TenantRole = "viewer" | "operator" | "admin";
+export type TenantPermission =
+  | "inventory.read"
+  | "reports.read"
+  | "lifecycle.read"
+  | "migration.manage"
+  | "tenant.read"
+  | "tenant.manage";
 export type MigrationPhase =
   | "plan"
   | "export"
@@ -30,6 +38,59 @@ export interface Nic {
   ip_addresses: string[];
 }
 
+export interface WorkloadSnapshot {
+  id: string;
+  name: string;
+  description: string;
+  created_at: string;
+  size_mb: number;
+}
+
+export interface NetworkInfo {
+  id: string;
+  name: string;
+  type: string;
+  vlan_id: number;
+  switch: string;
+}
+
+export interface DatastoreInfo {
+  id: string;
+  name: string;
+  type: string;
+  capacity_mb: number;
+  free_mb: number;
+  hosts: string[];
+}
+
+export interface HostInfo {
+  id: string;
+  name: string;
+  cluster: string;
+  cpu_cores: number;
+  memory_mb: number;
+  power_state: PowerState;
+  connection_state: string;
+}
+
+export interface ClusterInfo {
+  id: string;
+  name: string;
+  hosts: string[];
+  total_cpu_cores: number;
+  total_memory_mb: number;
+  ha_enabled: boolean;
+  drs_enabled: boolean;
+}
+
+export interface ResourcePoolInfo {
+  id: string;
+  name: string;
+  cluster: string;
+  cpu_limit_mhz: number;
+  memory_limit_mb: number;
+}
+
 export interface VirtualMachine {
   id: string;
   name: string;
@@ -39,15 +100,30 @@ export interface VirtualMachine {
   memory_mb: number;
   disks: Disk[];
   nics: Nic[];
+  guest_os?: string;
   host: string;
   cluster?: string;
+  resource_pool?: string;
+  folder?: string;
   tags?: Record<string, string>;
+  snapshots?: WorkloadSnapshot[];
+  created_at?: string;
+  discovered_at?: string;
+  source_ref?: string;
 }
 
 export interface DiscoveryResult {
   source?: string;
   platform?: Platform;
   vms: VirtualMachine[];
+  networks?: NetworkInfo[];
+  datastores?: DatastoreInfo[];
+  hosts?: HostInfo[];
+  clusters?: ClusterInfo[];
+  resource_pools?: ResourcePoolInfo[];
+  discovered_at?: string;
+  duration?: number;
+  errors?: string[];
 }
 
 export interface VMCost {
@@ -223,6 +299,10 @@ export interface MigrationCheckpoint {
 export interface MigrationState {
   id: string;
   spec_name: string;
+  source_address?: string;
+  source_platform?: Platform;
+  target_address?: string;
+  target_platform?: Platform;
   phase: MigrationPhase;
   workloads: WorkloadMigration[];
   plan?: MigrationPlan;
@@ -243,6 +323,25 @@ export interface MigrationMeta {
   started_at: string;
   updated_at: string;
   completed_at?: string;
+}
+
+export interface MigrationExecutionRequest {
+  approved_by?: string;
+  ticket?: string;
+}
+
+export interface MigrationCommandResponse {
+  migration_id: string;
+  status: string;
+}
+
+export interface RollbackResult {
+  migration_id: string;
+  target_vms_removed: number;
+  files_cleaned_up: number;
+  source_vms_restored: number;
+  errors?: string[];
+  duration: number;
 }
 
 export interface CheckResult {
@@ -342,6 +441,12 @@ export interface SimulationResult {
   simulated_inventory?: DiscoveryResult;
 }
 
+export interface TenantQuota {
+  requests_per_minute?: number;
+  max_snapshots?: number;
+  max_migrations?: number;
+}
+
 export interface TenantSummary {
   tenant_id: string;
   workload_count: number;
@@ -353,4 +458,36 @@ export interface TenantSummary {
   recommendation_count: number;
   platform_counts: Record<string, number>;
   last_discovery_at?: string;
+  quotas?: TenantQuota;
+  snapshot_quota_free?: number;
+  migration_quota_free?: number;
+}
+
+export interface AboutResponse {
+  name: string;
+  api_version: string;
+  version: string;
+  commit: string;
+  built_at: string;
+  go_version: string;
+  plugin_protocol: string;
+  supported_platforms: string[];
+  supported_permissions: TenantPermission[];
+  store_backend: string;
+  store_schema_version?: number;
+  persistent_store: boolean;
+}
+
+export interface CurrentTenant {
+  tenant_id: string;
+  name: string;
+  active: boolean;
+  settings?: Record<string, string>;
+  quotas?: TenantQuota;
+  role: TenantRole;
+  permissions: TenantPermission[];
+  auth_method: string;
+  service_account_id?: string;
+  service_account_name?: string;
+  service_account_count: number;
 }

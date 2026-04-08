@@ -31,6 +31,8 @@ The release bundle should include:
 - release manifest, dependency manifest, and checksums
 - deployment reference assets
 
+The standalone public site under [`site/`](site/README.md) is published through GitHub Pages and is not bundled into the tagged release artifacts.
+
 ## Release Notes Guidance
 - summarize operator-visible changes
 - document compatibility, migration, or upgrade concerns

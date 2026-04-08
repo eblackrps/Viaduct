@@ -27,10 +27,11 @@ npm ci
 npm run build
 ```
 
-Built assets are packaged into release bundles through `make package-release`.
+Built assets are packaged into release bundles through `make package-release-matrix`.
 
 ## Environment
 - `VITE_VIADUCT_API_KEY`: tenant-scoped API key used by the dashboard in development
+- `VITE_VIADUCT_SERVICE_ACCOUNT_KEY`: service-account key used by the dashboard in development; when set, the dashboard prefers this over `VITE_VIADUCT_API_KEY`
 
 See [./.env.example](./.env.example).
 

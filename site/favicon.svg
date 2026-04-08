@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Viaduct">
+  <defs>
+    <linearGradient id="bg" x1="0%" x2="100%" y1="0%" y2="100%">
+      <stop offset="0%" stop-color="#61d7ff" />
+      <stop offset="100%" stop-color="#ffb36b" />
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="28" fill="#08151d" />
+  <path
+    d="M22 30h18l24 58 24-58h18L72 100H56L22 30Z"
+    fill="url(#bg)"
+  />
+  <path d="M30 84h68v10H30Z" fill="#d6ff77" opacity="0.9" />
+</svg>

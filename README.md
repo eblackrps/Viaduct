@@ -10,7 +10,7 @@ Viaduct is an open source control plane for discovering, migrating, and operatin
 Broadcom's VMware licensing changes forced many teams into urgent platform decisions, but most migration tooling still assumes a one-time move into a single destination. Viaduct is built for operators who need a durable mixed-platform operating model: discover what exists, understand the blast radius, move workloads safely, preserve backup coverage, and keep managing cost, policy, and drift after cutover.
 
 ## Project Status
-Viaduct is ready for broad evaluation, operator pilots, and community contribution. The repository includes multi-platform discovery, dependency graphing, declarative migration orchestration, warm-migration primitives, lifecycle remediation, backup portability, multi-tenancy with service accounts and quota controls, plugin hosting, a web dashboard, reproducible release packaging, and a shared release gate for CI and local verification.
+Viaduct is ready for broad evaluation, operator pilots, and community contribution. The repository includes multi-platform discovery, dependency graphing, declarative migration orchestration, warm-migration primitives, lifecycle remediation, backup portability, multi-tenancy with service accounts and quota controls, plugin hosting, a web dashboard, a standalone public site, reproducible release packaging, and a shared release gate for CI and local verification.
 
 ## Supported Capabilities
 - Discovery engine: Collects normalized inventory from VMware, Proxmox, Hyper-V, KVM, Nutanix, and Veeam-related backup systems into a universal schema.
@@ -91,6 +91,7 @@ make release-gate
 
 ## Documentation Index
 - Repository docs index: [docs/README.md](docs/README.md)
+- Public site source: [site/README.md](site/README.md)
 - Architecture overview: [docs/architecture.md](docs/architecture.md)
 - Support matrix: [docs/reference/support-matrix.md](docs/reference/support-matrix.md)
 - Plugin author guide: [docs/reference/plugin-author-guide.md](docs/reference/plugin-author-guide.md)

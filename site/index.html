@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Viaduct | Hypervisor-Agnostic Workload Migration</title>
+    <meta
+      name="description"
+      content="Viaduct is an open source control plane for discovery, migration, lifecycle management, and backup portability across mixed virtualization environments."
+    />
+    <meta name="theme-color" content="#08151d" />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Public+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="site-header">
+        <a class="brand" href="#top" aria-label="Viaduct home">
+          <span class="brand-mark" aria-hidden="true">V</span>
+          <span class="brand-text">Viaduct</span>
+        </a>
+        <nav class="site-nav" aria-label="Primary">
+          <a href="#capabilities">Capabilities</a>
+          <a href="#connectors">Connectors</a>
+          <a href="#operators">Operators</a>
+          <a href="#start">Get Started</a>
+        </nav>
+        <a class="button button-secondary button-compact" href="https://github.com/eblackrps/viaduct">
+          GitHub
+        </a>
+      </header>
+
+      <main id="top">
+        <section class="hero section">
+          <div class="hero-copy">
+            <p class="eyebrow">Open source workload migration control plane</p>
+            <h1>Move across hypervisors without losing operational context.</h1>
+            <p class="lead">
+              Viaduct helps operators discover mixed estates, map dependencies, orchestrate
+              migrations, preserve backup continuity, and keep managing cost, policy, and drift
+              after cutover.
+            </p>
+            <div class="hero-actions">
+              <a class="button button-primary" href="https://github.com/eblackrps/viaduct">
+                Explore the repo
+              </a>
+              <a
+                class="button button-secondary"
+                href="https://github.com/eblackrps/viaduct/blob/main/QUICKSTART.md"
+              >
+                Read quickstart
+              </a>
+            </div>
+            <ul class="fact-strip" aria-label="Project highlights">
+              <li>Apache 2.0</li>
+              <li>Go 1.24+</li>
+              <li>Python SDK</li>
+              <li>React dashboard</li>
+            </ul>
+          </div>
+
+          <div class="hero-panel" aria-label="Migration flow overview">
+            <div class="flow-grid">
+              <article class="flow-card">
+                <span class="flow-label">01</span>
+                <h2>Discover</h2>
+                <p>Normalize inventory across VMware, Proxmox, Hyper-V, KVM, Nutanix, and Veeam.</p>
+              </article>
+              <article class="flow-card">
+                <span class="flow-label">02</span>
+                <h2>Plan</h2>
+                <p>Build dependency-aware waves, pre-flight checks, approvals, and execution windows.</p>
+              </article>
+              <article class="flow-card">
+                <span class="flow-label">03</span>
+                <h2>Migrate</h2>
+                <p>Run cold and warm moves with checkpoints, cutover coordination, and rollback state.</p>
+              </article>
+              <article class="flow-card">
+                <span class="flow-label">04</span>
+                <h2>Operate</h2>
+                <p>Track drift, policy, cost, remediation guidance, and backup portability after landing.</p>
+              </article>
+            </div>
+            <div class="hero-note">
+              Built for mixed-platform operations, not a one-time exit wizard.
+            </div>
+          </div>
+        </section>
+
+        <section class="section" id="capabilities">
+          <div class="section-heading">
+            <p class="eyebrow">Four layers, one system</p>
+            <h2>Viaduct keeps planning, execution, and lifecycle state in the same control plane.</h2>
+          </div>
+          <div class="capability-grid">
+            <article class="card">
+              <h3>Discovery Engine</h3>
+              <p>
+                Concurrent connector-driven discovery with normalized inventory, diffing utilities,
+                and realistic fixture-backed testing.
+              </p>
+            </article>
+            <article class="card">
+              <h3>Dependency Mapper</h3>
+              <p>
+                Graph workloads, storage, networks, and backup relationships so migration waves are
+                shaped by blast radius instead of guesswork.
+              </p>
+            </article>
+            <article class="card">
+              <h3>Migration Orchestrator</h3>
+              <p>
+                Declarative specs, pre-flight validation, warm replication checkpoints, cutover
+                coordination, disk conversion, boot verification, and rollback.
+              </p>
+            </article>
+            <article class="card">
+              <h3>Lifecycle Manager</h3>
+              <p>
+                Cost profiles, policy simulation, waiver-aware remediation guidance, drift
+                detection, and backup portability planning inputs.
+              </p>
+            </article>
+          </div>
+        </section>
+
+        <section class="section banded" id="connectors">
+          <div class="section-heading">
+            <p class="eyebrow">Built for mixed estates</p>
+            <h2>Use the platforms you already have while planning where workloads should go next.</h2>
+          </div>
+          <div class="connector-cloud" aria-label="Supported connectors">
+            <span>VMware vSphere</span>
+            <span>Proxmox VE</span>
+            <span>Hyper-V</span>
+            <span>KVM / libvirt</span>
+            <span>Nutanix AHV</span>
+            <span>Veeam</span>
+            <span>gRPC plugins</span>
+          </div>
+          <p class="support-copy">
+            Community plugins load through a gRPC host with health and compatibility validation, so
+            new connectors can extend the inventory model without bypassing core safety checks.
+          </p>
+        </section>
+
+        <section class="section split" id="operators">
+          <div class="section-heading section-heading-left">
+            <p class="eyebrow">Operator surfaces</p>
+            <h2>CLI, API, and dashboard speak the same migration language.</h2>
+            <p>
+              Viaduct exposes the same core workflows through Cobra-based CLI commands, a Go HTTP
+              API, and a React dashboard for inventory, dependency graphs, migration history, and
+              remediation guidance.
+            </p>
+          </div>
+          <div class="terminal-card" aria-label="Example CLI session">
+            <div class="terminal-top">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+            <pre><code>$ cp configs/config.example.yaml ~/.viaduct/config.yaml
+$ make build
+$ ./bin/viaduct discover --type kvm --source examples/lab/kvm --save
+$ ./bin/viaduct plan --spec examples/lab/migration-window.yaml
+$ ./bin/viaduct serve-api --port 8080</code></pre>
+          </div>
+        </section>
+
+        <section class="section rail-section">
+          <div class="rail-card">
+            <p class="eyebrow">Operational honesty</p>
+            <h2>Designed for pilots, packaging, and repeatable release verification.</h2>
+            <p>
+              The repository ships an offline-friendly KVM lab, reproducible release gating, an
+              OpenAPI contract, deployment examples, and bundled docs covering install, upgrade,
+              rollback, and troubleshooting.
+            </p>
+          </div>
+          <div class="rail-metrics" aria-label="Key product traits">
+            <article class="metric-card">
+              <strong>Tenant scoped</strong>
+              <span>Inventory, migrations, reporting, quotas, and service accounts stay isolated.</span>
+            </article>
+            <article class="metric-card">
+              <strong>Resumable</strong>
+              <span>Checkpointed migration state lets resume flows skip already-completed work.</span>
+            </article>
+            <article class="metric-card">
+              <strong>Portable</strong>
+              <span>Backup portability planning and validation stay visible through cutover.</span>
+            </article>
+          </div>
+        </section>
+
+        <section class="section cta-section" id="start">
+          <div class="section-heading">
+            <p class="eyebrow">Start in a lab</p>
+            <h2>Evaluate Viaduct without needing a live hypervisor estate on day one.</h2>
+            <p>
+              The default first-run path uses the local KVM lab in `examples/lab/`, then expands
+              into live discovery, migration pilots, and dashboard-backed operations.
+            </p>
+          </div>
+          <div class="cta-actions">
+            <a class="button button-primary" href="https://github.com/eblackrps/viaduct/blob/main/README.md">
+              Read the overview
+            </a>
+            <a
+              class="button button-secondary"
+              href="https://github.com/eblackrps/viaduct/blob/main/docs/getting-started/quickstart.md"
+            >
+              Open detailed quickstart
+            </a>
+            <a
+              class="button button-secondary"
+              href="https://github.com/eblackrps/viaduct/blob/main/docs/reference/openapi.yaml"
+            >
+              Inspect the API contract
+            </a>
+          </div>
+        </section>
+      </main>
+
+      <footer class="site-footer">
+        <p>Viaduct is Apache 2.0 licensed and developed in the open by Eric Black and contributors.</p>
+        <div class="footer-links">
+          <a href="https://github.com/eblackrps/viaduct">Repository</a>
+          <a href="https://github.com/eblackrps/viaduct/blob/main/INSTALL.md">Install</a>
+          <a href="https://github.com/eblackrps/viaduct/blob/main/QUICKSTART.md">Quickstart</a>
+          <a href="https://github.com/eblackrps/viaduct/blob/main/SUPPORT.md">Support</a>
+        </div>
+      </footer>
+    </div>
+  </body>
+</html>
