@@ -5,6 +5,9 @@ import { getGraph } from "../api";
 import { StatusBadge } from "./primitives/StatusBadge";
 import type { DependencyGraph as DependencyGraphModel, GraphEdge, GraphNode } from "../types";
 
+type GraphSimulationNode = GraphNode & d3.SimulationNodeDatum;
+type GraphSimulationLink = GraphEdge & d3.SimulationLinkDatum<GraphSimulationNode>;
+
 interface GraphFilterState {
   nodeTypes: Record<GraphNode["type"], boolean>;
   platform: string;
@@ -136,6 +139,8 @@ export function DependencyGraph() {
 
     const root = svg.attr("viewBox", `0 0 ${width} ${height}`);
     const canvas = root.append("g");
+    const simulationNodes: GraphSimulationNode[] = visibleGraph.nodes.map((node) => ({ ...node }));
+    const simulationLinks: GraphSimulationLink[] = visibleGraph.edges.map((edge) => ({ ...edge }));
 
     root.call(
       d3.zoom<SVGSVGElement, unknown>().scaleExtent([0.5, 2]).on("zoom", (event: d3.D3ZoomEvent<SVGSVGElement, unknown>) => {
@@ -144,13 +149,13 @@ export function DependencyGraph() {
     );
 
     const simulation = d3
-      .forceSimulation(visibleGraph.nodes as d3.SimulationNodeDatum[])
+      .forceSimulation<GraphSimulationNode>(simulationNodes)
       .force(
         "link",
         d3
-          .forceLink(visibleGraph.edges as d3.SimulationLinkDatum<d3.SimulationNodeDatum>[])
-          .id((node: { id: string }) => node.id)
-          .distance((edge: any) => (edge.type === "backup" ? 150 : 120)),
+          .forceLink<GraphSimulationNode, GraphSimulationLink>(simulationLinks)
+          .id((node) => node.id)
+          .distance((edge) => (edge.type === "backup" ? 150 : 120)),
       )
       .force("charge", d3.forceManyBody().strength(-280))
       .force("center", d3.forceCenter(width / 2, height / 2));
@@ -158,37 +163,37 @@ export function DependencyGraph() {
     const edges = canvas
       .append("g")
       .selectAll("line")
-      .data(visibleGraph.edges)
+      .data(simulationLinks)
       .join("line")
-      .attr("stroke", (edge: GraphEdge) => edgeColor(edge))
+      .attr("stroke", (edge: GraphSimulationLink) => edgeColor(edge))
       .attr("stroke-width", 1.75)
       .attr("stroke-opacity", 0.65);
 
     const nodes = canvas
       .append("g")
-      .selectAll<SVGCircleElement, GraphNode>("circle")
-      .data(visibleGraph.nodes)
+      .selectAll<SVGCircleElement, GraphSimulationNode>("circle")
+      .data(simulationNodes)
       .join("circle")
       .attr("r", (node) => (node.id === selectedNodeId ? 18 : node.type === "vm" ? 14 : 12))
-      .attr("fill", (node: GraphNode) => nodeColor(node))
+      .attr("fill", (node: GraphSimulationNode) => nodeColor(node))
       .attr("stroke", (node) => (node.id === selectedNodeId ? "#0f172a" : "#ffffff"))
       .attr("stroke-width", (node) => (node.id === selectedNodeId ? 3 : 2))
       .style("cursor", "pointer")
       .call(
         d3
-          .drag<SVGCircleElement, GraphNode>()
-          .on("start", (event: d3.D3DragEvent<SVGCircleElement, GraphNode, GraphNode>, node: any) => {
+          .drag<SVGCircleElement, GraphSimulationNode>()
+          .on("start", (event: d3.D3DragEvent<SVGCircleElement, GraphSimulationNode, GraphSimulationNode>, node) => {
             if (!event.active) {
               simulation.alphaTarget(0.3).restart();
             }
             node.fx = node.x;
             node.fy = node.y;
           })
-          .on("drag", (event: d3.D3DragEvent<SVGCircleElement, GraphNode, GraphNode>, node: any) => {
+          .on("drag", (event: d3.D3DragEvent<SVGCircleElement, GraphSimulationNode, GraphSimulationNode>, node) => {
             node.fx = event.x;
             node.fy = event.y;
           })
-          .on("end", (event: d3.D3DragEvent<SVGCircleElement, GraphNode, GraphNode>, node: any) => {
+          .on("end", (event: d3.D3DragEvent<SVGCircleElement, GraphSimulationNode, GraphSimulationNode>, node) => {
             if (!event.active) {
               simulation.alphaTarget(0);
             }
@@ -196,28 +201,28 @@ export function DependencyGraph() {
             node.fy = null;
           }),
       )
-      .on("click", (_event: MouseEvent, node: GraphNode) => setSelectedNodeId(node.id));
+      .on("click", (_event: MouseEvent, node: GraphSimulationNode) => setSelectedNodeId(node.id));
 
-    nodes.append("title").text((node: GraphNode) => node.label);
+    nodes.append("title").text((node: GraphSimulationNode) => node.label);
 
     const labels = canvas
       .append("g")
       .selectAll("text")
-      .data(visibleGraph.nodes)
+      .data(simulationNodes)
       .join("text")
       .attr("font-size", 12)
       .attr("fill", "#0f172a")
-      .text((node: GraphNode) => node.label);
+      .text((node: GraphSimulationNode) => node.label);
 
     simulation.on("tick", () => {
       edges
-        .attr("x1", (edge: any) => edge.source.x)
-        .attr("y1", (edge: any) => edge.source.y)
-        .attr("x2", (edge: any) => edge.target.x)
-        .attr("y2", (edge: any) => edge.target.y);
+        .attr("x1", (edge) => (typeof edge.source === "object" ? edge.source.x ?? 0 : 0))
+        .attr("y1", (edge) => (typeof edge.source === "object" ? edge.source.y ?? 0 : 0))
+        .attr("x2", (edge) => (typeof edge.target === "object" ? edge.target.x ?? 0 : 0))
+        .attr("y2", (edge) => (typeof edge.target === "object" ? edge.target.y ?? 0 : 0));
 
-      nodes.attr("cx", (node: any) => node.x).attr("cy", (node: any) => node.y);
-      labels.attr("x", (node: any) => node.x + 18).attr("y", (node: any) => node.y + 4);
+      nodes.attr("cx", (node) => node.x ?? 0).attr("cy", (node) => node.y ?? 0);
+      labels.attr("x", (node) => (node.x ?? 0) + 18).attr("y", (node) => (node.y ?? 0) + 4);
     });
 
     return () => {

@@ -4,6 +4,12 @@ All notable changes to Viaduct should be documented in this file.
 
 This changelog tracks published releases and the major implementation milestones that shaped the current repository state.
 
+## [1.4.1] - 2026-04-08
+
+### Release Reliability
+- fixed the dashboard dependency graph typing so `make release-gate` can complete the web build and package the release bundle
+- superseded the `v1.4.0` candidate tag before publishing a downloadable GitHub release
+
 ## [1.4.0] - 2026-04-08
 
 ### Dashboard Product Workflow
