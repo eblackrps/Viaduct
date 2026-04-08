@@ -3,229 +3,545 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Viaduct | Hypervisor-Agnostic Workload Migration</title>
+    <title>Viaduct | Hypervisor-Agnostic Workload Migration Control Plane</title>
     <meta
       name="description"
-      content="Viaduct is an open source control plane for discovery, migration, lifecycle management, and backup portability across mixed virtualization environments."
+      content="Viaduct is a hypervisor-agnostic workload migration and lifecycle management platform for mixed virtualization estates."
     />
-    <meta name="theme-color" content="#08151d" />
+    <meta name="theme-color" content="#0A1020" />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Public+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <div class="page-shell">
+    <div class="site-shell">
       <header class="site-header">
         <a class="brand" href="#top" aria-label="Viaduct home">
           <span class="brand-mark" aria-hidden="true">V</span>
           <span class="brand-text">Viaduct</span>
         </a>
+
         <nav class="site-nav" aria-label="Primary">
-          <a href="#capabilities">Capabilities</a>
-          <a href="#connectors">Connectors</a>
-          <a href="#operators">Operators</a>
-          <a href="#start">Get Started</a>
+          <a href="#workflow">Workflow</a>
+          <a href="#architecture">Architecture</a>
+          <a href="#integrations">Integrations</a>
+          <a href="#start">Start</a>
         </nav>
+
         <a class="button button-secondary button-compact" href="https://github.com/eblackrps/viaduct">
           GitHub
         </a>
       </header>
 
       <main id="top">
-        <section class="hero section">
+        <section class="section hero">
           <div class="hero-copy">
-            <p class="eyebrow">Open source workload migration control plane</p>
-            <h1>Move across hypervisors without losing operational context.</h1>
+            <p class="eyebrow">Hypervisor-agnostic workload migration</p>
+            <h1>Discover, validate, and move mixed virtualization estates through a shared control plane.</h1>
             <p class="lead">
-              Viaduct helps operators discover mixed estates, map dependencies, orchestrate
-              migrations, preserve backup continuity, and keep managing cost, policy, and drift
-              after cutover.
+              Viaduct gives operators one system for discovery, dependency-aware planning, migration orchestration, rollback and resume awareness, and post-cutover lifecycle visibility across mixed hypervisor estates.
             </p>
+
             <div class="hero-actions">
-              <a class="button button-primary" href="https://github.com/eblackrps/viaduct">
-                Explore the repo
+              <a class="button button-primary" href="https://github.com/eblackrps/viaduct/blob/main/README.md">
+                Read the overview
               </a>
-              <a
-                class="button button-secondary"
-                href="https://github.com/eblackrps/viaduct/blob/main/QUICKSTART.md"
-              >
-                Read quickstart
+              <a class="button button-secondary" href="https://github.com/eblackrps/viaduct/blob/main/QUICKSTART.md">
+                Open quickstart
+              </a>
+              <a class="button button-secondary" href="https://github.com/eblackrps/viaduct/blob/main/docs/reference/openapi.yaml">
+                Inspect the API contract
               </a>
             </div>
-            <ul class="fact-strip" aria-label="Project highlights">
-              <li>Apache 2.0</li>
-              <li>Go 1.24+</li>
-              <li>Python SDK</li>
-              <li>React dashboard</li>
-            </ul>
-          </div>
 
-          <div class="hero-panel" aria-label="Migration flow overview">
-            <div class="flow-grid">
-              <article class="flow-card">
-                <span class="flow-label">01</span>
-                <h2>Discover</h2>
-                <p>Normalize inventory across VMware, Proxmox, Hyper-V, KVM, Nutanix, and Veeam.</p>
+            <div class="hero-signals" aria-label="Core product signals">
+              <article class="signal-card signal-blue">
+                <p class="signal-label">Discover</p>
+                <p class="signal-detail">Normalize mixed estates into one inventory model.</p>
               </article>
-              <article class="flow-card">
-                <span class="flow-label">02</span>
-                <h2>Plan</h2>
-                <p>Build dependency-aware waves, pre-flight checks, approvals, and execution windows.</p>
+              <article class="signal-card signal-teal">
+                <p class="signal-label">Map</p>
+                <p class="signal-detail">Model workload, storage, network, and backup dependencies.</p>
               </article>
-              <article class="flow-card">
-                <span class="flow-label">03</span>
-                <h2>Migrate</h2>
-                <p>Run cold and warm moves with checkpoints, cutover coordination, and rollback state.</p>
+              <article class="signal-card signal-amber">
+                <p class="signal-label">Migrate</p>
+                <p class="signal-detail">Use checkpoints, approvals, rollback, and resume-aware execution.</p>
               </article>
-              <article class="flow-card">
-                <span class="flow-label">04</span>
-                <h2>Operate</h2>
-                <p>Track drift, policy, cost, remediation guidance, and backup portability after landing.</p>
+              <article class="signal-card signal-violet">
+                <p class="signal-label">Operate</p>
+                <p class="signal-detail">Track lifecycle posture, drift, policy, and cost after cutover.</p>
               </article>
             </div>
-            <div class="hero-note">
-              Built for mixed-platform operations, not a one-time exit wizard.
-            </div>
+          </div>
+
+          <div class="topology-panel">
+            <svg viewBox="0 0 900 560" class="topology" role="img" aria-label="Viaduct control plane topology">
+              <defs>
+                <linearGradient id="lane-blue" x1="0%" x2="100%" y1="0%" y2="0%">
+                  <stop offset="0%" stop-color="#3B82F6" stop-opacity="0.16" />
+                  <stop offset="100%" stop-color="#3B82F6" stop-opacity="0.82" />
+                </linearGradient>
+                <linearGradient id="lane-teal" x1="0%" x2="100%" y1="0%" y2="0%">
+                  <stop offset="0%" stop-color="#14B8A6" stop-opacity="0.16" />
+                  <stop offset="100%" stop-color="#14B8A6" stop-opacity="0.82" />
+                </linearGradient>
+                <linearGradient id="lane-violet" x1="0%" x2="100%" y1="0%" y2="0%">
+                  <stop offset="0%" stop-color="#8B5CF6" stop-opacity="0.16" />
+                  <stop offset="100%" stop-color="#8B5CF6" stop-opacity="0.82" />
+                </linearGradient>
+                <linearGradient id="lane-amber" x1="0%" x2="100%" y1="0%" y2="0%">
+                  <stop offset="0%" stop-color="#F59E0B" stop-opacity="0.16" />
+                  <stop offset="100%" stop-color="#F59E0B" stop-opacity="0.88" />
+                </linearGradient>
+              </defs>
+
+              <g opacity="0.55">
+                <line x1="48" y1="28" x2="48" y2="532" />
+                <line x1="144" y1="28" x2="144" y2="532" />
+                <line x1="240" y1="28" x2="240" y2="532" />
+                <line x1="336" y1="28" x2="336" y2="532" />
+                <line x1="432" y1="28" x2="432" y2="532" />
+                <line x1="528" y1="28" x2="528" y2="532" />
+                <line x1="624" y1="28" x2="624" y2="532" />
+                <line x1="720" y1="28" x2="720" y2="532" />
+                <line x1="816" y1="28" x2="816" y2="532" />
+                <line x1="24" y1="60" x2="876" y2="60" />
+                <line x1="24" y1="148" x2="876" y2="148" />
+                <line x1="24" y1="236" x2="876" y2="236" />
+                <line x1="24" y1="324" x2="876" y2="324" />
+                <line x1="24" y1="412" x2="876" y2="412" />
+                <line x1="24" y1="500" x2="876" y2="500" />
+              </g>
+
+              <g class="topology-grid">
+                <line x1="48" y1="28" x2="48" y2="532" />
+                <line x1="144" y1="28" x2="144" y2="532" />
+                <line x1="240" y1="28" x2="240" y2="532" />
+                <line x1="336" y1="28" x2="336" y2="532" />
+                <line x1="432" y1="28" x2="432" y2="532" />
+                <line x1="528" y1="28" x2="528" y2="532" />
+                <line x1="624" y1="28" x2="624" y2="532" />
+                <line x1="720" y1="28" x2="720" y2="532" />
+                <line x1="816" y1="28" x2="816" y2="532" />
+                <line x1="24" y1="60" x2="876" y2="60" />
+                <line x1="24" y1="148" x2="876" y2="148" />
+                <line x1="24" y1="236" x2="876" y2="236" />
+                <line x1="24" y1="324" x2="876" y2="324" />
+                <line x1="24" y1="412" x2="876" y2="412" />
+                <line x1="24" y1="500" x2="876" y2="500" />
+              </g>
+
+              <rect x="300" y="92" width="300" height="344" rx="30" class="panel-strong" />
+              <rect x="330" y="118" width="240" height="36" rx="18" class="pill-line blue-fill" />
+              <text x="450" y="141" class="small-copy center">Shared control plane</text>
+              <text x="450" y="198" class="topology-title center">Viaduct</text>
+              <text x="450" y="228" class="topology-subtitle center">Dependency-aware migration and lifecycle orchestration</text>
+
+              <g>
+                <rect x="332" y="168" width="236" height="34" rx="17" class="lane-pill" />
+                <circle cx="356" cy="185" r="6" fill="#3B82F6" />
+                <text x="376" y="190" class="lane-copy">Discovery engine</text>
+                <line x1="450" y1="202" x2="450" y2="214" class="lane-connector" />
+
+                <rect x="332" y="214" width="236" height="34" rx="17" class="lane-pill" />
+                <circle cx="356" cy="231" r="6" fill="#14B8A6" />
+                <text x="376" y="236" class="lane-copy">Dependency mapper</text>
+                <line x1="450" y1="248" x2="450" y2="260" class="lane-connector" />
+
+                <rect x="332" y="260" width="236" height="34" rx="17" class="lane-pill" />
+                <circle cx="356" cy="277" r="6" fill="#F59E0B" />
+                <text x="376" y="282" class="lane-copy">Migration orchestrator</text>
+                <line x1="450" y1="294" x2="450" y2="306" class="lane-connector" />
+
+                <rect x="332" y="306" width="236" height="34" rx="17" class="lane-pill" />
+                <circle cx="356" cy="323" r="6" fill="#8B5CF6" />
+                <text x="376" y="328" class="lane-copy">Lifecycle manager</text>
+              </g>
+
+              <rect x="342" y="374" width="216" height="40" rx="20" class="state-pill" />
+              <text x="450" y="399" class="small-copy center">Shared state / approvals / checkpoints / recovery metadata</text>
+
+              <g>
+                <rect x="54" y="78" width="170" height="72" rx="24" class="tile" />
+                <circle cx="78" cy="102" r="6" fill="#3B82F6" />
+                <text x="96" y="108" class="tile-title">VMware</text>
+                <text x="78" y="130" class="tile-copy">Inventory / infra</text>
+
+                <rect x="54" y="182" width="170" height="72" rx="24" class="tile" />
+                <circle cx="78" cy="206" r="6" fill="#14B8A6" />
+                <text x="96" y="212" class="tile-title">Hyper-V</text>
+                <text x="78" y="234" class="tile-copy">Hosts / topology</text>
+
+                <rect x="54" y="286" width="170" height="72" rx="24" class="tile" />
+                <circle cx="78" cy="310" r="6" fill="#8B5CF6" />
+                <text x="96" y="316" class="tile-title">KVM</text>
+                <text x="78" y="338" class="tile-copy">Portable fallback</text>
+
+                <rect x="54" y="390" width="170" height="72" rx="24" class="tile" />
+                <circle cx="78" cy="414" r="6" fill="#F59E0B" />
+                <text x="96" y="420" class="tile-title">Veeam</text>
+                <text x="78" y="442" class="tile-copy">Restore points</text>
+              </g>
+
+              <g>
+                <rect x="664" y="112" width="182" height="78" rx="24" class="tile" />
+                <circle cx="688" cy="136" r="6" fill="#14B8A6" />
+                <text x="706" y="142" class="tile-title">Proxmox</text>
+                <text x="688" y="168" class="tile-copy">Target placement</text>
+
+                <rect x="664" y="234" width="182" height="78" rx="24" class="tile" />
+                <circle cx="688" cy="258" r="6" fill="#3B82F6" />
+                <text x="706" y="264" class="tile-title">Nutanix</text>
+                <text x="688" y="290" class="tile-copy">Wave execution</text>
+
+                <rect x="664" y="356" width="182" height="78" rx="24" class="tile" />
+                <circle cx="688" cy="380" r="6" fill="#8B5CF6" />
+                <text x="706" y="386" class="tile-title">Community plugins</text>
+                <text x="688" y="412" class="tile-copy">Validated extensions</text>
+              </g>
+
+              <path d="M224 112 C272 112 290 138 332 184" stroke="url(#lane-blue)" stroke-width="4" fill="none" stroke-linecap="round" />
+              <path d="M224 216 C282 216 288 228 332 230" stroke="url(#lane-teal)" stroke-width="4" fill="none" stroke-linecap="round" />
+              <path d="M224 320 C274 320 288 292 332 276" stroke="url(#lane-violet)" stroke-width="4" fill="none" stroke-linecap="round" />
+              <path d="M224 424 C284 424 286 354 332 322" stroke="url(#lane-amber)" stroke-width="4" fill="none" stroke-linecap="round" />
+
+              <circle cx="278" cy="148" r="8" class="checkpoint blue-node" />
+              <circle cx="286" cy="224" r="8" class="checkpoint teal-node" />
+              <circle cx="292" cy="306" r="8" class="checkpoint violet-node" />
+              <circle cx="288" cy="384" r="8" class="checkpoint amber-node" />
+
+              <path d="M568 184 C624 184 642 160 664 150" stroke="url(#lane-blue)" stroke-width="4" fill="none" stroke-linecap="round" />
+              <path d="M568 230 C628 230 638 248 664 272" stroke="url(#lane-teal)" stroke-width="4" fill="none" stroke-linecap="round" />
+              <path d="M568 276 C628 276 642 332 664 394" stroke="url(#lane-violet)" stroke-width="4" fill="none" stroke-linecap="round" />
+              <path d="M568 322 C614 322 632 252 664 160" stroke="url(#lane-amber)" stroke-width="3" fill="none" stroke-linecap="round" stroke-dasharray="6 8" />
+
+              <g>
+                <circle cx="612" cy="184" r="10" class="checkpoint outline-blue" />
+                <circle cx="612" cy="184" r="3" fill="#3B82F6" />
+                <rect x="578" y="150" width="68" height="22" rx="11" class="checkpoint-label" />
+                <text x="612" y="165" class="checkpoint-copy center">validate</text>
+              </g>
+
+              <g>
+                <circle cx="628" cy="236" r="10" class="checkpoint outline-amber" />
+                <circle cx="628" cy="236" r="3" fill="#F59E0B" />
+                <rect x="594" y="202" width="68" height="22" rx="11" class="checkpoint-label" />
+                <text x="628" y="217" class="checkpoint-copy center">checkpoint</text>
+              </g>
+
+              <g>
+                <circle cx="638" cy="320" r="10" class="checkpoint outline-violet" />
+                <circle cx="638" cy="320" r="3" fill="#8B5CF6" />
+                <rect x="604" y="286" width="68" height="22" rx="11" class="checkpoint-label" />
+                <text x="638" y="301" class="checkpoint-copy center">resume</text>
+              </g>
+
+              <g>
+                <circle cx="170" cy="50" r="8" class="cluster-node teal-node" />
+                <circle cx="214" cy="50" r="8" class="cluster-node blue-node" />
+                <circle cx="258" cy="50" r="8" class="cluster-node violet-node" />
+                <path d="M178 50 H206" class="cluster-link" />
+                <path d="M222 50 H250" class="cluster-link" />
+                <text x="214" y="76" class="small-copy center">Dependency cluster inputs</text>
+              </g>
+
+              <rect x="626" y="452" width="184" height="58" rx="20" class="tile" />
+              <text x="648" y="476" class="tile-title">Lifecycle indicators</text>
+              <text x="648" y="498" class="tile-copy">Policy / drift / cost / remediation</text>
+
+              <rect x="88" y="462" width="172" height="48" rx="18" class="tile" />
+              <text x="174" y="490" class="small-copy center">Read-only discovery connectors</text>
+            </svg>
           </div>
         </section>
 
-        <section class="section" id="capabilities">
+        <section class="section" id="workflow">
           <div class="section-heading">
-            <p class="eyebrow">Four layers, one system</p>
-            <h2>Viaduct keeps planning, execution, and lifecycle state in the same control plane.</h2>
-          </div>
-          <div class="capability-grid">
-            <article class="card">
-              <h3>Discovery Engine</h3>
-              <p>
-                Concurrent connector-driven discovery with normalized inventory, diffing utilities,
-                and realistic fixture-backed testing.
-              </p>
-            </article>
-            <article class="card">
-              <h3>Dependency Mapper</h3>
-              <p>
-                Graph workloads, storage, networks, and backup relationships so migration waves are
-                shaped by blast radius instead of guesswork.
-              </p>
-            </article>
-            <article class="card">
-              <h3>Migration Orchestrator</h3>
-              <p>
-                Declarative specs, pre-flight validation, warm replication checkpoints, cutover
-                coordination, disk conversion, boot verification, and rollback.
-              </p>
-            </article>
-            <article class="card">
-              <h3>Lifecycle Manager</h3>
-              <p>
-                Cost profiles, policy simulation, waiver-aware remediation guidance, drift
-                detection, and backup portability planning inputs.
-              </p>
-            </article>
-          </div>
-        </section>
-
-        <section class="section banded" id="connectors">
-          <div class="section-heading">
-            <p class="eyebrow">Built for mixed estates</p>
-            <h2>Use the platforms you already have while planning where workloads should go next.</h2>
-          </div>
-          <div class="connector-cloud" aria-label="Supported connectors">
-            <span>VMware vSphere</span>
-            <span>Proxmox VE</span>
-            <span>Hyper-V</span>
-            <span>KVM / libvirt</span>
-            <span>Nutanix AHV</span>
-            <span>Veeam</span>
-            <span>gRPC plugins</span>
-          </div>
-          <p class="support-copy">
-            Community plugins load through a gRPC host with health and compatibility validation, so
-            new connectors can extend the inventory model without bypassing core safety checks.
-          </p>
-        </section>
-
-        <section class="section split" id="operators">
-          <div class="section-heading section-heading-left">
-            <p class="eyebrow">Operator surfaces</p>
-            <h2>CLI, API, and dashboard speak the same migration language.</h2>
+            <p class="eyebrow">Workflow</p>
+            <h2>A controlled transit model from discovery through post-cutover operations.</h2>
             <p>
-              Viaduct exposes the same core workflows through Cobra-based CLI commands, a Go HTTP
-              API, and a React dashboard for inventory, dependency graphs, migration history, and
-              remediation guidance.
+              Viaduct keeps the migration path legible: normalize the estate, model dependencies, validate cutover, execute with checkpoints, and keep lifecycle signals visible after the move.
             </p>
           </div>
-          <div class="terminal-card" aria-label="Example CLI session">
-            <div class="terminal-top">
-              <span></span>
-              <span></span>
-              <span></span>
-            </div>
-            <pre><code>$ cp configs/config.example.yaml ~/.viaduct/config.yaml
-$ make build
-$ ./bin/viaduct discover --type kvm --source examples/lab/kvm --save
-$ ./bin/viaduct plan --spec examples/lab/migration-window.yaml
-$ ./bin/viaduct serve-api --port 8080</code></pre>
+
+          <div class="workflow-strip">
+            <article class="workflow-card">
+              <div class="workflow-head">
+                <span class="workflow-icon workflow-blue" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="5.5"></circle><path d="M16 16L21 21"></path></svg>
+                </span>
+                <span class="workflow-index">01</span>
+              </div>
+              <h3>Discover</h3>
+              <p>Normalize mixed estates</p>
+            </article>
+
+            <article class="workflow-card">
+              <div class="workflow-head">
+                <span class="workflow-icon workflow-teal" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><path d="M6 6h5v5H6z"></path><path d="M13 13h5v5h-5z"></path><path d="M11 8l3 3"></path><path d="M9 11l3 3"></path></svg>
+                </span>
+                <span class="workflow-index">02</span>
+              </div>
+              <h3>Map</h3>
+              <p>Model dependencies</p>
+            </article>
+
+            <article class="workflow-card">
+              <div class="workflow-head">
+                <span class="workflow-icon workflow-amber" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><path d="M7 13l3 3 7-8"></path><rect x="4" y="4" width="16" height="16" rx="4"></rect></svg>
+                </span>
+                <span class="workflow-index">03</span>
+              </div>
+              <h3>Plan</h3>
+              <p>Validate cutover</p>
+            </article>
+
+            <article class="workflow-card">
+              <div class="workflow-head">
+                <span class="workflow-icon workflow-violet" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><path d="M12 3v5"></path><path d="M17 7a8 8 0 1 1-6 0"></path><path d="M12 13l4 4"></path></svg>
+                </span>
+                <span class="workflow-index">04</span>
+              </div>
+              <h3>Migrate</h3>
+              <p>Checkpoint and resume</p>
+            </article>
+
+            <article class="workflow-card">
+              <div class="workflow-head">
+                <span class="workflow-icon workflow-blue" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><path d="M4 14c3-6 13-6 16 0"></path><path d="M6 18c2.5-4 9.5-4 12 0"></path><circle cx="12" cy="9" r="1.5"></circle></svg>
+                </span>
+                <span class="workflow-index">05</span>
+              </div>
+              <h3>Operate</h3>
+              <p>Track drift and cost</p>
+            </article>
           </div>
         </section>
 
-        <section class="section rail-section">
-          <div class="rail-card">
-            <p class="eyebrow">Operational honesty</p>
-            <h2>Designed for pilots, packaging, and repeatable release verification.</h2>
+        <section class="section" id="architecture">
+          <div class="section-heading">
+            <p class="eyebrow">Architecture</p>
+            <h2>One control plane that keeps discovery, execution, and lifecycle state aligned.</h2>
             <p>
-              The repository ships an offline-friendly KVM lab, reproducible release gating, an
-              OpenAPI contract, deployment examples, and bundled docs covering install, upgrade,
-              rollback, and troubleshooting.
+              Connectors feed a shared system of record, the core engines add dependency and execution logic, and the CLI, API, and dashboard all reflect the same persisted truth.
             </p>
           </div>
-          <div class="rail-metrics" aria-label="Key product traits">
-            <article class="metric-card">
-              <strong>Tenant scoped</strong>
-              <span>Inventory, migrations, reporting, quotas, and service accounts stay isolated.</span>
+
+          <div class="architecture-grid">
+            <article class="architecture-card">
+              <div class="card-head">
+                <span class="card-icon card-blue">C</span>
+                <div>
+                  <h3>Connectors</h3>
+                  <p>Hypervisor and backup adapters with a restrained plugin model.</p>
+                </div>
+              </div>
+              <div class="badge-cluster">
+                <span>VMware</span>
+                <span>Proxmox</span>
+                <span>Hyper-V</span>
+                <span>KVM</span>
+                <span>Nutanix</span>
+                <span>Veeam</span>
+                <span>Community plugins</span>
+              </div>
             </article>
-            <article class="metric-card">
-              <strong>Resumable</strong>
-              <span>Checkpointed migration state lets resume flows skip already-completed work.</span>
+
+            <article class="architecture-card architecture-timeline">
+              <div class="card-head">
+                <span class="card-icon card-teal">E</span>
+                <div>
+                  <h3>Core engines</h3>
+                  <p>A staged pipeline with shared context instead of siloed utilities.</p>
+                </div>
+              </div>
+              <div class="timeline">
+                <div class="timeline-item">
+                  <span class="timeline-dot timeline-blue"></span>
+                  <div>
+                    <strong>Discovery engine</strong>
+                    <p>Concurrent, read-only collection normalizes inventory and infrastructure metadata into the universal model.</p>
+                  </div>
+                </div>
+                <div class="timeline-item">
+                  <span class="timeline-dot timeline-teal"></span>
+                  <div>
+                    <strong>Dependency mapper</strong>
+                    <p>Cross-platform node and edge modeling exposes workload, storage, network, and backup relationships before execution.</p>
+                  </div>
+                </div>
+                <div class="timeline-item">
+                  <span class="timeline-dot timeline-amber"></span>
+                  <div>
+                    <strong>Migration orchestrator</strong>
+                    <p>Declarative plans drive validation, wave execution, checkpoints, cutover, rollback, and resume behavior.</p>
+                  </div>
+                </div>
+                <div class="timeline-item">
+                  <span class="timeline-dot timeline-violet"></span>
+                  <div>
+                    <strong>Lifecycle manager</strong>
+                    <p>Post-migration analysis keeps drift, cost, policy, portability, and remediation visible in the same control plane.</p>
+                  </div>
+                </div>
+              </div>
             </article>
-            <article class="metric-card">
-              <strong>Portable</strong>
-              <span>Backup portability planning and validation stay visible through cutover.</span>
+
+            <article class="architecture-card">
+              <div class="card-head">
+                <span class="card-icon card-violet">S</span>
+                <div>
+                  <h3>CLI / API / Dashboard</h3>
+                  <p>Operator surfaces that stay in parity because they read and write the same state.</p>
+                </div>
+              </div>
+              <div class="surface-list">
+                <div>
+                  <strong>CLI</strong>
+                  <p>Declarative specs, discovery, planning, status, and rollback.</p>
+                </div>
+                <div>
+                  <strong>API</strong>
+                  <p>Tenant-scoped routes for inventory, graphs, migration state, policy, reporting, and metrics.</p>
+                </div>
+                <div>
+                  <strong>Dashboard</strong>
+                  <p>Inventory, dependency, migration, lifecycle, and reporting views on one backend model.</p>
+                </div>
+              </div>
+            </article>
+          </div>
+
+          <div class="architecture-lower">
+            <article class="architecture-card">
+              <div class="card-head">
+                <span class="card-icon card-amber">P</span>
+                <div>
+                  <h3>Shared state / persistence</h3>
+                  <p>Execution context stays durable so retries, approvals, and rollback do not lose the thread.</p>
+                </div>
+              </div>
+              <div class="persistence-grid">
+                <div>
+                  <strong>Discovery snapshots</strong>
+                  <p>Baseline inventory, infrastructure, and historical diffs.</p>
+                </div>
+                <div>
+                  <strong>Migration state</strong>
+                  <p>Execution plans, approvals, checkpoints, and resume metadata.</p>
+                </div>
+                <div>
+                  <strong>Recovery points</strong>
+                  <p>Rollback artifacts and portability cleanup context.</p>
+                </div>
+                <div>
+                  <strong>Tenant metadata</strong>
+                  <p>Quotas, service accounts, permissions, and request-scoped context.</p>
+                </div>
+              </div>
+            </article>
+
+            <article class="architecture-card">
+              <p class="eyebrow compact">Execution model</p>
+              <h3>Change remains explicit and operator-controlled.</h3>
+              <div class="execution-list">
+                <p class="execution-pill execution-blue">Read-only discovery across mixed source platforms</p>
+                <p class="execution-pill execution-amber">Pre-flight validation, wave planning, approvals, and checkpoints before cutover</p>
+                <p class="execution-pill execution-violet">Lifecycle, policy, cost, and remediation remain visible after migration completes</p>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="section" id="integrations">
+          <div class="section-heading">
+            <p class="eyebrow">Platform coverage</p>
+            <h2>Connector coverage for real mixed estates, with a restrained extension path.</h2>
+            <p>
+              The platform row stays technical and quiet on purpose. Connector availability matters, but the real story is the shared migration and lifecycle control plane behind it.
+            </p>
+          </div>
+
+          <div class="integration-grid">
+            <article class="integration-card">
+              <span class="integration-mark mark-blue">VS</span>
+              <div>
+                <h3>VMware</h3>
+                <p>vSphere inventory and migration planning</p>
+              </div>
+            </article>
+            <article class="integration-card">
+              <span class="integration-mark mark-teal">PX</span>
+              <div>
+                <h3>Proxmox</h3>
+                <p>REST-backed discovery and target planning</p>
+              </div>
+            </article>
+            <article class="integration-card">
+              <span class="integration-mark mark-violet">HV</span>
+              <div>
+                <h3>Hyper-V</h3>
+                <p>WinRM and PowerShell-driven collection</p>
+              </div>
+            </article>
+            <article class="integration-card">
+              <span class="integration-mark mark-amber">KV</span>
+              <div>
+                <h3>KVM</h3>
+                <p>Libvirt-ready with portable fallback support</p>
+              </div>
+            </article>
+            <article class="integration-card">
+              <span class="integration-mark mark-blue">NT</span>
+              <div>
+                <h3>Nutanix</h3>
+                <p>Prism-backed mixed-estate visibility</p>
+              </div>
+            </article>
+            <article class="integration-card">
+              <span class="integration-mark mark-teal">VB</span>
+              <div>
+                <h3>Veeam</h3>
+                <p>Backup correlation and portability context</p>
+              </div>
+            </article>
+            <article class="integration-card">
+              <span class="integration-mark mark-violet">PL</span>
+              <div>
+                <h3>Community plugins</h3>
+                <p>gRPC extension path with compatibility checks</p>
+              </div>
             </article>
           </div>
         </section>
 
         <section class="section cta-section" id="start">
-          <div class="section-heading">
+          <div class="cta-panel">
             <p class="eyebrow">Start in a lab</p>
             <h2>Evaluate Viaduct without needing a live hypervisor estate on day one.</h2>
             <p>
-              The default first-run path uses the local KVM lab in `examples/lab/`, then expands
-              into live discovery, migration pilots, and dashboard-backed operations.
+              The first-run path starts with the local KVM lab under `examples/lab/`, then expands into live discovery, dependency analysis, migration pilots, and dashboard-backed operations.
             </p>
-          </div>
-          <div class="cta-actions">
-            <a class="button button-primary" href="https://github.com/eblackrps/viaduct/blob/main/README.md">
-              Read the overview
-            </a>
-            <a
-              class="button button-secondary"
-              href="https://github.com/eblackrps/viaduct/blob/main/docs/getting-started/quickstart.md"
-            >
-              Open detailed quickstart
-            </a>
-            <a
-              class="button button-secondary"
-              href="https://github.com/eblackrps/viaduct/blob/main/docs/reference/openapi.yaml"
-            >
-              Inspect the API contract
-            </a>
+            <div class="cta-actions">
+              <a class="button button-primary" href="https://github.com/eblackrps/viaduct/blob/main/INSTALL.md">
+                Installation guide
+              </a>
+              <a class="button button-secondary" href="https://github.com/eblackrps/viaduct/blob/main/docs/getting-started/quickstart.md">
+                Detailed quickstart
+              </a>
+              <a class="button button-secondary" href="https://github.com/eblackrps/viaduct">
+                View repository
+              </a>
+            </div>
           </div>
         </section>
       </main>
@@ -233,7 +549,7 @@ $ ./bin/viaduct serve-api --port 8080</code></pre>
       <footer class="site-footer">
         <p>Viaduct is Apache 2.0 licensed and developed in the open by Eric Black and contributors.</p>
         <div class="footer-links">
-          <a href="https://github.com/eblackrps/viaduct">Repository</a>
+          <a href="https://github.com/eblackrps/viaduct/blob/main/README.md">Overview</a>
           <a href="https://github.com/eblackrps/viaduct/blob/main/INSTALL.md">Install</a>
           <a href="https://github.com/eblackrps/viaduct/blob/main/QUICKSTART.md">Quickstart</a>
           <a href="https://github.com/eblackrps/viaduct/blob/main/SUPPORT.md">Support</a>
