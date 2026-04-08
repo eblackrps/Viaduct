@@ -62,6 +62,8 @@ Fields:
 
 The dashboard reads this through Vite. See [`../../web/.env.example`](../../web/.env.example).
 
+For early-product and pilot use, prefer `VITE_VIADUCT_SERVICE_ACCOUNT_KEY` for normal dashboard access. Reserve `VITE_VIADUCT_API_KEY` for tenant bootstrap, short-lived admin work, or break-glass access.
+
 ## API Authentication Headers
 - `X-API-Key`: tenant-scoped API key for inventory, migration, lifecycle, and summary routes
 - `X-Service-Account-Key`: scoped machine credential for tenant service accounts
@@ -72,6 +74,7 @@ The dashboard reads this through Vite. See [`../../web/.env.example`](../../web/
 - The built-in `default` tenant exists automatically in both the memory store and PostgreSQL store.
 - The API can fall back to the default tenant only when there are no active custom tenants and the default tenant has no API key configured.
 - Any production deployment should use explicit tenant keys rather than relying on fallback behavior.
+- Any pilot or packaged dashboard deployment should prefer named service-account credentials over a shared tenant-wide key.
 
 ## State Store Notes
 - in-memory store: useful for demos, tests, and local evaluation only

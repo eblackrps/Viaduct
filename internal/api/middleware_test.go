@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -68,6 +69,14 @@ func TestTenantAuthMiddleware_MissingKey_RejectsRequest(t *testing.T) {
 	handler.ServeHTTP(recorder, req)
 	if recorder.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusUnauthorized)
+	}
+
+	var response apiErrorEnvelope
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Unmarshal() error = %v", err)
+	}
+	if response.Error.Code != "missing_credentials" || response.Error.RequestID == "" {
+		t.Fatalf("unexpected error response: %#v", response)
 	}
 }
 

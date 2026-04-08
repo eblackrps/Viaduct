@@ -10,7 +10,9 @@ Viaduct is an open source control plane for discovering, migrating, and operatin
 Broadcom's VMware licensing changes forced many teams into urgent platform decisions, but most migration tooling still assumes a one-time move into a single destination. Viaduct is built for operators who need a durable mixed-platform operating model: discover what exists, understand the blast radius, move workloads safely, preserve backup coverage, and keep managing cost, policy, and drift after cutover.
 
 ## Project Status
-Viaduct is ready for broad evaluation, operator pilots, and community contribution. The repository includes multi-platform discovery, dependency graphing, declarative migration orchestration, warm-migration primitives, lifecycle remediation, backup portability, multi-tenancy with service accounts and quota controls, plugin hosting, a web dashboard, a standalone public site, reproducible release packaging, and a shared release gate for CI and local verification.
+Viaduct is ready for broad evaluation, design-partner pilots, and community contribution. The repository includes multi-platform discovery, dependency graphing, declarative migration orchestration, warm-migration primitives, lifecycle remediation, backup portability, multi-tenancy with service accounts and quota controls, plugin hosting, a web dashboard, a standalone public site, reproducible release packaging, and a shared release gate for CI and local verification.
+
+The current early-product wedge is VMware-exit mixed-estate discovery and migration readiness assessment with approval-ready pilot planning. Discovery, planning, operator visibility, and packaged evaluation are the strongest current surfaces. Live execution paths should still be validated in a lab or pilot environment before they are treated as routine production automation.
 
 ## Supported Capabilities
 - Discovery engine: Collects normalized inventory from VMware, Proxmox, Hyper-V, KVM, Nutanix, and Veeam-related backup systems into a universal schema.
@@ -83,6 +85,10 @@ make release-gate
 - Release process: [RELEASE.md](RELEASE.md)
 - Configuration reference: [docs/reference/configuration.md](docs/reference/configuration.md)
 - Migration operations: [docs/operations/migration-operations.md](docs/operations/migration-operations.md)
+- Auth, role, and auditability model: [docs/operations/auth-role-audit-model.md](docs/operations/auth-role-audit-model.md)
+- Demo runbook: [docs/operations/demo-runbook.md](docs/operations/demo-runbook.md)
+- Observability requirements: [docs/operations/observability-requirements.md](docs/operations/observability-requirements.md)
+- Real user validation plan: [docs/operations/real-user-validation-plan.md](docs/operations/real-user-validation-plan.md)
 - Backup portability: [docs/operations/backup-portability.md](docs/operations/backup-portability.md)
 - Multi-tenancy: [docs/operations/multi-tenancy.md](docs/operations/multi-tenancy.md)
 - Troubleshooting: [docs/reference/troubleshooting.md](docs/reference/troubleshooting.md)
@@ -91,6 +97,16 @@ make release-gate
 
 ## Documentation Index
 - Repository docs index: [docs/README.md](docs/README.md)
+- Commercialization options: [docs/commercialization-options.md](docs/commercialization-options.md)
+- Early product focus: [docs/early-product-focus.md](docs/early-product-focus.md)
+- Beachhead use case analysis: [docs/beachhead-use-case.md](docs/beachhead-use-case.md)
+- V1 scope definition: [docs/v1-scope.md](docs/v1-scope.md)
+- Backend contract hardening: [docs/backend-contract-hardening.md](docs/backend-contract-hardening.md)
+- Auth, role, and auditability model: [docs/operations/auth-role-audit-model.md](docs/operations/auth-role-audit-model.md)
+- Demo runbook: [docs/operations/demo-runbook.md](docs/operations/demo-runbook.md)
+- Observability requirements: [docs/operations/observability-requirements.md](docs/operations/observability-requirements.md)
+- Primary reliability path: [docs/operations/primary-reliability-path.md](docs/operations/primary-reliability-path.md)
+- Real user validation plan: [docs/operations/real-user-validation-plan.md](docs/operations/real-user-validation-plan.md)
 - Public site source: [site/README.md](site/README.md)
 - Architecture overview: [docs/architecture.md](docs/architecture.md)
 - Support matrix: [docs/reference/support-matrix.md](docs/reference/support-matrix.md)
@@ -113,9 +129,9 @@ make release-gate
 - Phase 2: Cold migration, dashboard, and Veeam integration completed.
 - Phase 3: Warm migration, lifecycle management, and multi-tenancy completed.
 - Phase 4: Scale, extensibility, and automation foundation completed.
-- Release and ecosystem launch: packaging, installability, operator runbooks, ecosystem guidance, and adoption readiness continue as the current refinement track after the first tagged release.
+- Release and ecosystem launch: packaging, installability, operator runbooks, ecosystem guidance, adoption readiness, and early-product hardening continue as the current refinement track after the first tagged release.
 
-See [ROADMAP.md](ROADMAP.md) for the public roadmap and [docs/roadmaps/README.md](docs/roadmaps/README.md) for the archived phase documents.
+See [ROADMAP.md](ROADMAP.md) for the public roadmap, [docs/early-product-focus.md](docs/early-product-focus.md) for the current product wedge and trust boundaries, [docs/beachhead-use-case.md](docs/beachhead-use-case.md) for the wedge decision behind that framing, [docs/v1-scope.md](docs/v1-scope.md) for the frozen first-release support promise, [docs/backend-contract-hardening.md](docs/backend-contract-hardening.md) for the contract-stabilization work needed to support that promise, and [docs/roadmaps/README.md](docs/roadmaps/README.md) for the archived phase documents.
 
 ## Contributing
 Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, compatibility expectations, testing, documentation expectations, and release-gate workflow guidance.

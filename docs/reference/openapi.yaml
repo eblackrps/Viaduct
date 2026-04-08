@@ -88,6 +88,27 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CurrentTenant"
+  /api/v1/audit:
+    get:
+      summary: Tenant audit events
+      security:
+        - TenantAPIKey: []
+        - ServiceAccountKey: []
+      responses:
+        "200":
+          description: Audit events for the current tenant
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AuditEvent"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+        "403":
+          $ref: "#/components/responses/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/ErrorResponse"
   /api/v1/service-accounts:
     get:
       summary: List tenant service accounts
@@ -156,9 +177,6 @@ paths:
       requestBody:
         required: true
         content:
-          application/x-yaml:
-            schema:
-              type: string
           application/json:
             schema:
               type: object
@@ -168,7 +186,15 @@ paths:
           content:
             application/json:
               schema:
-                type: object
+                $ref: "#/components/schemas/PreflightReport"
+        "400":
+          $ref: "#/components/responses/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+        "403":
+          $ref: "#/components/responses/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/ErrorResponse"
   /api/v1/migrations:
     get:
       summary: List tenant migrations
@@ -192,19 +218,24 @@ paths:
       requestBody:
         required: true
         content:
-          application/x-yaml:
-            schema:
-              type: string
           application/json:
             schema:
               type: object
       responses:
-        "201":
-          description: Migration created
+        "202":
+          description: Migration plan accepted
           content:
             application/json:
               schema:
-                type: object
+                $ref: "#/components/schemas/MigrationState"
+        "400":
+          $ref: "#/components/responses/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+        "403":
+          $ref: "#/components/responses/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/ErrorResponse"
   /api/v1/migrations/{migrationID}:
     get:
       summary: Get migration state
@@ -223,7 +254,118 @@ paths:
           content:
             application/json:
               schema:
-                type: object
+                $ref: "#/components/schemas/MigrationState"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+        "403":
+          $ref: "#/components/responses/ErrorResponse"
+        "404":
+          $ref: "#/components/responses/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/ErrorResponse"
+  /api/v1/migrations/{migrationID}/execute:
+    post:
+      summary: Start an approved migration run
+      security:
+        - TenantAPIKey: []
+        - ServiceAccountKey: []
+      parameters:
+        - in: path
+          name: migrationID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MigrationExecutionRequest"
+      responses:
+        "202":
+          description: Execution accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MigrationCommandResponse"
+        "400":
+          $ref: "#/components/responses/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+        "403":
+          $ref: "#/components/responses/ErrorResponse"
+        "404":
+          $ref: "#/components/responses/ErrorResponse"
+        "409":
+          $ref: "#/components/responses/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/ErrorResponse"
+  /api/v1/migrations/{migrationID}/resume:
+    post:
+      summary: Resume a paused or failed migration run
+      security:
+        - TenantAPIKey: []
+        - ServiceAccountKey: []
+      parameters:
+        - in: path
+          name: migrationID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MigrationExecutionRequest"
+      responses:
+        "202":
+          description: Resume accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MigrationCommandResponse"
+        "400":
+          $ref: "#/components/responses/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+        "403":
+          $ref: "#/components/responses/ErrorResponse"
+        "404":
+          $ref: "#/components/responses/ErrorResponse"
+        "409":
+          $ref: "#/components/responses/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/ErrorResponse"
+  /api/v1/migrations/{migrationID}/rollback:
+    post:
+      summary: Roll back a migration run
+      security:
+        - TenantAPIKey: []
+        - ServiceAccountKey: []
+      parameters:
+        - in: path
+          name: migrationID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Rollback result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RollbackResult"
+        "400":
+          $ref: "#/components/responses/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+        "403":
+          $ref: "#/components/responses/ErrorResponse"
+        "404":
+          $ref: "#/components/responses/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/ErrorResponse"
   /api/v1/reports/{name}:
     get:
       summary: Export tenant report
@@ -266,7 +408,44 @@ components:
       type: apiKey
       in: header
       name: X-Admin-Key
+  responses:
+    ErrorResponse:
+      description: Structured API error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiErrorEnvelope"
   schemas:
+    ApiFieldError:
+      type: object
+      properties:
+        path:
+          type: string
+        message:
+          type: string
+    ApiError:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        request_id:
+          type: string
+        retryable:
+          type: boolean
+        details:
+          type: object
+          additionalProperties: true
+        field_errors:
+          type: array
+          items:
+            $ref: "#/components/schemas/ApiFieldError"
+    ApiErrorEnvelope:
+      type: object
+      properties:
+        error:
+          $ref: "#/components/schemas/ApiError"
     AboutResponse:
       type: object
       properties:
@@ -452,3 +631,174 @@ components:
         updated_at:
           type: string
           format: date-time
+        completed_at:
+          type: string
+          format: date-time
+    MigrationExecutionRequest:
+      type: object
+      properties:
+        approved_by:
+          type: string
+        ticket:
+          type: string
+    MigrationCommandResponse:
+      type: object
+      properties:
+        migration_id:
+          type: string
+        action:
+          type: string
+          enum: [execute, resume]
+        operation_state:
+          type: string
+          enum: [accepted]
+        lifecycle_state:
+          type: string
+        phase:
+          type: string
+        accepted_at:
+          type: string
+          format: date-time
+        request_id:
+          type: string
+    MigrationCheckpoint:
+      type: object
+      properties:
+        phase:
+          type: string
+        status:
+          type: string
+        message:
+          type: string
+        started_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+        diagnostics:
+          type: array
+          items:
+            type: string
+    ApprovalGate:
+      type: object
+      properties:
+        required:
+          type: boolean
+        approved_by:
+          type: string
+        approved_at:
+          type: string
+          format: date-time
+        ticket:
+          type: string
+    MigrationPlan:
+      type: object
+      properties:
+        requires_approval:
+          type: boolean
+        approval_satisfied:
+          type: boolean
+        waves:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+    CheckResult:
+      type: object
+      properties:
+        name:
+          type: string
+        status:
+          type: string
+          enum: [pass, warn, fail]
+        message:
+          type: string
+        duration:
+          type: integer
+    PreflightReport:
+      type: object
+      properties:
+        plan:
+          $ref: "#/components/schemas/MigrationPlan"
+        checks:
+          type: array
+          items:
+            $ref: "#/components/schemas/CheckResult"
+        pass_count:
+          type: integer
+        warn_count:
+          type: integer
+        fail_count:
+          type: integer
+        can_proceed:
+          type: boolean
+    MigrationState:
+      type: object
+      properties:
+        id:
+          type: string
+        phase:
+          type: string
+        started_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+        errors:
+          type: array
+          items:
+            type: string
+        checkpoints:
+          type: array
+          items:
+            $ref: "#/components/schemas/MigrationCheckpoint"
+        approval:
+          $ref: "#/components/schemas/ApprovalGate"
+        pending_approval:
+          type: boolean
+        plan:
+          $ref: "#/components/schemas/MigrationPlan"
+    RollbackResult:
+      type: object
+      properties:
+        migration_id:
+          type: string
+        target_vms_removed:
+          type: integer
+        files_cleaned_up:
+          type: integer
+        source_vms_restored:
+          type: integer
+        errors:
+          type: array
+          items:
+            type: string
+        duration:
+          type: integer
+    AuditEvent:
+      type: object
+      properties:
+        id:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        actor:
+          type: string
+        category:
+          type: string
+        action:
+          type: string
+        resource:
+          type: string
+        outcome:
+          type: string
+        message:
+          type: string
+        request_id:
+          type: string

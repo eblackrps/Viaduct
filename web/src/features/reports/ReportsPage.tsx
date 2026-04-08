@@ -1,5 +1,12 @@
 import { useState } from "react";
-import { dashboardAuthMode, downloadReport, type ReportFormat, type ReportName } from "../../api";
+import {
+  dashboardAuthMode,
+  describeError,
+  downloadReport,
+  type ErrorDisplay,
+  type ReportFormat,
+  type ReportName,
+} from "../../api";
 import { DiscoverySnapshotsPanel } from "../../components/DiscoverySnapshotsPanel";
 import { MigrationHistory } from "../../components/MigrationHistory";
 import { EmptyState } from "../../components/primitives/EmptyState";
@@ -23,7 +30,7 @@ export function ReportsPage({ migrations, snapshots, loading, migrationError, sn
   const hasErrors = [migrationError, snapshotError].filter(Boolean).join(" ");
   const showEmpty = !loading && !hasErrors && migrations.length === 0 && snapshots.length === 0;
   const [activeExport, setActiveExport] = useState<string | null>(null);
-  const [exportError, setExportError] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<ErrorDisplay | null>(null);
 
   async function handleExport(name: ReportName, format: ReportFormat) {
     const exportKey = `${name}:${format}`;
@@ -38,7 +45,11 @@ export function ReportsPage({ migrations, snapshots, loading, migrationError, sn
       anchor.click();
       window.setTimeout(() => URL.revokeObjectURL(href), 0);
     } catch (err) {
-      setExportError(err instanceof Error ? err.message : "Unable to export report.");
+      setExportError(
+        describeError(err, {
+          fallback: "Unable to export report.",
+        }),
+      );
     } finally {
       setActiveExport(null);
     }
@@ -103,7 +114,20 @@ export function ReportsPage({ migrations, snapshots, loading, migrationError, sn
         <p className="mt-4 text-sm text-slate-500">
           Downloads are performed through the dashboard client so configured tenant or service-account credentials are applied consistently.
         </p>
-        {exportError && <p className="mt-4 rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700">{exportError}</p>}
+        {exportError && (
+          <div className="mt-4 rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700">
+            <p>{exportError.message}</p>
+            {exportError.technicalDetails.length > 0 && (
+              <div className="mt-3 rounded-2xl bg-white/70 px-4 py-3 text-xs text-rose-800">
+                {exportError.technicalDetails.map((detail, index) => (
+                  <p key={`${detail}-${index}`} className={index === 0 ? undefined : "mt-1"}>
+                    {detail}
+                  </p>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </SectionCard>
 
       {hasErrors && migrations.length === 0 && snapshots.length === 0 && !loading && (

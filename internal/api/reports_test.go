@@ -151,3 +151,25 @@ func TestServer_HandleReports_MigrationsCSV_Expected(t *testing.T) {
 		t.Fatalf("CSV body missing migration event: %s", body)
 	}
 }
+
+func TestServer_HandleReports_UnknownReport_ReturnsStructuredError(t *testing.T) {
+	t.Parallel()
+
+	server := NewServer(nil, store.NewMemoryStore(), 0, nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/reports/unknown", nil)
+	req = req.WithContext(store.ContextWithTenantID(req.Context(), store.DefaultTenantID))
+	recorder := httptest.NewRecorder()
+
+	server.handleReports(recorder, req)
+	if recorder.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusNotFound)
+	}
+
+	var response apiErrorEnvelope
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Unmarshal() error = %v", err)
+	}
+	if response.Error.Code != "report_not_found" || response.Error.RequestID == "" {
+		t.Fatalf("unexpected error response: %#v", response)
+	}
+}

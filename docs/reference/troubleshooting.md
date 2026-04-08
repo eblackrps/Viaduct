@@ -11,12 +11,13 @@ Fix:
 ## `missing tenant API key`
 
 Cause:
-- you called a tenant-scoped API route without `X-API-Key`
+- you called a tenant-scoped API route without either `X-API-Key` or `X-Service-Account-Key`
 - or the default-tenant fallback is no longer active because custom tenants exist
 
 Fix:
-- provide a valid tenant API key
+- provide a valid tenant API key or service-account key
 - verify tenant status in the admin tenant list
+- prefer a service-account key for normal dashboard or automation use if you are not intentionally using tenant-admin access
 
 ## `migration requires approval before execution`
 
@@ -39,11 +40,12 @@ Fix:
 Cause:
 - `viaduct serve-api` is not running
 - Vite is not proxying to `localhost:8080`
-- `VITE_VIADUCT_API_KEY` is missing for tenant-protected routes
+- neither `VITE_VIADUCT_SERVICE_ACCOUNT_KEY` nor `VITE_VIADUCT_API_KEY` is configured for tenant-protected routes
 
 Fix:
 - start `viaduct serve-api --port 8080`
 - verify the dashboard `.env` file
+- prefer `VITE_VIADUCT_SERVICE_ACCOUNT_KEY` for normal dashboard use
 - confirm API health at `/api/v1/health`
 
 ## KVM Fixture Discovery Returns No VMs

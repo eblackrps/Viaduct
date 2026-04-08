@@ -7,6 +7,7 @@ Viaduct is maintained as an open source project with best-effort community suppo
 - Use [INSTALL.md](INSTALL.md) and [QUICKSTART.md](QUICKSTART.md) for first-run setup.
 - Use [docs/README.md](docs/README.md) for the full documentation map.
 - Use [docs/reference/troubleshooting.md](docs/reference/troubleshooting.md) for common failure modes and recovery steps.
+- Use [docs/operations/observability-requirements.md](docs/operations/observability-requirements.md) for the current request-correlation, execution-history, and support-debugging model.
 
 ## How To Get Help
 - Installation, usage, or evaluation questions: open a GitHub issue and describe what you are trying to do, what environment you are using, and where you got blocked.
@@ -15,6 +16,8 @@ Viaduct is maintained as an open source project with best-effort community suppo
 
 ## What To Include
 - Viaduct version or commit SHA from `viaduct version`
+- `request_id` from the UI or API response when available
+- `migration_id` or `snapshot_id` when the issue involves execution or discovery history
 - OS and architecture
 - Go and Node versions if building from source
 - connector or platform involved

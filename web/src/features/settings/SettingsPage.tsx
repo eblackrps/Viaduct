@@ -1,5 +1,6 @@
-import { dashboardAuthMode, hasApiKeyConfigured } from "../../api";
+import { dashboardAuthMode, hasApiKeyConfigured, type ErrorDisplay } from "../../api";
 import { EmptyState } from "../../components/primitives/EmptyState";
+import { ErrorState } from "../../components/primitives/ErrorState";
 import { LoadingState } from "../../components/primitives/LoadingState";
 import { PageHeader } from "../../components/primitives/PageHeader";
 import { SectionCard } from "../../components/primitives/SectionCard";
@@ -15,7 +16,10 @@ export function SettingsPage({ summary }: SettingsPageProps) {
   const { about, currentTenant, loading, errors } = useSettingsData();
   const supportedPlatforms = about?.supported_platforms ?? Object.keys(summary?.platform_counts ?? {});
   const platformCounts = summary?.platform_counts ?? {};
-  const settingsError = [errors.about, errors.currentTenant].filter(Boolean).join(" ");
+  const settingsError = [errors.about?.message, errors.currentTenant?.message].filter(Boolean).join(" ");
+  const settingsErrorDetails = Array.from(
+    new Set([...(errors.about?.technicalDetails ?? []), ...(errors.currentTenant?.technicalDetails ?? [])]),
+  );
   const showEmpty = !loading && !about && !currentTenant;
 
   return (
@@ -47,7 +51,11 @@ export function SettingsPage({ summary }: SettingsPageProps) {
 
       {showEmpty &&
         (settingsError ? (
-          <InlineError message={settingsError} />
+          <ErrorState
+            title="Workspace settings unavailable"
+            message={settingsError}
+            technicalDetails={settingsErrorDetails}
+          />
         ) : (
           <EmptyState
             title="No runtime context available"
@@ -58,7 +66,7 @@ export function SettingsPage({ summary }: SettingsPageProps) {
       <section className="grid gap-5 xl:grid-cols-2">
         <SectionCard title="Operator connection" description="Current dashboard runtime assumptions for API access.">
           {errors.about ? (
-            <InlineError message={errors.about} />
+            <InlineError error={errors.about} />
           ) : (
             <div className="space-y-4">
               <SettingRow label="API base" value="/api/v1 via Vite proxy in development or packaged backend in release builds" />
@@ -82,7 +90,7 @@ export function SettingsPage({ summary }: SettingsPageProps) {
 
         <SectionCard title="Tenant context" description="Current summary-level state visible to the dashboard shell.">
           {errors.currentTenant ? (
-            <InlineError message={errors.currentTenant} />
+            <InlineError error={errors.currentTenant} />
           ) : (
             <div className="grid gap-3 md:grid-cols-2">
               <ContextStat label="Tenant name" value={currentTenant?.name ?? summary?.tenant_id ?? "Unavailable"} />
@@ -156,6 +164,19 @@ function ContextStat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function InlineError({ message }: { message: string }) {
-  return <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700">{message}</p>;
+function InlineError({ error }: { error: ErrorDisplay }) {
+  return (
+    <div className="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700">
+      <p>{error.message}</p>
+      {error.technicalDetails.length > 0 && (
+        <div className="mt-3 rounded-2xl bg-white/70 px-4 py-3 text-xs text-rose-800">
+          {error.technicalDetails.map((detail, index) => (
+            <p key={`${detail}-${index}`} className={index === 0 ? undefined : "mt-1"}>
+              {detail}
+            </p>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }

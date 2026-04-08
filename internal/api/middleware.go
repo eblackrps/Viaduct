@@ -36,14 +36,14 @@ type AuthenticatedPrincipal struct {
 func TenantAuthMiddleware(stateStore store.Store, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if stateStore == nil {
-			http.Error(w, "tenant store is not configured", http.StatusInternalServerError)
+			writeAPIError(w, r, http.StatusInternalServerError, "internal_error", "tenant store is not configured", apiErrorOptions{Retryable: true})
 			return
 		}
 
 		apiKey := strings.TrimSpace(r.Header.Get(tenantAPIKeyHeader))
 		tenants, err := stateStore.ListTenants(r.Context())
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 			return
 		}
 
@@ -61,11 +61,11 @@ func TenantAuthMiddleware(stateStore store.Store, next http.Handler) http.Handle
 					next.ServeHTTP(w, r.WithContext(ctx))
 					return
 				}
-				http.Error(w, "missing tenant API key", http.StatusUnauthorized)
+				writeAPIError(w, r, http.StatusUnauthorized, "missing_credentials", "missing tenant API key", apiErrorOptions{})
 				return
 			}
 
-			http.Error(w, "invalid tenant credentials", http.StatusUnauthorized)
+			writeAPIError(w, r, http.StatusUnauthorized, "invalid_credentials", "invalid tenant credentials", apiErrorOptions{})
 			return
 		}
 
@@ -112,11 +112,15 @@ func RequireTenantRole(required models.TenantRole, next http.Handler) http.Handl
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		principal, err := RequirePrincipal(r.Context())
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusUnauthorized)
+			writeAPIError(w, r, http.StatusUnauthorized, "invalid_credentials", err.Error(), apiErrorOptions{})
 			return
 		}
 		if !principal.Role.Allows(required) {
-			http.Error(w, fmt.Sprintf("tenant role %q cannot access this route", principal.Role), http.StatusForbidden)
+			writeAPIError(w, r, http.StatusForbidden, "permission_denied", fmt.Sprintf("tenant role %q cannot access this route", principal.Role), apiErrorOptions{
+				Details: map[string]any{
+					"required_role": required,
+				},
+			})
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -128,11 +132,15 @@ func RequireTenantPermission(required models.TenantPermission, next http.Handler
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		principal, err := RequirePrincipal(r.Context())
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusUnauthorized)
+			writeAPIError(w, r, http.StatusUnauthorized, "invalid_credentials", err.Error(), apiErrorOptions{})
 			return
 		}
 		if !principalAllowsPermission(*principal, required) {
-			http.Error(w, fmt.Sprintf("tenant principal cannot access %q", required), http.StatusForbidden)
+			writeAPIError(w, r, http.StatusForbidden, "permission_denied", fmt.Sprintf("tenant principal cannot access %q", required), apiErrorOptions{
+				Details: map[string]any{
+					"required_permission": required,
+				},
+			})
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -143,11 +151,11 @@ func RequireTenantPermission(required models.TenantPermission, next http.Handler
 func AdminAuthMiddleware(adminAPIKey string, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.TrimSpace(adminAPIKey) == "" {
-			http.Error(w, "admin API key is not configured", http.StatusServiceUnavailable)
+			writeAPIError(w, r, http.StatusServiceUnavailable, "internal_error", "admin API key is not configured", apiErrorOptions{Retryable: true})
 			return
 		}
 		if r.Header.Get(adminAPIKeyHeader) != adminAPIKey {
-			http.Error(w, "invalid admin API key", http.StatusUnauthorized)
+			writeAPIError(w, r, http.StatusUnauthorized, "invalid_credentials", "invalid admin API key", apiErrorOptions{})
 			return
 		}
 

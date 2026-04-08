@@ -2,6 +2,8 @@
 
 Viaduct's API and store layers are tenant-scoped. Tenant isolation should be treated as a release-blocking concern for any deployment.
 
+For the early-product trust-control contract that defines how authentication, roles, service accounts, and auditability should be used together, see [Auth, Role, And Auditability Model](auth-role-audit-model.md).
+
 ## Tenant Authentication
 - Tenant API routes use `X-API-Key`
 - Tenant service accounts can use `X-Service-Account-Key`

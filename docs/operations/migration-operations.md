@@ -2,6 +2,10 @@
 
 This guide covers the operator path for planning, validating, executing, resuming, and rolling back migrations.
 
+For the single primary end-to-end path Viaduct is currently hardening, see [Primary Reliability Path](primary-reliability-path.md).
+
+For operator and maintainer debugging expectations across this workflow, see [Observability Requirements](observability-requirements.md).
+
 ## 1. Prepare Inventory
 
 Collect discovery data for your source and target platforms first.

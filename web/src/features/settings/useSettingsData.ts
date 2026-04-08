@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { getAbout, getCurrentTenant } from "../../api";
+import { describeError, getAbout, getCurrentTenant, type ErrorDisplay } from "../../api";
 import type { AboutResponse, CurrentTenant } from "../../types";
 
 interface SettingsDataErrors {
-  about?: string;
-  currentTenant?: string;
+  about?: ErrorDisplay;
+  currentTenant?: ErrorDisplay;
 }
 
 export interface SettingsDataState {
@@ -32,9 +32,20 @@ export function useSettingsData(): SettingsDataState {
         }
 
         const nextErrors: SettingsDataErrors = {
-          about: aboutResult.status === "rejected" ? toErrorMessage("build metadata", aboutResult.reason) : undefined,
+          about:
+            aboutResult.status === "rejected"
+              ? describeError(aboutResult.reason, {
+                  scope: "build metadata",
+                  fallback: "Unable to load build metadata.",
+                })
+              : undefined,
           currentTenant:
-            currentTenantResult.status === "rejected" ? toErrorMessage("tenant context", currentTenantResult.reason) : undefined,
+            currentTenantResult.status === "rejected"
+              ? describeError(currentTenantResult.reason, {
+                  scope: "tenant context",
+                  fallback: "Unable to load tenant context.",
+                })
+              : undefined,
         };
 
         if (aboutResult.status === "fulfilled") {
@@ -59,11 +70,4 @@ export function useSettingsData(): SettingsDataState {
     loading,
     errors,
   };
-}
-
-function toErrorMessage(scope: string, reason: unknown): string {
-  if (reason instanceof Error && reason.message.trim() !== "") {
-    return `Unable to load ${scope}: ${reason.message}`;
-  }
-  return `Unable to load ${scope}.`;
 }

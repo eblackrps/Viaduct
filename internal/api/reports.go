@@ -18,13 +18,13 @@ import (
 
 func (s *Server) handleAudit(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		writeAPIError(w, r, http.StatusMethodNotAllowed, "invalid_request", "method not allowed", apiErrorOptions{})
 		return
 	}
 
 	events, err := s.store.ListAuditEvents(r.Context(), store.TenantIDFromContext(r.Context()), 200)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 		return
 	}
 
@@ -33,13 +33,13 @@ func (s *Server) handleAudit(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleReports(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		writeAPIError(w, r, http.StatusMethodNotAllowed, "invalid_request", "method not allowed", apiErrorOptions{})
 		return
 	}
 
 	name := strings.TrimPrefix(r.URL.Path, "/api/v1/reports/")
 	if name == "" || strings.Contains(name, "/") {
-		http.Error(w, "report name is required", http.StatusBadRequest)
+		writeAPIError(w, r, http.StatusBadRequest, "invalid_request", "report name is required", apiErrorOptions{})
 		return
 	}
 
@@ -56,24 +56,28 @@ func (s *Server) handleReports(w http.ResponseWriter, r *http.Request) {
 	case "audit":
 		s.writeAuditReport(w, r, format)
 	default:
-		http.Error(w, "report not found", http.StatusNotFound)
+		writeAPIError(w, r, http.StatusNotFound, "report_not_found", "report not found", apiErrorOptions{
+			Details: map[string]any{
+				"report_name": name,
+			},
+		})
 	}
 }
 
 func (s *Server) writeSummaryReport(w http.ResponseWriter, r *http.Request, format string) {
 	inventory, err := s.latestInventory(r.Context(), "")
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 		return
 	}
 	snapshots, err := s.store.ListSnapshots(r.Context(), store.TenantIDFromContext(r.Context()), "", 100)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 		return
 	}
 	migrations, err := s.store.ListMigrations(r.Context(), store.TenantIDFromContext(r.Context()), 100)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 		return
 	}
 
@@ -124,7 +128,7 @@ func (s *Server) writeSummaryReport(w http.ResponseWriter, r *http.Request, form
 func (s *Server) writeMigrationsReport(w http.ResponseWriter, r *http.Request, format string) {
 	items, err := s.store.ListMigrations(r.Context(), store.TenantIDFromContext(r.Context()), 200)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 		return
 	}
 
@@ -150,7 +154,7 @@ func (s *Server) writeMigrationsReport(w http.ResponseWriter, r *http.Request, f
 func (s *Server) writeAuditReport(w http.ResponseWriter, r *http.Request, format string) {
 	items, err := s.store.ListAuditEvents(r.Context(), store.TenantIDFromContext(r.Context()), 200)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 		return
 	}
 

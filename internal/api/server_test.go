@@ -250,6 +250,47 @@ func TestServer_HandleMigrationByID_ExecuteApprovalRequiredConflict_Expected(t *
 	if recorder.Code != http.StatusConflict {
 		t.Fatalf("status = %d, want %d: %s", recorder.Code, http.StatusConflict, recorder.Body.String())
 	}
+
+	var response apiErrorEnvelope
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Unmarshal() error = %v", err)
+	}
+	if response.Error.Code != "approval_required" || response.Error.RequestID == "" {
+		t.Fatalf("unexpected error response: %#v", response)
+	}
+}
+
+func TestServer_NewMigrationCommandResponse_UsesStoredPhaseAndRequestID_Expected(t *testing.T) {
+	t.Parallel()
+
+	stateStore := store.NewMemoryStore()
+	server := NewServer(nil, stateStore, 0, nil)
+	if err := stateStore.SaveMigration(context.Background(), store.DefaultTenantID, store.MigrationRecord{
+		ID:        "migration-2",
+		TenantID:  store.DefaultTenantID,
+		SpecName:  "execute",
+		Phase:     string(migratepkg.PhasePlan),
+		StartedAt: time.Date(2026, time.April, 8, 14, 0, 0, 0, time.UTC),
+		UpdatedAt: time.Date(2026, time.April, 8, 14, 1, 0, 0, time.UTC),
+		RawJSON:   json.RawMessage(`{"id":"migration-2","phase":"plan"}`),
+	}); err != nil {
+		t.Fatalf("SaveMigration() error = %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/migrations/migration-2/execute", bytes.NewBuffer(nil))
+	req = req.WithContext(store.ContextWithTenantID(req.Context(), store.DefaultTenantID))
+	req = req.WithContext(context.WithValue(req.Context(), requestIDContextKey{}, "req-123"))
+
+	response := server.newMigrationCommandResponse(req, store.DefaultTenantID, "migration-2", "execute", "executing")
+	if response.Action != "execute" || response.OperationState != "accepted" || response.LifecycleState != "executing" {
+		t.Fatalf("unexpected command response: %#v", response)
+	}
+	if response.Phase != migratepkg.PhasePlan || response.RequestID == "" || response.AcceptedAt.IsZero() {
+		t.Fatalf("incomplete command response: %#v", response)
+	}
+	if response.RequestID != "req-123" {
+		t.Fatalf("RequestID = %q, want req-123", response.RequestID)
+	}
 }
 
 func TestServer_LatestInventory_MoreThanTwentySources_IncludesAllLatestSources(t *testing.T) {
@@ -349,5 +390,29 @@ func TestServer_HandleAbout_ReturnsBuildInfo_Expected(t *testing.T) {
 	}
 	if len(response.SupportedPermissions) == 0 {
 		t.Fatal("SupportedPermissions is empty")
+	}
+}
+
+func TestServer_HandlePreflight_InvalidSpecReturnsFieldErrors_Expected(t *testing.T) {
+	t.Parallel()
+
+	server := NewServer(nil, store.NewMemoryStore(), 0, nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/preflight", bytes.NewBufferString(`{"name":"bad-spec"}`))
+	recorder := httptest.NewRecorder()
+
+	server.handlePreflight(recorder, req)
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d: %s", recorder.Code, http.StatusBadRequest, recorder.Body.String())
+	}
+
+	var response apiErrorEnvelope
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Unmarshal() error = %v", err)
+	}
+	if response.Error.Code != "invalid_spec" {
+		t.Fatalf("error code = %q, want invalid_spec", response.Error.Code)
+	}
+	if len(response.Error.FieldErrors) == 0 {
+		t.Fatalf("expected field errors, got %#v", response.Error)
 	}
 }

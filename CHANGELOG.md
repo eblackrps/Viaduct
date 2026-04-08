@@ -4,6 +4,20 @@ All notable changes to Viaduct should be documented in this file.
 
 This changelog tracks published releases and the major implementation milestones that shaped the current repository state.
 
+## [1.5.0] - 2026-04-08
+
+### Early Product Hardening
+- narrowed the public product story around the VMware-exit assessment-to-pilot wedge with explicit beachhead, v1 scope, reliability-path, trust-control, observability, validation, demo, and commercialization artifacts
+- aligned repo entrypoint docs so the current product direction, support boundary, and operator guidance are easier to evaluate from the packaged and source workflows
+
+### API And Dashboard Trust Surfaces
+- hardened the API contract with structured JSON error responses, stabilized migration command acknowledgements, and updated OpenAPI coverage for the operator-facing routes
+- improved dashboard-side error handling so settings and report workflows preserve request correlation and support-grade failure detail instead of flattening backend errors into generic strings
+
+### Documentation And Operator Readiness
+- added presenter-ready demo assets, real-user validation templates, and commercialization decision guidance to support design-partner conversations and pilot packaging
+- refreshed quickstart, configuration, troubleshooting, and multi-tenancy guidance so service accounts, trust controls, and the supported pilot workflow are documented more consistently
+
 ## [1.4.2] - 2026-04-08
 
 ### Release Reliability

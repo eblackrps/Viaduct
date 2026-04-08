@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -87,6 +88,15 @@ func TestTenantRateLimitMiddleware_LimitExceeded_ReturnsTooManyRequests(t *testi
 		handler.ServeHTTP(recorder, req)
 		if recorder.Code != expectedStatus {
 			t.Fatalf("request %d status = %d, want %d", idx, recorder.Code, expectedStatus)
+		}
+		if expectedStatus == http.StatusTooManyRequests {
+			var response apiErrorEnvelope
+			if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+				t.Fatalf("Unmarshal() error = %v", err)
+			}
+			if response.Error.Code != "rate_limit_exceeded" || response.Error.RequestID == "" {
+				t.Fatalf("unexpected rate-limit error response: %#v", response)
+			}
 		}
 	}
 }

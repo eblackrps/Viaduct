@@ -330,9 +330,32 @@ export interface MigrationExecutionRequest {
   ticket?: string;
 }
 
+export interface ApiFieldError {
+  path: string;
+  message: string;
+}
+
+export interface ApiErrorBody {
+  code: string;
+  message: string;
+  request_id: string;
+  retryable: boolean;
+  details: Record<string, unknown>;
+  field_errors: ApiFieldError[];
+}
+
+export interface ApiErrorEnvelope {
+  error: ApiErrorBody;
+}
+
 export interface MigrationCommandResponse {
   migration_id: string;
-  status: string;
+  action: string;
+  operation_state: string;
+  lifecycle_state?: string;
+  phase?: MigrationPhase;
+  accepted_at: string;
+  request_id: string;
 }
 
 export interface RollbackResult {

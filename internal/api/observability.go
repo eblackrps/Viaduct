@@ -194,7 +194,7 @@ func (l *tenantRateLimiter) allow(key string, now time.Time, overrideLimit int) 
 
 func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		writeAPIError(w, r, http.StatusMethodNotAllowed, "invalid_request", "method not allowed", apiErrorOptions{})
 		return
 	}
 
@@ -253,7 +253,12 @@ func TenantRateLimitMiddleware(limiter *tenantRateLimiter, next http.Handler) ht
 		allowed, retryAfter := limiter.allow(tenantID, time.Now().UTC(), overrideLimit)
 		if !allowed {
 			w.Header().Set("Retry-After", strconv.Itoa(int(retryAfter.Seconds())+1))
-			http.Error(w, "tenant rate limit exceeded", http.StatusTooManyRequests)
+			writeAPIError(w, r, http.StatusTooManyRequests, "rate_limit_exceeded", "tenant rate limit exceeded", apiErrorOptions{
+				Retryable: true,
+				Details: map[string]any{
+					"retry_after_seconds": int(retryAfter.Seconds()) + 1,
+				},
+			})
 			return
 		}
 		next.ServeHTTP(w, r)

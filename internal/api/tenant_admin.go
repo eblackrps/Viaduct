@@ -70,13 +70,13 @@ type adminTenantResponse struct {
 
 func (s *Server) handleCurrentTenant(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		writeAPIError(w, r, http.StatusMethodNotAllowed, "invalid_request", "method not allowed", apiErrorOptions{})
 		return
 	}
 
 	principal, err := RequirePrincipal(r.Context())
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
+		writeAPIError(w, r, http.StatusUnauthorized, "invalid_credentials", err.Error(), apiErrorOptions{})
 		return
 	}
 
@@ -104,7 +104,7 @@ func (s *Server) handleCurrentTenant(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleServiceAccounts(w http.ResponseWriter, r *http.Request) {
 	principal, err := RequirePrincipal(r.Context())
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
+		writeAPIError(w, r, http.StatusUnauthorized, "invalid_credentials", err.Error(), apiErrorOptions{})
 		return
 	}
 
@@ -120,29 +120,34 @@ func (s *Server) handleServiceAccounts(w http.ResponseWriter, r *http.Request) {
 
 		var request serviceAccountCreateRequest
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-			http.Error(w, fmt.Errorf("decode service account: %w", err).Error(), http.StatusBadRequest)
+			writeAPIError(w, r, http.StatusBadRequest, "invalid_request", fmt.Errorf("decode service account: %w", err).Error(), apiErrorOptions{})
 			return
 		}
 
 		tenant, err := s.store.GetTenant(r.Context(), principal.Tenant.ID)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 			return
 		}
 
 		account, err := newServiceAccountFromRequest(request)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			writeAPIError(w, r, http.StatusBadRequest, "invalid_request", err.Error(), apiErrorOptions{})
 			return
 		}
 		if err := ensureUniqueServiceAccount(*tenant, account); err != nil {
-			http.Error(w, err.Error(), http.StatusConflict)
+			writeAPIError(w, r, http.StatusConflict, "conflict", err.Error(), apiErrorOptions{
+				Details: map[string]any{
+					"service_account_id":   account.ID,
+					"service_account_name": account.Name,
+				},
+			})
 			return
 		}
 
 		tenant.ServiceAccounts = append(tenant.ServiceAccounts, account)
 		if err := s.store.UpdateTenant(r.Context(), *tenant); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 			return
 		}
 		s.recordAuditEvent(r, models.AuditEvent{
@@ -159,39 +164,39 @@ func (s *Server) handleServiceAccounts(w http.ResponseWriter, r *http.Request) {
 
 		writeJSON(w, http.StatusCreated, toServiceAccountResponse(account, true))
 	default:
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		writeAPIError(w, r, http.StatusMethodNotAllowed, "invalid_request", "method not allowed", apiErrorOptions{})
 	}
 }
 
 func (s *Server) handleServiceAccountByID(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		writeAPIError(w, r, http.StatusMethodNotAllowed, "invalid_request", "method not allowed", apiErrorOptions{})
 		return
 	}
 
 	path := strings.TrimPrefix(r.URL.Path, "/api/v1/service-accounts/")
 	parts := strings.Split(strings.Trim(path, "/"), "/")
 	if len(parts) != 2 || parts[0] == "" || parts[1] != "rotate" {
-		http.Error(w, "service account rotate route not found", http.StatusNotFound)
+		writeAPIError(w, r, http.StatusNotFound, "service_account_not_found", "service account rotate route not found", apiErrorOptions{})
 		return
 	}
 
 	principal, err := RequirePrincipal(r.Context())
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
+		writeAPIError(w, r, http.StatusUnauthorized, "invalid_credentials", err.Error(), apiErrorOptions{})
 		return
 	}
 
 	defer r.Body.Close()
 	var request serviceAccountRotateRequest
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil && !errors.Is(err, io.EOF) {
-		http.Error(w, fmt.Errorf("decode service account rotation request: %w", err).Error(), http.StatusBadRequest)
+		writeAPIError(w, r, http.StatusBadRequest, "invalid_request", fmt.Errorf("decode service account rotation request: %w", err).Error(), apiErrorOptions{})
 		return
 	}
 
 	tenant, err := s.store.GetTenant(r.Context(), principal.Tenant.ID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 		return
 	}
 
@@ -208,7 +213,7 @@ func (s *Server) handleServiceAccountByID(w http.ResponseWriter, r *http.Request
 		tenant.ServiceAccounts[index].LastRotatedAt = time.Now().UTC()
 
 		if err := s.store.UpdateTenant(r.Context(), *tenant); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 			return
 		}
 		s.recordAuditEvent(r, models.AuditEvent{
@@ -223,7 +228,11 @@ func (s *Server) handleServiceAccountByID(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	http.Error(w, "service account not found", http.StatusNotFound)
+	writeAPIError(w, r, http.StatusNotFound, "service_account_not_found", "service account not found", apiErrorOptions{
+		Details: map[string]any{
+			"service_account_id": accountID,
+		},
+	})
 }
 
 func newServiceAccountFromRequest(request serviceAccountCreateRequest) (models.ServiceAccount, error) {

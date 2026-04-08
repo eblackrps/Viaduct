@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -38,6 +39,16 @@ type tenantCreateRequest struct {
 type migrationExecutionRequest struct {
 	ApprovedBy string `json:"approved_by"`
 	Ticket     string `json:"ticket"`
+}
+
+type migrationCommandResponse struct {
+	MigrationID    string                    `json:"migration_id"`
+	Action         string                    `json:"action"`
+	OperationState string                    `json:"operation_state"`
+	LifecycleState string                    `json:"lifecycle_state,omitempty"`
+	Phase          migratepkg.MigrationPhase `json:"phase,omitempty"`
+	AcceptedAt     time.Time                 `json:"accepted_at"`
+	RequestID      string                    `json:"request_id"`
 }
 
 type tenantSummary struct {
@@ -238,7 +249,7 @@ func (s *Server) Start(ctx context.Context) error {
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		writeAPIError(w, r, http.StatusMethodNotAllowed, "invalid_request", "method not allowed", apiErrorOptions{})
 		return
 	}
 
@@ -247,7 +258,7 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleAbout(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		writeAPIError(w, r, http.StatusMethodNotAllowed, "invalid_request", "method not allowed", apiErrorOptions{})
 		return
 	}
 
@@ -282,7 +293,7 @@ func (s *Server) handleAdminTenants(w http.ResponseWriter, r *http.Request) {
 	case http.MethodGet:
 		tenants, err := s.store.ListTenants(r.Context())
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 			return
 		}
 		responses := make([]adminTenantResponse, 0, len(tenants))
@@ -295,7 +306,7 @@ func (s *Server) handleAdminTenants(w http.ResponseWriter, r *http.Request) {
 
 		var request tenantCreateRequest
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-			http.Error(w, fmt.Errorf("decode tenant: %w", err).Error(), http.StatusBadRequest)
+			writeAPIError(w, r, http.StatusBadRequest, "invalid_request", fmt.Errorf("decode tenant: %w", err).Error(), apiErrorOptions{})
 			return
 		}
 		tenant := models.Tenant{
@@ -313,7 +324,9 @@ func (s *Server) handleAdminTenants(w http.ResponseWriter, r *http.Request) {
 			tenant.APIKey = uuid.NewString()
 		}
 		if tenant.Name == "" {
-			http.Error(w, "tenant name is required", http.StatusBadRequest)
+			writeAPIError(w, r, http.StatusBadRequest, "invalid_request", "tenant name is required", apiErrorOptions{
+				FieldErrors: []apiFieldError{{Path: "name", Message: "tenant name is required"}},
+			})
 			return
 		}
 		if tenant.CreatedAt.IsZero() {
@@ -325,7 +338,7 @@ func (s *Server) handleAdminTenants(w http.ResponseWriter, r *http.Request) {
 			tenant.Active = true
 		}
 		if err := s.store.CreateTenant(r.Context(), tenant); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			writeAPIError(w, r, http.StatusBadRequest, "invalid_request", err.Error(), apiErrorOptions{})
 			return
 		}
 		s.recordAuditEvent(r, models.AuditEvent{
@@ -339,23 +352,25 @@ func (s *Server) handleAdminTenants(w http.ResponseWriter, r *http.Request) {
 		})
 		writeJSON(w, http.StatusCreated, toAdminTenantResponse(tenant, true))
 	default:
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		writeAPIError(w, r, http.StatusMethodNotAllowed, "invalid_request", "method not allowed", apiErrorOptions{})
 	}
 }
 
 func (s *Server) handleAdminTenantByID(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodDelete {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		writeAPIError(w, r, http.StatusMethodNotAllowed, "invalid_request", "method not allowed", apiErrorOptions{})
 		return
 	}
 
 	tenantID := strings.TrimPrefix(r.URL.Path, "/api/v1/admin/tenants/")
 	if tenantID == "" || strings.Contains(tenantID, "/") {
-		http.Error(w, "tenant ID is required", http.StatusBadRequest)
+		writeAPIError(w, r, http.StatusBadRequest, "invalid_request", "tenant ID is required", apiErrorOptions{
+			FieldErrors: []apiFieldError{{Path: "tenant_id", Message: "tenant ID is required"}},
+		})
 		return
 	}
 	if err := s.store.DeleteTenant(r.Context(), tenantID); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		writeAPIError(w, r, http.StatusBadRequest, "invalid_request", err.Error(), apiErrorOptions{})
 		return
 	}
 	s.recordAuditEvent(r, models.AuditEvent{
@@ -372,14 +387,14 @@ func (s *Server) handleAdminTenantByID(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleInventory(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		writeAPIError(w, r, http.StatusMethodNotAllowed, "invalid_request", "method not allowed", apiErrorOptions{})
 		return
 	}
 
 	platform := models.Platform(r.URL.Query().Get("platform"))
 	result, err := s.latestInventory(r.Context(), platform)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 		return
 	}
 
@@ -388,13 +403,13 @@ func (s *Server) handleInventory(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleSnapshots(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		writeAPIError(w, r, http.StatusMethodNotAllowed, "invalid_request", "method not allowed", apiErrorOptions{})
 		return
 	}
 
 	items, err := s.store.ListSnapshots(r.Context(), store.TenantIDFromContext(r.Context()), "", 100)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 		return
 	}
 
@@ -403,14 +418,18 @@ func (s *Server) handleSnapshots(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleSnapshotByID(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		writeAPIError(w, r, http.StatusMethodNotAllowed, "invalid_request", "method not allowed", apiErrorOptions{})
 		return
 	}
 
 	snapshotID := strings.TrimPrefix(r.URL.Path, "/api/v1/snapshots/")
 	result, err := s.store.GetSnapshot(r.Context(), store.TenantIDFromContext(r.Context()), snapshotID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
+		writeAPIError(w, r, http.StatusNotFound, "invalid_request", err.Error(), apiErrorOptions{
+			Details: map[string]any{
+				"snapshot_id": snapshotID,
+			},
+		})
 		return
 	}
 
@@ -419,13 +438,13 @@ func (s *Server) handleSnapshotByID(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleGraph(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		writeAPIError(w, r, http.StatusMethodNotAllowed, "invalid_request", "method not allowed", apiErrorOptions{})
 		return
 	}
 
 	inventory, err := s.latestInventory(r.Context(), "")
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 		return
 	}
 
@@ -434,25 +453,32 @@ func (s *Server) handleGraph(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handlePreflight(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		writeAPIError(w, r, http.StatusMethodNotAllowed, "invalid_request", "method not allowed", apiErrorOptions{})
 		return
 	}
 
 	spec, err := decodeSpec(r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		var validationErr specValidationError
+		if errors.As(err, &validationErr) {
+			writeAPIError(w, r, http.StatusBadRequest, "invalid_spec", validationErr.Error(), apiErrorOptions{
+				FieldErrors: validationErr.fieldErrors,
+			})
+			return
+		}
+		writeAPIError(w, r, http.StatusBadRequest, "invalid_request", err.Error(), apiErrorOptions{})
 		return
 	}
 
 	sourceConnector, targetConnector, err := s.connectorsForSpec(spec)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		writeAPIError(w, r, http.StatusBadRequest, "invalid_request", err.Error(), apiErrorOptions{})
 		return
 	}
 
 	report, err := migratepkg.NewPreflightChecker(sourceConnector, targetConnector, spec).RunAll(r.Context())
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 		return
 	}
 
@@ -466,20 +492,27 @@ func (s *Server) handleMigrations(w http.ResponseWriter, r *http.Request) {
 	case http.MethodGet:
 		items, err := s.store.ListMigrations(r.Context(), tenantID, 100)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 			return
 		}
 		writeJSON(w, http.StatusOK, items)
 	case http.MethodPost:
 		spec, err := decodeSpec(r)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			var validationErr specValidationError
+			if errors.As(err, &validationErr) {
+				writeAPIError(w, r, http.StatusBadRequest, "invalid_spec", validationErr.Error(), apiErrorOptions{
+					FieldErrors: validationErr.fieldErrors,
+				})
+				return
+			}
+			writeAPIError(w, r, http.StatusBadRequest, "invalid_request", err.Error(), apiErrorOptions{})
 			return
 		}
 
 		sourceConnector, targetConnector, err := s.connectorsForSpec(spec)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			writeAPIError(w, r, http.StatusBadRequest, "invalid_request", err.Error(), apiErrorOptions{})
 			return
 		}
 
@@ -492,7 +525,7 @@ func (s *Server) handleMigrations(w http.ResponseWriter, r *http.Request) {
 		ctx := store.ContextWithTenantID(r.Context(), tenantID)
 		state, err := orchestrator.Execute(ctx, &specCopy)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 			return
 		}
 
@@ -512,7 +545,7 @@ func (s *Server) handleMigrations(w http.ResponseWriter, r *http.Request) {
 
 		writeJSON(w, http.StatusAccepted, state)
 	default:
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		writeAPIError(w, r, http.StatusMethodNotAllowed, "invalid_request", "method not allowed", apiErrorOptions{})
 	}
 }
 
@@ -521,25 +554,31 @@ func (s *Server) handleMigrationByID(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/api/v1/migrations/")
 	parts := strings.Split(strings.Trim(path, "/"), "/")
 	if len(parts) == 0 || parts[0] == "" {
-		http.Error(w, "migration ID is required", http.StatusBadRequest)
+		writeAPIError(w, r, http.StatusBadRequest, "invalid_request", "migration ID is required", apiErrorOptions{
+			FieldErrors: []apiFieldError{{Path: "migration_id", Message: "migration ID is required"}},
+		})
 		return
 	}
 
 	migrationID := parts[0]
 	if len(parts) == 1 {
 		if r.Method != http.MethodGet {
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			writeAPIError(w, r, http.StatusMethodNotAllowed, "invalid_request", "method not allowed", apiErrorOptions{})
 			return
 		}
 		record, err := s.store.GetMigration(r.Context(), tenantID, migrationID)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusNotFound)
+			writeAPIError(w, r, http.StatusNotFound, "migration_not_found", err.Error(), apiErrorOptions{
+				Details: map[string]any{
+					"migration_id": migrationID,
+				},
+			})
 			return
 		}
 
 		var state migratepkg.MigrationState
 		if err := json.Unmarshal(record.RawJSON, &state); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 			return
 		}
 
@@ -550,24 +589,28 @@ func (s *Server) handleMigrationByID(w http.ResponseWriter, r *http.Request) {
 	switch parts[1] {
 	case "execute":
 		if r.Method != http.MethodPost {
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			writeAPIError(w, r, http.StatusMethodNotAllowed, "invalid_request", "method not allowed", apiErrorOptions{})
 			return
 		}
 
 		spec, ok := s.lookupSpec(tenantID, migrationID)
 		if !ok {
-			http.Error(w, "migration spec not found", http.StatusNotFound)
+			writeAPIError(w, r, http.StatusNotFound, "migration_not_found", "migration spec not found", apiErrorOptions{
+				Details: map[string]any{
+					"migration_id": migrationID,
+				},
+			})
 			return
 		}
 
 		sourceConnector, targetConnector, err := s.connectorsForSpec(spec)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			writeAPIError(w, r, http.StatusBadRequest, "invalid_request", err.Error(), apiErrorOptions{})
 			return
 		}
 		executionRequest, err := decodeExecutionRequest(r)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			writeAPIError(w, r, http.StatusBadRequest, "invalid_request", err.Error(), apiErrorOptions{})
 			return
 		}
 
@@ -582,7 +625,11 @@ func (s *Server) handleMigrationByID(w http.ResponseWriter, r *http.Request) {
 				Outcome:  models.AuditOutcomeFailure,
 				Message:  err.Error(),
 			})
-			http.Error(w, err.Error(), http.StatusConflict)
+			writeAPIError(w, r, http.StatusConflict, executionErrorCode(err), err.Error(), apiErrorOptions{
+				Details: map[string]any{
+					"migration_id": migrationID,
+				},
+			})
 			return
 		}
 
@@ -603,27 +650,31 @@ func (s *Server) handleMigrationByID(w http.ResponseWriter, r *http.Request) {
 			},
 		})
 
-		writeJSON(w, http.StatusAccepted, map[string]string{"migration_id": migrationID, "status": "started"})
+		writeJSON(w, http.StatusAccepted, s.newMigrationCommandResponse(r, tenantID, migrationID, "execute", "executing"))
 	case "resume":
 		if r.Method != http.MethodPost {
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			writeAPIError(w, r, http.StatusMethodNotAllowed, "invalid_request", "method not allowed", apiErrorOptions{})
 			return
 		}
 
 		spec, ok := s.lookupSpec(tenantID, migrationID)
 		if !ok {
-			http.Error(w, "migration spec not found", http.StatusNotFound)
+			writeAPIError(w, r, http.StatusNotFound, "migration_not_found", "migration spec not found", apiErrorOptions{
+				Details: map[string]any{
+					"migration_id": migrationID,
+				},
+			})
 			return
 		}
 
 		sourceConnector, targetConnector, err := s.connectorsForSpec(spec)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			writeAPIError(w, r, http.StatusBadRequest, "invalid_request", err.Error(), apiErrorOptions{})
 			return
 		}
 		resumeRequest, err := decodeExecutionRequest(r)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			writeAPIError(w, r, http.StatusBadRequest, "invalid_request", err.Error(), apiErrorOptions{})
 			return
 		}
 
@@ -638,7 +689,11 @@ func (s *Server) handleMigrationByID(w http.ResponseWriter, r *http.Request) {
 				Outcome:  models.AuditOutcomeFailure,
 				Message:  err.Error(),
 			})
-			http.Error(w, err.Error(), http.StatusConflict)
+			writeAPIError(w, r, http.StatusConflict, executionErrorCode(err), err.Error(), apiErrorOptions{
+				Details: map[string]any{
+					"migration_id": migrationID,
+				},
+			})
 			return
 		}
 
@@ -655,22 +710,26 @@ func (s *Server) handleMigrationByID(w http.ResponseWriter, r *http.Request) {
 			Message:  "migration resume started",
 		})
 
-		writeJSON(w, http.StatusAccepted, map[string]string{"migration_id": migrationID, "status": "resuming"})
+		writeJSON(w, http.StatusAccepted, s.newMigrationCommandResponse(r, tenantID, migrationID, "resume", "executing"))
 	case "rollback":
 		if r.Method != http.MethodPost {
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			writeAPIError(w, r, http.StatusMethodNotAllowed, "invalid_request", "method not allowed", apiErrorOptions{})
 			return
 		}
 
 		spec, ok := s.lookupSpec(tenantID, migrationID)
 		if !ok {
-			http.Error(w, "migration spec not found", http.StatusNotFound)
+			writeAPIError(w, r, http.StatusNotFound, "migration_not_found", "migration spec not found", apiErrorOptions{
+				Details: map[string]any{
+					"migration_id": migrationID,
+				},
+			})
 			return
 		}
 
 		sourceConnector, targetConnector, err := s.connectorsForSpec(spec)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			writeAPIError(w, r, http.StatusBadRequest, "invalid_request", err.Error(), apiErrorOptions{})
 			return
 		}
 
@@ -683,7 +742,12 @@ func (s *Server) handleMigrationByID(w http.ResponseWriter, r *http.Request) {
 				Outcome:  models.AuditOutcomeFailure,
 				Message:  err.Error(),
 			})
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{
+				Retryable: true,
+				Details: map[string]any{
+					"migration_id": migrationID,
+				},
+			})
 			return
 		}
 		s.recordAuditEvent(r, models.AuditEvent{
@@ -696,19 +760,19 @@ func (s *Server) handleMigrationByID(w http.ResponseWriter, r *http.Request) {
 
 		writeJSON(w, http.StatusOK, result)
 	default:
-		http.Error(w, "not found", http.StatusNotFound)
+		writeAPIError(w, r, http.StatusNotFound, "invalid_request", "not found", apiErrorOptions{})
 	}
 }
 
 func (s *Server) handleCosts(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		writeAPIError(w, r, http.StatusMethodNotAllowed, "invalid_request", "method not allowed", apiErrorOptions{})
 		return
 	}
 
 	inventory, err := s.latestInventory(r.Context(), "")
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 		return
 	}
 
@@ -718,7 +782,7 @@ func (s *Server) handleCosts(w http.ResponseWriter, r *http.Request) {
 		for _, vm := range inventory.VMs {
 			comparison, err := s.costEngine.CompareVM(vm)
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 				return
 			}
 			comparisons = append(comparisons, comparison)
@@ -729,7 +793,7 @@ func (s *Server) handleCosts(w http.ResponseWriter, r *http.Request) {
 
 	fleet, err := s.costEngine.CalculateFleetCost(models.Platform(platform), inventory.VMs)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 		return
 	}
 	writeJSON(w, http.StatusOK, fleet)
@@ -737,19 +801,19 @@ func (s *Server) handleCosts(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handlePolicies(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		writeAPIError(w, r, http.StatusMethodNotAllowed, "invalid_request", "method not allowed", apiErrorOptions{})
 		return
 	}
 
 	inventory, err := s.latestInventory(r.Context(), "")
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 		return
 	}
 
 	report, err := s.policyEngine.Evaluate(inventory)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 		return
 	}
 	writeJSON(w, http.StatusOK, report)
@@ -757,25 +821,27 @@ func (s *Server) handlePolicies(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleDrift(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		writeAPIError(w, r, http.StatusMethodNotAllowed, "invalid_request", "method not allowed", apiErrorOptions{})
 		return
 	}
 
 	baselineID := strings.TrimSpace(r.URL.Query().Get("baseline"))
 	if baselineID == "" {
-		http.Error(w, "baseline query parameter is required", http.StatusBadRequest)
+		writeAPIError(w, r, http.StatusBadRequest, "invalid_request", "baseline query parameter is required", apiErrorOptions{
+			FieldErrors: []apiFieldError{{Path: "baseline", Message: "baseline query parameter is required"}},
+		})
 		return
 	}
 
 	inventory, err := s.latestInventory(r.Context(), "")
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 		return
 	}
 
 	report, err := s.driftDetector.Compare(r.Context(), baselineID, inventory)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 		return
 	}
 	writeJSON(w, http.StatusOK, report)
@@ -783,13 +849,13 @@ func (s *Server) handleDrift(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleRemediation(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		writeAPIError(w, r, http.StatusMethodNotAllowed, "invalid_request", "method not allowed", apiErrorOptions{})
 		return
 	}
 
 	inventory, err := s.latestInventory(r.Context(), "")
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 		return
 	}
 
@@ -797,14 +863,14 @@ func (s *Server) handleRemediation(w http.ResponseWriter, r *http.Request) {
 	if baselineID := strings.TrimSpace(r.URL.Query().Get("baseline")); baselineID != "" {
 		driftReport, err = s.driftDetector.Compare(r.Context(), baselineID, inventory)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 			return
 		}
 	}
 
 	report, err := s.recommendationEngine.Generate(inventory, driftReport, nil)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 		return
 	}
 	writeJSON(w, http.StatusOK, report)
@@ -812,26 +878,26 @@ func (s *Server) handleRemediation(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleSimulation(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		writeAPIError(w, r, http.StatusMethodNotAllowed, "invalid_request", "method not allowed", apiErrorOptions{})
 		return
 	}
 
 	defer r.Body.Close()
 	var request lifecycle.SimulationRequest
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-		http.Error(w, fmt.Errorf("decode simulation request: %w", err).Error(), http.StatusBadRequest)
+		writeAPIError(w, r, http.StatusBadRequest, "invalid_request", fmt.Errorf("decode simulation request: %w", err).Error(), apiErrorOptions{})
 		return
 	}
 
 	inventory, err := s.latestInventory(r.Context(), "")
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 		return
 	}
 
 	result, err := s.recommendationEngine.Simulate(inventory, request)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		writeAPIError(w, r, http.StatusBadRequest, "invalid_request", err.Error(), apiErrorOptions{})
 		return
 	}
 	writeJSON(w, http.StatusOK, result)
@@ -839,28 +905,28 @@ func (s *Server) handleSimulation(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleSummary(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		writeAPIError(w, r, http.StatusMethodNotAllowed, "invalid_request", "method not allowed", apiErrorOptions{})
 		return
 	}
 
 	inventory, err := s.latestInventory(r.Context(), "")
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 		return
 	}
 	snapshots, err := s.store.ListSnapshots(r.Context(), store.TenantIDFromContext(r.Context()), "", 100)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 		return
 	}
 	migrations, err := s.store.ListMigrations(r.Context(), store.TenantIDFromContext(r.Context()), 100)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 		return
 	}
 	recommendations, err := s.recommendationEngine.Generate(inventory, nil, nil)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 		return
 	}
 
@@ -922,6 +988,29 @@ func (s *Server) lookupSpec(tenantID, migrationID string) (*migratepkg.Migration
 
 func (s *Server) specKey(tenantID, migrationID string) string {
 	return tenantID + ":" + migrationID
+}
+
+func (s *Server) newMigrationCommandResponse(r *http.Request, tenantID, migrationID, action, lifecycleState string) migrationCommandResponse {
+	return migrationCommandResponse{
+		MigrationID:    migrationID,
+		Action:         action,
+		OperationState: "accepted",
+		LifecycleState: lifecycleState,
+		Phase:          s.commandPhase(r.Context(), tenantID, migrationID, migratepkg.PhasePlan),
+		AcceptedAt:     time.Now().UTC(),
+		RequestID:      responseRequestID(nil, r),
+	}
+}
+
+func (s *Server) commandPhase(ctx context.Context, tenantID, migrationID string, fallback migratepkg.MigrationPhase) migratepkg.MigrationPhase {
+	if s == nil || s.store == nil {
+		return fallback
+	}
+	record, err := s.store.GetMigration(ctx, tenantID, migrationID)
+	if err != nil || strings.TrimSpace(record.Phase) == "" {
+		return fallback
+	}
+	return migratepkg.MigrationPhase(record.Phase)
 }
 
 func (s *Server) latestInventory(ctx context.Context, platform models.Platform) (*models.DiscoveryResult, error) {
@@ -1027,7 +1116,10 @@ func decodeSpec(r *http.Request) (*migratepkg.MigrationSpec, error) {
 		for _, item := range errs {
 			messages = append(messages, item.Error())
 		}
-		return nil, fmt.Errorf("invalid migration spec: %s", strings.Join(messages, "; "))
+		return nil, specValidationError{
+			message:     fmt.Sprintf("invalid migration spec: %s", strings.Join(messages, "; ")),
+			fieldErrors: fieldErrorsFromValidationErrors(errs),
+		}
 	}
 
 	if spec.Options.Parallel <= 0 {

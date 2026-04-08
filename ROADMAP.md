@@ -4,10 +4,11 @@ Viaduct has completed its first four implementation phases and is now in the rel
 
 ## Current Status
 - Phase 0 through Phase 4 are complete in the repository.
-- The current focus is production packaging, operator experience, ecosystem adoption, release verification, and supportability.
-- Short-term work should favor compatibility, connector depth, installability, observability, certification, and contributor leverage over speculative rewrites.
+- The current focus is early-product hardening: packaging, operator experience, release verification, supportability, and design-partner readiness.
+- Short-term work should favor compatibility, contract clarity, observability, certification, installability, and contributor leverage over speculative rewrites or broad new surface area.
 
 ## Current Priorities
+- narrow the public product story around assessment, planning, and supervised pilot workflows
 - deepen operational confidence with live-environment certification, soak validation, and reproducible release gating
 - strengthen install, upgrade, deployment, and rollback guidance so packaged adoption is low-friction
 - improve observability, API-contract discipline, and operator diagnostics without breaking current workflows
@@ -72,6 +73,7 @@ Detail: [Phase 4 Archive](docs/roadmaps/phase-4.md)
 
 ## Release And Ecosystem Launch
 Current focus:
+- a clearer early-product wedge with explicit trust boundaries
 - polished release bundles and install paths
 - upgrade and rollback guidance
 - operator runbooks and reference environments
@@ -79,6 +81,7 @@ Current focus:
 - clearer support and compatibility expectations
 
 Expected outcomes:
+- a credible early product centered on assessment, planning, and supervised pilot use
 - a clean stable release flow that is easy to evaluate from source or packaged artifacts
 - documentation that matches the current architecture, API surface, and workflows
 - contributor guidance that reinforces release-gate discipline and compatibility rules

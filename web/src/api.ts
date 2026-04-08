@@ -1,5 +1,7 @@
 import type {
   AboutResponse,
+  ApiErrorEnvelope,
+  ApiFieldError,
   CurrentTenant,
   DependencyGraph,
   DiscoveryResult,
@@ -27,12 +29,90 @@ export type ReportName = "summary" | "migrations" | "audit";
 export type ReportFormat = "json" | "csv";
 export type DashboardAuthMode = "tenant" | "service-account" | "none";
 
+export interface ErrorDisplay {
+  message: string;
+  technicalDetails: string[];
+}
+
+interface APIErrorOptions {
+  status: number;
+  message: string;
+  requestID?: string;
+  code?: string;
+  retryable?: boolean;
+  details?: Record<string, unknown>;
+  fieldErrors?: ApiFieldError[];
+}
+
+export class APIError extends Error {
+  readonly status: number;
+  readonly humanMessage: string;
+  readonly requestID?: string;
+  readonly code?: string;
+  readonly retryable: boolean;
+  readonly details: Record<string, unknown>;
+  readonly fieldErrors: ApiFieldError[];
+
+  constructor({
+    status,
+    message,
+    requestID,
+    code,
+    retryable = false,
+    details = {},
+    fieldErrors = [],
+  }: APIErrorOptions) {
+    super(requestID ? `${message} Request ID: ${requestID}.` : message);
+    Object.setPrototypeOf(this, new.target.prototype);
+    this.name = "APIError";
+    this.status = status;
+    this.humanMessage = message;
+    this.requestID = requestID;
+    this.code = code;
+    this.retryable = retryable;
+    this.details = details;
+    this.fieldErrors = fieldErrors;
+  }
+}
+
 export const dashboardAuthMode: DashboardAuthMode = serviceAccountApiKey
   ? "service-account"
   : tenantApiKey
     ? "tenant"
     : "none";
 export const hasApiKeyConfigured = dashboardAuthMode !== "none";
+
+export function isAPIError(reason: unknown): reason is APIError {
+  return reason instanceof APIError;
+}
+
+export function describeError(
+  reason: unknown,
+  options: {
+    scope?: string;
+    fallback: string;
+  },
+): ErrorDisplay {
+  const scope = options.scope?.trim();
+  if (isAPIError(reason)) {
+    return {
+      message: scope ? `Unable to load ${scope}: ${reason.humanMessage}` : reason.humanMessage,
+      technicalDetails: buildAPIErrorTechnicalDetails(reason),
+    };
+  }
+
+  if (reason instanceof Error && reason.message.trim() !== "") {
+    return {
+      message: scope ? `Unable to load ${scope}: ${reason.message}` : reason.message,
+      technicalDetails: [],
+    };
+  }
+
+  return {
+    message: scope ? `Unable to load ${scope}.` : options.fallback,
+    technicalDetails: [],
+  };
+}
 
 function buildHeaders(initHeaders?: HeadersInit, hasBody = false): Headers {
   const headers = new Headers(initHeaders);
@@ -56,7 +136,7 @@ async function request<T>(input: RequestInfo | URL, init?: RequestInit): Promise
   });
 
   if (!response.ok) {
-    throw new Error(await response.text());
+    throw await toAPIError(response);
   }
 
   return (await response.json()) as T;
@@ -72,7 +152,7 @@ async function requestBlob(
   });
 
   if (!response.ok) {
-    throw new Error(await response.text());
+    throw await toAPIError(response);
   }
 
   return {
@@ -196,4 +276,80 @@ function getFilenameFromDisposition(disposition: string | null): string | undefi
 
 function hasExecutionPayload(payload?: MigrationExecutionRequest): payload is MigrationExecutionRequest {
   return Boolean(payload?.approved_by?.trim() || payload?.ticket?.trim());
+}
+
+async function toAPIError(response: Response): Promise<Error> {
+  const body = (await response.text()).trim();
+  if (body) {
+    try {
+      const payload = JSON.parse(body) as ApiErrorEnvelope;
+      if (payload?.error?.message) {
+        return new APIError({
+          status: response.status,
+          message: payload.error.message,
+          requestID: payload.error.request_id?.trim() || undefined,
+          code: payload.error.code?.trim() || undefined,
+          retryable: payload.error.retryable,
+          details: payload.error.details ?? {},
+          fieldErrors: payload.error.field_errors ?? [],
+        });
+      }
+    } catch {
+      // Fall through to the raw response body.
+    }
+  }
+  return new APIError({
+    status: response.status,
+    message: body || `Request failed with status ${response.status}`,
+  });
+}
+
+function buildAPIErrorTechnicalDetails(error: APIError): string[] {
+  const details: string[] = [`HTTP status: ${error.status}`];
+
+  if (error.code) {
+    details.push(`Code: ${error.code}`);
+  }
+  if (error.requestID) {
+    details.push(`Request ID: ${error.requestID}`);
+  }
+  if (error.retryable) {
+    details.push("Retryable: yes");
+  }
+
+  for (const [key, value] of Object.entries(error.details)) {
+    details.push(`${formatDetailLabel(key)}: ${formatDetailValue(value)}`);
+  }
+
+  for (const fieldError of error.fieldErrors) {
+    const path = fieldError.path.trim() || "request";
+    details.push(`Field ${path}: ${fieldError.message}`);
+  }
+
+  return details;
+}
+
+function formatDetailLabel(key: string): string {
+  return key.replace(/_/g, " ");
+}
+
+function formatDetailValue(value: unknown): string {
+  if (value === null) {
+    return "null";
+  }
+  if (typeof value === "string") {
+    return value;
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => formatDetailValue(item)).join(", ");
+  }
+
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
 }

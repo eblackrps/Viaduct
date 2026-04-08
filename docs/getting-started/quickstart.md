@@ -70,14 +70,17 @@ npm run dev
 
 Open the dashboard in your browser at the Vite URL shown in the terminal. The dashboard will proxy API calls to `http://localhost:8080`.
 
+For local lab use, the default tenant may work without explicit credentials. For any real tenant-scoped dashboard usage, prefer `VITE_VIADUCT_SERVICE_ACCOUNT_KEY` over `VITE_VIADUCT_API_KEY` so operator activity is attributable to a named service account instead of the tenant-wide admin credential.
+
 ## 6. Explore Operator Flows
 - Inventory and dependency views: confirm the lab workloads appear in the dashboard.
 - Lifecycle views: review cost, policy, drift, and remediation panels.
 - Migration planning: use the migration wizard to run preflight, create a migration, and inspect checkpoints.
-- Tenant reporting: call `/api/v1/summary` with a tenant API key if you want to validate multi-tenant flows.
+- Tenant reporting and trust context: call `/api/v1/tenants/current` and `/api/v1/summary` with a service-account key if you want to validate multi-tenant flows without falling back to the tenant-wide admin credential.
 
 ## Next Steps
 - Installation details: [installation.md](installation.md)
 - Configuration reference: [../reference/configuration.md](../reference/configuration.md)
 - Migration operations guide: [../operations/migration-operations.md](../operations/migration-operations.md)
+- Auth, role, and auditability model: [../operations/auth-role-audit-model.md](../operations/auth-role-audit-model.md)
 - Lab assets: [../../examples/lab/README.md](../../examples/lab/README.md)
