@@ -31,6 +31,9 @@ func TestOpenAPISpec_Phase5RoutesAndSchemasDocumented_Expected(t *testing.T) {
 		"/api/v1/migrations/{migrationID}/execute",
 		"/api/v1/migrations/{migrationID}/resume",
 		"/api/v1/migrations/{migrationID}/rollback",
+		"/api/v1/workspaces/{workspaceID}/jobs",
+		"/api/v1/workspaces/{workspaceID}/jobs/{jobID}",
+		"/api/v1/workspaces/{workspaceID}/reports/export",
 	} {
 		if _, ok := paths[route]; !ok {
 			t.Fatalf("OpenAPI paths missing %s", route)
@@ -60,6 +63,8 @@ func TestOpenAPISpec_Phase5RoutesAndSchemasDocumented_Expected(t *testing.T) {
 		"ApiFieldError",
 		"MigrationCommandResponse",
 		"MigrationExecutionRequest",
+		"PilotWorkspace",
+		"WorkspaceJob",
 	} {
 		if _, ok := schemas[schema]; !ok {
 			t.Fatalf("schemas missing %s", schema)

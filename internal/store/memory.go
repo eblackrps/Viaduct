@@ -28,6 +28,16 @@ type storedRecoveryPoint struct {
 	record   RecoveryPointRecord
 }
 
+type storedWorkspace struct {
+	tenantID  string
+	workspace models.PilotWorkspace
+}
+
+type storedWorkspaceJob struct {
+	tenantID string
+	job      models.WorkspaceJob
+}
+
 // MemoryStore is an in-memory Store implementation for testing and small deployments.
 type MemoryStore struct {
 	mu             sync.RWMutex
@@ -36,6 +46,8 @@ type MemoryStore struct {
 	migrations     map[string]storedMigration
 	recoveryPoints map[string]storedRecoveryPoint
 	auditEvents    map[string][]models.AuditEvent
+	workspaces     map[string]storedWorkspace
+	workspaceJobs  map[string]storedWorkspaceJob
 }
 
 // NewMemoryStore creates an empty in-memory discovery snapshot store.
@@ -46,6 +58,8 @@ func NewMemoryStore() *MemoryStore {
 		migrations:     make(map[string]storedMigration),
 		recoveryPoints: make(map[string]storedRecoveryPoint),
 		auditEvents:    make(map[string][]models.AuditEvent),
+		workspaces:     make(map[string]storedWorkspace),
+		workspaceJobs:  make(map[string]storedWorkspaceJob),
 	}
 
 	store.tenants[DefaultTenantID] = defaultTenant()
@@ -485,6 +499,16 @@ func (s *MemoryStore) DeleteTenant(ctx context.Context, tenantID string) error {
 			delete(s.recoveryPoints, key)
 		}
 	}
+	for key, workspace := range s.workspaces {
+		if workspace.tenantID == tenantID {
+			delete(s.workspaces, key)
+		}
+	}
+	for key, job := range s.workspaceJobs {
+		if job.tenantID == tenantID {
+			delete(s.workspaceJobs, key)
+		}
+	}
 	delete(s.auditEvents, tenantID)
 
 	return nil
@@ -547,6 +571,249 @@ func (s *MemoryStore) ListAuditEvents(ctx context.Context, tenantID string, limi
 		return items[i].CreatedAt.After(items[j].CreatedAt)
 	})
 
+	if limit > 0 && len(items) > limit {
+		items = items[:limit]
+	}
+
+	return items, nil
+}
+
+// CreateWorkspace persists a pilot workspace in memory.
+func (s *MemoryStore) CreateWorkspace(ctx context.Context, tenantID string, workspace models.PilotWorkspace) error {
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("memory store: create workspace: %w", ctx.Err())
+	default:
+	}
+
+	if strings.TrimSpace(workspace.ID) == "" {
+		return fmt.Errorf("memory store: create workspace: workspace ID is empty")
+	}
+	if strings.TrimSpace(workspace.Name) == "" {
+		return fmt.Errorf("memory store: create workspace: workspace name is empty")
+	}
+
+	tenantID = normalizeTenantID(tenantID)
+	workspace = normalizeWorkspace(tenantID, workspace)
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if _, err := s.ensureTenantLocked(tenantID); err != nil {
+		return fmt.Errorf("memory store: create workspace: %w", err)
+	}
+	key := tenantWorkspaceKey(tenantID, workspace.ID)
+	if _, exists := s.workspaces[key]; exists {
+		return fmt.Errorf("memory store: create workspace %s: already exists", workspace.ID)
+	}
+
+	cloned, err := cloneWorkspace(workspace)
+	if err != nil {
+		return fmt.Errorf("memory store: create workspace: %w", err)
+	}
+	s.workspaces[key] = storedWorkspace{tenantID: tenantID, workspace: cloned}
+	return nil
+}
+
+// UpdateWorkspace overwrites a persisted pilot workspace in memory.
+func (s *MemoryStore) UpdateWorkspace(ctx context.Context, tenantID string, workspace models.PilotWorkspace) error {
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("memory store: update workspace: %w", ctx.Err())
+	default:
+	}
+
+	if strings.TrimSpace(workspace.ID) == "" {
+		return fmt.Errorf("memory store: update workspace: workspace ID is empty")
+	}
+	if strings.TrimSpace(workspace.Name) == "" {
+		return fmt.Errorf("memory store: update workspace: workspace name is empty")
+	}
+
+	tenantID = normalizeTenantID(tenantID)
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if _, err := s.ensureTenantLocked(tenantID); err != nil {
+		return fmt.Errorf("memory store: update workspace: %w", err)
+	}
+
+	key := tenantWorkspaceKey(tenantID, workspace.ID)
+	existing, ok := s.workspaces[key]
+	if !ok || existing.tenantID != tenantID {
+		return fmt.Errorf("memory store: update workspace %s: not found", workspace.ID)
+	}
+
+	createdAt := workspace.CreatedAt
+	workspace = normalizeWorkspace(tenantID, workspace)
+	if createdAt.IsZero() {
+		workspace.CreatedAt = existing.workspace.CreatedAt
+	}
+	if workspace.UpdatedAt.IsZero() || !workspace.UpdatedAt.After(existing.workspace.UpdatedAt) {
+		workspace.UpdatedAt = time.Now().UTC()
+	}
+
+	cloned, err := cloneWorkspace(workspace)
+	if err != nil {
+		return fmt.Errorf("memory store: update workspace: %w", err)
+	}
+	s.workspaces[key] = storedWorkspace{tenantID: tenantID, workspace: cloned}
+	return nil
+}
+
+// GetWorkspace retrieves a persisted pilot workspace by identifier.
+func (s *MemoryStore) GetWorkspace(ctx context.Context, tenantID, workspaceID string) (*models.PilotWorkspace, error) {
+	select {
+	case <-ctx.Done():
+		return nil, fmt.Errorf("memory store: get workspace: %w", ctx.Err())
+	default:
+	}
+
+	tenantID = normalizeTenantID(tenantID)
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	item, ok := s.workspaces[tenantWorkspaceKey(tenantID, workspaceID)]
+	if !ok || item.tenantID != tenantID {
+		return nil, fmt.Errorf("memory store: get workspace %s: not found", workspaceID)
+	}
+
+	cloned, err := cloneWorkspace(item.workspace)
+	if err != nil {
+		return nil, fmt.Errorf("memory store: get workspace: %w", err)
+	}
+	return &cloned, nil
+}
+
+// ListWorkspaces returns pilot workspaces ordered from newest to oldest updates.
+func (s *MemoryStore) ListWorkspaces(ctx context.Context, tenantID string, limit int) ([]models.PilotWorkspace, error) {
+	select {
+	case <-ctx.Done():
+		return nil, fmt.Errorf("memory store: list workspaces: %w", ctx.Err())
+	default:
+	}
+
+	tenantID = normalizeTenantID(tenantID)
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	items := make([]models.PilotWorkspace, 0, len(s.workspaces))
+	for _, item := range s.workspaces {
+		if item.tenantID != tenantID {
+			continue
+		}
+		cloned, err := cloneWorkspace(item.workspace)
+		if err != nil {
+			return nil, fmt.Errorf("memory store: list workspaces: %w", err)
+		}
+		items = append(items, cloned)
+	}
+
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].UpdatedAt.After(items[j].UpdatedAt)
+	})
+	if limit > 0 && len(items) > limit {
+		items = items[:limit]
+	}
+
+	return items, nil
+}
+
+// SaveWorkspaceJob persists a pilot workspace background job in memory.
+func (s *MemoryStore) SaveWorkspaceJob(ctx context.Context, tenantID string, job models.WorkspaceJob) error {
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("memory store: save workspace job: %w", ctx.Err())
+	default:
+	}
+
+	if strings.TrimSpace(job.ID) == "" {
+		return fmt.Errorf("memory store: save workspace job: job ID is empty")
+	}
+	if strings.TrimSpace(job.WorkspaceID) == "" {
+		return fmt.Errorf("memory store: save workspace job: workspace ID is empty")
+	}
+
+	tenantID = normalizeTenantID(tenantID)
+	job = normalizeWorkspaceJob(tenantID, job)
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if _, err := s.ensureTenantLocked(tenantID); err != nil {
+		return fmt.Errorf("memory store: save workspace job: %w", err)
+	}
+	if _, ok := s.workspaces[tenantWorkspaceKey(tenantID, job.WorkspaceID)]; !ok {
+		return fmt.Errorf("memory store: save workspace job: workspace %s not found", job.WorkspaceID)
+	}
+
+	cloned, err := cloneWorkspaceJob(job)
+	if err != nil {
+		return fmt.Errorf("memory store: save workspace job: %w", err)
+	}
+	s.workspaceJobs[tenantWorkspaceJobKey(tenantID, job.WorkspaceID, job.ID)] = storedWorkspaceJob{
+		tenantID: tenantID,
+		job:      cloned,
+	}
+	return nil
+}
+
+// GetWorkspaceJob retrieves a persisted pilot workspace background job by identifier.
+func (s *MemoryStore) GetWorkspaceJob(ctx context.Context, tenantID, workspaceID, jobID string) (*models.WorkspaceJob, error) {
+	select {
+	case <-ctx.Done():
+		return nil, fmt.Errorf("memory store: get workspace job: %w", ctx.Err())
+	default:
+	}
+
+	tenantID = normalizeTenantID(tenantID)
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	item, ok := s.workspaceJobs[tenantWorkspaceJobKey(tenantID, workspaceID, jobID)]
+	if !ok || item.tenantID != tenantID {
+		return nil, fmt.Errorf("memory store: get workspace job %s: not found", jobID)
+	}
+
+	cloned, err := cloneWorkspaceJob(item.job)
+	if err != nil {
+		return nil, fmt.Errorf("memory store: get workspace job: %w", err)
+	}
+	return &cloned, nil
+}
+
+// ListWorkspaceJobs returns pilot workspace background jobs ordered from newest to oldest updates.
+func (s *MemoryStore) ListWorkspaceJobs(ctx context.Context, tenantID, workspaceID string, limit int) ([]models.WorkspaceJob, error) {
+	select {
+	case <-ctx.Done():
+		return nil, fmt.Errorf("memory store: list workspace jobs: %w", ctx.Err())
+	default:
+	}
+
+	tenantID = normalizeTenantID(tenantID)
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	items := make([]models.WorkspaceJob, 0, len(s.workspaceJobs))
+	for _, item := range s.workspaceJobs {
+		if item.tenantID != tenantID || item.job.WorkspaceID != workspaceID {
+			continue
+		}
+		cloned, err := cloneWorkspaceJob(item.job)
+		if err != nil {
+			return nil, fmt.Errorf("memory store: list workspace jobs: %w", err)
+		}
+		items = append(items, cloned)
+	}
+
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].UpdatedAt.After(items[j].UpdatedAt)
+	})
 	if limit > 0 && len(items) > limit {
 		items = items[:limit]
 	}
@@ -640,6 +907,32 @@ func cloneRecoveryPointRecord(record RecoveryPointRecord) RecoveryPointRecord {
 	return record
 }
 
+func cloneWorkspace(workspace models.PilotWorkspace) (models.PilotWorkspace, error) {
+	payload, err := json.Marshal(workspace)
+	if err != nil {
+		return models.PilotWorkspace{}, fmt.Errorf("clone workspace: %w", err)
+	}
+
+	var cloned models.PilotWorkspace
+	if err := json.Unmarshal(payload, &cloned); err != nil {
+		return models.PilotWorkspace{}, fmt.Errorf("clone workspace: %w", err)
+	}
+	return cloned, nil
+}
+
+func cloneWorkspaceJob(job models.WorkspaceJob) (models.WorkspaceJob, error) {
+	payload, err := json.Marshal(job)
+	if err != nil {
+		return models.WorkspaceJob{}, fmt.Errorf("clone workspace job: %w", err)
+	}
+
+	var cloned models.WorkspaceJob
+	if err := json.Unmarshal(payload, &cloned); err != nil {
+		return models.WorkspaceJob{}, fmt.Errorf("clone workspace job: %w", err)
+	}
+	return cloned, nil
+}
+
 func copyStringMap(input map[string]string) map[string]string {
 	if len(input) == 0 {
 		return nil
@@ -706,6 +999,111 @@ func normalizeTenant(tenant models.Tenant) models.Tenant {
 	return tenant
 }
 
+func normalizeWorkspace(tenantID string, workspace models.PilotWorkspace) models.PilotWorkspace {
+	now := time.Now().UTC()
+	workspace.TenantID = normalizeTenantID(tenantID)
+	workspace.Name = strings.TrimSpace(workspace.Name)
+	workspace.Description = strings.TrimSpace(workspace.Description)
+	if workspace.Status == "" {
+		workspace.Status = models.PilotWorkspaceStatusDraft
+	}
+	if workspace.CreatedAt.IsZero() {
+		workspace.CreatedAt = now
+	}
+	if workspace.UpdatedAt.IsZero() {
+		workspace.UpdatedAt = workspace.CreatedAt
+	}
+	workspace.SelectedWorkloadIDs = copyStringSlice(workspace.SelectedWorkloadIDs)
+	for index := range workspace.SourceConnections {
+		if strings.TrimSpace(workspace.SourceConnections[index].ID) == "" {
+			workspace.SourceConnections[index].ID = uuid.NewString()
+		}
+		workspace.SourceConnections[index].Name = strings.TrimSpace(workspace.SourceConnections[index].Name)
+		workspace.SourceConnections[index].Address = strings.TrimSpace(workspace.SourceConnections[index].Address)
+		workspace.SourceConnections[index].CredentialRef = strings.TrimSpace(workspace.SourceConnections[index].CredentialRef)
+	}
+	workspace.TargetAssumptions.Address = strings.TrimSpace(workspace.TargetAssumptions.Address)
+	workspace.TargetAssumptions.CredentialRef = strings.TrimSpace(workspace.TargetAssumptions.CredentialRef)
+	workspace.TargetAssumptions.DefaultHost = strings.TrimSpace(workspace.TargetAssumptions.DefaultHost)
+	workspace.TargetAssumptions.DefaultStorage = strings.TrimSpace(workspace.TargetAssumptions.DefaultStorage)
+	workspace.TargetAssumptions.DefaultNetwork = strings.TrimSpace(workspace.TargetAssumptions.DefaultNetwork)
+	workspace.TargetAssumptions.Notes = strings.TrimSpace(workspace.TargetAssumptions.Notes)
+	workspace.PlanSettings.Name = strings.TrimSpace(workspace.PlanSettings.Name)
+	workspace.PlanSettings.ApprovedBy = strings.TrimSpace(workspace.PlanSettings.ApprovedBy)
+	workspace.PlanSettings.ApprovalTicket = strings.TrimSpace(workspace.PlanSettings.ApprovalTicket)
+	for index := range workspace.Approvals {
+		if strings.TrimSpace(workspace.Approvals[index].ID) == "" {
+			workspace.Approvals[index].ID = uuid.NewString()
+		}
+		if workspace.Approvals[index].Status == "" {
+			workspace.Approvals[index].Status = models.WorkspaceApprovalStatusPending
+		}
+		if workspace.Approvals[index].CreatedAt.IsZero() {
+			workspace.Approvals[index].CreatedAt = workspace.UpdatedAt
+		}
+		workspace.Approvals[index].Stage = strings.TrimSpace(workspace.Approvals[index].Stage)
+		workspace.Approvals[index].ApprovedBy = strings.TrimSpace(workspace.Approvals[index].ApprovedBy)
+		workspace.Approvals[index].Ticket = strings.TrimSpace(workspace.Approvals[index].Ticket)
+		workspace.Approvals[index].Notes = strings.TrimSpace(workspace.Approvals[index].Notes)
+	}
+	for index := range workspace.Notes {
+		if strings.TrimSpace(workspace.Notes[index].ID) == "" {
+			workspace.Notes[index].ID = uuid.NewString()
+		}
+		if workspace.Notes[index].Kind == "" {
+			workspace.Notes[index].Kind = models.WorkspaceNoteKindOperator
+		}
+		if workspace.Notes[index].CreatedAt.IsZero() {
+			workspace.Notes[index].CreatedAt = workspace.UpdatedAt
+		}
+		workspace.Notes[index].Author = strings.TrimSpace(workspace.Notes[index].Author)
+		workspace.Notes[index].Body = strings.TrimSpace(workspace.Notes[index].Body)
+	}
+	for index := range workspace.Reports {
+		if strings.TrimSpace(workspace.Reports[index].ID) == "" {
+			workspace.Reports[index].ID = uuid.NewString()
+		}
+		if workspace.Reports[index].ExportedAt.IsZero() {
+			workspace.Reports[index].ExportedAt = workspace.UpdatedAt
+		}
+		workspace.Reports[index].Name = strings.TrimSpace(workspace.Reports[index].Name)
+		workspace.Reports[index].Format = strings.TrimSpace(workspace.Reports[index].Format)
+		workspace.Reports[index].FileName = strings.TrimSpace(workspace.Reports[index].FileName)
+		workspace.Reports[index].CorrelationID = strings.TrimSpace(workspace.Reports[index].CorrelationID)
+	}
+	if workspace.Simulation != nil {
+		workspace.Simulation.SelectedWorkloadIDs = copyStringSlice(workspace.Simulation.SelectedWorkloadIDs)
+	}
+	if workspace.SavedPlan != nil {
+		workspace.SavedPlan.SelectedWorkloadIDs = copyStringSlice(workspace.SavedPlan.SelectedWorkloadIDs)
+	}
+	if workspace.Readiness != nil {
+		workspace.Readiness.BlockingIssues = copyStringSlice(workspace.Readiness.BlockingIssues)
+		workspace.Readiness.WarningIssues = copyStringSlice(workspace.Readiness.WarningIssues)
+	}
+	return workspace
+}
+
+func normalizeWorkspaceJob(tenantID string, job models.WorkspaceJob) models.WorkspaceJob {
+	now := time.Now().UTC()
+	job.TenantID = normalizeTenantID(tenantID)
+	job.WorkspaceID = strings.TrimSpace(job.WorkspaceID)
+	job.RequestedBy = strings.TrimSpace(job.RequestedBy)
+	job.CorrelationID = strings.TrimSpace(job.CorrelationID)
+	job.Message = strings.TrimSpace(job.Message)
+	job.Error = strings.TrimSpace(job.Error)
+	if job.Status == "" {
+		job.Status = models.WorkspaceJobStatusQueued
+	}
+	if job.RequestedAt.IsZero() {
+		job.RequestedAt = now
+	}
+	if job.UpdatedAt.IsZero() {
+		job.UpdatedAt = job.RequestedAt
+	}
+	return job
+}
+
 func defaultTenant() models.Tenant {
 	return models.Tenant{
 		ID:        DefaultTenantID,
@@ -722,4 +1120,19 @@ func tenantRecoveryPointKey(tenantID, migrationID string) string {
 
 func tenantMigrationKey(tenantID, migrationID string) string {
 	return tenantID + ":" + migrationID
+}
+
+func tenantWorkspaceKey(tenantID, workspaceID string) string {
+	return tenantID + ":" + workspaceID
+}
+
+func tenantWorkspaceJobKey(tenantID, workspaceID, jobID string) string {
+	return tenantID + ":" + workspaceID + ":" + jobID
+}
+
+func copyStringSlice(input []string) []string {
+	if len(input) == 0 {
+		return nil
+	}
+	return append([]string(nil), input...)
 }

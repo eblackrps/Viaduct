@@ -486,6 +486,107 @@ func TestMemoryStore_UpdateTenant_ServiceAccountsPersisted_Expected(t *testing.T
 	}
 }
 
+func TestMemoryStore_CreateAndListWorkspaces_TenantScoped(t *testing.T) {
+	t.Parallel()
+
+	stateStore := NewMemoryStore()
+	ctx := context.Background()
+	if err := stateStore.CreateTenant(ctx, models.Tenant{
+		ID:     "tenant-workspace",
+		Name:   "Workspace Tenant",
+		APIKey: "tenant-workspace-key",
+		Active: true,
+	}); err != nil {
+		t.Fatalf("CreateTenant() error = %v", err)
+	}
+
+	workspace := models.PilotWorkspace{
+		ID:          "workspace-1",
+		Name:        "Pilot Workspace",
+		Description: "Assessment flow",
+		Status:      models.PilotWorkspaceStatusDraft,
+		SourceConnections: []models.WorkspaceSourceConnection{
+			{
+				ID:            "source-1",
+				Name:          "Lab KVM",
+				Platform:      models.PlatformKVM,
+				Address:       "examples/lab/kvm",
+				CredentialRef: "lab-kvm",
+			},
+		},
+	}
+	if err := stateStore.CreateWorkspace(ctx, "tenant-workspace", workspace); err != nil {
+		t.Fatalf("CreateWorkspace() error = %v", err)
+	}
+
+	got, err := stateStore.GetWorkspace(ctx, "tenant-workspace", "workspace-1")
+	if err != nil {
+		t.Fatalf("GetWorkspace() error = %v", err)
+	}
+	if got.TenantID != "tenant-workspace" || got.Name != "Pilot Workspace" || len(got.SourceConnections) != 1 {
+		t.Fatalf("unexpected workspace: %#v", got)
+	}
+
+	items, err := stateStore.ListWorkspaces(ctx, "tenant-workspace", 10)
+	if err != nil {
+		t.Fatalf("ListWorkspaces() error = %v", err)
+	}
+	if len(items) != 1 || items[0].ID != "workspace-1" {
+		t.Fatalf("unexpected workspace list: %#v", items)
+	}
+}
+
+func TestMemoryStore_SaveAndListWorkspaceJobs_TenantScoped(t *testing.T) {
+	t.Parallel()
+
+	stateStore := NewMemoryStore()
+	ctx := context.Background()
+	if err := stateStore.CreateTenant(ctx, models.Tenant{
+		ID:     "tenant-jobs",
+		Name:   "Jobs Tenant",
+		APIKey: "tenant-jobs-key",
+		Active: true,
+	}); err != nil {
+		t.Fatalf("CreateTenant() error = %v", err)
+	}
+	if err := stateStore.CreateWorkspace(ctx, "tenant-jobs", models.PilotWorkspace{
+		ID:     "workspace-1",
+		Name:   "Pilot Workspace",
+		Status: models.PilotWorkspaceStatusDraft,
+	}); err != nil {
+		t.Fatalf("CreateWorkspace() error = %v", err)
+	}
+
+	job := models.WorkspaceJob{
+		ID:          "job-1",
+		WorkspaceID: "workspace-1",
+		Type:        models.WorkspaceJobTypeDiscovery,
+		Status:      models.WorkspaceJobStatusSucceeded,
+		RequestedAt: time.Date(2026, time.April, 10, 13, 0, 0, 0, time.UTC),
+		UpdatedAt:   time.Date(2026, time.April, 10, 13, 5, 0, 0, time.UTC),
+		OutputJSON:  json.RawMessage(`{"snapshot_ids":["snap-1"]}`),
+	}
+	if err := stateStore.SaveWorkspaceJob(ctx, "tenant-jobs", job); err != nil {
+		t.Fatalf("SaveWorkspaceJob() error = %v", err)
+	}
+
+	got, err := stateStore.GetWorkspaceJob(ctx, "tenant-jobs", "workspace-1", "job-1")
+	if err != nil {
+		t.Fatalf("GetWorkspaceJob() error = %v", err)
+	}
+	if got.Type != models.WorkspaceJobTypeDiscovery || got.TenantID != "tenant-jobs" {
+		t.Fatalf("unexpected workspace job: %#v", got)
+	}
+
+	items, err := stateStore.ListWorkspaceJobs(ctx, "tenant-jobs", "workspace-1", 10)
+	if err != nil {
+		t.Fatalf("ListWorkspaceJobs() error = %v", err)
+	}
+	if len(items) != 1 || items[0].ID != "job-1" {
+		t.Fatalf("unexpected workspace job list: %#v", items)
+	}
+}
+
 func TestMemoryStore_Diagnostics_ReturnsBackendMetadata_Expected(t *testing.T) {
 	t.Parallel()
 
@@ -510,5 +611,11 @@ func TestPostgresSchemaHistory_CurrentVersionSynchronized_Expected(t *testing.T)
 	}
 	if !strings.Contains(createStoreSchemaSQL, "schema_migrations") {
 		t.Fatalf("createStoreSchemaSQL missing schema_migrations table: %s", createStoreSchemaSQL)
+	}
+	if !strings.Contains(createStoreSchemaSQL, "workspaces") {
+		t.Fatalf("createStoreSchemaSQL missing workspaces table: %s", createStoreSchemaSQL)
+	}
+	if !strings.Contains(createStoreSchemaSQL, "workspace_jobs") {
+		t.Fatalf("createStoreSchemaSQL missing workspace_jobs table: %s", createStoreSchemaSQL)
 	}
 }

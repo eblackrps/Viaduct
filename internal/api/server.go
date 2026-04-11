@@ -122,14 +122,14 @@ func NewServer(engine *discovery.Engine, stateStore store.Store, port int, catal
 	}
 
 	costEngine := lifecycle.NewCostEngine()
-	if profiles, err := lifecycle.LoadCostProfilesDir(filepath.Join("configs", "cost-profiles")); err == nil {
+	if profiles, err := lifecycle.LoadCostProfilesDir(resolveOperatorPath(filepath.Join("configs", "cost-profiles"))); err == nil {
 		for _, profile := range profiles {
 			costEngine.AddProfile(*profile)
 		}
 	}
 
 	policyEngine := lifecycle.NewPolicyEngine(costEngine)
-	_ = policyEngine.LoadPolicies(filepath.Join("configs", "policies"))
+	_ = policyEngine.LoadPolicies(resolveOperatorPath(filepath.Join("configs", "policies")))
 
 	return &Server{
 		engine:               engine,
@@ -145,10 +145,44 @@ func NewServer(engine *discovery.Engine, stateStore store.Store, port int, catal
 		recommendationEngine: lifecycle.NewRecommendationEngine(costEngine, policyEngine),
 		driftDetector:        lifecycle.NewDriftDetector(stateStore, policyEngine, lifecycle.DriftConfig{}),
 		resolveConfig: func(platform models.Platform, address, credentialRef string) connectors.Config {
-			return connectors.Config{Address: address}
+			resolvedAddress := address
+			if platform == models.PlatformKVM {
+				resolvedAddress = resolveOperatorPath(address)
+			}
+			return connectors.Config{Address: resolvedAddress}
 		},
 		specs: make(map[string]*migratepkg.MigrationSpec),
 	}
+}
+
+func resolveOperatorPath(path string) string {
+	trimmed := strings.TrimSpace(path)
+	if trimmed == "" || filepath.IsAbs(trimmed) {
+		return trimmed
+	}
+
+	candidates := []string{trimmed}
+	if _, file, _, ok := runtime.Caller(0); ok {
+		repoRoot := filepath.Clean(filepath.Join(filepath.Dir(file), "..", ".."))
+		candidates = append(candidates, filepath.Join(repoRoot, trimmed))
+	}
+
+	for _, candidate := range candidates {
+		info, err := os.Stat(candidate)
+		if err != nil {
+			continue
+		}
+		if !info.IsDir() && strings.HasSuffix(trimmed, string(filepath.Separator)) {
+			continue
+		}
+		absolute, err := filepath.Abs(candidate)
+		if err == nil {
+			return absolute
+		}
+		return candidate
+	}
+
+	return trimmed
 }
 
 // SetBuildInfo configures operator-visible release metadata exposed by the API server.
@@ -177,6 +211,28 @@ func (s *Server) SetConnectorConfigResolver(resolver func(platform models.Platfo
 
 // Start runs the HTTP server until the context is canceled.
 func (s *Server) Start(ctx context.Context) error {
+	server := &http.Server{
+		Addr:              fmt.Sprintf(":%d", s.port),
+		Handler:           s.Handler(),
+		ReadHeaderTimeout: 10 * time.Second,
+	}
+
+	go func() {
+		<-ctx.Done()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = server.Shutdown(shutdownCtx)
+	}()
+
+	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		return fmt.Errorf("api server: listen and serve: %w", err)
+	}
+
+	return nil
+}
+
+// Handler returns the fully wired Viaduct API HTTP handler with auth, rate limiting, CORS, and observability middleware.
+func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/v1/health", s.handleHealth)
 	mux.HandleFunc("/api/v1/about", s.handleAbout)
@@ -203,6 +259,8 @@ func (s *Server) Start(ctx context.Context) error {
 	tenantMux.Handle("/api/v1/simulation", tenantRoute(models.TenantRoleOperator, models.TenantPermissionMigrationManage, s.handleSimulation))
 	tenantMux.Handle("/api/v1/summary", tenantRoute(models.TenantRoleViewer, models.TenantPermissionLifecycleRead, s.handleSummary))
 	tenantMux.Handle("/api/v1/reports/", tenantRoute(models.TenantRoleViewer, models.TenantPermissionReportsRead, s.handleReports))
+	tenantMux.Handle("/api/v1/workspaces", tenantRoute(models.TenantRoleOperator, models.TenantPermissionMigrationManage, s.handleWorkspaces))
+	tenantMux.Handle("/api/v1/workspaces/", tenantRoute(models.TenantRoleOperator, models.TenantPermissionMigrationManage, s.handleWorkspaceByID))
 	tenantMux.Handle("/api/v1/tenants/current", tenantRoute(models.TenantRoleViewer, models.TenantPermissionTenantRead, s.handleCurrentTenant))
 	tenantMux.Handle("/api/v1/service-accounts", tenantRoute(models.TenantRoleAdmin, models.TenantPermissionTenantManage, s.handleServiceAccounts))
 	tenantMux.Handle("/api/v1/service-accounts/", tenantRoute(models.TenantRoleAdmin, models.TenantPermissionTenantManage, s.handleServiceAccountByID))
@@ -223,28 +281,13 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.Handle("/api/v1/simulation", tenantHandler)
 	mux.Handle("/api/v1/summary", tenantHandler)
 	mux.Handle("/api/v1/reports/", tenantHandler)
+	mux.Handle("/api/v1/workspaces", tenantHandler)
+	mux.Handle("/api/v1/workspaces/", tenantHandler)
 	mux.Handle("/api/v1/tenants/current", tenantHandler)
 	mux.Handle("/api/v1/service-accounts", tenantHandler)
 	mux.Handle("/api/v1/service-accounts/", tenantHandler)
 
-	server := &http.Server{
-		Addr:              fmt.Sprintf(":%d", s.port),
-		Handler:           s.withObservability(s.withCORS(mux)),
-		ReadHeaderTimeout: 10 * time.Second,
-	}
-
-	go func() {
-		<-ctx.Done()
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		_ = server.Shutdown(shutdownCtx)
-	}()
-
-	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		return fmt.Errorf("api server: listen and serve: %w", err)
-	}
-
-	return nil
+	return s.withObservability(s.withCORS(mux))
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
@@ -1178,7 +1221,7 @@ func (s *Server) withCORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-API-Key, X-Service-Account-Key, X-Admin-Key, X-Request-ID")
-		w.Header().Set("Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS")
+		w.Header().Set("Access-Control-Allow-Methods", "GET,POST,PATCH,DELETE,OPTIONS")
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 			return

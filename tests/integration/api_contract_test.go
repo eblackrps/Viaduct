@@ -34,6 +34,8 @@ func TestOpenAPISpec_StableRoutesDocumented_Expected(t *testing.T) {
 		"/api/v1/about",
 		"/api/v1/inventory",
 		"/api/v1/summary",
+		"/api/v1/workspaces",
+		"/api/v1/workspaces/{workspaceID}",
 		"/api/v1/tenants/current",
 		"/api/v1/service-accounts",
 		"/api/v1/migrations",

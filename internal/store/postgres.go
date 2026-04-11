@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/eblackrps/viaduct/internal/models"
@@ -12,7 +13,7 @@ import (
 	_ "github.com/lib/pq"
 )
 
-const currentStoreSchemaVersion = 5
+const currentStoreSchemaVersion = 6
 
 type storeSchemaVersion struct {
 	version     int
@@ -25,6 +26,7 @@ var storeSchemaHistory = []storeSchemaVersion{
 	{version: 3, description: "tenant-scoped audit event history"},
 	{version: 4, description: "tenant quotas and service-account metadata"},
 	{version: 5, description: "schema version tracking and operator diagnostics"},
+	{version: 6, description: "pilot workspaces and persisted workspace background jobs"},
 }
 
 const createStoreSchemaSQL = `
@@ -126,6 +128,33 @@ ALTER TABLE audit_events ADD COLUMN IF NOT EXISTS message TEXT NOT NULL DEFAULT 
 ALTER TABLE audit_events ADD COLUMN IF NOT EXISTS details JSONB NOT NULL DEFAULT '{}'::jsonb;
 ALTER TABLE audit_events ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT to_timestamp(0);
 CREATE INDEX IF NOT EXISTS idx_audit_events_tenant_created_at ON audit_events(tenant_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS workspaces (
+	tenant_id TEXT NOT NULL DEFAULT 'default',
+	id TEXT NOT NULL,
+	name TEXT NOT NULL,
+	status TEXT NOT NULL,
+	created_at TIMESTAMPTZ NOT NULL,
+	updated_at TIMESTAMPTZ NOT NULL,
+	raw_json JSONB NOT NULL,
+	PRIMARY KEY (tenant_id, id)
+);
+CREATE INDEX IF NOT EXISTS idx_workspaces_tenant_updated_at ON workspaces(tenant_id, updated_at DESC);
+
+CREATE TABLE IF NOT EXISTS workspace_jobs (
+	tenant_id TEXT NOT NULL DEFAULT 'default',
+	workspace_id TEXT NOT NULL,
+	id TEXT NOT NULL,
+	type TEXT NOT NULL,
+	status TEXT NOT NULL,
+	requested_at TIMESTAMPTZ NOT NULL,
+	updated_at TIMESTAMPTZ NOT NULL,
+	completed_at TIMESTAMPTZ,
+	correlation_id TEXT NOT NULL DEFAULT '',
+	raw_json JSONB NOT NULL,
+	PRIMARY KEY (tenant_id, workspace_id, id)
+);
+CREATE INDEX IF NOT EXISTS idx_workspace_jobs_tenant_workspace_updated_at ON workspace_jobs(tenant_id, workspace_id, updated_at DESC);
 `
 
 // PostgresStore is a PostgreSQL-backed Store implementation.
@@ -659,6 +688,8 @@ func (s *PostgresStore) DeleteTenant(ctx context.Context, tenantID string) error
 
 	for _, statement := range []string{
 		`DELETE FROM audit_events WHERE tenant_id = $1`,
+		`DELETE FROM workspace_jobs WHERE tenant_id = $1`,
+		`DELETE FROM workspaces WHERE tenant_id = $1`,
 		`DELETE FROM recovery_points WHERE tenant_id = $1`,
 		`DELETE FROM migrations WHERE tenant_id = $1`,
 		`DELETE FROM snapshots WHERE tenant_id = $1`,
@@ -800,6 +831,275 @@ func (s *PostgresStore) ListAuditEvents(ctx context.Context, tenantID string, li
 
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("postgres store: iterate audit events: %w", err)
+	}
+
+	return items, nil
+}
+
+// CreateWorkspace persists a pilot workspace to PostgreSQL.
+func (s *PostgresStore) CreateWorkspace(ctx context.Context, tenantID string, workspace models.PilotWorkspace) error {
+	if strings.TrimSpace(workspace.ID) == "" {
+		return fmt.Errorf("postgres store: create workspace: workspace ID is empty")
+	}
+	if strings.TrimSpace(workspace.Name) == "" {
+		return fmt.Errorf("postgres store: create workspace: workspace name is empty")
+	}
+
+	tenantID = normalizeTenantID(tenantID)
+	if _, err := s.ensureTenant(ctx, tenantID); err != nil {
+		return fmt.Errorf("postgres store: create workspace: %w", err)
+	}
+
+	workspace = normalizeWorkspace(tenantID, workspace)
+	payload, err := json.Marshal(workspace)
+	if err != nil {
+		return fmt.Errorf("postgres store: create workspace: marshal workspace: %w", err)
+	}
+
+	_, err = s.db.ExecContext(
+		ctx,
+		`INSERT INTO workspaces (tenant_id, id, name, status, created_at, updated_at, raw_json)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		tenantID,
+		workspace.ID,
+		workspace.Name,
+		string(workspace.Status),
+		workspace.CreatedAt,
+		workspace.UpdatedAt,
+		payload,
+	)
+	if err != nil {
+		return fmt.Errorf("postgres store: create workspace %s: %w", workspace.ID, err)
+	}
+
+	return nil
+}
+
+// UpdateWorkspace overwrites a persisted pilot workspace in PostgreSQL.
+func (s *PostgresStore) UpdateWorkspace(ctx context.Context, tenantID string, workspace models.PilotWorkspace) error {
+	if strings.TrimSpace(workspace.ID) == "" {
+		return fmt.Errorf("postgres store: update workspace: workspace ID is empty")
+	}
+	if strings.TrimSpace(workspace.Name) == "" {
+		return fmt.Errorf("postgres store: update workspace: workspace name is empty")
+	}
+
+	tenantID = normalizeTenantID(tenantID)
+	existing, err := s.GetWorkspace(ctx, tenantID, workspace.ID)
+	if err != nil {
+		return fmt.Errorf("postgres store: update workspace %s: %w", workspace.ID, err)
+	}
+
+	workspace = normalizeWorkspace(tenantID, workspace)
+	workspace.CreatedAt = existing.CreatedAt
+	if workspace.UpdatedAt.IsZero() || !workspace.UpdatedAt.After(existing.UpdatedAt) {
+		workspace.UpdatedAt = time.Now().UTC()
+	}
+	payload, err := json.Marshal(workspace)
+	if err != nil {
+		return fmt.Errorf("postgres store: update workspace: marshal workspace: %w", err)
+	}
+
+	result, err := s.db.ExecContext(
+		ctx,
+		`UPDATE workspaces
+		    SET name = $3,
+		        status = $4,
+		        created_at = $5,
+		        updated_at = $6,
+		        raw_json = $7
+		  WHERE tenant_id = $1 AND id = $2`,
+		tenantID,
+		workspace.ID,
+		workspace.Name,
+		string(workspace.Status),
+		workspace.CreatedAt,
+		workspace.UpdatedAt,
+		payload,
+	)
+	if err != nil {
+		return fmt.Errorf("postgres store: update workspace %s: %w", workspace.ID, err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("postgres store: update workspace %s: rows affected: %w", workspace.ID, err)
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("postgres store: update workspace %s: not found", workspace.ID)
+	}
+
+	return nil
+}
+
+// GetWorkspace retrieves a persisted pilot workspace from PostgreSQL by identifier.
+func (s *PostgresStore) GetWorkspace(ctx context.Context, tenantID, workspaceID string) (*models.PilotWorkspace, error) {
+	tenantID = normalizeTenantID(tenantID)
+
+	var payload []byte
+	if err := s.db.QueryRowContext(
+		ctx,
+		`SELECT raw_json FROM workspaces WHERE tenant_id = $1 AND id = $2`,
+		tenantID,
+		workspaceID,
+	).Scan(&payload); err != nil {
+		return nil, fmt.Errorf("postgres store: get workspace %s: %w", workspaceID, err)
+	}
+
+	var workspace models.PilotWorkspace
+	if err := json.Unmarshal(payload, &workspace); err != nil {
+		return nil, fmt.Errorf("postgres store: decode workspace %s: %w", workspaceID, err)
+	}
+	workspace = normalizeWorkspace(tenantID, workspace)
+	return &workspace, nil
+}
+
+// ListWorkspaces returns pilot workspaces ordered from newest to oldest updates.
+func (s *PostgresStore) ListWorkspaces(ctx context.Context, tenantID string, limit int) ([]models.PilotWorkspace, error) {
+	tenantID = normalizeTenantID(tenantID)
+
+	query := `SELECT raw_json FROM workspaces WHERE tenant_id = $1 ORDER BY updated_at DESC`
+	if limit > 0 {
+		query += fmt.Sprintf(` LIMIT %d`, limit)
+	}
+
+	rows, err := s.db.QueryContext(ctx, query, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("postgres store: list workspaces: %w", err)
+	}
+	defer rows.Close()
+
+	items := make([]models.PilotWorkspace, 0)
+	for rows.Next() {
+		var payload []byte
+		if err := rows.Scan(&payload); err != nil {
+			return nil, fmt.Errorf("postgres store: scan workspace: %w", err)
+		}
+
+		var workspace models.PilotWorkspace
+		if err := json.Unmarshal(payload, &workspace); err != nil {
+			return nil, fmt.Errorf("postgres store: decode workspace: %w", err)
+		}
+		items = append(items, normalizeWorkspace(tenantID, workspace))
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("postgres store: iterate workspaces: %w", err)
+	}
+
+	return items, nil
+}
+
+// SaveWorkspaceJob persists a pilot workspace background job to PostgreSQL.
+func (s *PostgresStore) SaveWorkspaceJob(ctx context.Context, tenantID string, job models.WorkspaceJob) error {
+	if strings.TrimSpace(job.ID) == "" {
+		return fmt.Errorf("postgres store: save workspace job: job ID is empty")
+	}
+	if strings.TrimSpace(job.WorkspaceID) == "" {
+		return fmt.Errorf("postgres store: save workspace job: workspace ID is empty")
+	}
+
+	tenantID = normalizeTenantID(tenantID)
+	if _, err := s.ensureTenant(ctx, tenantID); err != nil {
+		return fmt.Errorf("postgres store: save workspace job: %w", err)
+	}
+	if _, err := s.GetWorkspace(ctx, tenantID, job.WorkspaceID); err != nil {
+		return fmt.Errorf("postgres store: save workspace job: %w", err)
+	}
+	if existing, err := s.GetWorkspaceJob(ctx, tenantID, job.WorkspaceID, job.ID); err == nil {
+		if job.RequestedAt.IsZero() {
+			job.RequestedAt = existing.RequestedAt
+		}
+	}
+
+	job = normalizeWorkspaceJob(tenantID, job)
+	payload, err := json.Marshal(job)
+	if err != nil {
+		return fmt.Errorf("postgres store: save workspace job: marshal job: %w", err)
+	}
+
+	_, err = s.db.ExecContext(
+		ctx,
+		`INSERT INTO workspace_jobs (tenant_id, workspace_id, id, type, status, requested_at, updated_at, completed_at, correlation_id, raw_json)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		 ON CONFLICT (tenant_id, workspace_id, id) DO UPDATE
+		     SET type = EXCLUDED.type,
+		         status = EXCLUDED.status,
+		         requested_at = EXCLUDED.requested_at,
+		         updated_at = EXCLUDED.updated_at,
+		         completed_at = EXCLUDED.completed_at,
+		         correlation_id = EXCLUDED.correlation_id,
+		         raw_json = EXCLUDED.raw_json`,
+		tenantID,
+		job.WorkspaceID,
+		job.ID,
+		string(job.Type),
+		string(job.Status),
+		job.RequestedAt,
+		job.UpdatedAt,
+		nullTime(job.CompletedAt),
+		job.CorrelationID,
+		payload,
+	)
+	if err != nil {
+		return fmt.Errorf("postgres store: save workspace job %s: %w", job.ID, err)
+	}
+
+	return nil
+}
+
+// GetWorkspaceJob retrieves a persisted pilot workspace background job from PostgreSQL by identifier.
+func (s *PostgresStore) GetWorkspaceJob(ctx context.Context, tenantID, workspaceID, jobID string) (*models.WorkspaceJob, error) {
+	tenantID = normalizeTenantID(tenantID)
+
+	var payload []byte
+	if err := s.db.QueryRowContext(
+		ctx,
+		`SELECT raw_json FROM workspace_jobs WHERE tenant_id = $1 AND workspace_id = $2 AND id = $3`,
+		tenantID,
+		workspaceID,
+		jobID,
+	).Scan(&payload); err != nil {
+		return nil, fmt.Errorf("postgres store: get workspace job %s: %w", jobID, err)
+	}
+
+	var job models.WorkspaceJob
+	if err := json.Unmarshal(payload, &job); err != nil {
+		return nil, fmt.Errorf("postgres store: decode workspace job %s: %w", jobID, err)
+	}
+	job = normalizeWorkspaceJob(tenantID, job)
+	return &job, nil
+}
+
+// ListWorkspaceJobs returns pilot workspace background jobs ordered from newest to oldest updates.
+func (s *PostgresStore) ListWorkspaceJobs(ctx context.Context, tenantID, workspaceID string, limit int) ([]models.WorkspaceJob, error) {
+	tenantID = normalizeTenantID(tenantID)
+
+	query := `SELECT raw_json FROM workspace_jobs WHERE tenant_id = $1 AND workspace_id = $2 ORDER BY updated_at DESC`
+	args := []interface{}{tenantID, workspaceID}
+	if limit > 0 {
+		query += fmt.Sprintf(` LIMIT %d`, limit)
+	}
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("postgres store: list workspace jobs: %w", err)
+	}
+	defer rows.Close()
+
+	items := make([]models.WorkspaceJob, 0)
+	for rows.Next() {
+		var payload []byte
+		if err := rows.Scan(&payload); err != nil {
+			return nil, fmt.Errorf("postgres store: scan workspace job: %w", err)
+		}
+
+		var job models.WorkspaceJob
+		if err := json.Unmarshal(payload, &job); err != nil {
+			return nil, fmt.Errorf("postgres store: decode workspace job: %w", err)
+		}
+		items = append(items, normalizeWorkspaceJob(tenantID, job))
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("postgres store: iterate workspace jobs: %w", err)
 	}
 
 	return items, nil

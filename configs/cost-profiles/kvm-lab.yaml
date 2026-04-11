@@ -1,0 +1,8 @@
+platform: kvm
+name: KVM Lab
+cpu_cost_per_core_month: 2.5
+memory_cost_per_gb_month: 1
+storage_cost_per_gb_month: 0.2
+license_model: none
+support_cost_monthly: 3
+notes: Baseline upstream KVM/libvirt cost model for the local examples lab and pilot comparisons.

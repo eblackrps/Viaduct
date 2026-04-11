@@ -295,6 +295,19 @@ func normalizeMetricsPath(path string) string {
 		}
 	case strings.HasPrefix(path, "/api/v1/snapshots/"):
 		return "/api/v1/snapshots/:id"
+	case strings.HasPrefix(path, "/api/v1/workspaces/"):
+		trimmed := strings.Trim(path, "/")
+		parts := strings.Split(trimmed, "/")
+		if len(parts) >= 6 && parts[4] == "jobs" {
+			return "/" + strings.Join([]string{parts[0], parts[1], parts[2], ":id", parts[4], ":job_id"}, "/")
+		}
+		if len(parts) >= 6 && parts[4] == "reports" {
+			return "/" + strings.Join([]string{parts[0], parts[1], parts[2], ":id", parts[4], parts[5]}, "/")
+		}
+		if len(parts) >= 5 {
+			return "/" + strings.Join([]string{parts[0], parts[1], parts[2], ":id", parts[4]}, "/")
+		}
+		return "/api/v1/workspaces/:id"
 	case strings.HasPrefix(path, "/api/v1/admin/tenants/"):
 		return "/api/v1/admin/tenants/:id"
 	case strings.HasPrefix(path, "/api/v1/reports/"):

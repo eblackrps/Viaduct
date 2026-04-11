@@ -31,7 +31,7 @@ func TenantIDFromContext(ctx context.Context) string {
 	return normalizeTenantID(value)
 }
 
-// Store defines persistence operations for discovery snapshots, migration state, and inventory.
+// Store defines persistence operations for discovery snapshots, migration state, pilot workspaces, and inventory.
 type Store interface {
 	// SaveDiscovery persists a discovery result and returns the generated snapshot identifier.
 	SaveDiscovery(ctx context.Context, tenantID string, result *models.DiscoveryResult) (snapshotID string, err error)
@@ -65,6 +65,20 @@ type Store interface {
 	SaveAuditEvent(ctx context.Context, event models.AuditEvent) error
 	// ListAuditEvents returns tenant audit events ordered from newest to oldest.
 	ListAuditEvents(ctx context.Context, tenantID string, limit int) ([]models.AuditEvent, error)
+	// CreateWorkspace persists a new pilot workspace for the supplied tenant.
+	CreateWorkspace(ctx context.Context, tenantID string, workspace models.PilotWorkspace) error
+	// UpdateWorkspace overwrites a previously persisted pilot workspace.
+	UpdateWorkspace(ctx context.Context, tenantID string, workspace models.PilotWorkspace) error
+	// GetWorkspace retrieves a previously persisted pilot workspace by identifier.
+	GetWorkspace(ctx context.Context, tenantID, workspaceID string) (*models.PilotWorkspace, error)
+	// ListWorkspaces returns pilot workspaces ordered from newest to oldest updates.
+	ListWorkspaces(ctx context.Context, tenantID string, limit int) ([]models.PilotWorkspace, error)
+	// SaveWorkspaceJob persists a pilot workspace background job record.
+	SaveWorkspaceJob(ctx context.Context, tenantID string, job models.WorkspaceJob) error
+	// GetWorkspaceJob retrieves a previously persisted workspace background job record by identifier.
+	GetWorkspaceJob(ctx context.Context, tenantID, workspaceID, jobID string) (*models.WorkspaceJob, error)
+	// ListWorkspaceJobs returns workspace background jobs ordered from newest to oldest updates.
+	ListWorkspaceJobs(ctx context.Context, tenantID, workspaceID string, limit int) ([]models.WorkspaceJob, error)
 	// Close releases any store resources.
 	Close() error
 }
