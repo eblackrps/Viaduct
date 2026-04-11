@@ -15,15 +15,8 @@ Viaduct can be evaluated from source or from a packaged release bundle.
 ```bash
 go mod tidy
 make build
+make web-build
 ./bin/viaduct version
-```
-
-### Build The Dashboard
-
-```bash
-cd web
-npm ci
-npm run build
 ```
 
 ## Packaged Release Bundle
@@ -57,7 +50,7 @@ Build the container image:
 make docker
 ```
 
-The image packages the API binary plus built dashboard assets under `/opt/viaduct/web`. The default entrypoint starts `viaduct serve-api --port 8080`.
+The image packages the API binary plus built dashboard assets under `/opt/viaduct/web`. The default container command starts `viaduct serve-api --port 8080`, which serves the dashboard at `/` and the API under `/api/v1/`.
 
 ## Install On Unix-Like Systems
 
@@ -81,6 +74,8 @@ From an unpacked release bundle:
 
 The default target is a user-local directory under `%LOCALAPPDATA%\Programs\Viaduct`.
 
+When the bundled web assets are present, `viaduct serve-api --port 8080` serves the same operator shell at [http://localhost:8080](http://localhost:8080).
+
 ## First-Run Files
 - CLI config example: [`../../configs/config.example.yaml`](../../configs/config.example.yaml)
 - Root env example: [`../../.env.example`](../../.env.example)
@@ -97,6 +92,7 @@ viaduct --help
 If you installed only the CLI and not the dashboard assets, the API and migration/lifecycle backends still work; only the packaged static web assets are absent.
 
 For browser access in packaged environments:
-- set `VIADUCT_ALLOWED_ORIGINS` if the dashboard is served from a non-default origin
+- set `VIADUCT_ALLOWED_ORIGINS` only if the dashboard is served from a non-default origin
+- set `VIADUCT_WEB_DIR` only if the built dashboard assets live outside the standard packaged or installed paths
 - prefer service-account keys for normal operator access
 - use `VIADUCT_WORKSPACE_JOB_TIMEOUT` if workspace jobs need a different server-side timeout budget

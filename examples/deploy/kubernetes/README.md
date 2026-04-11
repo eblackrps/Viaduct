@@ -7,7 +7,7 @@ These manifests provide a minimal in-cluster Viaduct API deployment for labs, de
 - `configmap.yaml`: mounts a starter `config.yaml`
 - `secret.example.yaml`: example secret manifest for the admin API key
 - `deployment.yaml`: single-replica API deployment with probes and basic container safeguards
-- `service.yaml`: ClusterIP service exposing the HTTP API
+- `service.yaml`: ClusterIP service exposing the HTTP listener for both the dashboard shell and API routes
 
 ## Apply Order
 
@@ -22,5 +22,5 @@ kubectl apply -f service.yaml
 
 - replace `change-me` in `secret.example.yaml` before applying it outside a throwaway lab
 - set `state_store_dsn` in the mounted config if you need persistent state
-- the bundled dashboard is not served by these manifests; they focus on the API control plane
+- the stock image serves the bundled dashboard at `/` and the API under `/api/v1/` on the same listener
 - use an ingress or reverse proxy only after you have explicit auth, TLS, and tenant handling in place

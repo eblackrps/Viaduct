@@ -106,6 +106,7 @@ type Server struct {
 	recommendationEngine *lifecycle.RecommendationEngine
 	driftDetector        *lifecycle.DriftDetector
 	resolveConfig        func(platform models.Platform, address, credentialRef string) connectors.Config
+	dashboardDir         string
 	allowedOrigins       map[string]struct{}
 	workspaceJobTimeout  time.Duration
 
@@ -148,6 +149,7 @@ func NewServer(engine *discovery.Engine, stateStore store.Store, port int, catal
 		policyEngine:         policyEngine,
 		recommendationEngine: lifecycle.NewRecommendationEngine(costEngine, policyEngine),
 		driftDetector:        lifecycle.NewDriftDetector(stateStore, policyEngine, lifecycle.DriftConfig{}),
+		dashboardDir:         resolveDashboardAssetDir(""),
 		allowedOrigins:       configuredAllowedOrigins(os.Getenv("VIADUCT_ALLOWED_ORIGINS")),
 		workspaceJobTimeout:  durationEnv("VIADUCT_WORKSPACE_JOB_TIMEOUT", 2*time.Minute),
 		resolveConfig: func(platform models.Platform, address, credentialRef string) connectors.Config {
@@ -159,6 +161,14 @@ func NewServer(engine *discovery.Engine, stateStore store.Store, port int, catal
 		},
 		specs: make(map[string]*migratepkg.MigrationSpec),
 	}
+}
+
+// SetDashboardDir configures the directory used to serve built dashboard assets from the API process.
+func (s *Server) SetDashboardDir(path string) {
+	if s == nil {
+		return
+	}
+	s.dashboardDir = resolveDashboardAssetDir(path)
 }
 
 func resolveOperatorPath(path string) string {
@@ -295,6 +305,9 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("/api/v1/tenants/current", tenantHandler)
 	mux.Handle("/api/v1/service-accounts", tenantHandler)
 	mux.Handle("/api/v1/service-accounts/", tenantHandler)
+	if dashboardHandler := s.dashboardHandler(); dashboardHandler != nil {
+		mux.Handle("/", dashboardHandler)
+	}
 
 	return s.withObservability(s.withCORS(mux))
 }
@@ -1248,20 +1261,24 @@ func validateExecutionRequest(spec migratepkg.MigrationSpec, now time.Time) erro
 
 func (s *Server) withCORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		s.applySecurityHeaders(w, r)
-		if origin, allowed := s.allowedOrigin(r); origin != "" && allowed {
-			w.Header().Set("Vary", "Origin")
-			w.Header().Set("Access-Control-Allow-Origin", origin)
-		}
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-API-Key, X-Service-Account-Key, X-Admin-Key, X-Request-ID")
-		w.Header().Set("Access-Control-Allow-Methods", "GET,POST,PATCH,DELETE,OPTIONS")
-		if r.Method == http.MethodOptions {
-			if origin, allowed := s.allowedOrigin(r); origin != "" && !allowed {
-				http.Error(w, "origin is not allowed", http.StatusForbidden)
+		if strings.HasPrefix(r.URL.Path, "/api/") {
+			s.applySecurityHeaders(w, r)
+			if origin, allowed := s.allowedOrigin(r); origin != "" && allowed {
+				w.Header().Set("Vary", "Origin")
+				w.Header().Set("Access-Control-Allow-Origin", origin)
+			}
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-API-Key, X-Service-Account-Key, X-Admin-Key, X-Request-ID")
+			w.Header().Set("Access-Control-Allow-Methods", "GET,POST,PATCH,DELETE,OPTIONS")
+			if r.Method == http.MethodOptions {
+				if origin, allowed := s.allowedOrigin(r); origin != "" && !allowed {
+					http.Error(w, "origin is not allowed", http.StatusForbidden)
+					return
+				}
+				w.WriteHeader(http.StatusNoContent)
 				return
 			}
-			w.WriteHeader(http.StatusNoContent)
-			return
+		} else {
+			s.applyDashboardSecurityHeaders(w, r)
 		}
 		next.ServeHTTP(w, r)
 	})
@@ -1279,6 +1296,17 @@ func (s *Server) applySecurityHeaders(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'")
 	w.Header().Set("Permissions-Policy", "camera=(), geolocation=(), microphone=()")
 	w.Header().Set("Referrer-Policy", "no-referrer")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("X-Frame-Options", "DENY")
+	if requestScheme(r) == "https" {
+		w.Header().Set("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
+	}
+}
+
+func (s *Server) applyDashboardSecurityHeaders(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Security-Policy", "default-src 'self'; base-uri 'none'; connect-src 'self'; font-src 'self' data:; form-action 'self'; frame-ancestors 'none'; img-src 'self' data:; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'")
+	w.Header().Set("Permissions-Policy", "camera=(), geolocation=(), microphone=()")
+	w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("X-Frame-Options", "DENY")
 	if requestScheme(r) == "https" {

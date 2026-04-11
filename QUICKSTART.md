@@ -6,11 +6,12 @@ This is the fastest source-based evaluation path for Viaduct. It uses the local 
 
 Viaduct is in active development. Start in the lab or a supervised pilot first.
 
-## 1. Build The CLI
+## 1. Build Viaduct
 
 ```bash
 go mod tidy
 make build
+make web-build
 ./bin/viaduct version
 ```
 
@@ -19,6 +20,7 @@ On Windows PowerShell:
 ```powershell
 go mod tidy
 make build
+make web-build
 .\bin\viaduct.exe version
 ```
 
@@ -45,7 +47,7 @@ $env:VIADUCT_ADMIN_KEY = "lab-admin"
 .\bin\viaduct.exe serve-api --port 8080
 ```
 
-The API accepts browser requests from the default local dashboard origins (`http://localhost:5173`, `http://127.0.0.1:5173`, `http://localhost:4173`, `http://127.0.0.1:4173`). If you serve the dashboard from a different origin, set `VIADUCT_ALLOWED_ORIGINS` before starting the API.
+When built dashboard assets are present, the same process serves the WebUI at [http://localhost:8080](http://localhost:8080). If you serve the dashboard from a different origin, set `VIADUCT_ALLOWED_ORIGINS` before starting the API.
 
 ## 4. Seed The Lab Tenant And Service Account
 
@@ -69,7 +71,17 @@ This creates:
 
 Use the service-account key for the normal operator flow. Keep the tenant key for bootstrap or break-glass admin work.
 
-## 5. Start The Dashboard
+## 5. Open The Dashboard
+
+Open [http://localhost:8080](http://localhost:8080). The dashboard starts on the pilot workspace route and asks for a runtime key.
+
+Authenticate with:
+- preferred: `lab-operator-key`
+- bootstrap only: `lab-tenant-key`
+
+The dashboard stores the runtime key in session storage by default. Use the "Remember this browser" option only when you intentionally want the browser to keep a local copy across restarts on a trusted workstation.
+
+If you want the Vite development server instead of the packaged local shell:
 
 ```bash
 cd web
@@ -77,13 +89,7 @@ npm ci
 npm run dev
 ```
 
-Open the Vite URL shown in the terminal. The dashboard starts on the pilot workspace route and asks for a runtime key.
-
-Authenticate with:
-- preferred: `lab-operator-key`
-- bootstrap only: `lab-tenant-key`
-
-The dashboard stores the runtime key in session storage by default. Use the "Remember this browser" option only when you intentionally want the browser to keep a local copy across restarts on a trusted workstation.
+Use that only for frontend development. The default operator path is the same-origin dashboard served by `viaduct serve-api`.
 
 ## 6. Run The Workspace-First Flow
 

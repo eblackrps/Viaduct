@@ -20,13 +20,20 @@ docker compose -f examples/deploy/docker-compose.yml up
 
 The Compose stack expects `examples/deploy/config/config.yaml` and reads environment overrides from `examples/deploy/viaduct.env.example`.
 
+When the image includes built dashboard assets, the same HTTP listener serves:
+- dashboard shell: `/`
+- API routes: `/api/v1/*`
+
 ## systemd
 
 Use `systemd/viaduct.service` as a starting point for package-based installs. The unit expects:
-- the `viaduct` binary in `/usr/local/bin`
+- an extracted bundle layout rooted at `/opt/viaduct`
+- the `viaduct` binary at `/opt/viaduct/bin/viaduct`
 - a config file at `/etc/viaduct/config.yaml`
 - an optional environment file at `/etc/viaduct/viaduct.env`
 - persistent writable state under `/var/lib/viaduct`
+
+If the extracted package or install layout also includes `share/viaduct/web`, the same service can expose the dashboard at `/` without a separate static web server.
 
 ## Kubernetes
 
@@ -36,5 +43,5 @@ See [kubernetes/README.md](kubernetes/README.md) for apply order and manifest no
 
 - These examples are intended for evaluation and controlled pilot environments.
 - Persistent environments should point `state_store_dsn` at PostgreSQL instead of using the in-memory store.
-- The bundled dashboard is built into the release package; the Vite dev server is not part of these deployment examples.
+- The bundled dashboard is built into the release package and served by the same `viaduct serve-api` process when those assets are present.
 - Treat these manifests as references to adapt, not as comprehensive hardening guidance.

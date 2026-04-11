@@ -16,13 +16,14 @@ From source:
 git pull
 go mod tidy
 make build
+make web-build
 ```
 
 From a packaged release bundle:
 1. Unpack the new bundle.
 2. Verify `release-manifest.json` and `SHA256SUMS.txt`.
 3. Replace the existing binary with the new one.
-4. Replace packaged web assets if you serve the dashboard statically.
+4. Replace the packaged web assets if you keep a separate installed copy of `share/viaduct/web`.
 
 ## Config Compatibility
 - Keep your existing `~/.viaduct/config.yaml`.
@@ -39,7 +40,7 @@ From a packaged release bundle:
 - `viaduct --help`
 - `viaduct plan --spec examples/lab/migration-window.yaml`
 - API health: `GET /api/v1/health`
-- Dashboard build or static asset load, if applicable
+- Dashboard shell load at `/` when built assets are present
 
 ## Recommended Release Validation
 

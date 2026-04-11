@@ -56,6 +56,7 @@ Fields:
 - `VIADUCT_ADMIN_KEY`: admin API key used by the REST server for tenant administration
 - `VIADUCT_PLUGIN_ADDR`: plugin listener address used by community connector plugins
 - `VIADUCT_ALLOWED_ORIGINS`: comma-separated browser origins allowed to call the API from another origin; defaults to the local Vite origins on ports `5173` and `4173`
+- `VIADUCT_WEB_DIR`: override path for built dashboard assets when they are not in `web/dist`, `web/`, or the installed `share/viaduct/web` layout
 - `VIADUCT_WORKSPACE_JOB_TIMEOUT`: per-job server-side timeout for pilot workspace discovery, graph, simulation, and plan generation; defaults to `2m`
 
 ## Dashboard Environment Variables
@@ -66,7 +67,7 @@ The dashboard reads this through Vite. See [`../../web/.env.example`](../../web/
 
 The dashboard now also supports runtime authentication bootstrap. When neither variable is set, the app starts on a bootstrap screen and accepts either a service-account key or tenant key at runtime. The selected credential is stored in browser session storage by default and is cleared when the browser session ends. Operators can explicitly choose to remember the key in local storage on trusted workstations.
 
-For early-product and pilot use, prefer `VITE_VIADUCT_SERVICE_ACCOUNT_KEY` for normal dashboard access. Reserve `VITE_VIADUCT_API_KEY` for tenant bootstrap, short-lived admin work, or break-glass access.
+Prefer `VITE_VIADUCT_SERVICE_ACCOUNT_KEY` for normal dashboard access when you intentionally pre-seed a development build. Reserve `VITE_VIADUCT_API_KEY` for tenant bootstrap, short-lived admin work, or break-glass access.
 
 ## API Authentication Headers
 - `X-API-Key`: tenant-scoped API key for inventory, migration, lifecycle, and summary routes
@@ -77,7 +78,7 @@ For early-product and pilot use, prefer `VITE_VIADUCT_SERVICE_ACCOUNT_KEY` for n
 ## Tenant Defaults
 - The built-in `default` tenant exists automatically in both the memory store and PostgreSQL store.
 - The API can fall back to the default tenant only when there are no active custom tenants and the default tenant has no API key configured.
-- Any production deployment should use explicit tenant keys rather than relying on fallback behavior.
+- Any shared or persistent deployment should use explicit tenant keys rather than relying on fallback behavior.
 - Any pilot or packaged dashboard deployment should prefer named service-account credentials over a shared tenant-wide key.
 
 ## State Store Notes

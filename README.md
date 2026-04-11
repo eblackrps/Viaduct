@@ -56,6 +56,7 @@ The cleanest path is the local lab in [examples/lab](examples/lab).
 mkdir -p ~/.viaduct
 cp examples/lab/config.yaml ~/.viaduct/config.yaml
 make build
+make web-build
 ./bin/viaduct version
 
 export VIADUCT_ADMIN_KEY=lab-admin
@@ -78,11 +79,13 @@ curl -X POST \
   http://localhost:8080/api/v1/service-accounts
 ```
 
-Then start the dashboard in `web/`, sign in with `lab-operator-key`, and run the workspace-first flow.
+Then open [http://localhost:8080](http://localhost:8080), sign in with `lab-operator-key`, and run the workspace-first flow.
+
+`viaduct serve-api` now serves the built dashboard automatically when assets are present in `web/dist`, a packaged `web/` directory, or an installed `share/viaduct/web` layout. If you prefer the Vite development server while changing frontend code, that flow still lives in [web/README.md](web/README.md).
 
 The runtime bootstrap stores keys in the browser session by default. Use the optional remember toggle only on a trusted workstation.
 
-If you serve the dashboard from a non-default origin, configure `VIADUCT_ALLOWED_ORIGINS` on the API so the browser can reach tenant-protected routes.
+If you serve the dashboard from a non-default origin, configure `VIADUCT_ALLOWED_ORIGINS` on the API so the browser can reach tenant-protected routes. The same-origin packaged and local built path on `http://localhost:8080` does not need that override.
 
 Use these entrypoints next:
 - Quickstart: [QUICKSTART.md](QUICKSTART.md)

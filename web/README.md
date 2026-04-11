@@ -30,6 +30,16 @@ npm run build
 
 Release bundles for the dashboard are produced through `make package-release-matrix`, and `make release-gate` is the canonical verification path.
 
+For the packaged local operator path from the repo root:
+
+```bash
+make build
+make web-build
+./bin/viaduct serve-api --port 8080
+```
+
+Then open [http://localhost:8080](http://localhost:8080). The API process serves the built dashboard from `web/dist` when those assets are present.
+
 ## Environment
 
 - `VITE_VIADUCT_API_KEY`: tenant-scoped API key for development bootstrap or tenant-admin access

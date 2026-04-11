@@ -16,10 +16,11 @@ import (
 
 func newServeAPICommand() *cobra.Command {
 	var port int
+	var webDir string
 
 	cmd := &cobra.Command{
 		Use:    "serve-api",
-		Short:  "Start the Viaduct REST API server",
+		Short:  "Start the Viaduct API server and serve built dashboard assets when available",
 		Hidden: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := loadAppConfig(configPath)
@@ -43,6 +44,7 @@ func newServeAPICommand() *cobra.Command {
 
 			server := viaductapi.NewServer(discovery.NewEngine(), stateStore, port, catalog)
 			server.SetBuildInfo(version, commit, date)
+			server.SetDashboardDir(webDir)
 			server.SetConnectorConfigResolver(func(platform models.Platform, address, credentialRef string) connectors.Config {
 				return resolveMigrationConnectorConfig(address, string(platform), credentialRef, cfg)
 			})
@@ -51,5 +53,6 @@ func newServeAPICommand() *cobra.Command {
 	}
 
 	cmd.Flags().IntVar(&port, "port", 8080, "Port to bind the Viaduct API server to")
+	cmd.Flags().StringVar(&webDir, "web-dir", "", "Path to built dashboard assets; when empty, Viaduct auto-detects packaged or built web assets")
 	return cmd
 }

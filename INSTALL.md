@@ -16,16 +16,18 @@ git clone https://github.com/eblackrps/Viaduct.git
 cd viaduct
 go mod tidy
 make build
+make web-build
 ./bin/viaduct version
 ```
 
-Build the dashboard if you need the web UI:
+Start the packaged local operator surface:
 
 ```bash
-cd web
-npm ci
-npm run build
+export VIADUCT_ADMIN_KEY=change-me
+./bin/viaduct serve-api --port 8080
 ```
+
+Then open [http://localhost:8080](http://localhost:8080).
 
 ## Install From A Release Bundle
 
@@ -51,12 +53,22 @@ On Windows PowerShell:
 .\install.ps1 -SourceBin .\bin\viaduct.exe -SourceWeb .\web -Prefix "$env:LOCALAPPDATA\\Viaduct"
 ```
 
+After install:
+
+```bash
+viaduct serve-api --port 8080
+```
+
+Then open [http://localhost:8080](http://localhost:8080).
+
 ## Verify The Install
 
 ```bash
 viaduct version
 viaduct --help
 ```
+
+When built dashboard assets are present, the same `viaduct serve-api` process serves the dashboard shell at `/` and the API under `/api/v1/`.
 
 ## Recommended Next Step
 
@@ -65,6 +77,7 @@ The cleanest evaluation path is still the local lab in [examples/lab](examples/l
 For packaged or persistent evaluation environments:
 - use PostgreSQL instead of the in-memory store
 - prefer service-account keys for normal operator access
-- set `VIADUCT_ALLOWED_ORIGINS` if the dashboard is served from anything other than the default local Vite origins
+- set `VIADUCT_ALLOWED_ORIGINS` only when the dashboard is served from a different origin than the API
+- set `VIADUCT_WEB_DIR` only when you keep built dashboard assets in a non-standard location
 - tune `VIADUCT_WORKSPACE_JOB_TIMEOUT` if discovery or planning jobs need a different server-side timeout budget
 - keep the Vite dev server out of any shared or internet-facing environment

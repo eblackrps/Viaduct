@@ -28,6 +28,7 @@ This path is the default local evaluation route from a fresh clone.
 mkdir -p ~/.viaduct
 cp examples/lab/config.yaml ~/.viaduct/config.yaml
 make build
+make web-build
 ```
 
 Start the API with an admin bootstrap key:
@@ -70,15 +71,9 @@ This seeds a deterministic service-account key of `lab-operator-key`.
 
 Use the tenant key only for bootstrap or break-glass admin actions. Use the service-account key for the normal dashboard and pilot flow.
 
-## 4. Start The Dashboard
+## 4. Open The Dashboard
 
-```bash
-cd web
-npm ci
-npm run dev
-```
-
-Open the Vite URL shown in the terminal. The dashboard now starts on the pilot workspace route and presents a runtime authentication bootstrap screen.
+Open [http://localhost:8080](http://localhost:8080). The same `serve-api` process serves the built dashboard and presents the runtime authentication bootstrap screen on the pilot workspace route.
 
 Authenticate in one of two ways:
 - Preferred: choose `Service account` and paste `lab-operator-key`
@@ -92,7 +87,7 @@ You can still pre-seed development credentials with:
 
 The runtime bootstrap flow is the canonical operator path because it works for packaged environments and does not require a rebuild to rotate credentials.
 
-The API accepts browser requests from the default local dashboard origins. If you serve the dashboard from another host or port, set `VIADUCT_ALLOWED_ORIGINS` before starting the API.
+The same-origin packaged path does not need special CORS configuration. If you serve the dashboard from another host or port, set `VIADUCT_ALLOWED_ORIGINS` before starting the API.
 
 ## 5. Run The Workspace-First Operator Flow
 

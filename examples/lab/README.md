@@ -17,6 +17,7 @@ This directory contains the default local evaluation path for Viaduct.
 mkdir -p ~/.viaduct
 cp examples/lab/config.yaml ~/.viaduct/config.yaml
 make build
+make web-build
 export VIADUCT_ADMIN_KEY=lab-admin
 ./bin/viaduct serve-api --port 8080
 ```
@@ -37,15 +38,11 @@ curl -X POST \
   http://localhost:8080/api/v1/service-accounts
 ```
 
-Then launch the dashboard and sign in with `lab-operator-key`:
-
-```bash
-cd web
-npm ci
-npm run dev
-```
+Then open [http://localhost:8080](http://localhost:8080) and sign in with `lab-operator-key`.
 
 The bootstrap screen stores the key in session storage by default. Use the remember option only when you want the browser to retain the key across restarts.
+
+If you are actively editing the dashboard, you can still run `npm run dev` inside `web/` and use the Vite server instead. The default operator path for the lab is the same-origin shell served by `viaduct serve-api`.
 
 The default dashboard sequence is:
 

@@ -17,7 +17,7 @@ On Windows, `make release-gate` still builds `bin/viaduct.exe`, but it validates
 2. Run `make release-gate`.
 3. Inspect the generated bundles in `dist/`.
 4. Verify `release-manifest.json`, `dependency-manifest.json`, and `SHA256SUMS.txt`.
-5. Smoke-test the packaged binary with `viaduct version` and `viaduct --help`.
+5. Smoke-test the packaged binary with `viaduct version`, `viaduct --help`, and `viaduct serve-api --port 8080` against the bundled dashboard assets when they are present.
 6. Confirm install docs, upgrade docs, rollback docs, deployment examples, and the pilot workspace guide still match the artifact layout.
 7. Confirm the release notes entry, changelog entry, and screenshot assets are present and aligned with the shipped workflow.
 8. Verify the plugin manifest check and OpenAPI contract check remain green.

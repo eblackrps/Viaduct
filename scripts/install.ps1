@@ -12,10 +12,11 @@ if (-not (Test-Path -LiteralPath $SourceBin)) {
 
 $binDir = Join-Path $Prefix "bin"
 $shareDir = Join-Path $Prefix "share"
-$webTarget = Join-Path $shareDir "web"
+$viaductShareDir = Join-Path $shareDir "viaduct"
+$webTarget = Join-Path $viaductShareDir "web"
 
 New-Item -ItemType Directory -Force -Path $binDir | Out-Null
-New-Item -ItemType Directory -Force -Path $shareDir | Out-Null
+New-Item -ItemType Directory -Force -Path $viaductShareDir | Out-Null
 
 Copy-Item -LiteralPath $SourceBin -Destination (Join-Path $binDir "viaduct.exe") -Force
 

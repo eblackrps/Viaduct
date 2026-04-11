@@ -39,13 +39,15 @@ Fix:
 
 Cause:
 - `viaduct serve-api` is not running
-- Vite is not proxying to `localhost:8080`
-- neither `VITE_VIADUCT_SERVICE_ACCOUNT_KEY` nor `VITE_VIADUCT_API_KEY` is configured for tenant-protected routes
+- the built dashboard assets are missing from the default serve path
+- Vite is not proxying to `localhost:8080` when you are using the dev server
+- no runtime key or pre-seeded dashboard key is available for tenant-protected routes
 
 Fix:
 - start `viaduct serve-api --port 8080`
-- verify the dashboard `.env` file
-- prefer `VITE_VIADUCT_SERVICE_ACCOUNT_KEY` for normal dashboard use
+- open `http://localhost:8080` for the default same-origin operator path
+- set `VIADUCT_WEB_DIR` only if the built dashboard assets live outside the standard packaged or installed paths
+- use the runtime bootstrap screen or prefer `VITE_VIADUCT_SERVICE_ACCOUNT_KEY` for local development
 - confirm API health at `/api/v1/health`
 
 ## Browser Reports `origin not allowed`
@@ -57,6 +59,7 @@ Fix:
 - set `VIADUCT_ALLOWED_ORIGINS` to a comma-separated list of trusted dashboard origins
 - restart `viaduct serve-api`
 - keep the value narrow instead of using a wildcard
+- skip this override for the default same-origin path on `http://localhost:8080`
 
 ## Workspace Job Fails With `context deadline exceeded`
 

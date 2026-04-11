@@ -13,6 +13,7 @@ The default dashboard path is now workspace-first and authenticated at runtime w
 
 ```bash
 make build
+make web-build
 ./bin/viaduct version
 ```
 
@@ -21,6 +22,8 @@ On Windows without `make`:
 ```powershell
 go mod tidy
 go build -o bin/viaduct.exe ./cmd/viaduct
+npm --prefix web ci
+npm --prefix web run build
 .\bin\viaduct.exe version
 ```
 
@@ -40,7 +43,7 @@ export VIADUCT_ADMIN_KEY=lab-admin
 ./bin/viaduct serve-api --port 8080
 ```
 
-The API accepts browser requests from the default local dashboard origins (`http://localhost:5173`, `http://127.0.0.1:5173`, `http://localhost:4173`, `http://127.0.0.1:4173`). For any other dashboard origin, set `VIADUCT_ALLOWED_ORIGINS` before starting the API.
+The same process now serves the built dashboard at [http://localhost:8080](http://localhost:8080) when assets are present. For any other dashboard origin, set `VIADUCT_ALLOWED_ORIGINS` before starting the API.
 
 In another terminal, create the lab tenant and operator service account:
 
@@ -58,15 +61,9 @@ curl -X POST \
   http://localhost:8080/api/v1/service-accounts
 ```
 
-## 4. Start The Dashboard
+## 4. Open The Dashboard
 
-```bash
-cd web
-npm ci
-npm run dev
-```
-
-Open the dashboard in your browser at the Vite URL shown in the terminal. The dashboard proxies API calls to `http://localhost:8080` and opens on the pilot workspace route.
+Open [http://localhost:8080](http://localhost:8080). The dashboard opens on the pilot workspace route and calls the same origin API.
 
 Authenticate through the runtime bootstrap screen:
 - preferred service-account key: `lab-operator-key`
@@ -74,7 +71,15 @@ Authenticate through the runtime bootstrap screen:
 
 The runtime key is kept in session storage by default. Use the remember option only when you intentionally want the browser to keep a local copy across restarts.
 
-For packaged or persistent environments, prefer `VITE_VIADUCT_SERVICE_ACCOUNT_KEY` over `VITE_VIADUCT_API_KEY` so operator activity is attributable to a named service account instead of the tenant-wide admin credential.
+For packaged or persistent environments, prefer `VITE_VIADUCT_SERVICE_ACCOUNT_KEY` over `VITE_VIADUCT_API_KEY` only when you intentionally pre-seed a development build. The runtime bootstrap is the default operator path.
+
+If you want the Vite development server while editing frontend code:
+
+```bash
+cd web
+npm ci
+npm run dev
+```
 
 ## 5. Run The Workspace-First Operator Flow
 
