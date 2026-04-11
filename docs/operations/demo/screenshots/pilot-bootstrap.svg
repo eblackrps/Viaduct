@@ -17,7 +17,7 @@
   <text x="92" y="184" fill="#567081" font-family="Segoe UI, Arial, sans-serif" font-size="18">Use a scoped service-account key for day-to-day operator work. Use a tenant key only for bootstrap or recovery.</text>
 
   <rect x="92" y="212" width="152" height="34" rx="17" fill="#F3F8FB" stroke="#D5E1E8"/>
-  <text x="118" y="234" fill="#425B6B" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">Viaduct v1.8.0</text>
+  <text x="118" y="234" fill="#425B6B" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">Viaduct v1.9.0</text>
   <rect x="256" y="212" width="194" height="34" rx="17" fill="#E8F4FA"/>
   <text x="286" y="234" fill="#1E657E" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">Runtime authentication</text>
   <rect x="462" y="212" width="218" height="34" rx="17" fill="#F3F8FB" stroke="#D5E1E8"/>

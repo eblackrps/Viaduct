@@ -24,4 +24,4 @@ Use the files in this directory when you actually present.
 
 These assets are intentionally narrow. They support the VMware-exit migration assessment, planning, and supervised pilot story Viaduct is currently hardening, not a broad repo tour.
 
-The current release-facing screenshots are aligned with the refreshed workspace-first operator shell shipped in v1.8.0.
+The current release-facing screenshots are aligned with the packaged operator shell and same-origin startup flow shipped in v1.9.0.

@@ -4,6 +4,7 @@ This directory contains release notes and other release-facing narrative assets 
 
 ## Files
 
+- [v1.9.0 release notes](v1.9.0.md)
 - [v1.8.0 release notes](v1.8.0.md)
 - [v1.7.0 release notes](v1.7.0.md)
 - [v1.6.0 release notes](v1.6.0.md)

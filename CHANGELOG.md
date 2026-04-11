@@ -8,6 +8,22 @@ This changelog tracks published releases and the major implementation milestones
 
 - No unreleased changes yet.
 
+## [1.9.0] - 2026-04-11
+
+### Install, Packaging, And Startup Flow
+- taught `viaduct serve-api` to serve built dashboard assets from the repo build output, packaged bundles, and installed asset paths so the default operator path is now one same-origin process
+- added an explicit `--web-dir` override plus `VIADUCT_WEB_DIR` support for non-standard packaged asset layouts
+- aligned the Windows install script with the shared `share/viaduct/web` layout used on Unix-like installs
+
+### Deployment And Operator Experience
+- corrected container, Docker Compose, and Kubernetes command wiring so the shipped image starts the intended `viaduct serve-api` process cleanly
+- moved the first-run and lab documentation to the WebUI-first path at `http://localhost:8080` while preserving the Vite dev-server flow for frontend development
+- tightened troubleshooting, configuration, upgrade, and deployment guidance around the same packaged dashboard, CLI, and API behavior
+
+### Release And Demo Surfaces
+- refreshed release-facing screenshot labels and demo references for the `v1.9.0` product surface
+- added `v1.9.0` release notes and synchronized the changelog, dashboard package metadata, and release-facing docs around the new version
+
 ## [1.8.0] - 2026-04-11
 
 ### Dashboard And Operator Experience
