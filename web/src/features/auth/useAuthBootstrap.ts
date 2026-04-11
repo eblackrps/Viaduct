@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { describeError, getAbout, getCurrentTenant, type ErrorDisplay } from "../../api";
+import { describeError, getAbout, getCurrentTenant, isAPIError, type ErrorDisplay } from "../../api";
 import {
   clearDashboardAuthSession,
   getDashboardAuthSession,
@@ -27,13 +27,6 @@ export function useAuthBootstrap(): AuthBootstrapState {
 
   async function refresh() {
     setAbout((current) => current);
-    if (!hasDashboardAuthConfigured()) {
-      setCurrentTenant(null);
-      setError(null);
-      setStatus("unauthenticated");
-      return;
-    }
-
     setStatus("checking");
     const [aboutResult, tenantResult] = await Promise.allSettled([getAbout(), getCurrentTenant()]);
     if (aboutResult.status === "fulfilled") {
@@ -44,6 +37,13 @@ export function useAuthBootstrap(): AuthBootstrapState {
       setCurrentTenant(tenantResult.value);
       setError(null);
       setStatus("authenticated");
+      return;
+    }
+
+    if (!hasDashboardAuthConfigured() && isExpectedUnauthenticated(tenantResult.reason)) {
+      setCurrentTenant(null);
+      setError(null);
+      setStatus("unauthenticated");
       return;
     }
 
@@ -64,18 +64,10 @@ export function useAuthBootstrap(): AuthBootstrapState {
 
   function signOut() {
     clearDashboardAuthSession();
-    setCurrentTenant(null);
-    setError(null);
-    setStatus("unauthenticated");
+    void refresh();
   }
 
   useEffect(() => {
-    const session = getDashboardAuthSession();
-    if (session.mode === "none") {
-      setStatus("unauthenticated");
-      void getAbout().then(setAbout).catch(() => null);
-      return;
-    }
     void refresh();
   }, []);
 
@@ -88,4 +80,14 @@ export function useAuthBootstrap(): AuthBootstrapState {
     connect,
     signOut,
   };
+}
+
+function isExpectedUnauthenticated(reason: unknown): boolean {
+  if (!isAPIError(reason)) {
+    return false;
+  }
+  if (reason.status === 401) {
+    return true;
+  }
+  return reason.code === "missing_credentials" || reason.code === "invalid_credentials";
 }

@@ -9,7 +9,8 @@ import (
 	"strings"
 )
 
-func resolveDashboardAssetDir(preferred string) string {
+// ResolveDashboardAssetDir returns the first built dashboard asset directory that matches the supplied preference or Viaduct's packaged layouts.
+func ResolveDashboardAssetDir(preferred string) string {
 	candidates := make([]string, 0, 10)
 	seen := make(map[string]struct{}, 10)
 	appendCandidate := func(candidate string) {
@@ -56,6 +57,10 @@ func resolveDashboardAssetDir(preferred string) string {
 	}
 
 	return ""
+}
+
+func resolveDashboardAssetDir(preferred string) string {
+	return ResolveDashboardAssetDir(preferred)
 }
 
 func resolveExistingDirCandidate(candidate string) (string, bool) {

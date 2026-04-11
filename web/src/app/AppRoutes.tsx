@@ -120,14 +120,18 @@ function AuthenticatedAppRoutes({ auth }: { auth: AuthBootstrapState }) {
   const currentRoute = getNavigationItem(path);
   const authSession = getDashboardAuthSession();
   const authPersistence = getDashboardAuthPersistence();
-  const authSourceLabel =
-    authSession.mode === "service-account"
+  const localSingleUserMode =
+    authSession.mode === "none" && auth.currentTenant?.auth_method === "default-fallback";
+  const authSourceLabel = localSingleUserMode
+    ? "Local single-user session"
+    : authSession.mode === "service-account"
       ? "Service-account key"
       : authSession.mode === "tenant"
         ? "Tenant key"
         : "No runtime credential";
-  const authPersistenceLabel =
-    authPersistence === "local"
+  const authPersistenceLabel = localSingleUserMode
+    ? "No browser key required on this local runtime"
+    : authPersistence === "local"
       ? "Remembered in this browser"
       : authPersistence === "session"
         ? "Session-only browser key"
@@ -152,13 +156,13 @@ function AuthenticatedAppRoutes({ auth }: { auth: AuthBootstrapState }) {
         modeLabel: authSourceLabel,
         persistenceLabel: authPersistenceLabel,
       }}
-      onSignOut={authSession.source === "runtime" ? auth.signOut : undefined}
+      onSignOut={authSession.source === "runtime" && authSession.mode !== "none" ? auth.signOut : undefined}
       error={overview.error}
     >
       {renderRoute(currentRoute.path, overview, {
         authSourceLabel,
         authPersistenceLabel,
-        onForgetRuntimeKey: authSession.source === "runtime" ? auth.signOut : undefined,
+        onForgetRuntimeKey: authSession.source === "runtime" && authSession.mode !== "none" ? auth.signOut : undefined,
       })}
     </AppShell>
   );

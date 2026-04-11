@@ -45,9 +45,12 @@ func init() {
 
 	rootCmd.AddCommand(
 		newDiscoverCommand(),
+		newDoctorCommand(),
 		newPlanCommand(),
+		newStartCommand(),
 		newMigrateCommand(),
 		newStatusCommand(),
+		newStopCommand(),
 		newRollbackCommand(),
 		newVersionCommand(),
 		newServeAPICommand(),

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -107,6 +108,7 @@ type Server struct {
 	driftDetector        *lifecycle.DriftDetector
 	resolveConfig        func(platform models.Platform, address, credentialRef string) connectors.Config
 	dashboardDir         string
+	bindHost             string
 	allowedOrigins       map[string]struct{}
 	workspaceJobTimeout  time.Duration
 
@@ -171,6 +173,14 @@ func (s *Server) SetDashboardDir(path string) {
 	s.dashboardDir = resolveDashboardAssetDir(path)
 }
 
+// SetBindHost configures the host interface the HTTP server listens on. An empty host preserves the default all-interface behavior.
+func (s *Server) SetBindHost(host string) {
+	if s == nil {
+		return
+	}
+	s.bindHost = strings.TrimSpace(host)
+}
+
 func resolveOperatorPath(path string) string {
 	trimmed := strings.TrimSpace(path)
 	if trimmed == "" || filepath.IsAbs(trimmed) {
@@ -227,8 +237,16 @@ func (s *Server) SetConnectorConfigResolver(resolver func(platform models.Platfo
 
 // Start runs the HTTP server until the context is canceled.
 func (s *Server) Start(ctx context.Context) error {
+	if s == nil {
+		return fmt.Errorf("start api server: nil server")
+	}
+
+	addr := fmt.Sprintf(":%d", s.port)
+	if strings.TrimSpace(s.bindHost) != "" {
+		addr = net.JoinHostPort(strings.TrimSpace(s.bindHost), fmt.Sprintf("%d", s.port))
+	}
 	server := &http.Server{
-		Addr:              fmt.Sprintf(":%d", s.port),
+		Addr:              addr,
 		Handler:           s.Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 	}

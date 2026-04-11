@@ -78,6 +78,15 @@ func TestServer_Handler_MissingDashboardAssetReturnsNotFound_Expected(t *testing
 	}
 }
 
+func TestResolveDashboardAssetDir_PrefersBuiltDashboardDir_Expected(t *testing.T) {
+	t.Parallel()
+
+	dashboardDir := builtDashboardFixture(t)
+	if got := ResolveDashboardAssetDir(dashboardDir); got != dashboardDir {
+		t.Fatalf("ResolveDashboardAssetDir(%q) = %q, want %q", dashboardDir, got, dashboardDir)
+	}
+}
+
 func builtDashboardFixture(t *testing.T) string {
 	t.Helper()
 
