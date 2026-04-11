@@ -394,6 +394,256 @@ paths:
             text/csv:
               schema:
                 type: string
+  /api/v1/workspaces:
+    get:
+      summary: List pilot workspaces
+      security:
+        - TenantAPIKey: []
+        - ServiceAccountKey: []
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Saved pilot workspaces
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PilotWorkspace"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+        "403":
+          $ref: "#/components/responses/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/ErrorResponse"
+    post:
+      summary: Create a pilot workspace
+      security:
+        - TenantAPIKey: []
+        - ServiceAccountKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkspaceCreateRequest"
+      responses:
+        "201":
+          description: Pilot workspace created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PilotWorkspace"
+        "400":
+          $ref: "#/components/responses/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+        "403":
+          $ref: "#/components/responses/ErrorResponse"
+        "409":
+          $ref: "#/components/responses/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/ErrorResponse"
+  /api/v1/workspaces/{workspaceID}:
+    get:
+      summary: Get a pilot workspace
+      security:
+        - TenantAPIKey: []
+        - ServiceAccountKey: []
+      parameters:
+        - in: path
+          name: workspaceID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Pilot workspace state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PilotWorkspace"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+        "403":
+          $ref: "#/components/responses/ErrorResponse"
+        "404":
+          $ref: "#/components/responses/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/ErrorResponse"
+    patch:
+      summary: Update pilot workspace state
+      security:
+        - TenantAPIKey: []
+        - ServiceAccountKey: []
+      parameters:
+        - in: path
+          name: workspaceID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkspaceUpdateRequest"
+      responses:
+        "200":
+          description: Updated pilot workspace state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PilotWorkspace"
+        "400":
+          $ref: "#/components/responses/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+        "403":
+          $ref: "#/components/responses/ErrorResponse"
+        "404":
+          $ref: "#/components/responses/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/ErrorResponse"
+  /api/v1/workspaces/{workspaceID}/jobs:
+    get:
+      summary: List persisted pilot workspace jobs
+      security:
+        - TenantAPIKey: []
+        - ServiceAccountKey: []
+      parameters:
+        - in: path
+          name: workspaceID
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Persisted background jobs for the workspace
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WorkspaceJob"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+        "403":
+          $ref: "#/components/responses/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/ErrorResponse"
+    post:
+      summary: Create a persisted pilot workspace job
+      security:
+        - TenantAPIKey: []
+        - ServiceAccountKey: []
+      parameters:
+        - in: path
+          name: workspaceID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkspaceJobCreateRequest"
+      responses:
+        "202":
+          description: Workspace job accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceJob"
+        "400":
+          $ref: "#/components/responses/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+        "403":
+          $ref: "#/components/responses/ErrorResponse"
+        "404":
+          $ref: "#/components/responses/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/ErrorResponse"
+  /api/v1/workspaces/{workspaceID}/jobs/{jobID}:
+    get:
+      summary: Get pilot workspace job status
+      security:
+        - TenantAPIKey: []
+        - ServiceAccountKey: []
+      parameters:
+        - in: path
+          name: workspaceID
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: jobID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Pilot workspace job state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceJob"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+        "403":
+          $ref: "#/components/responses/ErrorResponse"
+        "404":
+          $ref: "#/components/responses/ErrorResponse"
+  /api/v1/workspaces/{workspaceID}/reports/export:
+    post:
+      summary: Export a pilot workspace report
+      security:
+        - TenantAPIKey: []
+        - ServiceAccountKey: []
+      parameters:
+        - in: path
+          name: workspaceID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkspaceReportExportRequest"
+      responses:
+        "200":
+          description: Exported pilot workspace report document
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceReportDocument"
+            text/markdown:
+              schema:
+                type: string
+        "400":
+          $ref: "#/components/responses/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+        "403":
+          $ref: "#/components/responses/ErrorResponse"
+        "404":
+          $ref: "#/components/responses/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/ErrorResponse"
 components:
   securitySchemes:
     TenantAPIKey:
@@ -802,3 +1052,428 @@ components:
           type: string
         request_id:
           type: string
+    Platform:
+      type: string
+      enum: [vmware, proxmox, hyperv, kvm, nutanix]
+    PilotWorkspaceStatus:
+      type: string
+      enum: [draft, discovered, graph-ready, simulated, planned, reported]
+    WorkspaceJobType:
+      type: string
+      enum: [discovery, graph, simulation, plan]
+    WorkspaceJobStatus:
+      type: string
+      enum: [queued, running, succeeded, failed]
+    WorkspaceReadinessStatus:
+      type: string
+      enum: [ready, attention, blocked]
+    WorkspaceApprovalStatus:
+      type: string
+      enum: [pending, approved, rejected]
+    WorkspaceNoteKind:
+      type: string
+      enum: [operator, system]
+    WorkspaceSourceConnection:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        platform:
+          $ref: "#/components/schemas/Platform"
+        address:
+          type: string
+        credential_ref:
+          type: string
+        last_snapshot_id:
+          type: string
+        last_discovered_at:
+          type: string
+          format: date-time
+    WorkspaceSnapshot:
+      type: object
+      properties:
+        snapshot_id:
+          type: string
+        source_connection_id:
+          type: string
+        source:
+          type: string
+        platform:
+          $ref: "#/components/schemas/Platform"
+        vm_count:
+          type: integer
+        discovered_at:
+          type: string
+          format: date-time
+    WorkspaceTargetAssumptions:
+      type: object
+      properties:
+        platform:
+          $ref: "#/components/schemas/Platform"
+        address:
+          type: string
+        credential_ref:
+          type: string
+        default_host:
+          type: string
+        default_storage:
+          type: string
+        default_network:
+          type: string
+        notes:
+          type: string
+    WorkspacePlanSettings:
+      type: object
+      properties:
+        name:
+          type: string
+        parallel:
+          type: integer
+        verify_boot:
+          type: boolean
+        approval_required:
+          type: boolean
+        approved_by:
+          type: string
+        approval_ticket:
+          type: string
+        window_start:
+          type: string
+          format: date-time
+        window_end:
+          type: string
+          format: date-time
+        wave_size:
+          type: integer
+        dependency_aware:
+          type: boolean
+    WorkspaceGraphArtifact:
+      type: object
+      properties:
+        generated_at:
+          type: string
+          format: date-time
+        node_count:
+          type: integer
+        edge_count:
+          type: integer
+        raw_json:
+          type: object
+          additionalProperties: true
+    WorkspaceSimulationArtifact:
+      type: object
+      properties:
+        generated_at:
+          type: string
+          format: date-time
+        target_platform:
+          $ref: "#/components/schemas/Platform"
+        selected_workload_ids:
+          type: array
+          items:
+            type: string
+        moved_vms:
+          type: integer
+        raw_json:
+          type: object
+          additionalProperties: true
+    WorkspaceSimulationRequest:
+      type: object
+      properties:
+        target_platform:
+          $ref: "#/components/schemas/Platform"
+        vm_ids:
+          type: array
+          items:
+            type: string
+        include_all:
+          type: boolean
+    WorkspaceReadinessResult:
+      type: object
+      properties:
+        generated_at:
+          type: string
+          format: date-time
+        status:
+          $ref: "#/components/schemas/WorkspaceReadinessStatus"
+        selected_workload_count:
+          type: integer
+        recommendation_count:
+          type: integer
+        policy_violation_count:
+          type: integer
+        blocking_issues:
+          type: array
+          items:
+            type: string
+        warning_issues:
+          type: array
+          items:
+            type: string
+    WorkspaceSavedPlan:
+      type: object
+      properties:
+        migration_id:
+          type: string
+        generated_at:
+          type: string
+          format: date-time
+        spec_name:
+          type: string
+        source_platform:
+          $ref: "#/components/schemas/Platform"
+        target_platform:
+          $ref: "#/components/schemas/Platform"
+        workload_count:
+          type: integer
+        selected_workload_ids:
+          type: array
+          items:
+            type: string
+        spec_json:
+          type: object
+          additionalProperties: true
+        state_json:
+          type: object
+          additionalProperties: true
+    WorkspaceApproval:
+      type: object
+      properties:
+        id:
+          type: string
+        stage:
+          type: string
+        status:
+          $ref: "#/components/schemas/WorkspaceApprovalStatus"
+        approved_by:
+          type: string
+        ticket:
+          type: string
+        notes:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+    WorkspaceNote:
+      type: object
+      properties:
+        id:
+          type: string
+        kind:
+          $ref: "#/components/schemas/WorkspaceNoteKind"
+        author:
+          type: string
+        body:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+    WorkspaceReportArtifact:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        format:
+          type: string
+        file_name:
+          type: string
+        correlation_id:
+          type: string
+        exported_at:
+          type: string
+          format: date-time
+    PilotWorkspace:
+      type: object
+      properties:
+        id:
+          type: string
+        tenant_id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        status:
+          $ref: "#/components/schemas/PilotWorkspaceStatus"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        source_connections:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkspaceSourceConnection"
+        snapshots:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkspaceSnapshot"
+        selected_workload_ids:
+          type: array
+          items:
+            type: string
+        target_assumptions:
+          $ref: "#/components/schemas/WorkspaceTargetAssumptions"
+        plan_settings:
+          $ref: "#/components/schemas/WorkspacePlanSettings"
+        graph:
+          $ref: "#/components/schemas/WorkspaceGraphArtifact"
+        simulation:
+          $ref: "#/components/schemas/WorkspaceSimulationArtifact"
+        readiness:
+          $ref: "#/components/schemas/WorkspaceReadinessResult"
+        saved_plan:
+          $ref: "#/components/schemas/WorkspaceSavedPlan"
+        approvals:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkspaceApproval"
+        notes:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkspaceNote"
+        reports:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkspaceReportArtifact"
+    WorkspaceCreateRequest:
+      type: object
+      required: [name]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        source_connections:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkspaceSourceConnection"
+        selected_workload_ids:
+          type: array
+          items:
+            type: string
+        target_assumptions:
+          $ref: "#/components/schemas/WorkspaceTargetAssumptions"
+        plan_settings:
+          $ref: "#/components/schemas/WorkspacePlanSettings"
+        approvals:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkspaceApproval"
+        notes:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkspaceNote"
+    WorkspaceUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        source_connections:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkspaceSourceConnection"
+        selected_workload_ids:
+          type: array
+          items:
+            type: string
+        target_assumptions:
+          $ref: "#/components/schemas/WorkspaceTargetAssumptions"
+        plan_settings:
+          $ref: "#/components/schemas/WorkspacePlanSettings"
+        approvals:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkspaceApproval"
+        notes:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkspaceNote"
+    WorkspaceJob:
+      type: object
+      properties:
+        id:
+          type: string
+        tenant_id:
+          type: string
+        workspace_id:
+          type: string
+        type:
+          $ref: "#/components/schemas/WorkspaceJobType"
+        status:
+          $ref: "#/components/schemas/WorkspaceJobStatus"
+        requested_by:
+          type: string
+        requested_at:
+          type: string
+          format: date-time
+        started_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+        correlation_id:
+          type: string
+        message:
+          type: string
+        error:
+          type: string
+        retryable:
+          type: boolean
+        input_json:
+          type: object
+          additionalProperties: true
+        output_json:
+          type: object
+          additionalProperties: true
+    WorkspaceJobCreateRequest:
+      type: object
+      required: [type]
+      properties:
+        type:
+          $ref: "#/components/schemas/WorkspaceJobType"
+        requested_by:
+          type: string
+        source_connection_ids:
+          type: array
+          items:
+            type: string
+        selected_workload_ids:
+          type: array
+          items:
+            type: string
+        simulation:
+          $ref: "#/components/schemas/WorkspaceSimulationRequest"
+    WorkspaceReportExportRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        format:
+          type: string
+          enum: [markdown, json]
+    WorkspaceReportDocument:
+      type: object
+      properties:
+        workspace:
+          $ref: "#/components/schemas/PilotWorkspace"
+        jobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkspaceJob"
+        exported_at:
+          type: string
+          format: date-time

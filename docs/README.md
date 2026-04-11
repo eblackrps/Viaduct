@@ -8,6 +8,7 @@ This directory contains the detailed Viaduct documentation set. The repo-root do
 
 ## Operations
 - [Auth, Role, And Auditability Model](operations/auth-role-audit-model.md)
+- [Pilot Workspace Flow](operations/pilot-workspace-flow.md)
 - [Demo Runbook](operations/demo-runbook.md)
 - [Demo Presenter Kit](operations/demo/README.md)
 - [Observability Requirements](operations/observability-requirements.md)
@@ -37,5 +38,8 @@ This directory contains the detailed Viaduct documentation set. The repo-root do
 
 ## Historical Roadmaps
 - [Roadmap Archive Index](roadmaps/README.md)
+
+## Release Drafts
+- [Release Draft Index](releases/README.md)
 
 If you are starting from the repository landing page, also see [../INSTALL.md](../INSTALL.md), [../QUICKSTART.md](../QUICKSTART.md), [../UPGRADE.md](../UPGRADE.md), and [../RELEASE.md](../RELEASE.md).

@@ -4,6 +4,23 @@ All notable changes to Viaduct should be documented in this file.
 
 This changelog tracks published releases and the major implementation milestones that shaped the current repository state.
 
+## [1.6.0] - Unreleased
+
+### Workspace-First Operator Flow
+- added a first-class pilot workspace model that persists source connections, discovery snapshots, dependency graph output, target assumptions, readiness results, saved plans, approvals, notes, and exported reports
+- added tenant-scoped API routes for listing, creating, updating, and exporting pilot workspace state without introducing a parallel product surface
+- added persisted background jobs for workspace discovery, graph generation, simulation, and plan generation so the operator workflow can survive page refreshes and produce reproducible state
+
+### Dashboard And Auth Bootstrap
+- reworked the dashboard so the first operator experience is create workspace, discover, inspect, simulate, save plan, and export report
+- added runtime dashboard authentication bootstrap using service-account or tenant keys instead of relying on build-time-only configuration
+- strengthened loading, empty, retry, and request-correlation-aware error handling across the workspace flow
+
+### Lab, Contract, And Release Surface
+- added a deterministic `examples/lab` end-to-end smoke flow for workspace creation through report export
+- updated the published OpenAPI contract, quickstart flow, lab assets, configuration guidance, and operator docs to match the new workspace APIs and runtime auth flow
+- added v1.6.0 release-note draft material and release-facing screenshot assets for the workspace-first operator application
+
 ## [1.5.0] - 2026-04-08
 
 ### Early Product Hardening

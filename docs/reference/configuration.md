@@ -62,6 +62,8 @@ Fields:
 
 The dashboard reads this through Vite. See [`../../web/.env.example`](../../web/.env.example).
 
+The dashboard now also supports runtime authentication bootstrap. When neither variable is set, the app starts on a bootstrap screen and accepts either a service-account key or tenant key at runtime. The selected credential is stored locally by the browser and reused for subsequent requests until the operator signs out or rotates the key.
+
 For early-product and pilot use, prefer `VITE_VIADUCT_SERVICE_ACCOUNT_KEY` for normal dashboard access. Reserve `VITE_VIADUCT_API_KEY` for tenant bootstrap, short-lived admin work, or break-glass access.
 
 ## API Authentication Headers

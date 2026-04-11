@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="840" viewBox="0 0 1280 840" fill="none">
+  <rect width="1280" height="840" fill="#EEF4F8"/>
+  <rect x="56" y="44" width="1168" height="752" rx="34" fill="#FBFEFF" stroke="#C7D7E2"/>
+
+  <text x="112" y="110" fill="#577085" font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="700" letter-spacing="2">PILOT WORKSPACE</text>
+  <text x="112" y="154" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="34" font-weight="700">Examples Lab Assessment</text>
+  <text x="112" y="192" fill="#4D6372" font-family="Segoe UI, Arial, sans-serif" font-size="18">Create, discover, inspect, simulate, save, and export from one persisted operator workspace.</text>
+
+  <rect x="112" y="228" width="258" height="34" rx="17" fill="#F4F8FB" stroke="#D5E1E8"/>
+  <text x="144" y="250" fill="#425B6B" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">1 workspace</text>
+  <rect x="382" y="228" width="160" height="34" rx="17" fill="#E7F3F9"/>
+  <text x="420" y="250" fill="#1F657E" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">simulated</text>
+  <rect x="554" y="228" width="176" height="34" rx="17" fill="#F4F8FB" stroke="#D5E1E8"/>
+  <text x="587" y="250" fill="#425B6B" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">1 snapshot</text>
+
+  <rect x="112" y="296" width="476" height="208" rx="28" fill="#FFFFFF" stroke="#D5E1E8"/>
+  <text x="146" y="344" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="24" font-weight="700">Assessment intake</text>
+  <text x="146" y="376" fill="#5A7181" font-family="Segoe UI, Arial, sans-serif" font-size="16">Target assumptions, source connections, and plan controls stay attached to the workspace.</text>
+  <rect x="146" y="410" width="198" height="44" rx="22" fill="#102231"/>
+  <text x="196" y="438" fill="#FFFFFF" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="700">Save assumptions</text>
+  <rect x="358" y="410" width="146" height="44" rx="22" fill="#FFFFFF" stroke="#D5E1E8"/>
+  <text x="397" y="438" fill="#4C6474" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="700">Run discovery</text>
+  <rect x="146" y="468" width="128" height="44" rx="22" fill="#FFFFFF" stroke="#D5E1E8"/>
+  <text x="183" y="496" fill="#4C6474" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="700">Build graph</text>
+  <rect x="288" y="468" width="152" height="44" rx="22" fill="#FFFFFF" stroke="#D5E1E8"/>
+  <text x="325" y="496" fill="#4C6474" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="700">Run simulation</text>
+  <rect x="454" y="468" width="110" height="44" rx="22" fill="#FFFFFF" stroke="#D5E1E8"/>
+  <text x="485" y="496" fill="#4C6474" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="700">Save plan</text>
+
+  <rect x="612" y="296" width="556" height="208" rx="28" fill="#FFFFFF" stroke="#D5E1E8"/>
+  <text x="646" y="344" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="24" font-weight="700">Readiness and jobs</text>
+  <rect x="646" y="384" width="116" height="96" rx="22" fill="#F4F8FB"/>
+  <text x="676" y="418" fill="#5A7181" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700">Readiness</text>
+  <text x="676" y="454" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700">attention</text>
+  <rect x="776" y="384" width="116" height="96" rx="22" fill="#F4F8FB"/>
+  <text x="799" y="418" fill="#5A7181" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700">Selected</text>
+  <text x="822" y="454" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700">3</text>
+  <rect x="906" y="384" width="116" height="96" rx="22" fill="#F4F8FB"/>
+  <text x="928" y="418" fill="#5A7181" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700">Policy</text>
+  <text x="953" y="454" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700">1</text>
+  <rect x="1036" y="384" width="116" height="96" rx="22" fill="#F4F8FB"/>
+  <text x="1051" y="418" fill="#5A7181" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700">Recommendations</text>
+  <text x="1082" y="454" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700">2</text>
+  <rect x="646" y="520" width="118" height="36" rx="18" fill="#FFF1E8"/>
+  <text x="671" y="543" fill="#AD5A2A" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">discovery: done</text>
+  <rect x="776" y="520" width="96" height="36" rx="18" fill="#EAF7EE"/>
+  <text x="806" y="543" fill="#2E7D4D" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">graph: done</text>
+  <rect x="884" y="520" width="132" height="36" rx="18" fill="#FFF1E8"/>
+  <text x="913" y="543" fill="#AD5A2A" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">simulation: done</text>
+  <rect x="1028" y="520" width="108" height="36" rx="18" fill="#EAF7EE"/>
+  <text x="1059" y="543" fill="#2E7D4D" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">plan: saved</text>
+
+  <rect x="112" y="528" width="714" height="220" rx="28" fill="#FFFFFF" stroke="#D5E1E8"/>
+  <text x="146" y="576" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="24" font-weight="700">Discovered workloads and graph context</text>
+  <rect x="146" y="608" width="646" height="106" rx="18" fill="#F7FBFD"/>
+  <text x="170" y="640" fill="#5A7181" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700">NAME</text>
+  <text x="322" y="640" fill="#5A7181" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700">PLATFORM</text>
+  <text x="454" y="640" fill="#5A7181" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700">READINESS</text>
+  <text x="614" y="640" fill="#5A7181" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700">DEPENDENCIES</text>
+  <text x="170" y="676" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="15">apps/web-01</text>
+  <text x="323" y="676" fill="#4C6474" font-family="Segoe UI, Arial, sans-serif" font-size="15">kvm</text>
+  <text x="454" y="676" fill="#AD5A2A" font-family="Segoe UI, Arial, sans-serif" font-size="15">attention</text>
+  <text x="614" y="676" fill="#4C6474" font-family="Segoe UI, Arial, sans-serif" font-size="15">db-primary, backup-job</text>
+  <text x="170" y="706" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="15">db-primary</text>
+  <text x="323" y="706" fill="#4C6474" font-family="Segoe UI, Arial, sans-serif" font-size="15">kvm</text>
+  <text x="454" y="706" fill="#2E7D4D" font-family="Segoe UI, Arial, sans-serif" font-size="15">ready</text>
+  <text x="614" y="706" fill="#4C6474" font-family="Segoe UI, Arial, sans-serif" font-size="15">storage-pool, net-core</text>
+
+  <rect x="850" y="528" width="318" height="220" rx="28" fill="#FFFFFF" stroke="#D5E1E8"/>
+  <text x="884" y="576" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="24" font-weight="700">Notes and exports</text>
+  <rect x="884" y="610" width="250" height="72" rx="18" fill="#F7FBFD"/>
+  <text x="904" y="642" fill="#4C6474" font-family="Segoe UI, Arial, sans-serif" font-size="15">Need policy waiver for legacy VLAN mapping</text>
+  <text x="904" y="664" fill="#7A8E9D" font-family="Segoe UI, Arial, sans-serif" font-size="13">operator note</text>
+  <rect x="884" y="698" width="162" height="40" rx="20" fill="#102231"/>
+  <text x="922" y="723" fill="#FFFFFF" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="700">Download report</text>
+  <text x="884" y="596" fill="#5A7181" font-family="Segoe UI, Arial, sans-serif" font-size="16">Reports, approvals, and operator commentary stay with the same workspace.</text>
+</svg>

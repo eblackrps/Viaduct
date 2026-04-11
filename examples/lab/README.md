@@ -6,6 +6,8 @@ This directory contains a lightweight local evaluation environment for Viaduct.
 - `kvm/`: KVM/libvirt XML fixtures for local discovery
 - `migration-window.yaml`: example migration spec with execution window, approval gate, and wave planning
 - `tenant-create.json`: sample tenant creation payload for the admin API, including starter quotas
+- `service-account-create.json`: deterministic operator service-account payload for the dashboard bootstrap flow
+- `pilot-workspace-create.json`: seeded pilot workspace intake payload for the workspace APIs
 - `config.yaml`: minimal local config for the lab
 
 ## Recommended Flow
@@ -13,15 +15,48 @@ This directory contains a lightweight local evaluation environment for Viaduct.
 ```bash
 mkdir -p ~/.viaduct
 cp examples/lab/config.yaml ~/.viaduct/config.yaml
-./bin/viaduct discover --type kvm --source examples/lab/kvm --save
-./bin/viaduct plan --spec examples/lab/migration-window.yaml
+export VIADUCT_ADMIN_KEY=lab-admin
 ./bin/viaduct serve-api --port 8080
 ```
 
-Then launch the dashboard:
+Seed the lab tenant and operator service account:
+
+```bash
+curl -X POST \
+  -H "X-Admin-Key: lab-admin" \
+  -H "Content-Type: application/json" \
+  --data @examples/lab/tenant-create.json \
+  http://localhost:8080/api/v1/admin/tenants
+
+curl -X POST \
+  -H "X-API-Key: lab-tenant-key" \
+  -H "Content-Type: application/json" \
+  --data @examples/lab/service-account-create.json \
+  http://localhost:8080/api/v1/service-accounts
+```
+
+Then launch the dashboard and authenticate with `lab-operator-key`:
 
 ```bash
 cd web
 npm ci
 npm run dev
 ```
+
+The default dashboard experience is now:
+
+1. create workspace
+2. discover
+3. inspect
+4. simulate
+5. save plan
+6. export report
+
+If you want CLI corroboration against the same lab fixtures:
+
+```bash
+./bin/viaduct discover --type kvm --source examples/lab/kvm --save
+./bin/viaduct plan --spec examples/lab/migration-window.yaml
+```
+
+Focused smoke coverage for this path lives in `tests/integration/pilot_workspace_smoke_test.go`.

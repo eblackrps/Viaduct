@@ -2,6 +2,13 @@
 
 This is the fastest way to evaluate Viaduct from source without a live hypervisor.
 
+The default first-run path is now the workspace-first operator flow:
+
+1. bootstrap the local lab tenant and service account
+2. sign into the dashboard with a runtime key
+3. create a pilot workspace
+4. discover, inspect, simulate, save a plan, and export a report
+
 ## 1. Build The CLI
 
 ```bash
@@ -14,29 +21,48 @@ make build
 
 ```bash
 mkdir -p ~/.viaduct
-cp configs/config.example.yaml ~/.viaduct/config.yaml
+cp examples/lab/config.yaml ~/.viaduct/config.yaml
 ```
 
-The sample config already points the KVM source at the local lab fixtures.
+The lab config points the KVM source at the local fixture set. For any non-demo environment, configure `state_store_dsn` and use PostgreSQL for persistence.
 
-## 3. Run Local Discovery
-
-```bash
-./bin/viaduct discover --type kvm --source examples/lab/kvm --save
-```
-
-## 4. Validate A Migration Spec
+## 3. Start The API With An Admin Bootstrap Key
 
 ```bash
-./bin/viaduct plan --spec examples/lab/migration-window.yaml
-```
-
-## 5. Start The API
-
-```bash
+export VIADUCT_ADMIN_KEY=lab-admin
 ./bin/viaduct serve-api --port 8080
-curl http://localhost:8080/api/v1/about
 ```
+
+On Windows PowerShell:
+
+```powershell
+$env:VIADUCT_ADMIN_KEY = "lab-admin"
+.\bin\viaduct.exe serve-api --port 8080
+```
+
+## 4. Create The Lab Tenant
+
+```bash
+curl -X POST \
+  -H "X-Admin-Key: lab-admin" \
+  -H "Content-Type: application/json" \
+  --data @examples/lab/tenant-create.json \
+  http://localhost:8080/api/v1/admin/tenants
+```
+
+This seeds the deterministic tenant key `lab-tenant-key`.
+
+## 5. Create The Lab Service Account
+
+```bash
+curl -X POST \
+  -H "X-API-Key: lab-tenant-key" \
+  -H "Content-Type: application/json" \
+  --data @examples/lab/service-account-create.json \
+  http://localhost:8080/api/v1/service-accounts
+```
+
+This seeds the deterministic service-account key `lab-operator-key`.
 
 ## 6. Start The Dashboard
 
@@ -46,7 +72,11 @@ npm ci
 npm run dev
 ```
 
-The dashboard expects the API at `/api` and can use `VITE_VIADUCT_API_KEY` from [web/.env.example](web/.env.example) when tenant-scoped access is enabled.
+The dashboard expects the API at `/api` and opens on the pilot workspace route. The first screen is a runtime auth bootstrap flow.
+
+Authenticate with:
+- `Service account`: `lab-operator-key`
+- `Tenant key`: `lab-tenant-key`
 
 For normal dashboard and pilot use, prefer `VITE_VIADUCT_SERVICE_ACCOUNT_KEY`. Keep `VITE_VIADUCT_API_KEY` for tenant bootstrap or break-glass admin access.
 
@@ -62,7 +92,28 @@ Use the tenant key only when you are bootstrapping the tenant or intentionally u
 curl -H "X-API-Key: <tenant-key>" http://localhost:8080/api/v1/tenants/current
 ```
 
+## 7. Run The Workspace-First Flow
+
+In the dashboard:
+
+1. Create the first pilot workspace from the prefilled lab defaults.
+2. Run discovery.
+3. Inspect the discovered workloads and dependency graph.
+4. Run simulation.
+5. Save the plan.
+6. Export the pilot report.
+
+The seeded API equivalent for workspace creation lives in [examples/lab/pilot-workspace-create.json](examples/lab/pilot-workspace-create.json).
+
+## 8. Optional CLI Corroboration
+
+```bash
+./bin/viaduct discover --type kvm --source examples/lab/kvm --save
+./bin/viaduct plan --spec examples/lab/migration-window.yaml
+```
+
 ## Next Steps
+- Review [docs/operations/pilot-workspace-flow.md](docs/operations/pilot-workspace-flow.md) for the full workspace-first operator guide.
 - Review [docs/operations/migration-operations.md](docs/operations/migration-operations.md) for execution and rollback workflows.
 - Review [docs/operations/backup-portability.md](docs/operations/backup-portability.md) for Veeam portability guidance.
 - Review [docs/operations/multi-tenancy.md](docs/operations/multi-tenancy.md) before enabling shared-tenant operation.

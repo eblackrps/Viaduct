@@ -12,6 +12,7 @@ Use the files in this directory when you actually present.
 - [15-minute demo card](fifteen-minute-demo-card.md)
 - [Demo scenario brief](demo-scenario-brief.md)
 - [Demo state checklist](demo-state-checklist.md)
+- [Screenshot assets](screenshots/README.md)
 
 ## Intended Use
 
@@ -22,3 +23,5 @@ Use the files in this directory when you actually present.
 5. Use [fifteen-minute-demo-card.md](fifteen-minute-demo-card.md) for design-partner and operator evaluation demos.
 
 These assets are intentionally narrow. They support the VMware-exit assessment-to-pilot story Viaduct is currently hardening, not a broad repo tour.
+
+The current release-facing screenshots are aligned with the workspace-first operator experience introduced in v1.6.0.

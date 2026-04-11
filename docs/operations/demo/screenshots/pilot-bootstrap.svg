@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="820" viewBox="0 0 1280 820" fill="none">
+  <rect width="1280" height="820" fill="#EEF4F8"/>
+  <defs>
+    <linearGradient id="bg" x1="144" y1="88" x2="1148" y2="748" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FDFEFE"/>
+      <stop offset="1" stop-color="#E4F1F8"/>
+    </linearGradient>
+  </defs>
+  <rect x="72" y="56" width="1136" height="708" rx="34" fill="url(#bg)" stroke="#C7D7E2"/>
+  <text x="132" y="126" fill="#577085" font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="700" letter-spacing="2">PILOT BOOTSTRAP</text>
+  <text x="132" y="170" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="34" font-weight="700">Connect the operator dashboard</text>
+  <text x="132" y="208" fill="#4D6372" font-family="Segoe UI, Arial, sans-serif" font-size="18">Service-account first auth for the workspace-first assessment flow.</text>
+
+  <rect x="132" y="260" width="630" height="368" rx="28" fill="#FFFFFF" stroke="#D5E1E8"/>
+  <text x="168" y="312" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="24" font-weight="700">Runtime authentication</text>
+  <text x="168" y="344" fill="#5A7181" font-family="Segoe UI, Arial, sans-serif" font-size="16">Use a service-account key for the normal pilot path or a tenant key for bootstrap.</text>
+
+  <rect x="168" y="382" width="250" height="44" rx="22" fill="#102231"/>
+  <text x="224" y="410" fill="#FFFFFF" font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="700">Service account</text>
+  <rect x="428" y="382" width="166" height="44" rx="22" fill="#F6FAFC" stroke="#D5E1E8"/>
+  <text x="487" y="410" fill="#506878" font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="700">Tenant key</text>
+
+  <text x="168" y="474" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="700">Service-account key</text>
+  <rect x="168" y="492" width="558" height="58" rx="18" fill="#FDFEFE" stroke="#C7D7E2"/>
+  <circle cx="206" cy="521" r="4" fill="#6F8798"/>
+  <circle cx="224" cy="521" r="4" fill="#6F8798"/>
+  <circle cx="242" cy="521" r="4" fill="#6F8798"/>
+  <circle cx="260" cy="521" r="4" fill="#6F8798"/>
+  <circle cx="278" cy="521" r="4" fill="#6F8798"/>
+  <circle cx="296" cy="521" r="4" fill="#6F8798"/>
+  <text x="168" y="594" fill="#5A7181" font-family="Segoe UI, Arial, sans-serif" font-size="16">The dashboard validates the key at runtime against the current API and stores the session locally.</text>
+
+  <rect x="168" y="632" width="212" height="48" rx="24" fill="#102231"/>
+  <text x="216" y="662" fill="#FFFFFF" font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="700">Connect dashboard</text>
+
+  <rect x="800" y="260" width="344" height="368" rx="28" fill="#FFFFFF" stroke="#D5E1E8"/>
+  <text x="836" y="312" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="24" font-weight="700">Expected pilot flow</text>
+  <rect x="836" y="352" width="272" height="56" rx="18" fill="#F4F8FB"/>
+  <text x="856" y="386" fill="#445C6C" font-family="Segoe UI, Arial, sans-serif" font-size="15">1. Create a pilot workspace.</text>
+  <rect x="836" y="424" width="272" height="56" rx="18" fill="#F4F8FB"/>
+  <text x="856" y="458" fill="#445C6C" font-family="Segoe UI, Arial, sans-serif" font-size="15">2. Run discovery and save snapshots.</text>
+  <rect x="836" y="496" width="272" height="56" rx="18" fill="#F4F8FB"/>
+  <text x="856" y="530" fill="#445C6C" font-family="Segoe UI, Arial, sans-serif" font-size="15">3. Inspect workloads and graph state.</text>
+  <rect x="836" y="568" width="272" height="56" rx="18" fill="#F4F8FB"/>
+  <text x="856" y="602" fill="#445C6C" font-family="Segoe UI, Arial, sans-serif" font-size="15">4. Simulate, save plan, export report.</text>
+
+  <rect x="132" y="86" width="160" height="34" rx="17" fill="#F4F8FB" stroke="#D5E1E8"/>
+  <text x="157" y="108" fill="#425B6B" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">Viaduct v1.6.0</text>
+  <rect x="304" y="86" width="176" height="34" rx="17" fill="#E7F3F9"/>
+  <text x="327" y="108" fill="#1F657E" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">Service-account first</text>
+</svg>

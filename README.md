@@ -12,13 +12,14 @@ Broadcom's VMware licensing changes forced many teams into urgent platform decis
 ## Project Status
 Viaduct is ready for broad evaluation, design-partner pilots, and community contribution. The repository includes multi-platform discovery, dependency graphing, declarative migration orchestration, warm-migration primitives, lifecycle remediation, backup portability, multi-tenancy with service accounts and quota controls, plugin hosting, a web dashboard, a standalone public site, reproducible release packaging, and a shared release gate for CI and local verification.
 
-The current early-product wedge is VMware-exit mixed-estate discovery and migration readiness assessment with approval-ready pilot planning. Discovery, planning, operator visibility, and packaged evaluation are the strongest current surfaces. Live execution paths should still be validated in a lab or pilot environment before they are treated as routine production automation.
+The current early-product wedge is VMware-exit mixed-estate discovery and migration readiness assessment with approval-ready pilot planning. Discovery, planning, operator visibility, and packaged evaluation are the strongest current surfaces. The default dashboard path is now a first-class pilot workspace that keeps source connections, snapshots, graph output, readiness results, saved plans, approvals, notes, and report exports in one operator-owned record. Live execution paths should still be validated in a lab or pilot environment before they are treated as routine production automation.
 
 ## Supported Capabilities
 - Discovery engine: Collects normalized inventory from VMware, Proxmox, Hyper-V, KVM, Nutanix, and Veeam-related backup systems into a universal schema.
 - Dependency mapping: Builds graph views across workloads, networks, storage, and backup relationships to support safer migration planning.
 - Migration orchestration: Supports declarative planning, preflight validation, cold and warm migration flows, execution windows, approval gates, checkpoints, resume support, and rollback.
 - Lifecycle analysis: Evaluates cost, policy, and drift, then turns those signals into remediation guidance and simulation output.
+- Pilot workspace workflow: Ties together assessment state, source connections, discovery baselines, readiness simulation, saved plans, operator notes, approvals, and exported reports.
 - Multi-tenancy and extensibility: Provides tenant-scoped API access, service-account and role-based access controls, persistent state backends, and a gRPC-based plugin host for community connectors.
 - Operator surfaces: Exposes the same core workflows through a CLI, REST API, and React dashboard.
 - Operability: Ships request correlation, tenant-scoped audit and reporting routes, Prometheus-style metrics, an OpenAPI reference, deployment examples, and packaged release metadata.
@@ -45,7 +46,7 @@ See [docs/architecture.md](docs/architecture.md) for the detailed architecture v
 ## Quick Start
 ```bash
 mkdir -p ~/.viaduct
-cp configs/config.example.yaml ~/.viaduct/config.yaml
+cp examples/lab/config.yaml ~/.viaduct/config.yaml
 make build
 ./bin/viaduct version
 
@@ -60,6 +61,8 @@ npm run dev
 ```
 
 The local KVM lab under [examples/lab](examples/lab) gives you a first-run workflow without needing a live hypervisor. Start with [QUICKSTART.md](QUICKSTART.md) for the top-level guide or [docs/getting-started/quickstart.md](docs/getting-started/quickstart.md) for the detailed walkthrough.
+
+For the workspace-first dashboard flow, bootstrap the lab tenant and service account from `examples/lab/`, then authenticate through the dashboard's runtime bootstrap screen. The full operator path is documented in [docs/operations/pilot-workspace-flow.md](docs/operations/pilot-workspace-flow.md).
 
 ## Build And Test
 ```bash
@@ -83,6 +86,7 @@ make release-gate
 - Quickstart: [QUICKSTART.md](QUICKSTART.md)
 - Upgrade: [UPGRADE.md](UPGRADE.md)
 - Release process: [RELEASE.md](RELEASE.md)
+- Pilot workspace flow: [docs/operations/pilot-workspace-flow.md](docs/operations/pilot-workspace-flow.md)
 - Configuration reference: [docs/reference/configuration.md](docs/reference/configuration.md)
 - Migration operations: [docs/operations/migration-operations.md](docs/operations/migration-operations.md)
 - Auth, role, and auditability model: [docs/operations/auth-role-audit-model.md](docs/operations/auth-role-audit-model.md)
@@ -104,9 +108,11 @@ make release-gate
 - Backend contract hardening: [docs/backend-contract-hardening.md](docs/backend-contract-hardening.md)
 - Auth, role, and auditability model: [docs/operations/auth-role-audit-model.md](docs/operations/auth-role-audit-model.md)
 - Demo runbook: [docs/operations/demo-runbook.md](docs/operations/demo-runbook.md)
+- Pilot workspace flow: [docs/operations/pilot-workspace-flow.md](docs/operations/pilot-workspace-flow.md)
 - Observability requirements: [docs/operations/observability-requirements.md](docs/operations/observability-requirements.md)
 - Primary reliability path: [docs/operations/primary-reliability-path.md](docs/operations/primary-reliability-path.md)
 - Real user validation plan: [docs/operations/real-user-validation-plan.md](docs/operations/real-user-validation-plan.md)
+- Release drafts: [docs/releases/README.md](docs/releases/README.md)
 - Public site source: [site/README.md](site/README.md)
 - Architecture overview: [docs/architecture.md](docs/architecture.md)
 - Support matrix: [docs/reference/support-matrix.md](docs/reference/support-matrix.md)
