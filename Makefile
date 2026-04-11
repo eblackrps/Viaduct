@@ -135,6 +135,10 @@ release-gate:
 	$(MAKE) build
 	$(RUN_BIN) --help
 	$(RUN_BIN) version
+	$(RUN_BIN) start --help
+	$(RUN_BIN) doctor --help
+	$(RUN_BIN) status --runtime
+	$(RUN_BIN) stop --help
 	$(RUN_BIN) plan --help
 	$(RUN_BIN) migrate --help
 	$(MAKE) web-build
