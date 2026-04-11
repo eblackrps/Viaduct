@@ -12,6 +12,10 @@ coverage.out
 coverage
 .gocache/
 .gomodcache/
+.gotmp/
+.gocache-race/
+.gomodcache-race/
+.gotmp-race/
 dist/
 web/node_modules/
 web/dist/

@@ -1,4 +1,6 @@
 param(
+    [string]$Ldflags = "",
+
     [Parameter(ValueFromRemainingArguments = $true)]
     [string[]]$GoRunArgs
 )
@@ -18,5 +20,12 @@ $env:TMP = $base
 $env:TEMP = $base
 
 $goBinary = (Get-Command go -ErrorAction Stop).Source
-& $goBinary run @GoRunArgs
+$goArgs = @("run")
+if ($Ldflags -ne "") {
+    $goArgs += "-ldflags"
+    $goArgs += $Ldflags
+}
+$goArgs += $GoRunArgs
+
+& $goBinary @goArgs
 exit $LASTEXITCODE

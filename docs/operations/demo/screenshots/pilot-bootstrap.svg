@@ -45,7 +45,7 @@
   <text x="856" y="602" fill="#445C6C" font-family="Segoe UI, Arial, sans-serif" font-size="15">4. Simulate, save plan, export report.</text>
 
   <rect x="132" y="86" width="160" height="34" rx="17" fill="#F4F8FB" stroke="#D5E1E8"/>
-  <text x="157" y="108" fill="#425B6B" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">Viaduct v1.6.0</text>
+  <text x="157" y="108" fill="#425B6B" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">Viaduct v1.7.0</text>
   <rect x="304" y="86" width="176" height="34" rx="17" fill="#E7F3F9"/>
   <text x="327" y="108" fill="#1F657E" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">Service-account first</text>
 </svg>

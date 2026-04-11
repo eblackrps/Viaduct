@@ -10,7 +10,7 @@ This document describes the stable packaging and release process for Viaduct.
 - `make plugin-check`: validate plugin manifest compatibility against the host version
 - `make contract-check`: verify the published OpenAPI reference still covers the stable operator routes
 
-On Windows, `make release-gate` still builds `bin/viaduct.exe`, but it validates the CLI smoke commands through a LocalAppData-staged `go run ./cmd/viaduct` helper because some operator workstations enforce Application Control policies that block freshly built unsigned binaries from direct execution or from `%TEMP%`.
+On Windows, `make release-gate` still builds `bin/viaduct.exe`, but it validates the CLI smoke commands through a LocalAppData-staged `go run ./cmd/viaduct` helper because some operator workstations enforce Application Control policies that block freshly built unsigned binaries from direct execution or from `%TEMP%`. The Windows test helpers stage race and coverage artifacts under repo-local cache directories so the canonical gate remains reproducible on locked-down workstations.
 
 ## Release Checklist
 1. Ensure the working tree is in the intended state and public docs are current.

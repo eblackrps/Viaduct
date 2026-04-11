@@ -9,7 +9,7 @@ RM_DIST = powershell -NoProfile -Command "if (Test-Path 'dist') { Remove-Item -R
 RM_COVER = powershell -NoProfile -Command "$$paths = @('coverage','coverage.out','coverage.out;','coverage-fresh','coverage-fresh.out'); foreach ($$path in $$paths) { if (Test-Path $$path) { Remove-Item -Force $$path } }"
 BIN_TARGET = bin/viaduct.exe
 GO_RUN = powershell -NoProfile -ExecutionPolicy Bypass -File scripts/go_run_windows.ps1
-RUN_BIN = $(GO_RUN) ./cmd/viaduct
+RUN_BIN = $(GO_RUN) -Ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DATE)" ./cmd/viaduct
 WEB_INSTALL = cd web && npm ci
 COVERPROFILE_ARG = "-coverprofile=coverage.out"
 COVERFUNC_ARG = "-func=coverage.out"
