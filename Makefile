@@ -8,12 +8,16 @@ RM_BIN = powershell -NoProfile -Command "if (Test-Path 'bin') { Remove-Item -Rec
 RM_DIST = powershell -NoProfile -Command "if (Test-Path 'dist') { Remove-Item -Recurse -Force 'dist' }"
 RM_COVER = powershell -NoProfile -Command "$$paths = @('coverage','coverage.out','coverage.out;','coverage-fresh','coverage-fresh.out'); foreach ($$path in $$paths) { if (Test-Path $$path) { Remove-Item -Force $$path } }"
 BIN_TARGET = bin/viaduct.exe
-RUN_BIN = $(BIN_TARGET)
+GO_RUN = powershell -NoProfile -ExecutionPolicy Bypass -File scripts/go_run_windows.ps1
+RUN_BIN = $(GO_RUN) ./cmd/viaduct
 WEB_INSTALL = cd web && npm ci
 COVERPROFILE_ARG = "-coverprofile=coverage.out"
 COVERFUNC_ARG = "-func=coverage.out"
 GO_BUILD_LINUX = powershell -NoProfile -Command "$$env:CGO_ENABLED='0'; $$env:GOOS='linux'; $$env:GOARCH='amd64'; go build -ldflags '-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DATE)' -o '$(LINUX_BINARY)' ./cmd/viaduct"
 GO_BUILD_WINDOWS = powershell -NoProfile -Command "$$env:CGO_ENABLED='0'; $$env:GOOS='windows'; $$env:GOARCH='amd64'; go build -ldflags '-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DATE)' -o '$(WINDOWS_BINARY)' ./cmd/viaduct"
+GO_TEST_RACE = powershell -NoProfile -ExecutionPolicy Bypass -File scripts/go_test_race_windows.ps1 ./... -v -race
+GO_TEST_RACE_COUNT = powershell -NoProfile -ExecutionPolicy Bypass -File scripts/go_test_race_windows.ps1 ./... -v -race -count=1
+GO_TEST_COVER = powershell -NoProfile -ExecutionPolicy Bypass -File scripts/go_test_windows.ps1 ./... $(COVERPROFILE_ARG)
 else
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo none)
@@ -25,11 +29,15 @@ RM_DIST = rm -rf dist/
 RM_COVER = rm -f coverage coverage.out
 BIN_TARGET = bin/viaduct
 RUN_BIN = ./$(BIN_TARGET)
+GO_RUN = go run
 WEB_INSTALL = cd web && npm ci
 COVERPROFILE_ARG = -coverprofile=coverage.out
 COVERFUNC_ARG = -func=coverage.out
 GO_BUILD_LINUX = CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DATE)" -o $(LINUX_BINARY) ./cmd/viaduct
 GO_BUILD_WINDOWS = CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DATE)" -o $(WINDOWS_BINARY) ./cmd/viaduct
+GO_TEST_RACE = go test ./... -v -race
+GO_TEST_RACE_COUNT = go test ./... -v -race -count=1
+GO_TEST_COVER = go test ./... $(COVERPROFILE_ARG)
 endif
 
 COVER_MIN ?= 50.0
@@ -54,7 +62,7 @@ build-windows:
 	$(GO_BUILD_WINDOWS)
 
 test:
-	go test ./... -v -race
+	$(GO_TEST_RACE)
 
 lint:
 	golangci-lint run ./...
@@ -81,19 +89,19 @@ package-release:
 	$(MKDIR_DIST)
 	$(MAKE) build
 	$(MAKE) web-build
-	go run ./scripts/package_release -workspace . -version $(VERSION) -commit $(COMMIT) -date $(DATE) -binary $(BIN_TARGET) -web-dir web/dist -output-dir dist
+	$(GO_RUN) ./scripts/package_release -workspace . -version $(VERSION) -commit $(COMMIT) -date $(DATE) -binary $(BIN_TARGET) -web-dir web/dist -output-dir dist
 
 package-release-linux:
 	$(MKDIR_DIST)
 	$(MAKE) build-linux
 	$(MAKE) web-build
-	go run ./scripts/package_release -workspace . -version $(VERSION) -commit $(COMMIT) -date $(DATE) -binary $(LINUX_BINARY) -web-dir web/dist -output-dir dist -bundle-goos linux -bundle-goarch amd64
+	$(GO_RUN) ./scripts/package_release -workspace . -version $(VERSION) -commit $(COMMIT) -date $(DATE) -binary $(LINUX_BINARY) -web-dir web/dist -output-dir dist -bundle-goos linux -bundle-goarch amd64
 
 package-release-windows:
 	$(MKDIR_DIST)
 	$(MAKE) build-windows
 	$(MAKE) web-build
-	go run ./scripts/package_release -workspace . -version $(VERSION) -commit $(COMMIT) -date $(DATE) -binary $(WINDOWS_BINARY) -web-dir web/dist -output-dir dist -bundle-goos windows -bundle-goarch amd64
+	$(GO_RUN) ./scripts/package_release -workspace . -version $(VERSION) -commit $(COMMIT) -date $(DATE) -binary $(WINDOWS_BINARY) -web-dir web/dist -output-dir dist -bundle-goos windows -bundle-goarch amd64
 
 package-release-matrix:
 	$(RM_DIST)
@@ -108,7 +116,7 @@ soak-test:
 	go test -tags soak ./tests/soak/... -count=1
 
 plugin-check:
-	go run ./scripts/plugin_manifest_check -manifest $(PLUGIN_MANIFEST) -host-version $(VERSION)
+	$(GO_RUN) ./scripts/plugin_manifest_check -manifest $(PLUGIN_MANIFEST) -host-version $(VERSION)
 
 contract-check:
 	go test ./tests/integration/... -run TestOpenAPISpec_StableRoutesDocumented_Expected -count=1
@@ -120,7 +128,7 @@ release-gate:
 	go build ./...
 	go vet ./...
 	golangci-lint run ./...
-	go test ./... -v -race -count=1
+	$(GO_TEST_RACE_COUNT)
 	$(MAKE) soak-test
 	$(MAKE) plugin-check
 	$(MAKE) contract-check
@@ -130,9 +138,9 @@ release-gate:
 	$(RUN_BIN) plan --help
 	$(RUN_BIN) migrate --help
 	$(MAKE) web-build
-	go test ./... $(COVERPROFILE_ARG)
+	$(GO_TEST_COVER)
 	go tool cover $(COVERFUNC_ARG)
-	go run ./scripts/coverage_gate.go coverage.out $(COVER_MIN)
+	$(GO_RUN) ./scripts/coverage_gate.go coverage.out $(COVER_MIN)
 	$(MAKE) package-release-matrix
 
 clean:
