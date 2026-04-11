@@ -297,7 +297,7 @@ Minimum history expectation:
 - `web/src/api.ts` converts API failures into `Error` objects and preserves `request_id` in the message when present.
 - most page-level hooks and surfaces store a plain string and render it inline.
 - the dashboard has route-specific loading and error states, but not a unified typed UI error model.
-- this means the UI currently cannot reliably render support-grade technical details without reparsing message strings or extending the client types first.
+- this means the UI currently cannot reliably render richer operator-facing technical details without reparsing message strings or extending the client types first.
 
 ### Required v1 frontend behavior
 - preserve structured API error fields in the client model, not just the rendered message
@@ -559,7 +559,7 @@ Acceptance gate:
 - the UI can render operator-safe text and a separate technical-details block without reparsing error-message strings
 - `request_id` and relevant execution IDs remain visible and copyable in the product
 
-### Phase 5: Support-grade packaging and validation
+### Phase 5: Operator-ready packaging and validation
 - Update `SUPPORT.md` and troubleshooting guidance to ask for the right IDs and workflow context.
 - Add tests that verify request IDs, normalized metrics paths, checkpoint visibility, structured errors, and tenant-scoped audit/export behavior.
 - Validate the observability path manually against the primary reliability path: auth context, discovery, preflight, execute, monitor, rollback, report.

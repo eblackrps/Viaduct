@@ -1,27 +1,29 @@
 # Roadmap
 
-Viaduct has completed its first four implementation phases and is now in the release and ecosystem-launch stage. This roadmap distinguishes completed implementation milestones from the current release-readiness and ecosystem work so contributors can see what is stable, what is still being hardened, and where new work adds the most leverage.
+Viaduct has completed its first four implementation phases. The current work is not a stack rewrite or a broadening of scope. It is a tightening pass around evaluation quality, operator clarity, and supervised pilot readiness.
 
 ## Current Status
-- Phase 0 through Phase 4 are complete in the repository.
-- The current focus is early-product hardening: packaging, operator experience, release verification, supportability, and design-partner readiness.
-- Short-term work should favor compatibility, contract clarity, observability, certification, installability, and contributor leverage over speculative rewrites or broad new surface area.
+
+- Phase 0 through Phase 4 are implemented in the repository.
+- The current refinement track is evaluation-focused: packaging, installability, operator experience, documentation coherence, validation, and trust boundaries.
+- Near-term work should favor compatibility, contract clarity, repeatable demos, and better proof over broad new surface area.
 
 ## Current Priorities
-- narrow the public product story around assessment, planning, and supervised pilot workflows
-- deepen operational confidence with live-environment certification, soak validation, and reproducible release gating
-- strengthen install, upgrade, deployment, and rollback guidance so packaged adoption is low-friction
-- improve observability, API-contract discipline, and operator diagnostics without breaking current workflows
-- strengthen connector and plugin adoption with compatibility rules, reference examples, and contributor documentation
+
+- keep the public story centered on assessment, planning, and supervised pilot workflows
+- deepen confidence with live-environment certification, soak validation, and reproducible release verification
+- improve install, upgrade, deployment, and rollback guidance for evaluation and pilot environments
+- strengthen observability, API-contract discipline, and operator diagnostics without changing the architecture unnecessarily
+- make connector and plugin adoption easier to evaluate through clearer examples and compatibility guidance
 
 ## Phase 0: Foundation
 Status: complete
 
 Key deliverables:
 - Go module, Makefile, lint configuration, and CI
-- Universal inventory schema and connector interface
+- universal inventory schema and connector interface
 - Cobra CLI skeleton with the core commands
-- Public project documentation and contribution standards
+- public project documentation and contribution standards
 
 Detail: [Phase 0 Archive](docs/roadmaps/phase-0.md)
 
@@ -55,7 +57,7 @@ Key deliverables:
 - cost modeling, policy engine, drift detection, and lifecycle views
 - backup portability and lifecycle views
 - KVM/libvirt and Nutanix AHV connectors
-- MSP-oriented multi-tenancy and connector plugin hosting
+- multi-tenant administration and connector plugin hosting
 
 Detail: [Phase 3 Archive](docs/roadmaps/phase-3.md)
 
@@ -63,38 +65,33 @@ Detail: [Phase 3 Archive](docs/roadmaps/phase-3.md)
 Status: complete
 
 Key deliverables:
-- execution windows, approval gates, wave planning, checkpoints, and resume support
+- execution windows, approval requirements, wave planning, checkpoints, and resume support
 - lifecycle remediation guidance and simulation flows
 - tenant summary reporting and stronger operator diagnostics
-- stronger release gating with coverage enforcement
+- stronger release verification with coverage enforcement
 - plugin lifecycle hardening
 
 Detail: [Phase 4 Archive](docs/roadmaps/phase-4.md)
 
-## Release And Ecosystem Launch
-Current focus:
-- a clearer early-product wedge with explicit trust boundaries
+## Current Refinement Track
+
+Focus areas:
+- clearer assessment-to-pilot product framing with explicit trust boundaries
 - polished release bundles and install paths
-- upgrade and rollback guidance
-- operator runbooks and reference environments
-- plugin author onboarding and validation guidance
-- clearer support and compatibility expectations
+- better upgrade and rollback guidance
+- operator runbooks, demo assets, and evaluation materials
+- stronger plugin author onboarding and compatibility guidance
+- more consistent public docs and repo entrypoints
 
 Expected outcomes:
-- a credible early product centered on assessment, planning, and supervised pilot use
-- a clean stable release flow that is easy to evaluate from source or packaged artifacts
-- documentation that matches the current architecture, API surface, and workflows
-- contributor guidance that reinforces release-gate discipline and compatibility rules
+- a careful evaluation-ready release surface
+- a tagged release flow that is easy to assess from source or packaged artifacts
+- documentation that matches the current architecture and operator workflow
+- contributor guidance that reinforces scope discipline and verification hygiene
 
 Contribution opportunities:
 - connector certification and compatibility validation
-- richer operator examples and reference environments
+- richer operator examples and pilot references
 - packaging and installation improvements across platforms
 - observability, diagnostics, and release-engineering automation
-- documentation clarity where code and operator workflow still feel too implicit
-
-## Guiding Principles
-- Keep the universal schema in `internal/models/` as the system of record.
-- Build connectors as isolated plugins behind the shared interface.
-- Prefer reversible migration workflows and explicit verification.
-- Treat mixed-hypervisor operations as a durable operating model, not a temporary bridge.
+- documentation cleanup where public wording still overstates maturity

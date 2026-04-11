@@ -11,7 +11,7 @@ The chosen wedge must:
 - map to an urgent and funded operator problem
 - work with the current evaluation and demo path, even if that path still needs tightening
 - create a believable bridge from discovery and planning into supervised pilot execution
-- avoid forcing claims of turnkey production migration breadth that the current repo does not yet prove
+- avoid forcing claims of broad hands-off migration breadth that the current repo does not yet prove
 
 ## Viaduct-Specific Decision Constraints
 
@@ -24,7 +24,7 @@ These constraints matter more than market size slides or category language.
 - The strongest operator story today is not "one-click migration." It is "understand the estate, reduce uncertainty, define the first safe move, and keep operator controls explicit."
 
 ### What The Repo Does Not Yet Prove Strongly Enough
-- a turnkey VMware-to-anything production cutover motion
+- a broad VMware-to-anything cutover motion
 - equal execution maturity across all source and target combinations
 - a first-class packaged VMware-exit pilot kit that is as polished as the current KVM lab evaluation path
 - an MSP-first or ecosystem-first operating model
@@ -157,7 +157,7 @@ That is the sharpest first wedge because it is the narrowest statement that stil
 ## Why This Recommendation Is Correct
 
 ### It Aligns With Viaduct's Actual Proof Path
-- the repo already supports discovery, visibility, planning, preflight, and supervised pilot controls better than it supports a broad production automation claim
+- the repo already supports discovery, visibility, planning, preflight, and supervised pilot controls better than it supports a broad unattended-automation claim
 - the current lab and quickstart prove product mechanics end to end, even though they are KVM-based rather than VMware-live
 - the support matrix already asks operators to treat migration execution as pilot-scoped work first
 

@@ -191,7 +191,7 @@ These are useful but should not block v1 if the core path is strong:
 These are out of scope for v1 even if parts already exist in the repo:
 
 - claiming equal migration support across VMware, Proxmox, Hyper-V, KVM, Nutanix, and plugin connectors
-- promising production-ready autonomous migration across every supported connector pair
+- promising hands-off autonomous migration across every supported connector pair
 - promising multiple supported live target motions in the first release
 - MSP-first multi-customer operating workflows as the lead product story
 - tenant administration polish beyond what is needed for a direct-use pilot deployment
@@ -230,7 +230,7 @@ Viaduct should only be called v1-ready when all of the following are true:
 
 1. At least one real pilot or design-partner-style environment has validated the VMware-source first-wave workflow beyond the local fixture lab.
 2. That validation includes the supported live motion, not just generic discovery or a fixture-backed demo.
-3. The pilot evidence is strong enough that Viaduct can honestly claim "supervised first-wave pilot ready" without implying fleet-wide production automation.
+3. The pilot evidence is strong enough that Viaduct can honestly claim "supervised first-wave pilot ready" without implying fleet-wide unattended migration.
 
 If those conditions are not met, Viaduct is still an evaluation build or pilot candidate, not a disciplined v1.
 

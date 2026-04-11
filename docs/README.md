@@ -1,33 +1,33 @@
 # Documentation Index
 
-This directory contains the detailed Viaduct documentation set. The repo-root docs are the public entrypoints; `docs/` holds the deeper reference and operator material.
+This directory holds the deeper Viaduct documentation set. The repo-root docs are the public entrypoints; `docs/` carries the more detailed reference, operator, and scope material behind them.
 
 ## Getting Started
+
 - [Installation](getting-started/installation.md)
 - [Quickstart](getting-started/quickstart.md)
 
-## Operations
-- [Auth, Role, And Auditability Model](operations/auth-role-audit-model.md)
+## Operator Workflows
+
 - [Pilot Workspace Flow](operations/pilot-workspace-flow.md)
-- [Demo Runbook](operations/demo-runbook.md)
-- [Demo Presenter Kit](operations/demo/README.md)
-- [Observability Requirements](operations/observability-requirements.md)
-- [Primary Reliability Path](operations/primary-reliability-path.md)
-- [Real User Validation Plan](operations/real-user-validation-plan.md)
-- [Validation Kit Templates](operations/validation/README.md)
 - [Migration Operations](operations/migration-operations.md)
 - [Backup Portability](operations/backup-portability.md)
 - [Multi-Tenancy](operations/multi-tenancy.md)
+- [Auth, Role, And Auditability Model](operations/auth-role-audit-model.md)
+- [Observability Requirements](operations/observability-requirements.md)
 - [Upgrade](operations/upgrade.md)
 - [Rollback](operations/rollback.md)
 
-## Reference
+## Demo And Validation
+
+- [Demo Runbook](operations/demo-runbook.md)
+- [Demo Presenter Kit](operations/demo/README.md)
+- [Validation Kit Templates](operations/validation/README.md)
+- [Real User Validation Plan](operations/real-user-validation-plan.md)
+
+## Reference And Scope
+
 - [Architecture Overview](architecture.md)
-- [Commercialization Options](commercialization-options.md)
-- [Early Product Focus](early-product-focus.md)
-- [Beachhead Use Case Analysis](beachhead-use-case.md)
-- [V1 Scope Definition](v1-scope.md)
-- [Backend Contract Hardening](backend-contract-hardening.md)
 - [Configuration Reference](reference/configuration.md)
 - [Support Matrix](reference/support-matrix.md)
 - [Troubleshooting](reference/troubleshooting.md)
@@ -35,11 +35,14 @@ This directory contains the detailed Viaduct documentation set. The repo-root do
 - [Plugin Author Guide](reference/plugin-author-guide.md)
 - [Plugin Certification Guide](reference/plugin-certification.md)
 - [Codebase Map](reference/codebase-map.md)
+- [Early Product Focus](early-product-focus.md)
+- [Beachhead Use Case Analysis](beachhead-use-case.md)
+- [V1 Scope Definition](v1-scope.md)
+- [Backend Contract Hardening](backend-contract-hardening.md)
 
-## Historical Roadmaps
+## Release And History
+
+- [Release Notes](releases/README.md)
 - [Roadmap Archive Index](roadmaps/README.md)
 
-## Release Drafts
-- [Release Draft Index](releases/README.md)
-
-If you are starting from the repository landing page, also see [../INSTALL.md](../INSTALL.md), [../QUICKSTART.md](../QUICKSTART.md), [../UPGRADE.md](../UPGRADE.md), and [../RELEASE.md](../RELEASE.md).
+If you are starting from the repository landing page, also see [../README.md](../README.md), [../INSTALL.md](../INSTALL.md), [../QUICKSTART.md](../QUICKSTART.md), [../UPGRADE.md](../UPGRADE.md), and [../RELEASE.md](../RELEASE.md).

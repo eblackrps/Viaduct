@@ -346,7 +346,7 @@ Do not:
 - open with `Settings`
 - open with lifecycle, policy, drift, or backup portability
 - spend time in the CLI
-- claim broad production automation maturity
+- claim broad unattended-migration maturity
 - show multiple source or target motions
 - click around randomly between tabs
 - dwell on unsupported or secondary features

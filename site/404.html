@@ -3,31 +3,39 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Page Not Found | Viaduct</title>
-    <meta name="theme-color" content="#0A1020" />
+    <title>Not Found | Viaduct</title>
+    <meta
+      name="description"
+      content="This route is not part of the current Viaduct site. Return to the evaluation overview, quickstart, install guide, or repository."
+    />
+    <meta name="theme-color" content="#08111f" />
+    <meta name="robots" content="noindex" />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <div class="site-shell">
-      <main class="not-found">
-        <p class="eyebrow">404</p>
-        <h1>This route is not part of the current Viaduct site.</h1>
-        <p>
-          Head back to the landing page, or jump straight into the repository and quickstart docs.
-        </p>
-        <div class="hero-actions">
-          <a class="button button-primary" href="./">Return home</a>
-          <a class="button button-secondary" href="https://github.com/eblackrps/viaduct">
-            Open GitHub
-          </a>
-        </div>
+    <a class="skip-link" href="#content">Skip to content</a>
+    <div class="page-shell">
+      <main class="error-shell" id="content">
+        <section class="error-panel" aria-labelledby="not-found-title">
+          <p class="eyebrow">404</p>
+          <h1 id="not-found-title">This page is not part of the current Viaduct site.</h1>
+          <p>
+            The public Pages site is intentionally small and focused on evaluation. Head back to the landing page or jump directly into the repo entrypoints that describe the lab path, install steps, and API contract.
+          </p>
+          <div class="error-links">
+            <a class="button button-primary" href="./">Return home</a>
+            <a class="button button-secondary" href="https://github.com/eblackrps/Viaduct/blob/main/QUICKSTART.md">Quickstart</a>
+            <a class="button button-secondary" href="https://github.com/eblackrps/Viaduct/blob/main/INSTALL.md">Install</a>
+            <a class="button button-secondary" href="https://github.com/eblackrps/Viaduct">Repository</a>
+          </div>
+        </section>
       </main>
     </div>
   </body>

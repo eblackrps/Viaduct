@@ -34,6 +34,6 @@ This matrix reflects what is implemented and what is currently validated in the 
 
 ## Operational Notes
 - Persistent deployments should use PostgreSQL rather than the in-memory store.
-- Multi-tenant deployments should always use explicit tenant API keys.
+- Multi-tenant deployments should use service-account keys for normal operator access and reserve tenant keys for bootstrap or tenant-admin work.
 - Production migration usage should be exercised in a lab or pilot environment first, especially for connector-specific runtime actions beyond discovery.
-- The Vite dashboard dev server is for local development only and should not be exposed as a public production surface.
+- The Vite dashboard dev server is for local development only and should not be exposed as a public or shared internet-facing surface.

@@ -4,7 +4,7 @@ This directory contains release notes and other release-facing narrative assets 
 
 ## Files
 
-- [v1.6.0 release notes](v1.6.0-draft.md)
+- [v1.6.0 release notes](v1.6.0.md)
 
 Keep these notes aligned with:
 - [CHANGELOG.md](../../CHANGELOG.md)

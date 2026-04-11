@@ -194,7 +194,7 @@ That makes open-core more than a pricing decision. It would require product and 
 
 ### What this model would prioritize next
 
-- identity, governance, and support-grade packaging features that can justify a paid tier
+- identity, governance, and operationally credible packaging features that can justify a paid tier
 - clearer multi-tenant administration boundaries
 - edition-aware docs and release packaging
 

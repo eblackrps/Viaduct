@@ -1,14 +1,19 @@
 # Examples
 
-This directory contains runnable evaluation assets and reference extensions.
+This directory contains the runnable evaluation assets and extension examples that support the current Viaduct workflow.
 
 ## Available Examples
-- `lab/`: local KVM-based evaluation path for discovery, planning, API startup, and dashboard development
-- `plugin-example/`: reference gRPC connector plugin that returns a small static inventory
-- `deploy/`: reference deployment assets for Docker Compose, systemd, and Kubernetes pilots
+
+- `lab/`: default local evaluation path for discovery, planning, API startup, and the workspace-first dashboard flow
+- `deploy/`: reference deployment assets for lab and pilot environments
+- `plugin-example/`: small gRPC connector plugin that demonstrates the extension model
 
 ## Recommended First Run
+
 Start with [lab/README.md](lab/README.md) if you want to evaluate Viaduct without a live hypervisor.
 
-## Ecosystem Guidance
-Use [plugin-example/README.md](plugin-example/README.md) together with [../docs/reference/plugin-author-guide.md](../docs/reference/plugin-author-guide.md) when building community connectors.
+## Related Guides
+
+- Plugin authoring: [../docs/reference/plugin-author-guide.md](../docs/reference/plugin-author-guide.md)
+- Plugin certification: [../docs/reference/plugin-certification.md](../docs/reference/plugin-certification.md)
+- Deployment references: [deploy/README.md](deploy/README.md)

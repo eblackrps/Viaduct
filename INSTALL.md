@@ -1,8 +1,9 @@
 # Installation
 
-This document is the top-level installation entrypoint for Viaduct. For a deeper walkthrough, see [docs/getting-started/installation.md](docs/getting-started/installation.md).
+This is the top-level installation entrypoint for Viaduct. Use it together with [QUICKSTART.md](QUICKSTART.md) if you want the fastest evaluation path, or see [docs/getting-started/installation.md](docs/getting-started/installation.md) for the deeper walkthrough.
 
 ## Requirements
+
 - Go 1.24 or newer
 - Node.js 20.19 or newer if you want to build the dashboard
 - `make` for the standard workflow
@@ -29,7 +30,7 @@ npm run build
 ## Install From A Release Bundle
 
 Release bundles produced by `make package-release-matrix` include:
-- the CLI binary
+- CLI binary
 - built web assets
 - docs and sample configs
 - install scripts
@@ -55,6 +56,11 @@ viaduct version
 viaduct --help
 ```
 
-The fastest no-infrastructure evaluation path is the local KVM lab in [examples/lab](examples/lab). Continue with [QUICKSTART.md](QUICKSTART.md).
+## Recommended Next Step
 
-Reference deployment assets for Docker Compose, systemd, and Kubernetes live in [examples/deploy](examples/deploy). Start with [examples/deploy/README.md](examples/deploy/README.md) and use the Kubernetes notes in [examples/deploy/kubernetes/README.md](examples/deploy/kubernetes/README.md) if you want a pilot-style in-cluster evaluation.
+The cleanest evaluation path is still the local lab in [examples/lab](examples/lab). Continue with [QUICKSTART.md](QUICKSTART.md).
+
+For packaged or persistent evaluation environments:
+- use PostgreSQL instead of the in-memory store
+- prefer service-account keys for normal operator access
+- keep the Vite dev server out of any shared or internet-facing environment

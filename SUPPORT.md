@@ -1,34 +1,39 @@
 # Support
 
-Viaduct is maintained as an open source project with best-effort community support.
+Viaduct is maintained as an open-source project with best-effort community support.
 
-## Where To Start
-- Read [README.md](README.md) for the current project status and capability summary.
-- Use [INSTALL.md](INSTALL.md) and [QUICKSTART.md](QUICKSTART.md) for first-run setup.
-- Use [docs/README.md](docs/README.md) for the full documentation map.
-- Use [docs/reference/troubleshooting.md](docs/reference/troubleshooting.md) for common failure modes and recovery steps.
-- Use [docs/operations/observability-requirements.md](docs/operations/observability-requirements.md) for the current request-correlation, execution-history, and support-debugging model.
+## Start Here
 
-## How To Get Help
-- Installation, usage, or evaluation questions: open a GitHub issue and describe what you are trying to do, what environment you are using, and where you got blocked.
+- Project overview and status: [README.md](README.md)
+- Install and first run: [INSTALL.md](INSTALL.md), [QUICKSTART.md](QUICKSTART.md)
+- Full docs map: [docs/README.md](docs/README.md)
+- Troubleshooting: [docs/reference/troubleshooting.md](docs/reference/troubleshooting.md)
+- Support matrix: [docs/reference/support-matrix.md](docs/reference/support-matrix.md)
+
+## How To Ask For Help
+
+- Installation, usage, or evaluation questions: open a GitHub issue and describe what you are trying to do, your environment, and where you got blocked.
 - Suspected defects: use the bug report template and include reproduction steps, expected behavior, actual behavior, version or commit, and relevant logs with secrets removed.
-- Feature requests: use the feature request template and describe the operator or contributor problem you are trying to solve.
+- Feature requests: describe the operator problem first, then the change you think would help.
 
-## What To Include
-- Viaduct version or commit SHA from `viaduct version`
-- `request_id` from the UI or API response when available
-- `migration_id` or `snapshot_id` when the issue involves execution or discovery history
+## Useful Context To Include
+
+- `viaduct version` output or commit SHA
+- `request_id` from the UI or API when available
+- `migration_id`, `workspace_id`, `job_id`, or `snapshot_id` when relevant
 - OS and architecture
-- Go and Node versions if building from source
+- Go and Node versions if you built from source
 - connector or platform involved
 - whether you are using the in-memory or PostgreSQL store
-- whether the issue appears in `make release-gate`, `make certification-test`, or `make soak-test`
+- whether the issue reproduces in `make release-gate`, `make certification-test`, or `make soak-test`
 - relevant config snippets with secrets removed
 
-## Security
-Do not use public issues for security reports. Follow [SECURITY.md](SECURITY.md) instead.
+## Expectations
 
-## Support Expectations
 - Support is best effort and prioritized by severity, reproducibility, and operator impact.
-- Clear repro steps and logs materially improve turnaround time.
-- Compatibility questions are easiest to answer when they reference the [docs/reference/support-matrix.md](docs/reference/support-matrix.md).
+- Clear repro steps and correlated identifiers materially improve turnaround time.
+- The fastest path to a good answer is usually a narrow question grounded in the current documented workflow.
+
+## Security
+
+Do not use public issues for security reports. Follow [SECURITY.md](SECURITY.md) instead.

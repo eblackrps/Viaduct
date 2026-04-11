@@ -67,7 +67,7 @@ Create clarity and interest fast:
 - do not open with `Settings`
 - do not spend time in the CLI
 - do not tour secondary features
-- do not imply broad production automation maturity
+- do not imply broad unattended-migration maturity
 - do not imply multiple supported live target motions
 
 ## Likely Questions

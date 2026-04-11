@@ -14,7 +14,7 @@ This is not a request to redesign the API from scratch. The goal is to preserve 
 - Stabilize the packaged dashboard contract before broadening connector or workflow breadth.
 - Treat CLI, API, dashboard, OpenAPI, and report exports as one operator contract.
 - If a field matters to operator trust or frontend state, it must be documented and tested.
-- If a workflow is still pilot-only, the contract must say so without pretending it is generic production automation.
+- If a workflow is still pilot-only, the contract must say so without pretending it is generic unattended automation.
 
 ## Current Contract Reality
 

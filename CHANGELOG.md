@@ -21,7 +21,7 @@ This changelog tracks published releases and the major implementation milestones
 ### Lab, Contract, And Release Surface
 - added a deterministic `examples/lab` end-to-end smoke flow for workspace creation through report export
 - updated the published OpenAPI contract, quickstart flow, lab assets, configuration guidance, and operator docs to match the new workspace APIs and runtime auth flow
-- added v1.6.0 release-note draft material and release-facing screenshot assets for the workspace-first operator application
+- added v1.6.0 release-note material and release-facing screenshot assets for the workspace-first operator application
 
 ## [1.5.0] - 2026-04-08
 
@@ -31,7 +31,7 @@ This changelog tracks published releases and the major implementation milestones
 
 ### API And Dashboard Trust Surfaces
 - hardened the API contract with structured JSON error responses, stabilized migration command acknowledgements, and updated OpenAPI coverage for the operator-facing routes
-- improved dashboard-side error handling so settings and report workflows preserve request correlation and support-grade failure detail instead of flattening backend errors into generic strings
+- improved dashboard-side error handling so settings and report workflows preserve request correlation and operator-facing failure detail instead of flattening backend errors into generic strings
 
 ### Documentation And Operator Readiness
 - added presenter-ready demo assets, real-user validation templates, and commercialization decision guidance to support design-partner conversations and pilot packaging
@@ -98,7 +98,7 @@ This changelog tracks published releases and the major implementation milestones
 
 ## [1.1.0] - 2026-04-05
 
-### Current Stable Surface
+### Current Tagged Feature Set
 - multi-platform discovery for VMware, Proxmox, Hyper-V, KVM, Nutanix, and Veeam-related backup inventory
 - dependency graph construction across workload, network, storage, and backup metadata
 - declarative cold and warm migration orchestration with preflight checks, execution windows, approval gates, checkpoints, resume support, verification, and rollback
