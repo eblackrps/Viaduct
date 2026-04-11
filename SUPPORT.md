@@ -7,6 +7,7 @@ Viaduct is maintained as an open-source project with best-effort community suppo
 - Project overview and status: [README.md](README.md)
 - Install and first run: [INSTALL.md](INSTALL.md), [QUICKSTART.md](QUICKSTART.md)
 - Full docs map: [docs/README.md](docs/README.md)
+- Local runtime health: `viaduct status --runtime`, `viaduct doctor`
 - Troubleshooting: [docs/reference/troubleshooting.md](docs/reference/troubleshooting.md)
 - Support matrix: [docs/reference/support-matrix.md](docs/reference/support-matrix.md)
 

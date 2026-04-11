@@ -1,5 +1,5 @@
 [Unit]
-Description=Viaduct API Server
+Description=Viaduct operator API and bundled WebUI
 After=network-online.target
 Wants=network-online.target
 

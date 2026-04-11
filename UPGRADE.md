@@ -18,6 +18,7 @@ This is the top-level upgrade entrypoint. Use it with [docs/operations/upgrade.m
 - Validate `/api/v1/about` after startup so the reported store backend and schema version match the expected deployment state.
 - If active migrations exist, finish or intentionally pause them before upgrading.
 - If you rely on packaged web assets, redeploy the matching dashboard bundle together with the binary.
+- If you use the standard local operator path, prefer `viaduct start` after upgrade. Keep `viaduct serve-api` for service, container, or intentionally headless deployments.
 
 ## Rollback
 

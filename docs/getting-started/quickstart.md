@@ -2,7 +2,7 @@
 
 This quickstart uses the local KVM fixture lab so you can evaluate Viaduct end to end without a live hypervisor.
 
-The default dashboard path is now workspace-first and authenticated at runtime with a service-account key or tenant key.
+The default dashboard path is now WebUI-first and workspace-first: `viaduct start`, open the browser, create a workspace, discover, inspect, simulate, save a plan, and export a report.
 
 ## Prerequisites
 - Go 1.24+
@@ -15,6 +15,7 @@ The default dashboard path is now workspace-first and authenticated at runtime w
 make build
 make web-build
 ./bin/viaduct version
+./bin/viaduct start
 ```
 
 On Windows without `make`:
@@ -25,47 +26,18 @@ go build -o bin/viaduct.exe ./cmd/viaduct
 npm --prefix web ci
 npm --prefix web run build
 .\bin\viaduct.exe version
+.\bin\viaduct.exe start
 ```
 
-## 2. Create A Local Config
+On a fresh source checkout, `viaduct start` creates `~/.viaduct/config.yaml` if it is missing and points it at `examples/lab/kvm`. For a persistent pilot environment, configure `state_store_dsn` and use PostgreSQL instead of the in-memory store.
 
-```bash
-mkdir -p ~/.viaduct
-cp examples/lab/config.yaml ~/.viaduct/config.yaml
-```
+## 2. Open The Dashboard
 
-For the local lab, the config only needs the built-in KVM fixture path. For a persistent pilot environment, configure `state_store_dsn` and use PostgreSQL.
+Open [http://127.0.0.1:8080](http://127.0.0.1:8080). The local runtime serves the dashboard at `/` and the API under `/api/v1/`.
 
-## 3. Start The API And Seed Auth
+For the default local lab path, the dashboard can use the built-in single-user fallback and does not require a pasted browser key.
 
-```bash
-export VIADUCT_ADMIN_KEY=lab-admin
-./bin/viaduct serve-api --port 8080
-```
-
-The same process now serves the built dashboard at [http://localhost:8080](http://localhost:8080) when assets are present. For any other dashboard origin, set `VIADUCT_ALLOWED_ORIGINS` before starting the API.
-
-In another terminal, create the lab tenant and operator service account:
-
-```bash
-curl -X POST \
-  -H "X-Admin-Key: lab-admin" \
-  -H "Content-Type: application/json" \
-  --data @examples/lab/tenant-create.json \
-  http://localhost:8080/api/v1/admin/tenants
-
-curl -X POST \
-  -H "X-API-Key: lab-tenant-key" \
-  -H "Content-Type: application/json" \
-  --data @examples/lab/service-account-create.json \
-  http://localhost:8080/api/v1/service-accounts
-```
-
-## 4. Open The Dashboard
-
-Open [http://localhost:8080](http://localhost:8080). The dashboard opens on the pilot workspace route and calls the same origin API.
-
-Authenticate through the runtime bootstrap screen:
+If you intentionally configure a tenant key or service-account key, the runtime bootstrap screen remains available:
 - preferred service-account key: `lab-operator-key`
 - bootstrap-only tenant key: `lab-tenant-key`
 
@@ -81,7 +53,7 @@ npm ci
 npm run dev
 ```
 
-## 5. Run The Workspace-First Operator Flow
+## 3. Run The Workspace-First Operator Flow
 
 1. Create the first pilot workspace from the prefilled lab defaults.
 2. Run discovery to save workspace snapshots.
@@ -92,7 +64,20 @@ npm run dev
 
 The seeded API request body for the same intake is available in `examples/lab/pilot-workspace-create.json`.
 
-## 6. Optional CLI Corroboration
+## 4. Runtime Checks
+
+```bash
+./bin/viaduct status --runtime
+./bin/viaduct doctor
+```
+
+Stop the local runtime when you are done:
+
+```bash
+./bin/viaduct stop
+```
+
+## 5. Optional CLI Corroboration
 
 ```bash
 ./bin/viaduct discover --type kvm --source examples/lab/kvm --save

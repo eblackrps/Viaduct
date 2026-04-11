@@ -1,6 +1,6 @@
 # Installation
 
-This is the top-level installation entrypoint for Viaduct. Use it together with [QUICKSTART.md](QUICKSTART.md) if you want the fastest evaluation path, or see [docs/getting-started/installation.md](docs/getting-started/installation.md) for the deeper walkthrough.
+This is the top-level installation entrypoint for Viaduct. Use it with [QUICKSTART.md](QUICKSTART.md) for the fastest browser-first path, or see [docs/getting-started/installation.md](docs/getting-started/installation.md) for the deeper walkthrough.
 
 ## Requirements
 
@@ -20,14 +20,15 @@ make web-build
 ./bin/viaduct version
 ```
 
-Start the packaged local operator surface:
+Start the local operator runtime:
 
 ```bash
-export VIADUCT_ADMIN_KEY=change-me
-./bin/viaduct serve-api --port 8080
+./bin/viaduct start
 ```
 
-Then open [http://localhost:8080](http://localhost:8080).
+On a fresh source checkout, `viaduct start` generates the default local lab config when `~/.viaduct/config.yaml` is missing, serves the built dashboard and API together, and prints the WebUI URL.
+
+The default local URL is [http://127.0.0.1:8080](http://127.0.0.1:8080).
 
 ## Install From A Release Bundle
 
@@ -44,31 +45,40 @@ Release bundles produced by `make package-release-matrix` include:
 On POSIX systems:
 
 ```bash
-PREFIX=/usr/local ./install.sh ./bin/viaduct ./web
+PREFIX=/usr/local ./install.sh ./bin/viaduct ./web ./configs ./examples ./docs
 ```
 
 On Windows PowerShell:
 
 ```powershell
-.\install.ps1 -SourceBin .\bin\viaduct.exe -SourceWeb .\web -Prefix "$env:LOCALAPPDATA\\Viaduct"
+.\install.ps1 -SourceBin .\bin\viaduct.exe -SourceWeb .\web -SourceConfigs .\configs -SourceExamples .\examples -SourceDocs .\docs -Prefix "$env:LOCALAPPDATA\\Viaduct"
 ```
 
-After install:
+Both install scripts copy the CLI, built dashboard assets, docs, configs, and examples into one predictable layout. They also create a starter config that points at the installed lab fixtures when no config already exists at the install location.
+
+After install, start Viaduct with the config path printed by the installer. For example:
 
 ```bash
-viaduct serve-api --port 8080
+viaduct start --config /usr/local/etc/viaduct/config.yaml
 ```
 
-Then open [http://localhost:8080](http://localhost:8080).
+On Windows, the equivalent installed command is typically:
+
+```powershell
+viaduct.exe start --config "$env:LOCALAPPDATA\Viaduct\etc\viaduct\config.yaml"
+```
+
+The default local URL remains [http://127.0.0.1:8080](http://127.0.0.1:8080).
 
 ## Verify The Install
 
 ```bash
 viaduct version
 viaduct --help
+viaduct doctor
 ```
 
-When built dashboard assets are present, the same `viaduct serve-api` process serves the dashboard shell at `/` and the API under `/api/v1/`.
+When built dashboard assets are present, Viaduct serves the dashboard shell at `/` and the API under `/api/v1/`.
 
 ## Recommended Next Step
 
@@ -81,3 +91,4 @@ For packaged or persistent evaluation environments:
 - set `VIADUCT_WEB_DIR` only when you keep built dashboard assets in a non-standard location
 - tune `VIADUCT_WORKSPACE_JOB_TIMEOUT` if discovery or planning jobs need a different server-side timeout budget
 - keep the Vite dev server out of any shared or internet-facing environment
+- use `viaduct serve-api` directly for service, container, or intentionally headless deployments

@@ -17,7 +17,7 @@ On Windows, `make release-gate` still builds `bin/viaduct.exe`, but it validates
 2. Run `make release-gate`.
 3. Inspect the generated bundles in `dist/`.
 4. Verify `release-manifest.json`, `dependency-manifest.json`, and `SHA256SUMS.txt`.
-5. Smoke-test the packaged binary with `viaduct version`, `viaduct --help`, and `viaduct serve-api --port 8080` against the bundled dashboard assets when they are present.
+5. Smoke-test the packaged binary with `viaduct version`, `viaduct --help`, `viaduct doctor`, and the canonical local start flow (`viaduct start --config <installed-config> --detach --open-browser=false`) against the bundled dashboard assets when they are present.
 6. Confirm install docs, upgrade docs, rollback docs, deployment examples, and the pilot workspace guide still match the artifact layout.
 7. Confirm the release notes entry, changelog entry, and screenshot assets are present and aligned with the shipped workflow.
 8. Verify the plugin manifest check and OpenAPI contract check remain green.
@@ -40,7 +40,7 @@ The standalone public site under [`site/`](site/README.md) is published through 
 - summarize operator-visible changes
 - document compatibility, migration, or upgrade concerns
 - call out any connector-specific caveats
-- include the workspace-first operator flow and runtime-auth bootstrap changes when they are part of the release
+- include the workspace-first operator flow, runtime-auth behavior, and local startup changes when they are part of the release
 - include current screenshot assets when the dashboard experience changed materially
 - use absolute GitHub URLs in the published GitHub release body when relative asset links would be ambiguous
 - update [CHANGELOG.md](CHANGELOG.md) with notable release information

@@ -22,15 +22,15 @@ This matrix reflects what is implemented and what is currently validated in the 
 | Dashboard build | CI and local | `npm run build` is part of the release gate. |
 
 ## Connectors
-| Connector | Status | Notes |
-| --- | --- | --- |
-| VMware | Discovery implemented | vCenter discovery with VM and infrastructure metadata. |
-| Proxmox | Discovery implemented | REST-based inventory for VMs, containers, networks, storage, and nodes. |
-| Hyper-V | Discovery implemented | WinRM / PowerShell inventory collection. |
-| KVM | Discovery implemented | XML-backed fallback plus libvirt build-tag implementation. |
-| Nutanix | Discovery implemented | Prism Central v3 inventory collection. |
-| Veeam | Backup discovery and portability implemented | Used for backup correlation and portability planning. |
-| Community plugins | Supported | gRPC plugin host with validation for health, platform ID, and discovery results. |
+| Connector | Status | Repository validation | Notes |
+| --- | --- | --- | --- |
+| VMware | Discovery implemented | Package-level tests and fixtures | vCenter discovery with VM and infrastructure metadata. |
+| Proxmox | Discovery implemented | Package-level tests plus fixture-backed certification | REST-based inventory for VMs, containers, networks, storage, and nodes. |
+| Hyper-V | Discovery implemented | Package-level tests and fixtures | WinRM / PowerShell inventory collection. |
+| KVM | Discovery implemented | Package-level tests plus fixture-backed certification | XML-backed fallback plus libvirt build-tag implementation. |
+| Nutanix | Discovery implemented | Package-level tests and fixtures | Prism Central v3 inventory collection. |
+| Veeam | Backup discovery and portability implemented | Package-level tests and fixtures | Used for backup correlation and portability planning. |
+| Community plugins | Supported | Host and manifest tests plus `make plugin-check` | gRPC plugin host with validation for health, platform ID, discovery results, and manifest compatibility. |
 
 ## Operational Notes
 - Persistent deployments should use PostgreSQL rather than the in-memory store.

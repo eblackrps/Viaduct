@@ -14,35 +14,22 @@ This directory contains the default local evaluation path for Viaduct.
 ## Recommended Flow
 
 ```bash
-mkdir -p ~/.viaduct
-cp examples/lab/config.yaml ~/.viaduct/config.yaml
 make build
 make web-build
-export VIADUCT_ADMIN_KEY=lab-admin
-./bin/viaduct serve-api --port 8080
+./bin/viaduct start
 ```
 
-Seed the lab tenant and service account:
+On a fresh source checkout, `viaduct start` generates `~/.viaduct/config.yaml` automatically when it is missing and points it at the fixtures in this directory.
 
-```bash
-curl -X POST \
-  -H "X-Admin-Key: lab-admin" \
-  -H "Content-Type: application/json" \
-  --data @examples/lab/tenant-create.json \
-  http://localhost:8080/api/v1/admin/tenants
+Then open [http://127.0.0.1:8080](http://127.0.0.1:8080). For the default local lab path, the dashboard can use the built-in single-user fallback and does not require a pasted browser key.
 
-curl -X POST \
-  -H "X-API-Key: lab-tenant-key" \
-  -H "Content-Type: application/json" \
-  --data @examples/lab/service-account-create.json \
-  http://localhost:8080/api/v1/service-accounts
-```
+If you intentionally want to exercise the tenant-scoped bootstrap path, use the seeded payloads in this directory:
+- `tenant-create.json`
+- `service-account-create.json`
 
-Then open [http://localhost:8080](http://localhost:8080) and sign in with `lab-operator-key`.
+The bootstrap screen stores runtime keys in session storage by default. Use the remember option only when you want the browser to retain a key across restarts.
 
-The bootstrap screen stores the key in session storage by default. Use the remember option only when you want the browser to retain the key across restarts.
-
-If you are actively editing the dashboard, you can still run `npm run dev` inside `web/` and use the Vite server instead. The default operator path for the lab is the same-origin shell served by `viaduct serve-api`.
+If you are actively editing the dashboard, you can still run `npm run dev` inside `web/` and use the Vite server instead. The default operator path for the lab is the same-origin shell served by `viaduct start`.
 
 The default dashboard sequence is:
 

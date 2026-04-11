@@ -38,14 +38,14 @@ Fix:
 ## Dashboard Cannot Reach The API
 
 Cause:
-- `viaduct serve-api` is not running
+- `viaduct start` or `viaduct serve-api` is not running
 - the built dashboard assets are missing from the default serve path
 - Vite is not proxying to `localhost:8080` when you are using the dev server
 - no runtime key or pre-seeded dashboard key is available for tenant-protected routes
 
 Fix:
-- start `viaduct serve-api --port 8080`
-- open `http://localhost:8080` for the default same-origin operator path
+- start `viaduct start`
+- open `http://127.0.0.1:8080` for the default same-origin operator path
 - set `VIADUCT_WEB_DIR` only if the built dashboard assets live outside the standard packaged or installed paths
 - use the runtime bootstrap screen or prefer `VITE_VIADUCT_SERVICE_ACCOUNT_KEY` for local development
 - confirm API health at `/api/v1/health`
@@ -59,7 +59,20 @@ Fix:
 - set `VIADUCT_ALLOWED_ORIGINS` to a comma-separated list of trusted dashboard origins
 - restart `viaduct serve-api`
 - keep the value narrow instead of using a wildcard
-- skip this override for the default same-origin path on `http://localhost:8080`
+- skip this override for the default same-origin path on `http://127.0.0.1:8080`
+
+## `viaduct start` Says The WebUI Assets Are Missing
+
+Cause:
+- the dashboard has not been built yet in a source checkout
+- `VIADUCT_WEB_DIR` points to the wrong directory
+- the packaged or installed web assets are incomplete
+
+Fix:
+- run `make web-build` before `viaduct start` in a source checkout
+- use `viaduct doctor` to confirm the resolved dashboard asset path
+- set `VIADUCT_WEB_DIR` only when the built dashboard assets live outside the standard packaged or installed paths
+- reinstall from a complete release bundle if the packaged `web/` layout is missing
 
 ## Workspace Job Fails With `context deadline exceeded`
 

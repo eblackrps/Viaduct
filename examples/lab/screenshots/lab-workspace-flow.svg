@@ -9,7 +9,7 @@
   <rect x="96" y="206" width="230" height="34" rx="17" fill="#F3F8FB" stroke="#D5E1E8"/>
   <text x="124" y="228" fill="#425B6B" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">workspace: Examples Lab Assessment</text>
   <rect x="338" y="206" width="178" height="34" rx="17" fill="#E8F4FA"/>
-  <text x="372" y="228" fill="#1E657E" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">auth: service-account key</text>
+  <text x="360" y="228" fill="#1E657E" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">auth: local single-user session</text>
   <rect x="528" y="206" width="156" height="34" rx="17" fill="#F3F8FB" stroke="#D5E1E8"/>
   <text x="565" y="228" fill="#425B6B" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">status: reported</text>
 

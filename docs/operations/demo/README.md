@@ -22,6 +22,6 @@ Use the files in this directory when you actually present.
 4. Use [three-minute-demo-card.md](three-minute-demo-card.md) for first-interest and short recorded demos.
 5. Use [fifteen-minute-demo-card.md](fifteen-minute-demo-card.md) for design-partner and operator evaluation demos.
 
-These assets are intentionally narrow. They support the VMware-exit migration assessment, planning, and supervised pilot story Viaduct is currently hardening, not a broad repo tour.
+These assets are intentionally narrow. They support the mixed-estate migration assessment, planning, and controlled operator workflow that Viaduct demonstrates best today, not a broad repo tour.
 
-The current release-facing screenshots are aligned with the packaged operator shell and same-origin startup flow shipped in v1.9.0.
+The current release-facing screenshots are aligned with the packaged operator shell, the local `viaduct start` flow, and the keyed bootstrap path shipped in v2.0.0.

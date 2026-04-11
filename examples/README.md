@@ -4,7 +4,7 @@ This directory contains the runnable evaluation assets and extension examples th
 
 ## Available Examples
 
-- `lab/`: default local evaluation path for discovery, planning, API startup, and the workspace-first dashboard flow
+- `lab/`: default local evaluation path for `viaduct start`, the WebUI-first workspace flow, and CLI corroboration
 - `deploy/`: reference deployment assets for lab and pilot environments
 - `plugin-example/`: small gRPC connector plugin that demonstrates the extension model
 

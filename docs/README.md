@@ -7,6 +7,8 @@ This directory holds the deeper Viaduct documentation set. The repo-root docs ar
 - [Installation](getting-started/installation.md)
 - [Quickstart](getting-started/quickstart.md)
 
+The default local path now starts with `viaduct start`, opens the WebUI at `http://127.0.0.1:8080`, and uses the shipped lab fixtures when no local config exists yet.
+
 ## Operator Workflows
 
 - [Pilot Workspace Flow](operations/pilot-workspace-flow.md)

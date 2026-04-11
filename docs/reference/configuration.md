@@ -65,7 +65,11 @@ Fields:
 
 The dashboard reads this through Vite. See [`../../web/.env.example`](../../web/.env.example).
 
-The dashboard now also supports runtime authentication bootstrap. When neither variable is set, the app starts on a bootstrap screen and accepts either a service-account key or tenant key at runtime. The selected credential is stored in browser session storage by default and is cleared when the browser session ends. Operators can explicitly choose to remember the key in local storage on trusted workstations.
+The dashboard now also supports runtime authentication bootstrap. When neither variable is set, the app either:
+- uses the built-in local single-user fallback when only the default tenant exists and that tenant has no API key configured, or
+- starts on a bootstrap screen and accepts either a service-account key or tenant key at runtime
+
+The selected browser credential is stored in session storage by default and is cleared when the browser session ends. Operators can explicitly choose to remember a runtime key in local storage on trusted workstations.
 
 Prefer `VITE_VIADUCT_SERVICE_ACCOUNT_KEY` for normal dashboard access when you intentionally pre-seed a development build. Reserve `VITE_VIADUCT_API_KEY` for tenant bootstrap, short-lived admin work, or break-glass access.
 
@@ -78,6 +82,7 @@ Prefer `VITE_VIADUCT_SERVICE_ACCOUNT_KEY` for normal dashboard access when you i
 ## Tenant Defaults
 - The built-in `default` tenant exists automatically in both the memory store and PostgreSQL store.
 - The API can fall back to the default tenant only when there are no active custom tenants and the default tenant has no API key configured.
+- `viaduct start` relies on that default-tenant fallback for the standard local lab path so a fresh clone can reach the WebUI without manual key seeding.
 - Any shared or persistent deployment should use explicit tenant keys rather than relying on fallback behavior.
 - Any pilot or packaged dashboard deployment should prefer named service-account credentials over a shared tenant-wide key.
 

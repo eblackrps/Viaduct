@@ -2,9 +2,7 @@
 
 This is the fastest source-based evaluation path for Viaduct. It uses the local lab so you can reach the workspace-to-report flow without a live hypervisor estate.
 
-## Maturity Note
-
-Viaduct is in active development. Start in the lab or a supervised pilot first.
+The default operator path is now browser-first: start the local runtime, open the WebUI, create a workspace, discover, inspect, simulate, save a plan, and export a report.
 
 ## 1. Build Viaduct
 
@@ -13,6 +11,7 @@ go mod tidy
 make build
 make web-build
 ./bin/viaduct version
+./bin/viaduct start
 ```
 
 On Windows PowerShell:
@@ -22,64 +21,20 @@ go mod tidy
 make build
 make web-build
 .\bin\viaduct.exe version
+.\bin\viaduct.exe start
 ```
 
-## 2. Seed The Local Config
+On a fresh source checkout, `viaduct start` writes `~/.viaduct/config.yaml` automatically if it does not exist and points it at the shipped `examples/lab/kvm` fixtures.
 
-```bash
-mkdir -p ~/.viaduct
-cp examples/lab/config.yaml ~/.viaduct/config.yaml
-```
+For any persistent non-demo environment, configure `state_store_dsn` and use PostgreSQL instead of the in-memory store.
 
-The lab config uses the local KVM fixture set. For any persistent non-demo environment, configure `state_store_dsn` and use PostgreSQL.
+## 2. Open The WebUI
 
-## 3. Start The API
+Open [http://127.0.0.1:8080](http://127.0.0.1:8080). The same local runtime serves the WebUI at `/` and the API at `/api/v1/`.
 
-```bash
-export VIADUCT_ADMIN_KEY=lab-admin
-./bin/viaduct serve-api --port 8080
-```
+For the default local lab path, the dashboard can use the built-in single-user fallback and does not require a pasted browser key.
 
-On Windows PowerShell:
-
-```powershell
-$env:VIADUCT_ADMIN_KEY = "lab-admin"
-.\bin\viaduct.exe serve-api --port 8080
-```
-
-When built dashboard assets are present, the same process serves the WebUI at [http://localhost:8080](http://localhost:8080). If you serve the dashboard from a different origin, set `VIADUCT_ALLOWED_ORIGINS` before starting the API.
-
-## 4. Seed The Lab Tenant And Service Account
-
-```bash
-curl -X POST \
-  -H "X-Admin-Key: lab-admin" \
-  -H "Content-Type: application/json" \
-  --data @examples/lab/tenant-create.json \
-  http://localhost:8080/api/v1/admin/tenants
-
-curl -X POST \
-  -H "X-API-Key: lab-tenant-key" \
-  -H "Content-Type: application/json" \
-  --data @examples/lab/service-account-create.json \
-  http://localhost:8080/api/v1/service-accounts
-```
-
-This creates:
-- tenant key: `lab-tenant-key`
-- service-account key: `lab-operator-key`
-
-Use the service-account key for the normal operator flow. Keep the tenant key for bootstrap or break-glass admin work.
-
-## 5. Open The Dashboard
-
-Open [http://localhost:8080](http://localhost:8080). The dashboard starts on the pilot workspace route and asks for a runtime key.
-
-Authenticate with:
-- preferred: `lab-operator-key`
-- bootstrap only: `lab-tenant-key`
-
-The dashboard stores the runtime key in session storage by default. Use the "Remember this browser" option only when you intentionally want the browser to keep a local copy across restarts on a trusted workstation.
+If you intentionally configure tenant keys or service-account keys, the runtime bootstrap screen remains available. The browser stores runtime credentials in session storage by default and offers an explicit remember option for trusted workstations.
 
 If you want the Vite development server instead of the packaged local shell:
 
@@ -89,9 +44,9 @@ npm ci
 npm run dev
 ```
 
-Use that only for frontend development. The default operator path is the same-origin dashboard served by `viaduct serve-api`.
+Use that only for frontend development. The default operator path is the same-origin dashboard served by `viaduct start`.
 
-## 6. Run The Workspace-First Flow
+## 3. Run The Workspace-First Flow
 
 In the dashboard:
 
@@ -104,7 +59,20 @@ In the dashboard:
 
 The matching seeded request body for API-driven creation is in [examples/lab/pilot-workspace-create.json](examples/lab/pilot-workspace-create.json).
 
-## 7. Optional CLI Corroboration
+## 4. Check The Local Runtime
+
+```bash
+./bin/viaduct status --runtime
+./bin/viaduct doctor
+```
+
+Stop the local runtime when you are finished:
+
+```bash
+./bin/viaduct stop
+```
+
+## 5. Optional CLI Corroboration
 
 ```bash
 ./bin/viaduct discover --type kvm --source examples/lab/kvm --save

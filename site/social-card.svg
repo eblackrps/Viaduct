@@ -34,9 +34,9 @@
   <path d="M122 172h58v7h-58Z" fill="#6AE2C7" fill-opacity="0.94" />
   <text x="218" y="148" fill="#88A8C5" font-family="IBM Plex Mono, Consolas, monospace" font-size="18" letter-spacing="4">OPEN-SOURCE OPERATOR CONTROL PLANE</text>
   <text x="96" y="268" fill="#EEF5FF" font-family="Space Grotesk, Segoe UI, sans-serif" font-size="62" font-weight="700">Viaduct</text>
-  <text x="96" y="334" fill="#EEF5FF" font-family="Space Grotesk, Segoe UI, sans-serif" font-size="44" font-weight="700">Discovery, dependency mapping, planning, and supervised execution</text>
+  <text x="96" y="334" fill="#EEF5FF" font-family="Space Grotesk, Segoe UI, sans-serif" font-size="44" font-weight="700">Discovery, dependency mapping, planning, and controlled execution</text>
   <text x="96" y="386" fill="#BFD2E5" font-family="IBM Plex Sans, Segoe UI, sans-serif" font-size="26">Mixed virtualization environments: VMware, Proxmox, Hyper-V, KVM, Nutanix, Veeam, and plugins.</text>
-  <text x="96" y="424" fill="#BFD2E5" font-family="IBM Plex Sans, Segoe UI, sans-serif" font-size="26">Open source. Tenant scoped. Best started in the lab or a supervised pilot.</text>
+  <text x="96" y="424" fill="#BFD2E5" font-family="IBM Plex Sans, Segoe UI, sans-serif" font-size="26">Open source. Tenant scoped. Start locally with the bundled lab and expand deliberately.</text>
   <rect x="96" y="474" width="214" height="44" rx="22" fill="#102036" stroke="#2B5276" />
   <text x="132" y="502" fill="#EEF5FF" font-family="IBM Plex Sans, Segoe UI, sans-serif" font-size="18" font-weight="700">examples/lab</text>
   <rect x="324" y="474" width="226" height="44" rx="22" fill="#102036" stroke="#2B5276" />

@@ -43,5 +43,5 @@ If Pages settings ever need to be rebuilt manually:
 
 - Keep the site static and GitHub Pages-compatible.
 - Use concise operator- and buyer-readable language.
-- Keep copy honest about active development and supervised pilot usage without slipping into roadmap jargon.
+- Keep copy honest about current product maturity and controlled operator workflows without slipping into roadmap jargon.
 - Prefer changes in `site/` over changing the application dashboard just to support marketing copy.

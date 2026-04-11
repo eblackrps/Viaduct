@@ -8,6 +8,24 @@ This changelog tracks published releases and the major implementation milestones
 
 - No unreleased changes yet.
 
+## [2.0.0] - 2026-04-11
+
+### Installation, Startup, And First Run
+- added `viaduct start`, `viaduct stop`, and `viaduct doctor` so the default local experience is now one WebUI-first runtime instead of a manual multi-step API bootstrap
+- taught `viaduct start` to generate the default local lab config automatically when `~/.viaduct/config.yaml` is missing and to point it at the shipped KVM fixtures
+- added recorded local runtime status reporting through `viaduct status --runtime`, including the WebUI URL, API URL, PID, and runtime log location
+- updated the Unix and Windows install scripts to copy bundled docs, examples, and configs together and to generate a starter config for the installed lab path
+
+### Dashboard, Site, And Product Surfaces
+- aligned the dashboard runtime auth flow with the built-in local single-user fallback so the default local lab path no longer requires pasted browser credentials
+- synchronized the dashboard, root docs, lab docs, troubleshooting guidance, deployment examples, public site, and release-facing screenshots around the new local startup model
+- refreshed the public website and social-card copy to emphasize installation, startup, workspace progression, and controlled operator workflows more clearly
+
+### Verification, Packaging, And Release Readiness
+- extended automated CLI coverage with tests around local runtime paths and starter-config generation
+- kept `make release-gate`, `make certification-test`, `make plugin-check`, `make contract-check`, and `make package-release-matrix` aligned with the same packaged product surface
+- added `v2.0.0` release notes and synchronized visible version markers, screenshot labels, and package metadata around the new release
+
 ## [1.9.0] - 2026-04-11
 
 ### Install, Packaging, And Startup Flow

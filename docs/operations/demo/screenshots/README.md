@@ -1,7 +1,7 @@
 # Screenshot Assets
 
 This directory contains release-facing screenshot assets for the workspace-first operator flow.
-These SVG reference captures mirror the refreshed runtime bootstrap and operator-shell labels in the current dashboard.
+These SVG reference captures mirror the current keyed bootstrap and operator-shell labels in the dashboard.
 
 Use these images in:
 - release notes

@@ -16,5 +16,5 @@ They mirror the current dashboard labels, the seeded lab workspace defaults, and
 
 ## Notes
 
-- `lab-workspace-flow.svg` uses the actual fixture names from `examples/lab/kvm/` and the workspace defaults from `examples/lab/pilot-workspace-create.json`.
+- `lab-workspace-flow.svg` uses the actual fixture names from `examples/lab/kvm/`, the workspace defaults from `examples/lab/pilot-workspace-create.json`, and the local single-user startup path exposed by `viaduct start`.
 - `lab-report-export.svg` reflects the current markdown export structure and the blocked-readiness result produced by the deterministic lab simulation flow.

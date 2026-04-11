@@ -35,10 +35,10 @@ For the packaged local operator path from the repo root:
 ```bash
 make build
 make web-build
-./bin/viaduct serve-api --port 8080
+./bin/viaduct start
 ```
 
-Then open [http://localhost:8080](http://localhost:8080). The API process serves the built dashboard from `web/dist` when those assets are present.
+Then open [http://127.0.0.1:8080](http://127.0.0.1:8080). The local runtime serves the built dashboard from `web/dist` when those assets are present and can generate the default local lab config automatically on a fresh checkout.
 
 ## Environment
 
@@ -47,7 +47,9 @@ Then open [http://localhost:8080](http://localhost:8080). The API process serves
 
 See [./.env.example](./.env.example).
 
-The dashboard also supports runtime authentication bootstrap. When no environment key is set, the app opens a bootstrap screen and stores the chosen service-account or tenant key in the browser until the operator replaces it or explicitly forgets it.
+The dashboard also supports runtime authentication bootstrap. When no environment key is set, the app either:
+- uses the local single-user fallback when the default tenant is available without a key, or
+- opens the bootstrap screen so the operator can provide a service-account or tenant key at runtime
 
 The default storage is the browser session. Operators can explicitly opt into local storage with the remember option on the bootstrap screen for trusted workstations.
 

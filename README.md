@@ -1,21 +1,20 @@
 # Viaduct
-> Open-source control plane for mixed virtualization discovery, planning, and supervised migration operations.
+> Open-source control plane for virtualization migration assessment, planning, and controlled operator execution.
 
 [![CI](https://github.com/eblackrps/Viaduct/actions/workflows/ci.yml/badge.svg)](https://github.com/eblackrps/Viaduct/actions/workflows/ci.yml)
 [![License](https://img.shields.io/github/license/eblackrps/Viaduct)](https://github.com/eblackrps/Viaduct/blob/main/LICENSE)
 
-Viaduct helps operators understand mixed virtualization estates before they commit to a migration path. The repository combines a Go backend, REST API, CLI, React dashboard, and a standalone public site around one shared model for discovery, dependency-aware planning, migration readiness, saved pilot workspaces, and exported operator evidence.
+Viaduct helps operators discover mixed virtualization estates, map dependencies, build migration plans, and manage controlled migration work from one shared backend model. The repository combines a Go backend, REST API, CLI, React dashboard, and standalone public site around the same persisted inventory, workspace, planning, and reporting surfaces.
 
-## Current Status
+## Current Focus
 
-Viaduct is in active development. The strongest current story is:
-- mixed-estate discovery
-- dependency-aware assessment
-- readiness and simulation
-- supervised pilot planning
-- operator-visible reporting and export
+Viaduct is built for operators who need:
+- mixed-estate discovery and inventory normalization
+- dependency-aware migration assessment
+- readiness and planning discipline before cutover work starts
+- controlled, reviewable operator workflows with exported evidence
 
-The default first-run experience is the pilot workspace flow: create workspace, discover, inspect, simulate, save plan, and export report. Start in the local lab or a supervised pilot environment first. Do not assume unattended migration breadth across every connector pair.
+The default first-run experience is the WebUI-first workspace flow: start Viaduct, create a workspace, discover, inspect, simulate, save a plan, and export a report. The local lab remains the fastest path from fresh clone to a working dashboard and API.
 
 ## Why Viaduct
 
@@ -23,7 +22,7 @@ Many teams do not need more abstract migration talk. They need to know what exis
 
 It is strongest when operators need:
 - one normalized inventory across mixed platforms
-- dependency context before planning a first wave
+- dependency context before sequencing migration work
 - a persisted assessment record instead of disconnected notes and screenshots
 - a CLI, API, and dashboard that reflect the same state
 
@@ -53,39 +52,31 @@ It is strongest when operators need:
 The cleanest path is the local lab in [examples/lab](examples/lab).
 
 ```bash
-mkdir -p ~/.viaduct
-cp examples/lab/config.yaml ~/.viaduct/config.yaml
 make build
 make web-build
 ./bin/viaduct version
-
-export VIADUCT_ADMIN_KEY=lab-admin
-./bin/viaduct serve-api --port 8080
+./bin/viaduct start
 ```
 
-In another terminal:
+On a fresh source checkout, `viaduct start`:
+- creates `~/.viaduct/config.yaml` automatically when it is missing
+- points that config at the shipped `examples/lab/kvm` fixtures
+- serves the built dashboard and API together at [http://127.0.0.1:8080](http://127.0.0.1:8080)
+- opens the WebUI automatically on interactive local runs when practical
+
+For the default local lab path, the dashboard can use the built-in single-user fallback and does not require a pasted browser key. Tenant keys and service-account keys remain supported for multi-tenant, packaged, and pilot environments.
+
+Use these companion commands when you need them:
 
 ```bash
-curl -X POST \
-  -H "X-Admin-Key: lab-admin" \
-  -H "Content-Type: application/json" \
-  --data @examples/lab/tenant-create.json \
-  http://localhost:8080/api/v1/admin/tenants
-
-curl -X POST \
-  -H "X-API-Key: lab-tenant-key" \
-  -H "Content-Type: application/json" \
-  --data @examples/lab/service-account-create.json \
-  http://localhost:8080/api/v1/service-accounts
+./bin/viaduct status --runtime
+./bin/viaduct doctor
+./bin/viaduct stop
 ```
 
-Then open [http://localhost:8080](http://localhost:8080), sign in with `lab-operator-key`, and run the workspace-first flow.
+`viaduct serve-api` remains the lower-level API command for container, service, and intentionally headless deployments. It still serves the built dashboard automatically when assets are present in `web/dist`, a packaged `web/` directory, or an installed `share/viaduct/web` layout. If you prefer the Vite development server while changing frontend code, that flow still lives in [web/README.md](web/README.md).
 
-`viaduct serve-api` now serves the built dashboard automatically when assets are present in `web/dist`, a packaged `web/` directory, or an installed `share/viaduct/web` layout. If you prefer the Vite development server while changing frontend code, that flow still lives in [web/README.md](web/README.md).
-
-The runtime bootstrap stores keys in the browser session by default. Use the optional remember toggle only on a trusted workstation.
-
-If you serve the dashboard from a non-default origin, configure `VIADUCT_ALLOWED_ORIGINS` on the API so the browser can reach tenant-protected routes. The same-origin packaged and local built path on `http://localhost:8080` does not need that override.
+If you serve the dashboard from a different browser origin, configure `VIADUCT_ALLOWED_ORIGINS` on the API so tenant-protected routes can be reached safely. The default same-origin local path on `http://127.0.0.1:8080` does not need that override.
 
 Use these entrypoints next:
 - Quickstart: [QUICKSTART.md](QUICKSTART.md)
