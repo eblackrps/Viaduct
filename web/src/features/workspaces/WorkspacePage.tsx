@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   createWorkspace,
   createWorkspaceJob,
+  deleteWorkspace,
   describeError,
   exportWorkspaceReport,
   getSnapshot,
@@ -24,6 +25,7 @@ import type {
   DiscoveryResult,
   Platform,
   PilotWorkspace,
+  SimulationRequest,
   WorkspaceJob,
   WorkspaceJobType,
   WorkspaceNote,
@@ -56,6 +58,7 @@ export function WorkspacePage() {
     actionError: null,
   });
   const [selectedWorkspaceID, setSelectedWorkspaceID] = useState<string | null>(null);
+  const [showCreateForm, setShowCreateForm] = useState(false);
   const [creating, setCreating] = useState(false);
   const [createForm, setCreateForm] = useState({
     name: "Examples Lab Assessment",
@@ -100,6 +103,7 @@ export function WorkspacePage() {
 
     const workspaces = result.value;
     const nextWorkspaceID = preferredWorkspaceID ?? selectedWorkspaceID ?? workspaces[0]?.id ?? null;
+    setShowCreateForm((current) => (workspaces.length === 0 ? true : current));
     setSelectedWorkspaceID(nextWorkspaceID);
     setState((current) => ({
       ...current,
@@ -158,7 +162,7 @@ export function WorkspacePage() {
               scope: "workspace jobs",
               fallback: "Unable to load workspace jobs.",
             })
-          : current.actionError,
+          : null,
     }));
   }
 
@@ -246,6 +250,7 @@ export function WorkspacePage() {
         },
       });
       setState((current) => ({ ...current, actionError: null }));
+      setShowCreateForm(false);
       await refreshWorkspaces(created.id);
     } catch (reason) {
       setState((current) => ({
@@ -257,6 +262,33 @@ export function WorkspacePage() {
       }));
     } finally {
       setCreating(false);
+    }
+  }
+
+  async function handleDeleteWorkspace() {
+    if (!state.selectedWorkspace) {
+      return;
+    }
+    const confirmed = window.confirm(`Delete workspace "${state.selectedWorkspace.name}"? Saved snapshots and migration records remain, but the workspace and its job history will be removed.`);
+    if (!confirmed) {
+      return;
+    }
+    setActionLoading("delete");
+    try {
+      await deleteWorkspace(state.selectedWorkspace.id);
+      setState((current) => ({ ...current, actionError: null, selectedWorkspace: null, jobs: [], inventory: null }));
+      setSelectedWorkspaceID(null);
+      await refreshWorkspaces();
+    } catch (reason) {
+      setState((current) => ({
+        ...current,
+        actionError: describeError(reason, {
+          scope: "workspace deletion",
+          fallback: "Unable to delete the pilot workspace.",
+        }),
+      }));
+    } finally {
+      setActionLoading(null);
     }
   }
 
@@ -303,6 +335,28 @@ export function WorkspacePage() {
         actionError: describeError(reason, {
           scope: `${type} job`,
           fallback: `Unable to start the ${type} job.`,
+        }),
+      }));
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function handleRetryJob(job: WorkspaceJob) {
+    if (!state.selectedWorkspace) {
+      return;
+    }
+    setActionLoading(`retry:${job.id}`);
+    try {
+      await createWorkspaceJob(state.selectedWorkspace.id, workspaceJobRetryPayload(job, inventoryWorkspace.selectedIds));
+      setState((current) => ({ ...current, actionError: null }));
+      await refreshWorkspaceDetail(state.selectedWorkspace.id);
+    } catch (reason) {
+      setState((current) => ({
+        ...current,
+        actionError: describeError(reason, {
+          scope: `${job.type} retry`,
+          fallback: "Unable to retry the workspace job.",
         }),
       }));
     } finally {
@@ -400,14 +454,38 @@ export function WorkspacePage() {
                 <option key={workspace.id} value={workspace.id}>{workspace.name}</option>
               ))}
             </select>
+            <button type="button" onClick={() => setShowCreateForm((current) => !current)} className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
+              {showCreateForm ? "Hide intake" : "New workspace"}
+            </button>
             <button type="button" onClick={() => void refreshWorkspaceDetail(selectedWorkspaceID ?? "")} className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
               Refresh
+            </button>
+            <button type="button" onClick={() => void handleDeleteWorkspace()} className="rounded-full border border-rose-200 bg-white px-4 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60" disabled={!state.selectedWorkspace || actionLoading === "delete"}>
+              {actionLoading === "delete" ? "Deleting..." : "Delete workspace"}
             </button>
           </>
         }
       />
 
       {state.actionError && <ErrorState title="Workspace action blocked" message={state.actionError.message} technicalDetails={state.actionError.technicalDetails} />}
+
+      {showCreateForm && (
+        <SectionCard title="Create another pilot workspace" description="Use the lab defaults or adjust the source and target assumptions before starting a new assessment.">
+          <div className="grid gap-3 md:grid-cols-2">
+            <LabeledInput label="Workspace name" value={createForm.name} onChange={(value) => setCreateForm((current) => ({ ...current, name: value }))} />
+            <LabeledInput label="Description" value={createForm.description} onChange={(value) => setCreateForm((current) => ({ ...current, description: value }))} />
+            <LabeledInput label="Source name" value={createForm.sourceName} onChange={(value) => setCreateForm((current) => ({ ...current, sourceName: value }))} />
+            <LabeledInput label="Source address" value={createForm.sourceAddress} onChange={(value) => setCreateForm((current) => ({ ...current, sourceAddress: value }))} />
+            <LabeledInput label="Credential ref" value={createForm.sourceCredentialRef} onChange={(value) => setCreateForm((current) => ({ ...current, sourceCredentialRef: value }))} />
+            <LabeledInput label="Target address" value={createForm.targetAddress} onChange={(value) => setCreateForm((current) => ({ ...current, targetAddress: value }))} />
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button type="button" onClick={() => void handleCreateWorkspace()} disabled={creating} className="rounded-full bg-ink px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-60">
+              {creating ? "Creating..." : "Create workspace"}
+            </button>
+          </div>
+        </SectionCard>
+      )}
 
       <section className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
         <SectionCard title="Assessment intake" description="Keep source connections, target assumptions, and plan controls in one operator-owned document.">
@@ -455,6 +533,43 @@ export function WorkspacePage() {
           </div>
         </SectionCard>
       </section>
+
+      <SectionCard title="Job history" description="Use the persisted workspace job log for retry decisions, support handoffs, and request-correlation lookup.">
+        {state.jobs.length === 0 ? (
+          <EmptyState title="No jobs recorded yet" message="Discovery, graph, simulation, and plan requests will appear here with their status, request correlation, and retry state." />
+        ) : (
+          <div className="space-y-3">
+            {state.jobs.slice(0, 8).map((job) => (
+              <div key={job.id} className="rounded-3xl border border-slate-200 bg-white px-4 py-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <StatusBadge tone={job.status === "failed" ? "danger" : job.status === "succeeded" ? "success" : "warning"}>{job.type}</StatusBadge>
+                      <StatusBadge tone="neutral">{job.status}</StatusBadge>
+                      {job.retryable ? <StatusBadge tone="info">retryable</StatusBadge> : null}
+                    </div>
+                    <p className="text-sm font-semibold text-ink">{job.message ?? "No job message recorded."}</p>
+                    <p className="text-xs text-slate-500">
+                      Requested {formatTimestamp(job.requested_at)}{job.requested_by ? ` by ${job.requested_by}` : ""} · Correlation ID {job.correlation_id ?? "n/a"}
+                    </p>
+                    {job.error ? <p className="text-xs text-rose-700">{job.error}</p> : null}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" onClick={() => void refreshWorkspaceDetail(state.selectedWorkspace?.id ?? "")} className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50">
+                      Refresh status
+                    </button>
+                    {job.retryable || job.status === "failed" ? (
+                      <button type="button" onClick={() => void handleRetryJob(job)} disabled={actionLoading === `retry:${job.id}`} className="rounded-full bg-ink px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60">
+                        {actionLoading === `retry:${job.id}` ? "Retrying..." : "Retry"}
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </SectionCard>
 
       {rows.length === 0 ? (
         <EmptyState title="No discovered workloads yet" message="Run discovery for this workspace to persist a snapshot baseline before inspection, simulation, or plan generation." />
@@ -559,4 +674,84 @@ function mergeDiscoveryResults(results: DiscoveryResult[]): DiscoveryResult {
     }),
     { vms: [] },
   );
+}
+
+function workspaceJobRetryPayload(
+  job: WorkspaceJob,
+  fallbackSelectedIDs: string[],
+): {
+  type: WorkspaceJobType;
+  requested_by?: string;
+  source_connection_ids?: string[];
+  selected_workload_ids?: string[];
+  simulation?: SimulationRequest;
+} {
+  const input = job.input_json ?? {};
+  const selectedWorkloadIDs = stringArrayFromUnknown(input.selected_workload_ids);
+  const fallbackSelection =
+    selectedWorkloadIDs.length > 0
+      ? selectedWorkloadIDs
+      : job.type === "simulation" || job.type === "plan"
+        ? fallbackSelectedIDs
+        : [];
+
+  return {
+    type: input.type ?? job.type,
+    requested_by: input.requested_by?.trim() || job.requested_by?.trim() || undefined,
+    source_connection_ids: toOptionalArray(stringArrayFromUnknown(input.source_connection_ids)),
+    selected_workload_ids: toOptionalArray(fallbackSelection),
+    simulation: simulationRequestFromUnknown(input.simulation),
+  };
+}
+
+function simulationRequestFromUnknown(value: unknown): SimulationRequest | undefined {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+
+  const candidate = value as Partial<SimulationRequest>;
+  if (!candidate.target_platform) {
+    return undefined;
+  }
+
+  return {
+    target_platform: candidate.target_platform,
+    vm_ids: toOptionalArray(stringArrayFromUnknown(candidate.vm_ids)),
+    include_all: candidate.include_all === true ? true : undefined,
+  };
+}
+
+function stringArrayFromUnknown(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return Array.from(
+    new Set(
+      value
+        .filter((item): item is string => typeof item === "string")
+        .map((item) => item.trim())
+        .filter((item) => item !== ""),
+    ),
+  );
+}
+
+function toOptionalArray(values: string[]): string[] | undefined {
+  return values.length > 0 ? values : undefined;
+}
+
+function formatTimestamp(value?: string): string {
+  if (!value) {
+    return "at an unknown time";
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+
+  return parsed.toLocaleString(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
 }

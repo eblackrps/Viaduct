@@ -393,6 +393,56 @@ func TestServer_HandleAbout_ReturnsBuildInfo_Expected(t *testing.T) {
 	}
 }
 
+func TestServer_Handler_CORSAndSecurityHeaders_Expected(t *testing.T) {
+	t.Parallel()
+
+	server := NewServer(nil, store.NewMemoryStore(), 0, nil)
+	handler := server.Handler()
+
+	request := httptest.NewRequest(http.MethodOptions, "/api/v1/health", nil)
+	request.Header.Set("Origin", "http://localhost:5173")
+	recorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusNoContent)
+	}
+	if got := recorder.Header().Get("Access-Control-Allow-Origin"); got != "http://localhost:5173" {
+		t.Fatalf("Access-Control-Allow-Origin = %q, want localhost dev origin", got)
+	}
+	for header, want := range map[string]string{
+		"Cache-Control":           "no-store",
+		"Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
+		"Permissions-Policy":      "camera=(), geolocation=(), microphone=()",
+		"Referrer-Policy":         "no-referrer",
+		"X-Content-Type-Options":  "nosniff",
+		"X-Frame-Options":         "DENY",
+	} {
+		if got := recorder.Header().Get(header); got != want {
+			t.Fatalf("%s = %q, want %q", header, got, want)
+		}
+	}
+}
+
+func TestServer_Handler_DisallowedCORSOriginRejected_Expected(t *testing.T) {
+	t.Parallel()
+
+	server := NewServer(nil, store.NewMemoryStore(), 0, nil)
+	handler := server.Handler()
+
+	request := httptest.NewRequest(http.MethodOptions, "/api/v1/health", nil)
+	request.Header.Set("Origin", "https://evil.example")
+	recorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusForbidden)
+	}
+	if got := recorder.Header().Get("Access-Control-Allow-Origin"); got != "" {
+		t.Fatalf("Access-Control-Allow-Origin = %q, want empty", got)
+	}
+}
+
 func TestServer_HandlePreflight_InvalidSpecReturnsFieldErrors_Expected(t *testing.T) {
 	t.Parallel()
 

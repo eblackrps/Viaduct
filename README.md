@@ -80,6 +80,10 @@ curl -X POST \
 
 Then start the dashboard in `web/`, sign in with `lab-operator-key`, and run the workspace-first flow.
 
+The runtime bootstrap stores keys in the browser session by default. Use the optional remember toggle only on a trusted workstation.
+
+If you serve the dashboard from a non-default origin, configure `VIADUCT_ALLOWED_ORIGINS` on the API so the browser can reach tenant-protected routes.
+
 Use these entrypoints next:
 - Quickstart: [QUICKSTART.md](QUICKSTART.md)
 - Detailed quickstart: [docs/getting-started/quickstart.md](docs/getting-started/quickstart.md)

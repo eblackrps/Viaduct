@@ -6,6 +6,22 @@ This changelog tracks published releases and the major implementation milestones
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-04-11
+
+### Workspace Reliability And Operator Hardening
+- added stricter validation for pilot workspace create, update, job, and report-export requests so invalid operator input fails early with field-level API errors
+- added read-only workspace access for viewer principals while keeping workspace mutation and job execution operator-scoped
+- added workspace deletion, restart recovery for queued or running workspace jobs, configurable workspace job timeouts, and richer exported report handoff detail
+
+### Dashboard And Operator Experience
+- switched runtime dashboard auth to session-scoped storage by default with an explicit remember option for trusted browsers
+- added workspace creation toggles, persisted job history, retry actions, and clearer correlation-aware job states in the workspace-first flow
+
+### Release Engineering, Docs, And Contract
+- hardened the Windows release-gate helpers so race, coverage, and CLI smoke validation remain reproducible on Application Control-constrained operator workstations
+- documented `VIADUCT_ALLOWED_ORIGINS` and `VIADUCT_WORKSPACE_JOB_TIMEOUT`
+- updated the pilot workspace guide, quickstarts, installation guides, and OpenAPI contract to match the hardened workspace and auth behavior
+
 ## [1.6.0] - 2026-04-11
 
 ### Workspace-First Operator Flow

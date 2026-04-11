@@ -73,6 +73,8 @@ type Store interface {
 	GetWorkspace(ctx context.Context, tenantID, workspaceID string) (*models.PilotWorkspace, error)
 	// ListWorkspaces returns pilot workspaces ordered from newest to oldest updates.
 	ListWorkspaces(ctx context.Context, tenantID string, limit int) ([]models.PilotWorkspace, error)
+	// DeleteWorkspace removes a persisted pilot workspace and any background jobs tied to it.
+	DeleteWorkspace(ctx context.Context, tenantID, workspaceID string) error
 	// SaveWorkspaceJob persists a pilot workspace background job record.
 	SaveWorkspaceJob(ctx context.Context, tenantID string, job models.WorkspaceJob) error
 	// GetWorkspaceJob retrieves a previously persisted workspace background job record by identifier.

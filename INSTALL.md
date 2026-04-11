@@ -63,4 +63,6 @@ The cleanest evaluation path is still the local lab in [examples/lab](examples/l
 For packaged or persistent evaluation environments:
 - use PostgreSQL instead of the in-memory store
 - prefer service-account keys for normal operator access
+- set `VIADUCT_ALLOWED_ORIGINS` if the dashboard is served from anything other than the default local Vite origins
+- tune `VIADUCT_WORKSPACE_JOB_TIMEOUT` if discovery or planning jobs need a different server-side timeout budget
 - keep the Vite dev server out of any shared or internet-facing environment

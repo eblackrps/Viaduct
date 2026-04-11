@@ -18,6 +18,27 @@ const (
 	PlatformNutanix Platform = "nutanix"
 )
 
+// Valid reports whether the platform is one of Viaduct's recognized inventory and migration platforms.
+func (p Platform) Valid() bool {
+	switch p {
+	case PlatformVMware, PlatformProxmox, PlatformHyperV, PlatformKVM, PlatformNutanix:
+		return true
+	default:
+		return false
+	}
+}
+
+// SupportedPlatforms returns the stable set of built-in inventory and migration platforms.
+func SupportedPlatforms() []Platform {
+	return []Platform{
+		PlatformHyperV,
+		PlatformKVM,
+		PlatformNutanix,
+		PlatformProxmox,
+		PlatformVMware,
+	}
+}
+
 // PowerState represents the runtime state of a virtual machine.
 type PowerState string
 

@@ -147,6 +147,28 @@ func RequireTenantPermission(required models.TenantPermission, next http.Handler
 	})
 }
 
+// RequireAnyTenantPermission enforces that the authenticated principal has at least one of the supplied permissions.
+func RequireAnyTenantPermission(next http.Handler, permissions ...models.TenantPermission) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		principal, err := RequirePrincipal(r.Context())
+		if err != nil {
+			writeAPIError(w, r, http.StatusUnauthorized, "invalid_credentials", err.Error(), apiErrorOptions{})
+			return
+		}
+		for _, permission := range permissions {
+			if principalAllowsPermission(*principal, permission) {
+				next.ServeHTTP(w, r)
+				return
+			}
+		}
+		writeAPIError(w, r, http.StatusForbidden, "permission_denied", "tenant principal does not include any required workspace permissions", apiErrorOptions{
+			Details: map[string]any{
+				"required_permissions": permissions,
+			},
+		})
+	})
+}
+
 // AdminAuthMiddleware authenticates administrative API requests.
 func AdminAuthMiddleware(adminAPIKey string, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

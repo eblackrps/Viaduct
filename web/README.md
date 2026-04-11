@@ -39,6 +39,8 @@ See [./.env.example](./.env.example).
 
 The dashboard also supports runtime authentication bootstrap. When no environment key is set, the app opens a bootstrap screen and stores the chosen service-account or tenant key locally in the browser until the operator signs out or replaces it.
 
+The default storage is the browser session. Operators can explicitly opt into local storage with the remember option on the bootstrap screen.
+
 ## Notes
 
 - Vite 8 and the current React plugin require Node.js 20.19+ or a newer supported major.

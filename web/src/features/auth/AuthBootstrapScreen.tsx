@@ -13,13 +13,14 @@ interface AuthBootstrapScreenProps {
 export function AuthBootstrapScreen({ auth }: AuthBootstrapScreenProps) {
   const [mode, setMode] = useState<"service-account" | "tenant">("service-account");
   const [apiKey, setAPIKey] = useState("");
+  const [remember, setRemember] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitting(true);
     try {
-      await auth.connect(mode, apiKey);
+      await auth.connect(mode, apiKey, remember);
     } finally {
       setSubmitting(false);
     }
@@ -34,7 +35,7 @@ export function AuthBootstrapScreen({ auth }: AuthBootstrapScreenProps) {
           description="Use a scoped service-account key for the normal pilot flow, or a tenant key when you are bootstrapping the tenant or doing break-glass administration."
           badges={[
             { label: auth.about ? `${auth.about.name} ${auth.about.version}` : "About pending", tone: "neutral" },
-            { label: "Service-account first", tone: "info" },
+            { label: "Session-scoped by default", tone: "info" },
           ]}
         />
 
@@ -59,6 +60,14 @@ export function AuthBootstrapScreen({ auth }: AuthBootstrapScreenProps) {
               >
                 Retry validation
               </button>,
+              <button
+                key="forget"
+                type="button"
+                onClick={() => auth.signOut()}
+                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                Forget saved key
+              </button>,
             ]}
           />
         )}
@@ -66,7 +75,7 @@ export function AuthBootstrapScreen({ auth }: AuthBootstrapScreenProps) {
         <section className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
           <SectionCard
             title="Runtime authentication"
-            description="This dashboard now accepts runtime credentials instead of depending on build-time-only environment variables."
+            description="This dashboard accepts runtime credentials instead of depending on build-time-only environment variables. Runtime keys stay in the current browser session unless you explicitly choose to remember them."
           >
             <form className="space-y-4" onSubmit={handleSubmit}>
               <div className="inline-flex rounded-full border border-slate-200 bg-white p-1 text-sm">
@@ -97,6 +106,16 @@ export function AuthBootstrapScreen({ auth }: AuthBootstrapScreenProps) {
                 />
               </label>
 
+              <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={remember}
+                  onChange={(event) => setRemember(event.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                />
+                <span>Remember this key in local browser storage</span>
+              </label>
+
               <button
                 type="submit"
                 disabled={submitting || apiKey.trim() === ""}
@@ -107,7 +126,7 @@ export function AuthBootstrapScreen({ auth }: AuthBootstrapScreenProps) {
             </form>
           </SectionCard>
 
-          <SectionCard title="Expected pilot flow" description="The v1.6.0 dashboard is optimized for the assessment-to-pilot wedge.">
+          <SectionCard title="Expected pilot flow" description="The v1.7.0 dashboard is optimized for the assessment-to-pilot wedge.">
             <div className="space-y-3">
               {[
                 "Create a pilot workspace with source and target assumptions.",

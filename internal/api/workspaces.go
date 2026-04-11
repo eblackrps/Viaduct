@@ -85,13 +85,6 @@ func (s *Server) handleWorkspaces(w http.ResponseWriter, r *http.Request) {
 			writeAPIError(w, r, http.StatusBadRequest, "invalid_request", fmt.Errorf("decode workspace request: %w", err).Error(), apiErrorOptions{})
 			return
 		}
-		if strings.TrimSpace(request.Name) == "" {
-			writeAPIError(w, r, http.StatusBadRequest, "invalid_request", "workspace name is required", apiErrorOptions{
-				FieldErrors: []apiFieldError{{Path: "name", Message: "workspace name is required"}},
-			})
-			return
-		}
-
 		workspace := models.PilotWorkspace{
 			ID:                  strings.TrimSpace(request.ID),
 			TenantID:            tenantID,
@@ -107,6 +100,13 @@ func (s *Server) handleWorkspaces(w http.ResponseWriter, r *http.Request) {
 		}
 		if workspace.ID == "" {
 			workspace.ID = uuid.NewString()
+		}
+		if err := validateWorkspace(workspace); err != nil {
+			if writeValidationFailure(w, r, err) {
+				return
+			}
+			writeAPIError(w, r, http.StatusBadRequest, "invalid_request", err.Error(), apiErrorOptions{})
+			return
 		}
 		if err := s.store.CreateWorkspace(r.Context(), tenantID, workspace); err != nil {
 			status := http.StatusBadRequest
@@ -225,10 +225,11 @@ func (s *Server) handleWorkspaceDocument(w http.ResponseWriter, r *http.Request,
 		if request.Notes != nil {
 			workspace.Notes = append([]models.WorkspaceNote(nil), (*request.Notes)...)
 		}
-		if strings.TrimSpace(workspace.Name) == "" {
-			writeAPIError(w, r, http.StatusBadRequest, "invalid_request", "workspace name is required", apiErrorOptions{
-				FieldErrors: []apiFieldError{{Path: "name", Message: "workspace name is required"}},
-			})
+		if err := validateWorkspace(*workspace); err != nil {
+			if writeValidationFailure(w, r, err) {
+				return
+			}
+			writeAPIError(w, r, http.StatusBadRequest, "invalid_request", err.Error(), apiErrorOptions{})
 			return
 		}
 
@@ -250,6 +251,21 @@ func (s *Server) handleWorkspaceDocument(w http.ResponseWriter, r *http.Request,
 			Message:  "pilot workspace updated",
 		})
 		writeJSON(w, http.StatusOK, updated)
+	case http.MethodDelete:
+		if err := s.store.DeleteWorkspace(r.Context(), tenantID, workspaceID); err != nil {
+			writeAPIError(w, r, http.StatusNotFound, "workspace_not_found", err.Error(), apiErrorOptions{
+				Details: map[string]any{"workspace_id": workspaceID},
+			})
+			return
+		}
+		s.recordAuditEvent(r, models.AuditEvent{
+			Category: "workspace",
+			Action:   "delete",
+			Resource: workspaceID,
+			Outcome:  models.AuditOutcomeSuccess,
+			Message:  "pilot workspace deleted",
+		})
+		w.WriteHeader(http.StatusNoContent)
 	default:
 		writeAPIError(w, r, http.StatusMethodNotAllowed, "invalid_request", "method not allowed", apiErrorOptions{})
 	}
@@ -280,10 +296,11 @@ func (s *Server) handleWorkspaceJobs(w http.ResponseWriter, r *http.Request, ten
 			writeAPIError(w, r, http.StatusBadRequest, "invalid_request", fmt.Errorf("decode workspace job request: %w", err).Error(), apiErrorOptions{})
 			return
 		}
-		if request.Type == "" {
-			writeAPIError(w, r, http.StatusBadRequest, "invalid_request", "workspace job type is required", apiErrorOptions{
-				FieldErrors: []apiFieldError{{Path: "type", Message: "workspace job type is required"}},
-			})
+		if err := validateWorkspaceJobRequest(*workspace, request); err != nil {
+			if writeValidationFailure(w, r, err) {
+				return
+			}
+			writeAPIError(w, r, http.StatusBadRequest, "invalid_request", err.Error(), apiErrorOptions{})
 			return
 		}
 
@@ -371,6 +388,13 @@ func (s *Server) handleWorkspaceReportExport(w http.ResponseWriter, r *http.Requ
 		writeAPIError(w, r, http.StatusBadRequest, "invalid_request", fmt.Errorf("decode workspace report export request: %w", err).Error(), apiErrorOptions{})
 		return
 	}
+	if err := validateWorkspaceReportExportRequest(request); err != nil {
+		if writeValidationFailure(w, r, err) {
+			return
+		}
+		writeAPIError(w, r, http.StatusBadRequest, "invalid_request", err.Error(), apiErrorOptions{})
+		return
+	}
 
 	format := strings.ToLower(strings.TrimSpace(request.Format))
 	if format == "" {
@@ -444,15 +468,15 @@ func (s *Server) handleWorkspaceReportExport(w http.ResponseWriter, r *http.Requ
 }
 
 func (s *Server) runWorkspaceJob(tenantID, workspaceID, jobID string) {
-	ctx := store.ContextWithTenantID(context.Background(), tenantID)
+	storeCtx := store.ContextWithTenantID(context.Background(), tenantID)
 
-	job, err := s.store.GetWorkspaceJob(ctx, tenantID, workspaceID, jobID)
+	job, err := s.store.GetWorkspaceJob(storeCtx, tenantID, workspaceID, jobID)
 	if err != nil {
 		return
 	}
-	workspace, err := s.store.GetWorkspace(ctx, tenantID, workspaceID)
+	workspace, err := s.store.GetWorkspace(storeCtx, tenantID, workspaceID)
 	if err != nil {
-		_ = s.failWorkspaceJob(ctx, tenantID, *job, false, err)
+		_ = s.failWorkspaceJob(storeCtx, tenantID, *job, false, err)
 		return
 	}
 
@@ -460,13 +484,13 @@ func (s *Server) runWorkspaceJob(tenantID, workspaceID, jobID string) {
 	job.StartedAt = time.Now().UTC()
 	job.UpdatedAt = job.StartedAt
 	job.Message = workspaceJobRunningMessage(job.Type)
-	if err := s.store.SaveWorkspaceJob(ctx, tenantID, *job); err != nil {
+	if err := s.store.SaveWorkspaceJob(storeCtx, tenantID, *job); err != nil {
 		return
 	}
 
 	request, err := decodeWorkspaceJobRequest(job.InputJSON)
 	if err != nil {
-		_ = s.failWorkspaceJob(ctx, tenantID, *job, false, err)
+		_ = s.failWorkspaceJob(storeCtx, tenantID, *job, false, err)
 		return
 	}
 
@@ -474,22 +498,27 @@ func (s *Server) runWorkspaceJob(tenantID, workspaceID, jobID string) {
 		output  json.RawMessage
 		message string
 	)
+	execCtx := storeCtx
+	cancel := func() {}
+	if s != nil && s.workspaceJobTimeout > 0 {
+		execCtx, cancel = context.WithTimeout(storeCtx, s.workspaceJobTimeout)
+	}
+	defer cancel()
 	switch job.Type {
 	case models.WorkspaceJobTypeDiscovery:
-		output, message, err = s.executeWorkspaceDiscoveryJob(ctx, tenantID, workspace, request)
+		output, message, err = s.executeWorkspaceDiscoveryJob(execCtx, tenantID, workspace, request)
 	case models.WorkspaceJobTypeGraph:
-		output, message, err = s.executeWorkspaceGraphJob(ctx, tenantID, workspace)
+		output, message, err = s.executeWorkspaceGraphJob(execCtx, tenantID, workspace)
 	case models.WorkspaceJobTypeSimulation:
-		output, message, err = s.executeWorkspaceSimulationJob(ctx, tenantID, workspace, request)
+		output, message, err = s.executeWorkspaceSimulationJob(execCtx, tenantID, workspace, request)
 	case models.WorkspaceJobTypePlan:
-		output, message, err = s.executeWorkspacePlanJob(ctx, tenantID, workspace, request)
+		output, message, err = s.executeWorkspacePlanJob(execCtx, tenantID, workspace, request)
 	default:
 		err = fmt.Errorf("unsupported workspace job type %q", job.Type)
 	}
 
 	if err != nil {
-		retryable := strings.Contains(strings.ToLower(err.Error()), "timeout") || strings.Contains(strings.ToLower(err.Error()), "tempor")
-		_ = s.failWorkspaceJob(ctx, tenantID, *job, retryable, err)
+		_ = s.failWorkspaceJob(storeCtx, tenantID, *job, isRetryableWorkspaceJobError(err), err)
 		return
 	}
 
@@ -498,7 +527,7 @@ func (s *Server) runWorkspaceJob(tenantID, workspaceID, jobID string) {
 	job.OutputJSON = output
 	job.UpdatedAt = time.Now().UTC()
 	job.CompletedAt = job.UpdatedAt
-	_ = s.store.SaveWorkspaceJob(ctx, tenantID, *job)
+	_ = s.store.SaveWorkspaceJob(storeCtx, tenantID, *job)
 }
 
 func (s *Server) executeWorkspaceDiscoveryJob(ctx context.Context, tenantID string, workspace *models.PilotWorkspace, request workspaceJobCreateRequest) (json.RawMessage, string, error) {
@@ -721,6 +750,49 @@ func (s *Server) failWorkspaceJob(ctx context.Context, tenantID string, job mode
 	job.UpdatedAt = time.Now().UTC()
 	job.CompletedAt = job.UpdatedAt
 	return s.store.SaveWorkspaceJob(ctx, tenantID, job)
+}
+
+func (s *Server) recoverWorkspaceJobs(ctx context.Context) error {
+	if s == nil || s.store == nil {
+		return nil
+	}
+
+	tenants, err := s.store.ListTenants(ctx)
+	if err != nil {
+		return fmt.Errorf("recover workspace jobs: list tenants: %w", err)
+	}
+
+	for _, tenant := range tenants {
+		tenantCtx := store.ContextWithTenantID(ctx, tenant.ID)
+		workspaces, err := s.store.ListWorkspaces(tenantCtx, tenant.ID, 0)
+		if err != nil {
+			return fmt.Errorf("recover workspace jobs: list workspaces for tenant %s: %w", tenant.ID, err)
+		}
+
+		for _, workspace := range workspaces {
+			jobs, err := s.store.ListWorkspaceJobs(tenantCtx, tenant.ID, workspace.ID, 0)
+			if err != nil {
+				return fmt.Errorf("recover workspace jobs: list jobs for workspace %s: %w", workspace.ID, err)
+			}
+			for _, job := range jobs {
+				if job.Status != models.WorkspaceJobStatusQueued && job.Status != models.WorkspaceJobStatusRunning {
+					continue
+				}
+				job.Status = models.WorkspaceJobStatusQueued
+				job.StartedAt = time.Time{}
+				job.CompletedAt = time.Time{}
+				job.UpdatedAt = time.Now().UTC()
+				job.Message = "Recovered queued workspace job after API restart."
+				job.Error = ""
+				job.Retryable = false
+				if err := s.store.SaveWorkspaceJob(tenantCtx, tenant.ID, job); err != nil {
+					return fmt.Errorf("recover workspace jobs: save recovered job %s: %w", job.ID, err)
+				}
+				go s.runWorkspaceJob(tenant.ID, workspace.ID, job.ID)
+			}
+		}
+	}
+	return nil
 }
 
 func (s *Server) workspaceConnectorCatalog() (*connectorcatalog.Catalog, error) {
@@ -978,6 +1050,9 @@ func renderWorkspaceReportMarkdown(document workspaceReportDocument) string {
 	builder.WriteString("# Pilot Workspace Report\n\n")
 	_, _ = fmt.Fprintf(&builder, "- Workspace: %s\n", workspace.Name)
 	_, _ = fmt.Fprintf(&builder, "- Workspace ID: %s\n", workspace.ID)
+	if strings.TrimSpace(workspace.Description) != "" {
+		_, _ = fmt.Fprintf(&builder, "- Description: %s\n", workspace.Description)
+	}
 	_, _ = fmt.Fprintf(&builder, "- Status: %s\n", workspace.Status)
 	_, _ = fmt.Fprintf(&builder, "- Exported at: %s\n", document.ExportedAt.Format(time.RFC3339))
 	_, _ = fmt.Fprintf(&builder, "- Sources: %d\n", len(workspace.SourceConnections))
@@ -1010,6 +1085,26 @@ func renderWorkspaceReportMarkdown(document workspaceReportDocument) string {
 	_, _ = fmt.Fprintf(&builder, "- Default host: %s\n", workspace.TargetAssumptions.DefaultHost)
 	_, _ = fmt.Fprintf(&builder, "- Default storage: %s\n", workspace.TargetAssumptions.DefaultStorage)
 	_, _ = fmt.Fprintf(&builder, "- Default network: %s\n", workspace.TargetAssumptions.DefaultNetwork)
+	if strings.TrimSpace(workspace.TargetAssumptions.Notes) != "" {
+		_, _ = fmt.Fprintf(&builder, "- Notes: %s\n", workspace.TargetAssumptions.Notes)
+	}
+	builder.WriteString("\n## Dependency Graph\n\n")
+	if workspace.Graph == nil {
+		builder.WriteString("Dependency graph output has not been generated yet.\n")
+	} else {
+		_, _ = fmt.Fprintf(&builder, "- Generated at: %s\n", workspace.Graph.GeneratedAt.Format(time.RFC3339))
+		_, _ = fmt.Fprintf(&builder, "- Nodes: %d\n", workspace.Graph.NodeCount)
+		_, _ = fmt.Fprintf(&builder, "- Edges: %d\n", workspace.Graph.EdgeCount)
+	}
+	builder.WriteString("\n## Simulation\n\n")
+	if workspace.Simulation == nil {
+		builder.WriteString("Simulation output has not been generated yet.\n")
+	} else {
+		_, _ = fmt.Fprintf(&builder, "- Generated at: %s\n", workspace.Simulation.GeneratedAt.Format(time.RFC3339))
+		_, _ = fmt.Fprintf(&builder, "- Target platform: %s\n", workspace.Simulation.TargetPlatform)
+		_, _ = fmt.Fprintf(&builder, "- Workloads moved: %d\n", workspace.Simulation.MovedVMs)
+		_, _ = fmt.Fprintf(&builder, "- Selected workload IDs: %s\n", strings.Join(workspace.Simulation.SelectedWorkloadIDs, ", "))
+	}
 	builder.WriteString("\n## Readiness\n\n")
 	if workspace.Readiness == nil {
 		builder.WriteString("Readiness has not been generated yet.\n")
@@ -1039,7 +1134,7 @@ func renderWorkspaceReportMarkdown(document workspaceReportDocument) string {
 		builder.WriteString("No approvals recorded.\n")
 	} else {
 		for _, approval := range workspace.Approvals {
-			_, _ = fmt.Fprintf(&builder, "- %s: %s (%s)\n", approval.Stage, approval.Status, firstNonEmpty(approval.ApprovedBy, "unassigned"))
+			_, _ = fmt.Fprintf(&builder, "- %s: %s (%s) ticket=%s created=%s\n", approval.Stage, approval.Status, firstNonEmpty(approval.ApprovedBy, "unassigned"), firstNonEmpty(approval.Ticket, "n/a"), approval.CreatedAt.Format(time.RFC3339))
 		}
 	}
 	builder.WriteString("\n## Notes\n\n")
@@ -1047,7 +1142,7 @@ func renderWorkspaceReportMarkdown(document workspaceReportDocument) string {
 		builder.WriteString("No operator notes recorded.\n")
 	} else {
 		for _, note := range workspace.Notes {
-			_, _ = fmt.Fprintf(&builder, "- [%s] %s: %s\n", note.Kind, note.Author, note.Body)
+			_, _ = fmt.Fprintf(&builder, "- [%s] %s at %s: %s\n", note.Kind, note.Author, note.CreatedAt.Format(time.RFC3339), note.Body)
 		}
 	}
 	builder.WriteString("\n## Background Jobs\n\n")
@@ -1055,7 +1150,21 @@ func renderWorkspaceReportMarkdown(document workspaceReportDocument) string {
 		builder.WriteString("No background jobs recorded.\n")
 	} else {
 		for _, job := range document.Jobs {
-			_, _ = fmt.Fprintf(&builder, "- %s: %s (%s)\n", job.Type, job.Status, job.Message)
+			_, _ = fmt.Fprintf(&builder, "- %s: %s requested_by=%s requested_at=%s correlation_id=%s\n", job.Type, job.Status, firstNonEmpty(job.RequestedBy, "unknown"), job.RequestedAt.Format(time.RFC3339), firstNonEmpty(job.CorrelationID, "n/a"))
+			if strings.TrimSpace(job.Message) != "" {
+				_, _ = fmt.Fprintf(&builder, "  message: %s\n", job.Message)
+			}
+			if strings.TrimSpace(job.Error) != "" {
+				_, _ = fmt.Fprintf(&builder, "  error: %s\n", job.Error)
+			}
+		}
+	}
+	builder.WriteString("\n## Report History\n\n")
+	if len(workspace.Reports) == 0 {
+		builder.WriteString("No report exports recorded.\n")
+	} else {
+		for _, report := range workspace.Reports {
+			_, _ = fmt.Fprintf(&builder, "- %s (%s) file=%s correlation_id=%s exported_at=%s\n", report.Name, report.Format, report.FileName, firstNonEmpty(report.CorrelationID, "n/a"), report.ExportedAt.Format(time.RFC3339))
 		}
 	}
 	return builder.String()
@@ -1216,4 +1325,15 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func isRetryableWorkspaceJobError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+	message := strings.ToLower(strings.TrimSpace(err.Error()))
+	return strings.Contains(message, "timeout") || strings.Contains(message, "tempor")
 }

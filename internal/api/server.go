@@ -6,7 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -104,6 +106,8 @@ type Server struct {
 	recommendationEngine *lifecycle.RecommendationEngine
 	driftDetector        *lifecycle.DriftDetector
 	resolveConfig        func(platform models.Platform, address, credentialRef string) connectors.Config
+	allowedOrigins       map[string]struct{}
+	workspaceJobTimeout  time.Duration
 
 	mu    sync.RWMutex
 	specs map[string]*migratepkg.MigrationSpec
@@ -144,6 +148,8 @@ func NewServer(engine *discovery.Engine, stateStore store.Store, port int, catal
 		policyEngine:         policyEngine,
 		recommendationEngine: lifecycle.NewRecommendationEngine(costEngine, policyEngine),
 		driftDetector:        lifecycle.NewDriftDetector(stateStore, policyEngine, lifecycle.DriftConfig{}),
+		allowedOrigins:       configuredAllowedOrigins(os.Getenv("VIADUCT_ALLOWED_ORIGINS")),
+		workspaceJobTimeout:  durationEnv("VIADUCT_WORKSPACE_JOB_TIMEOUT", 2*time.Minute),
 		resolveConfig: func(platform models.Platform, address, credentialRef string) connectors.Config {
 			resolvedAddress := address
 			if platform == models.PlatformKVM {
@@ -216,6 +222,9 @@ func (s *Server) Start(ctx context.Context) error {
 		Handler:           s.Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
+	if err := s.recoverWorkspaceJobs(ctx); err != nil {
+		log.Printf("component=api category=workspace-jobs action=recover outcome=failure message=%q", err.Error())
+	}
 
 	go func() {
 		<-ctx.Done()
@@ -259,8 +268,8 @@ func (s *Server) Handler() http.Handler {
 	tenantMux.Handle("/api/v1/simulation", tenantRoute(models.TenantRoleOperator, models.TenantPermissionMigrationManage, s.handleSimulation))
 	tenantMux.Handle("/api/v1/summary", tenantRoute(models.TenantRoleViewer, models.TenantPermissionLifecycleRead, s.handleSummary))
 	tenantMux.Handle("/api/v1/reports/", tenantRoute(models.TenantRoleViewer, models.TenantPermissionReportsRead, s.handleReports))
-	tenantMux.Handle("/api/v1/workspaces", tenantRoute(models.TenantRoleOperator, models.TenantPermissionMigrationManage, s.handleWorkspaces))
-	tenantMux.Handle("/api/v1/workspaces/", tenantRoute(models.TenantRoleOperator, models.TenantPermissionMigrationManage, s.handleWorkspaceByID))
+	tenantMux.Handle("/api/v1/workspaces", s.workspaceCollectionRoute(s.handleWorkspaces))
+	tenantMux.Handle("/api/v1/workspaces/", s.workspaceDocumentRoute(s.handleWorkspaceByID))
 	tenantMux.Handle("/api/v1/tenants/current", tenantRoute(models.TenantRoleViewer, models.TenantPermissionTenantRead, s.handleCurrentTenant))
 	tenantMux.Handle("/api/v1/service-accounts", tenantRoute(models.TenantRoleAdmin, models.TenantPermissionTenantManage, s.handleServiceAccounts))
 	tenantMux.Handle("/api/v1/service-accounts/", tenantRoute(models.TenantRoleAdmin, models.TenantPermissionTenantManage, s.handleServiceAccountByID))
@@ -288,6 +297,26 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("/api/v1/service-accounts/", tenantHandler)
 
 	return s.withObservability(s.withCORS(mux))
+}
+
+func (s *Server) workspaceCollectionRoute(handler http.HandlerFunc) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet || r.Method == http.MethodHead {
+			RequireTenantRole(models.TenantRoleViewer, RequireAnyTenantPermission(handler, models.TenantPermissionReportsRead, models.TenantPermissionMigrationManage)).ServeHTTP(w, r)
+			return
+		}
+		RequireTenantRole(models.TenantRoleOperator, RequireTenantPermission(models.TenantPermissionMigrationManage, handler)).ServeHTTP(w, r)
+	})
+}
+
+func (s *Server) workspaceDocumentRoute(handler http.HandlerFunc) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet || r.Method == http.MethodHead || (r.Method == http.MethodPost && strings.HasSuffix(strings.TrimSpace(r.URL.Path), "/reports/export")) {
+			RequireTenantRole(models.TenantRoleViewer, RequireAnyTenantPermission(handler, models.TenantPermissionReportsRead, models.TenantPermissionMigrationManage)).ServeHTTP(w, r)
+			return
+		}
+		RequireTenantRole(models.TenantRoleOperator, RequireTenantPermission(models.TenantPermissionMigrationManage, handler)).ServeHTTP(w, r)
+	})
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
@@ -1219,10 +1248,18 @@ func validateExecutionRequest(spec migratepkg.MigrationSpec, now time.Time) erro
 
 func (s *Server) withCORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
+		s.applySecurityHeaders(w, r)
+		if origin, allowed := s.allowedOrigin(r); origin != "" && allowed {
+			w.Header().Set("Vary", "Origin")
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+		}
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-API-Key, X-Service-Account-Key, X-Admin-Key, X-Request-ID")
 		w.Header().Set("Access-Control-Allow-Methods", "GET,POST,PATCH,DELETE,OPTIONS")
 		if r.Method == http.MethodOptions {
+			if origin, allowed := s.allowedOrigin(r); origin != "" && !allowed {
+				http.Error(w, "origin is not allowed", http.StatusForbidden)
+				return
+			}
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
@@ -1232,15 +1269,91 @@ func (s *Server) withCORS(next http.Handler) http.Handler {
 
 func (s *Server) supportedPlatforms() []models.Platform {
 	if s == nil || s.catalog == nil {
-		return []models.Platform{
-			models.PlatformHyperV,
-			models.PlatformKVM,
-			models.PlatformNutanix,
-			models.PlatformProxmox,
-			models.PlatformVMware,
-		}
+		return models.SupportedPlatforms()
 	}
 	return s.catalog.Platforms()
+}
+
+func (s *Server) applySecurityHeaders(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'")
+	w.Header().Set("Permissions-Policy", "camera=(), geolocation=(), microphone=()")
+	w.Header().Set("Referrer-Policy", "no-referrer")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("X-Frame-Options", "DENY")
+	if requestScheme(r) == "https" {
+		w.Header().Set("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
+	}
+}
+
+func (s *Server) allowedOrigin(r *http.Request) (string, bool) {
+	origin := strings.TrimSpace(r.Header.Get("Origin"))
+	if origin == "" {
+		return "", true
+	}
+	if sameOriginRequest(r, origin) {
+		return origin, true
+	}
+	if s == nil || len(s.allowedOrigins) == 0 {
+		return origin, false
+	}
+	_, ok := s.allowedOrigins[origin]
+	return origin, ok
+}
+
+func sameOriginRequest(r *http.Request, origin string) bool {
+	parsedOrigin, err := url.Parse(origin)
+	if err != nil {
+		return false
+	}
+	return strings.EqualFold(parsedOrigin.Scheme, requestScheme(r)) && strings.EqualFold(parsedOrigin.Host, r.Host)
+}
+
+func requestScheme(r *http.Request) string {
+	if r == nil {
+		return "http"
+	}
+	if forwarded := strings.TrimSpace(r.Header.Get("X-Forwarded-Proto")); forwarded != "" {
+		return strings.ToLower(forwarded)
+	}
+	if r.TLS != nil {
+		return "https"
+	}
+	return "http"
+}
+
+func configuredAllowedOrigins(raw string) map[string]struct{} {
+	items := []string{
+		"http://127.0.0.1:4173",
+		"http://127.0.0.1:5173",
+		"http://localhost:4173",
+		"http://localhost:5173",
+	}
+	if strings.TrimSpace(raw) != "" {
+		items = strings.Split(raw, ",")
+	}
+
+	allowed := make(map[string]struct{}, len(items))
+	for _, item := range items {
+		origin := strings.TrimSpace(item)
+		if origin == "" {
+			continue
+		}
+		allowed[origin] = struct{}{}
+	}
+	return allowed
+}
+
+func durationEnv(name string, fallback time.Duration) time.Duration {
+	raw := strings.TrimSpace(os.Getenv(name))
+	if raw == "" {
+		return fallback
+	}
+	parsed, err := time.ParseDuration(raw)
+	if err != nil || parsed <= 0 {
+		return fallback
+	}
+	return parsed
 }
 
 func pendingApprovalFromRecord(record *store.MigrationRecord) bool {

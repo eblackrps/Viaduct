@@ -476,6 +476,28 @@ paths:
           $ref: "#/components/responses/ErrorResponse"
         "500":
           $ref: "#/components/responses/ErrorResponse"
+    delete:
+      summary: Delete a pilot workspace
+      security:
+        - TenantAPIKey: []
+        - ServiceAccountKey: []
+      parameters:
+        - in: path
+          name: workspaceID
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Pilot workspace deleted
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+        "403":
+          $ref: "#/components/responses/ErrorResponse"
+        "404":
+          $ref: "#/components/responses/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/ErrorResponse"
     patch:
       summary: Update pilot workspace state
       security:

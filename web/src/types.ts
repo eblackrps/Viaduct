@@ -665,4 +665,12 @@ export interface WorkspaceJob {
   message?: string;
   error?: string;
   retryable?: boolean;
+  input_json?: {
+    type?: WorkspaceJobType;
+    requested_by?: string;
+    source_connection_ids?: string[];
+    selected_workload_ids?: string[];
+    simulation?: SimulationRequest;
+  };
+  output_json?: Record<string, unknown>;
 }

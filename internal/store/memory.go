@@ -722,6 +722,35 @@ func (s *MemoryStore) ListWorkspaces(ctx context.Context, tenantID string, limit
 	return items, nil
 }
 
+// DeleteWorkspace removes a persisted pilot workspace and any job records tied to it.
+func (s *MemoryStore) DeleteWorkspace(ctx context.Context, tenantID, workspaceID string) error {
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("memory store: delete workspace: %w", ctx.Err())
+	default:
+	}
+
+	tenantID = normalizeTenantID(tenantID)
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	key := tenantWorkspaceKey(tenantID, workspaceID)
+	item, ok := s.workspaces[key]
+	if !ok || item.tenantID != tenantID {
+		return fmt.Errorf("memory store: delete workspace %s: not found", workspaceID)
+	}
+
+	delete(s.workspaces, key)
+	for jobKey, job := range s.workspaceJobs {
+		if job.tenantID == tenantID && job.job.WorkspaceID == workspaceID {
+			delete(s.workspaceJobs, jobKey)
+		}
+	}
+
+	return nil
+}
+
 // SaveWorkspaceJob persists a pilot workspace background job in memory.
 func (s *MemoryStore) SaveWorkspaceJob(ctx context.Context, tenantID string, job models.WorkspaceJob) error {
 	select {

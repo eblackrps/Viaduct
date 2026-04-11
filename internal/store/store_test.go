@@ -587,6 +587,71 @@ func TestMemoryStore_SaveAndListWorkspaceJobs_TenantScoped(t *testing.T) {
 	}
 }
 
+func TestMemoryStore_DeleteWorkspace_RemovesJobsOnlyForWorkspace_Expected(t *testing.T) {
+	t.Parallel()
+
+	stateStore := NewMemoryStore()
+	ctx := context.Background()
+	if err := stateStore.CreateTenant(ctx, models.Tenant{
+		ID:     "tenant-delete-workspace",
+		Name:   "Delete Workspace Tenant",
+		APIKey: "tenant-delete-workspace-key",
+		Active: true,
+	}); err != nil {
+		t.Fatalf("CreateTenant() error = %v", err)
+	}
+
+	for _, workspace := range []models.PilotWorkspace{
+		{ID: "workspace-a", Name: "Workspace A", Status: models.PilotWorkspaceStatusDraft},
+		{ID: "workspace-b", Name: "Workspace B", Status: models.PilotWorkspaceStatusDraft},
+	} {
+		if err := stateStore.CreateWorkspace(ctx, "tenant-delete-workspace", workspace); err != nil {
+			t.Fatalf("CreateWorkspace(%s) error = %v", workspace.ID, err)
+		}
+	}
+
+	for _, job := range []models.WorkspaceJob{
+		{
+			ID:          "job-a",
+			WorkspaceID: "workspace-a",
+			Type:        models.WorkspaceJobTypeDiscovery,
+			Status:      models.WorkspaceJobStatusSucceeded,
+			RequestedAt: time.Date(2026, time.April, 11, 10, 0, 0, 0, time.UTC),
+			UpdatedAt:   time.Date(2026, time.April, 11, 10, 1, 0, 0, time.UTC),
+		},
+		{
+			ID:          "job-b",
+			WorkspaceID: "workspace-b",
+			Type:        models.WorkspaceJobTypeGraph,
+			Status:      models.WorkspaceJobStatusSucceeded,
+			RequestedAt: time.Date(2026, time.April, 11, 10, 2, 0, 0, time.UTC),
+			UpdatedAt:   time.Date(2026, time.April, 11, 10, 3, 0, 0, time.UTC),
+		},
+	} {
+		if err := stateStore.SaveWorkspaceJob(ctx, "tenant-delete-workspace", job); err != nil {
+			t.Fatalf("SaveWorkspaceJob(%s) error = %v", job.ID, err)
+		}
+	}
+
+	if err := stateStore.DeleteWorkspace(ctx, "tenant-delete-workspace", "workspace-a"); err != nil {
+		t.Fatalf("DeleteWorkspace() error = %v", err)
+	}
+
+	if _, err := stateStore.GetWorkspace(ctx, "tenant-delete-workspace", "workspace-a"); err == nil {
+		t.Fatal("GetWorkspace(workspace-a) error = nil, want not found")
+	}
+	if _, err := stateStore.GetWorkspaceJob(ctx, "tenant-delete-workspace", "workspace-a", "job-a"); err == nil {
+		t.Fatal("GetWorkspaceJob(job-a) error = nil, want not found")
+	}
+
+	if _, err := stateStore.GetWorkspace(ctx, "tenant-delete-workspace", "workspace-b"); err != nil {
+		t.Fatalf("GetWorkspace(workspace-b) error = %v", err)
+	}
+	if _, err := stateStore.GetWorkspaceJob(ctx, "tenant-delete-workspace", "workspace-b", "job-b"); err != nil {
+		t.Fatalf("GetWorkspaceJob(job-b) error = %v", err)
+	}
+}
+
 func TestMemoryStore_Diagnostics_ReturnsBackendMetadata_Expected(t *testing.T) {
 	t.Parallel()
 

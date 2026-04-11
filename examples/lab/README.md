@@ -44,6 +44,8 @@ npm ci
 npm run dev
 ```
 
+The bootstrap screen stores the key in session storage by default. Use the remember option only when you want the browser to retain the key across restarts.
+
 The default dashboard sequence is:
 
 1. create workspace
@@ -52,6 +54,8 @@ The default dashboard sequence is:
 4. simulate
 5. save plan
 6. export report
+
+When you are finished evaluating the flow, you can delete the workspace from the dashboard. That removes the workspace record and its job history without deleting the underlying snapshots or saved migration records outside the workspace document.
 
 ## Visual Reference
 

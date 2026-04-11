@@ -48,6 +48,36 @@ Fix:
 - prefer `VITE_VIADUCT_SERVICE_ACCOUNT_KEY` for normal dashboard use
 - confirm API health at `/api/v1/health`
 
+## Browser Reports `origin not allowed`
+
+Cause:
+- the dashboard is running from an origin that the API CORS allowlist does not trust
+
+Fix:
+- set `VIADUCT_ALLOWED_ORIGINS` to a comma-separated list of trusted dashboard origins
+- restart `viaduct serve-api`
+- keep the value narrow instead of using a wildcard
+
+## Workspace Job Fails With `context deadline exceeded`
+
+Cause:
+- the server-side workspace job timeout elapsed before discovery, graph generation, simulation, or planning completed
+
+Fix:
+- increase `VIADUCT_WORKSPACE_JOB_TIMEOUT`
+- retry the job from the workspace job history after adjusting the timeout
+- use PostgreSQL for persistent evaluation environments so retry and recovery state survive restarts
+
+## Dashboard Sign-In Disappears After Closing The Browser
+
+Cause:
+- the runtime bootstrap stores keys in session storage by default
+
+Fix:
+- sign in again
+- use the bootstrap screen's remember option if you intentionally want the browser to keep a local copy of the key
+- prefer service-account keys over tenant keys for saved browser credentials
+
 ## KVM Fixture Discovery Returns No VMs
 
 Cause:

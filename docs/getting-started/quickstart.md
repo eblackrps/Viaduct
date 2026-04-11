@@ -39,6 +39,8 @@ export VIADUCT_ADMIN_KEY=lab-admin
 ./bin/viaduct serve-api --port 8080
 ```
 
+The API accepts browser requests from the default local dashboard origins (`http://localhost:5173`, `http://127.0.0.1:5173`, `http://localhost:4173`, `http://127.0.0.1:4173`). For any other dashboard origin, set `VIADUCT_ALLOWED_ORIGINS` before starting the API.
+
 In another terminal, create the lab tenant and operator service account:
 
 ```bash
@@ -68,6 +70,8 @@ Open the dashboard in your browser at the Vite URL shown in the terminal. The da
 Authenticate through the runtime bootstrap screen:
 - preferred service-account key: `lab-operator-key`
 - bootstrap-only tenant key: `lab-tenant-key`
+
+The runtime key is kept in session storage by default. Use the remember option only when you intentionally want the browser to keep a local copy across restarts.
 
 For packaged or persistent environments, prefer `VITE_VIADUCT_SERVICE_ACCOUNT_KEY` over `VITE_VIADUCT_API_KEY` so operator activity is attributable to a named service account instead of the tenant-wide admin credential.
 

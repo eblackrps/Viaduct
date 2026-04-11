@@ -15,7 +15,7 @@ export interface AuthBootstrapState {
   currentTenant: CurrentTenant | null;
   error: ErrorDisplay | null;
   refresh: () => Promise<void>;
-  connect: (mode: Exclude<DashboardAuthMode, "none">, apiKey: string) => Promise<void>;
+  connect: (mode: Exclude<DashboardAuthMode, "none">, apiKey: string, remember?: boolean) => Promise<void>;
   signOut: () => void;
 }
 
@@ -57,8 +57,8 @@ export function useAuthBootstrap(): AuthBootstrapState {
     setStatus("error");
   }
 
-  async function connect(mode: Exclude<DashboardAuthMode, "none">, apiKey: string) {
-    setDashboardAuthSession(mode, apiKey);
+  async function connect(mode: Exclude<DashboardAuthMode, "none">, apiKey: string, remember = false) {
+    setDashboardAuthSession(mode, apiKey, { remember });
     await refresh();
   }
 

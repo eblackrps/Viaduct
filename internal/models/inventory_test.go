@@ -104,6 +104,49 @@ func TestPlatform_StringValues(t *testing.T) {
 	}
 }
 
+func TestPlatform_Valid_Expected(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		platform Platform
+		want     bool
+	}{
+		{name: "vmware", platform: PlatformVMware, want: true},
+		{name: "proxmox", platform: PlatformProxmox, want: true},
+		{name: "hyperv", platform: PlatformHyperV, want: true},
+		{name: "kvm", platform: PlatformKVM, want: true},
+		{name: "nutanix", platform: PlatformNutanix, want: true},
+		{name: "unknown", platform: Platform("veeam"), want: false},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := tt.platform.Valid(); got != tt.want {
+				t.Fatalf("Platform(%q).Valid() = %t, want %t", tt.platform, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSupportedPlatforms_StableOrder_Expected(t *testing.T) {
+	t.Parallel()
+
+	want := []Platform{
+		PlatformHyperV,
+		PlatformKVM,
+		PlatformNutanix,
+		PlatformProxmox,
+		PlatformVMware,
+	}
+	if got := SupportedPlatforms(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("SupportedPlatforms() = %#v, want %#v", got, want)
+	}
+}
+
 func TestPowerState_StringValues(t *testing.T) {
 	t.Parallel()
 

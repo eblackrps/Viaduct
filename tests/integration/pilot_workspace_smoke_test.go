@@ -89,6 +89,16 @@ func TestPilotWorkspace_LabFlow_CreateDiscoverGraphSimulatePlanReport_Expected(t
 	if workspace.Graph == nil || workspace.Simulation == nil || workspace.SavedPlan == nil || len(workspace.Reports) == 0 {
 		t.Fatalf("workspace flow incomplete: %#v", workspace)
 	}
+
+	deleteRecorder := sendWorkspaceRequest(t, handler, "sa-pilot-key", http.MethodDelete, "/api/v1/workspaces/"+workspace.ID, "")
+	if deleteRecorder.Code != http.StatusNoContent {
+		t.Fatalf("delete status = %d, want %d: %s", deleteRecorder.Code, http.StatusNoContent, deleteRecorder.Body.String())
+	}
+
+	missingRecorder := sendWorkspaceRequest(t, handler, "sa-pilot-key", http.MethodGet, "/api/v1/workspaces/"+workspace.ID, "")
+	if missingRecorder.Code != http.StatusNotFound {
+		t.Fatalf("deleted workspace get status = %d, want %d: %s", missingRecorder.Code, http.StatusNotFound, missingRecorder.Body.String())
+	}
 }
 
 func sendWorkspaceRequest(t *testing.T, handler http.Handler, serviceAccountKey, method, path, body string) *httptest.ResponseRecorder {

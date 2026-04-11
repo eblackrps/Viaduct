@@ -84,11 +84,15 @@ Authenticate in one of two ways:
 - Preferred: choose `Service account` and paste `lab-operator-key`
 - Bootstrap only: choose `Tenant key` and paste `lab-tenant-key`
 
+The dashboard stores the runtime key in session storage by default. Use the optional remember toggle only on a trusted browser that should keep the key across restarts.
+
 You can still pre-seed development credentials with:
 - `VITE_VIADUCT_SERVICE_ACCOUNT_KEY`
 - `VITE_VIADUCT_API_KEY`
 
 The runtime bootstrap flow is the canonical operator path because it works for packaged environments and does not require a rebuild to rotate credentials.
+
+The API accepts browser requests from the default local dashboard origins. If you serve the dashboard from another host or port, set `VIADUCT_ALLOWED_ORIGINS` before starting the API.
 
 ## 5. Run The Workspace-First Operator Flow
 
@@ -102,6 +106,8 @@ Inside the dashboard:
 6. Export the pilot report.
 
 The workspace keeps the discovery baseline, readiness result, saved plan, notes, approvals, and report history attached to the same object.
+
+Read-only operators can inspect workspace state and export reports with viewer access, but only operator-level principals can mutate workspace state or start jobs.
 
 ## API Equivalents
 
@@ -157,6 +163,10 @@ The workspace flow is correlation-aware:
 - dashboard error panels expose technical details instead of flattening failures into generic toasts
 
 If a step fails, capture the request ID and workspace/job identifier together. That is the intended operator handoff bundle for troubleshooting.
+
+Queued or running workspace jobs are recovered when the API starts again, and each job is subject to the server-side timeout configured by `VIADUCT_WORKSPACE_JOB_TIMEOUT`.
+
+If you want to discard a completed evaluation workspace, delete it through the dashboard or `DELETE /api/v1/workspaces/{workspaceID}`. That removes the workspace record and its job history, but it does not purge persisted snapshots or migration records outside the workspace document.
 
 ## Smoke Coverage
 

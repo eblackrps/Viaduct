@@ -149,6 +149,17 @@ async function request<T>(input: RequestInfo | URL, init?: RequestInit): Promise
   return (await response.json()) as T;
 }
 
+async function requestVoid(input: RequestInfo | URL, init?: RequestInit): Promise<void> {
+  const response = await fetch(input, {
+    ...init,
+    headers: buildHeaders(init?.headers, init?.body !== undefined),
+  });
+
+  if (!response.ok) {
+    throw await toAPIError(response);
+  }
+}
+
 async function requestBlob(
   input: RequestInfo | URL,
   init?: RequestInit,
@@ -283,6 +294,12 @@ export function updateWorkspace(id: string, payload: Partial<PilotWorkspace>): P
   return request<PilotWorkspace>(`/api/v1/workspaces/${id}`, {
     method: "PATCH",
     body: JSON.stringify(payload),
+  });
+}
+
+export function deleteWorkspace(id: string): Promise<void> {
+  return requestVoid(`/api/v1/workspaces/${id}`, {
+    method: "DELETE",
   });
 }
 

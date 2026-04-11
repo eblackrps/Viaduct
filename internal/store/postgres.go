@@ -988,6 +988,40 @@ func (s *PostgresStore) ListWorkspaces(ctx context.Context, tenantID string, lim
 	return items, nil
 }
 
+// DeleteWorkspace removes a persisted pilot workspace and any background jobs tied to it.
+func (s *PostgresStore) DeleteWorkspace(ctx context.Context, tenantID, workspaceID string) error {
+	tenantID = normalizeTenantID(tenantID)
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("postgres store: delete workspace %s: begin transaction: %w", workspaceID, err)
+	}
+	defer func() {
+		_ = tx.Rollback()
+	}()
+
+	if _, err := tx.ExecContext(ctx, `DELETE FROM workspace_jobs WHERE tenant_id = $1 AND workspace_id = $2`, tenantID, workspaceID); err != nil {
+		return fmt.Errorf("postgres store: delete workspace %s jobs: %w", workspaceID, err)
+	}
+
+	result, err := tx.ExecContext(ctx, `DELETE FROM workspaces WHERE tenant_id = $1 AND id = $2`, tenantID, workspaceID)
+	if err != nil {
+		return fmt.Errorf("postgres store: delete workspace %s: %w", workspaceID, err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("postgres store: delete workspace %s: rows affected: %w", workspaceID, err)
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("postgres store: delete workspace %s: not found", workspaceID)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("postgres store: delete workspace %s: commit: %w", workspaceID, err)
+	}
+	return nil
+}
+
 // SaveWorkspaceJob persists a pilot workspace background job to PostgreSQL.
 func (s *PostgresStore) SaveWorkspaceJob(ctx context.Context, tenantID string, job models.WorkspaceJob) error {
 	if strings.TrimSpace(job.ID) == "" {

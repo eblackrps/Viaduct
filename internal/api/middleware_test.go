@@ -279,6 +279,44 @@ func TestRequireTenantPermission_ServiceAccountExplicitScopeAllows_Expected(t *t
 	}
 }
 
+func TestRequireAnyTenantPermission_ServiceAccountWithAlternatePermissionAllows_Expected(t *testing.T) {
+	t.Parallel()
+
+	stateStore := newTenantTestStore(t)
+	if err := stateStore.UpdateTenant(context.Background(), models.Tenant{
+		ID:     "tenant-a",
+		Name:   "Tenant A",
+		APIKey: "tenant-a-key",
+		Active: true,
+		ServiceAccounts: []models.ServiceAccount{
+			{
+				ID:          "sa-operator",
+				Name:        "Operator",
+				APIKey:      "operator-key",
+				Role:        models.TenantRoleOperator,
+				Permissions: []models.TenantPermission{models.TenantPermissionMigrationManage},
+				Active:      true,
+				CreatedAt:   time.Now().UTC(),
+			},
+		},
+	}); err != nil {
+		t.Fatalf("UpdateTenant() error = %v", err)
+	}
+
+	handler := TenantAuthMiddleware(stateStore, RequireTenantRole(models.TenantRoleViewer, RequireAnyTenantPermission(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}), models.TenantPermissionReportsRead, models.TenantPermissionMigrationManage)))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/workspaces", nil)
+	req.Header.Set(serviceAccountAPIKeyHeader, "operator-key")
+	recorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(recorder, req)
+	if recorder.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusNoContent)
+	}
+}
+
 func newTenantTestStore(t *testing.T) store.Store {
 	t.Helper()
 

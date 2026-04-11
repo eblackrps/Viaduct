@@ -31,7 +31,7 @@ npm run build
 Generate a self-contained local bundle:
 
 ```bash
-make package-release
+make package-release-matrix
 ```
 
 This creates:
@@ -92,3 +92,8 @@ viaduct --help
 ```
 
 If you installed only the CLI and not the dashboard assets, the API and migration/lifecycle backends still work; only the packaged static web assets are absent.
+
+For browser access in packaged environments:
+- set `VIADUCT_ALLOWED_ORIGINS` if the dashboard is served from a non-default origin
+- prefer service-account keys for normal operator access
+- use `VIADUCT_WORKSPACE_JOB_TIMEOUT` if workspace jobs need a different server-side timeout budget

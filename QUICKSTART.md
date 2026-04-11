@@ -45,6 +45,8 @@ $env:VIADUCT_ADMIN_KEY = "lab-admin"
 .\bin\viaduct.exe serve-api --port 8080
 ```
 
+The API accepts browser requests from the default local dashboard origins (`http://localhost:5173`, `http://127.0.0.1:5173`, `http://localhost:4173`, `http://127.0.0.1:4173`). If you serve the dashboard from a different origin, set `VIADUCT_ALLOWED_ORIGINS` before starting the API.
+
 ## 4. Seed The Lab Tenant And Service Account
 
 ```bash
@@ -80,6 +82,8 @@ Open the Vite URL shown in the terminal. The dashboard starts on the pilot works
 Authenticate with:
 - preferred: `lab-operator-key`
 - bootstrap only: `lab-tenant-key`
+
+The dashboard stores the runtime key in session storage by default. Use the remember option only when you intentionally want the browser to keep a local copy across restarts.
 
 ## 6. Run The Workspace-First Flow
 
