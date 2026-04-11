@@ -4,7 +4,9 @@ All notable changes to Viaduct should be documented in this file.
 
 This changelog tracks published releases and the major implementation milestones that shaped the current repository state.
 
-## [1.6.0] - Unreleased
+## [Unreleased]
+
+## [1.6.0] - 2026-04-11
 
 ### Workspace-First Operator Flow
 - added a first-class pilot workspace model that persists source connections, discovery snapshots, dependency graph output, target assumptions, readiness results, saved plans, approvals, notes, and exported reports

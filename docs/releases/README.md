@@ -1,12 +1,12 @@
-# Release Drafts
+# Release Notes
 
-This directory contains release-note drafts and other release-facing narrative assets that are prepared before a tag is published.
+This directory contains release notes and other release-facing narrative assets that support tagged Viaduct releases.
 
 ## Files
 
-- [v1.6.0 draft](v1.6.0-draft.md)
+- [v1.6.0 release notes](v1.6.0-draft.md)
 
-Keep these drafts aligned with:
+Keep these notes aligned with:
 - [CHANGELOG.md](../../CHANGELOG.md)
 - [OpenAPI reference](../reference/openapi.yaml)
 - [Screenshot assets](../operations/demo/screenshots/README.md)

@@ -19,7 +19,7 @@ On Windows, `make release-gate` still builds `bin/viaduct.exe`, but it validates
 4. Verify `release-manifest.json`, `dependency-manifest.json`, and `SHA256SUMS.txt`.
 5. Smoke-test the packaged binary with `viaduct version` and `viaduct --help`.
 6. Confirm install docs, upgrade docs, rollback docs, deployment examples, and the pilot workspace guide still match the artifact layout.
-7. Confirm the release notes draft, changelog entry, and screenshot assets are present and aligned with the shipped workflow.
+7. Confirm the release notes entry, changelog entry, and screenshot assets are present and aligned with the shipped workflow.
 8. Verify the plugin manifest check and OpenAPI contract check remain green.
 9. Tag and publish only after the verification and smoke checks are clean.
 
