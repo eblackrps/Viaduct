@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { AlertTriangle } from "lucide-react";
 import { SectionCard } from "./SectionCard";
 
@@ -5,9 +6,10 @@ interface ErrorStateProps {
   title: string;
   message: string;
   technicalDetails?: string[];
+  actions?: ReactNode;
 }
 
-export function ErrorState({ title, message, technicalDetails = [] }: ErrorStateProps) {
+export function ErrorState({ title, message, technicalDetails = [], actions }: ErrorStateProps) {
   return (
     <SectionCard className="border-rose-200 bg-rose-50/90">
       <div className="flex items-start gap-4">
@@ -26,6 +28,7 @@ export function ErrorState({ title, message, technicalDetails = [] }: ErrorState
               ))}
             </div>
           )}
+          {actions && <div className="mt-4 flex flex-wrap gap-2">{actions}</div>}
         </div>
       </div>
     </SectionCard>

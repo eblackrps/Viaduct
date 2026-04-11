@@ -1,12 +1,14 @@
+import type { ReactNode } from "react";
 import { RefreshCcw } from "lucide-react";
 import { SectionCard } from "./SectionCard";
 
 interface LoadingStateProps {
   title: string;
   message: string;
+  actions?: ReactNode;
 }
 
-export function LoadingState({ title, message }: LoadingStateProps) {
+export function LoadingState({ title, message, actions }: LoadingStateProps) {
   return (
     <SectionCard className="border-slate-200 bg-white/90">
       <div className="flex items-start gap-4">
@@ -16,6 +18,7 @@ export function LoadingState({ title, message }: LoadingStateProps) {
         <div>
           <p className="font-display text-2xl text-ink">{title}</p>
           <p className="mt-2 max-w-2xl text-sm text-slate-500">{message}</p>
+          {actions && <div className="mt-4 flex flex-wrap gap-2">{actions}</div>}
         </div>
       </div>
     </SectionCard>

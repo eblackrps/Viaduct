@@ -5,6 +5,7 @@ import { LoadingState } from "../../components/primitives/LoadingState";
 import { PageHeader } from "../../components/primitives/PageHeader";
 import { SectionCard } from "../../components/primitives/SectionCard";
 import { StatusBadge } from "../../components/primitives/StatusBadge";
+import { getDashboardAuthSession } from "../../runtimeAuth";
 import type { TenantSummary } from "../../types";
 import { useSettingsData } from "./useSettingsData";
 
@@ -13,6 +14,9 @@ interface SettingsPageProps {
 }
 
 export function SettingsPage({ summary }: SettingsPageProps) {
+  const authMode = dashboardAuthMode();
+  const authConfigured = hasApiKeyConfigured();
+  const authSource = getDashboardAuthSession().source;
   const { about, currentTenant, loading, errors } = useSettingsData();
   const supportedPlatforms = about?.supported_platforms ?? Object.keys(summary?.platform_counts ?? {});
   const platformCounts = summary?.platform_counts ?? {};
@@ -30,13 +34,8 @@ export function SettingsPage({ summary }: SettingsPageProps) {
         description="Read-only runtime context for the current tenant, operator connection assumptions, and dashboard-side configuration."
         badges={[
           {
-            label:
-              dashboardAuthMode === "service-account"
-                ? "Service account auth"
-                : dashboardAuthMode === "tenant"
-                  ? "Tenant key auth"
-                  : "No dashboard auth",
-            tone: hasApiKeyConfigured ? "success" : "warning",
+            label: authMode === "service-account" ? "Service account auth" : authMode === "tenant" ? "Tenant key auth" : "No dashboard auth",
+            tone: authConfigured ? "success" : "warning",
           },
           { label: currentTenant?.tenant_id ? `Tenant ${currentTenant.tenant_id}` : summary?.tenant_id ? `Tenant ${summary.tenant_id}` : "No tenant summary", tone: "neutral" },
         ]}
@@ -73,10 +72,14 @@ export function SettingsPage({ summary }: SettingsPageProps) {
               <SettingRow
                 label="Authentication"
                 value={
-                  dashboardAuthMode === "service-account"
-                    ? "X-Service-Account-Key sourced from VITE_VIADUCT_SERVICE_ACCOUNT_KEY"
-                    : dashboardAuthMode === "tenant"
-                      ? "X-API-Key sourced from VITE_VIADUCT_API_KEY"
+                  authMode === "service-account"
+                    ? authSource === "runtime"
+                      ? "X-Service-Account-Key captured through runtime bootstrap"
+                      : "X-Service-Account-Key sourced from VITE_VIADUCT_SERVICE_ACCOUNT_KEY"
+                    : authMode === "tenant"
+                      ? authSource === "runtime"
+                        ? "X-API-Key captured through runtime bootstrap"
+                        : "X-API-Key sourced from VITE_VIADUCT_API_KEY"
                       : "No dashboard auth header configured in the web client environment"
                 }
               />

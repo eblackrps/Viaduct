@@ -26,6 +26,7 @@ interface ReportsPageProps {
 }
 
 export function ReportsPage({ migrations, snapshots, loading, migrationError, snapshotError }: ReportsPageProps) {
+  const authMode = dashboardAuthMode();
   const showLoading = loading && migrations.length === 0 && snapshots.length === 0;
   const hasErrors = [migrationError, snapshotError].filter(Boolean).join(" ");
   const showEmpty = !loading && !hasErrors && migrations.length === 0 && snapshots.length === 0;
@@ -83,10 +84,10 @@ export function ReportsPage({ migrations, snapshots, loading, migrationError, sn
 
       <SectionCard title="Operator API exports" description="Direct links into the current backend report surface published by the operator API.">
         <div className="flex flex-wrap items-center gap-3">
-          <StatusBadge tone={dashboardAuthMode === "service-account" ? "info" : dashboardAuthMode === "tenant" ? "success" : "warning"}>
-            {dashboardAuthMode === "service-account"
+          <StatusBadge tone={authMode === "service-account" ? "info" : authMode === "tenant" ? "success" : "warning"}>
+            {authMode === "service-account"
               ? "Service account auth"
-              : dashboardAuthMode === "tenant"
+              : authMode === "tenant"
                 ? "Tenant key auth"
                 : "No dashboard auth configured"}
           </StatusBadge>

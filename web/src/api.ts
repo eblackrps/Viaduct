@@ -14,6 +14,7 @@ import type {
   MigrationState,
   PlatformComparison,
   PolicyReport,
+  PilotWorkspace,
   PreflightReport,
   RecommendationReport,
   RollbackResult,
@@ -21,13 +22,17 @@ import type {
   SimulationRequest,
   SimulationResult,
   TenantSummary,
+  WorkspaceJob,
+  WorkspaceJobType,
 } from "./types";
-
-const tenantApiKey = import.meta.env.VITE_VIADUCT_API_KEY?.trim();
-const serviceAccountApiKey = import.meta.env.VITE_VIADUCT_SERVICE_ACCOUNT_KEY?.trim();
+import {
+  getDashboardAuthMode,
+  getDashboardAuthSession,
+  hasDashboardAuthConfigured,
+  type DashboardAuthMode,
+} from "./runtimeAuth";
 export type ReportName = "summary" | "migrations" | "audit";
 export type ReportFormat = "json" | "csv";
-export type DashboardAuthMode = "tenant" | "service-account" | "none";
 
 export interface ErrorDisplay {
   message: string;
@@ -75,12 +80,13 @@ export class APIError extends Error {
   }
 }
 
-export const dashboardAuthMode: DashboardAuthMode = serviceAccountApiKey
-  ? "service-account"
-  : tenantApiKey
-    ? "tenant"
-    : "none";
-export const hasApiKeyConfigured = dashboardAuthMode !== "none";
+export function dashboardAuthMode(): DashboardAuthMode {
+  return getDashboardAuthMode();
+}
+
+export function hasApiKeyConfigured(): boolean {
+  return hasDashboardAuthConfigured();
+}
 
 export function isAPIError(reason: unknown): reason is APIError {
   return reason instanceof APIError;
@@ -119,11 +125,12 @@ function buildHeaders(initHeaders?: HeadersInit, hasBody = false): Headers {
   if (hasBody && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
-  if (dashboardAuthMode === "service-account" && serviceAccountApiKey) {
-    headers.set("X-Service-Account-Key", serviceAccountApiKey);
+  const session = getDashboardAuthSession();
+  if (session.mode === "service-account" && session.apiKey) {
+    headers.set("X-Service-Account-Key", session.apiKey);
     headers.delete("X-API-Key");
-  } else if (dashboardAuthMode === "tenant" && tenantApiKey) {
-    headers.set("X-API-Key", tenantApiKey);
+  } else if (session.mode === "tenant" && session.apiKey) {
+    headers.set("X-API-Key", session.apiKey);
     headers.delete("X-Service-Account-Key");
   }
   return headers;
@@ -169,6 +176,10 @@ export function getInventory(platform?: string): Promise<DiscoveryResult> {
 
 export function getSnapshots(): Promise<SnapshotMeta[]> {
   return request<SnapshotMeta[]>("/api/v1/snapshots");
+}
+
+export function getSnapshot(id: string): Promise<DiscoveryResult> {
+  return request<DiscoveryResult>(`/api/v1/snapshots/${id}`);
 }
 
 export function getGraph(): Promise<DependencyGraph> {
@@ -251,6 +262,67 @@ export function getAbout(): Promise<AboutResponse> {
 
 export function getCurrentTenant(): Promise<CurrentTenant> {
   return request<CurrentTenant>("/api/v1/tenants/current");
+}
+
+export function listWorkspaces(): Promise<PilotWorkspace[]> {
+  return request<PilotWorkspace[]>("/api/v1/workspaces");
+}
+
+export function createWorkspace(payload: Partial<PilotWorkspace>): Promise<PilotWorkspace> {
+  return request<PilotWorkspace>("/api/v1/workspaces", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function getWorkspace(id: string): Promise<PilotWorkspace> {
+  return request<PilotWorkspace>(`/api/v1/workspaces/${id}`);
+}
+
+export function updateWorkspace(id: string, payload: Partial<PilotWorkspace>): Promise<PilotWorkspace> {
+  return request<PilotWorkspace>(`/api/v1/workspaces/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function listWorkspaceJobs(id: string): Promise<WorkspaceJob[]> {
+  return request<WorkspaceJob[]>(`/api/v1/workspaces/${id}/jobs`);
+}
+
+export function createWorkspaceJob(
+  id: string,
+  payload: {
+    type: WorkspaceJobType;
+    requested_by?: string;
+    source_connection_ids?: string[];
+    selected_workload_ids?: string[];
+    simulation?: SimulationRequest;
+  },
+): Promise<WorkspaceJob> {
+  return request<WorkspaceJob>(`/api/v1/workspaces/${id}/jobs`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function getWorkspaceJob(workspaceID: string, jobID: string): Promise<WorkspaceJob> {
+  return request<WorkspaceJob>(`/api/v1/workspaces/${workspaceID}/jobs/${jobID}`);
+}
+
+export async function exportWorkspaceReport(
+  workspaceID: string,
+  format: "markdown" | "json" = "markdown",
+): Promise<{ blob: Blob; filename: string; contentType: string }> {
+  const result = await requestBlob(`/api/v1/workspaces/${workspaceID}/reports/export`, {
+    method: "POST",
+    body: JSON.stringify({ format }),
+  });
+  return {
+    blob: result.blob,
+    filename: result.filename ?? `pilot-workspace-report.${format === "json" ? "json" : "md"}`,
+    contentType: result.contentType,
+  };
 }
 
 export async function downloadReport(

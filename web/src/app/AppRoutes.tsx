@@ -1,4 +1,6 @@
 import type { ReactNode } from "react";
+import { AuthBootstrapScreen } from "../features/auth/AuthBootstrapScreen";
+import { useAuthBootstrap } from "../features/auth/useAuthBootstrap";
 import { DashboardPage } from "../features/dashboard/DashboardPage";
 import { DriftPage } from "../features/drift/DriftPage";
 import { GraphPage } from "../features/graph/GraphPage";
@@ -8,6 +10,7 @@ import { MigrationsPage } from "../features/migrations/MigrationsPage";
 import { PolicyPage } from "../features/policy/PolicyPage";
 import { ReportsPage } from "../features/reports/ReportsPage";
 import { SettingsPage } from "../features/settings/SettingsPage";
+import { WorkspacePage } from "../features/workspaces/WorkspacePage";
 import { AppShell } from "../layouts/AppShell";
 import { getNavigationItem, type AppRoutePath } from "./navigation";
 import { useHashRoute } from "./useHashRoute";
@@ -17,6 +20,8 @@ function renderRoute(path: AppRoutePath, overview: OperatorOverviewState): React
   const inventoryError = joinMessages(overview.errors.inventory, overview.errors.summary);
 
   switch (path) {
+    case "/workspaces":
+      return <WorkspacePage />;
     case "/dashboard":
       return (
         <DashboardPage
@@ -93,7 +98,7 @@ function renderRoute(path: AppRoutePath, overview: OperatorOverviewState): React
   }
 }
 
-export function AppRoutes() {
+function AuthenticatedAppRoutes() {
   const { path } = useHashRoute();
   const overview = useOperatorOverview();
   const currentRoute = getNavigationItem(path);
@@ -116,6 +121,16 @@ export function AppRoutes() {
       {renderRoute(currentRoute.path, overview)}
     </AppShell>
   );
+}
+
+export function AppRoutes() {
+  const auth = useAuthBootstrap();
+
+  if (auth.status !== "authenticated") {
+    return <AuthBootstrapScreen auth={auth} />;
+  }
+
+  return <AuthenticatedAppRoutes />;
 }
 
 function joinMessages(...values: Array<string | null | undefined>): string | null {

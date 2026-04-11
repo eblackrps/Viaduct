@@ -12,6 +12,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 
 export type AppRoutePath =
+  | "/workspaces"
   | "/dashboard"
   | "/inventory"
   | "/migrations"
@@ -35,9 +36,21 @@ export interface NavigationGroup {
   items: NavigationItem[];
 }
 
-export const defaultRoute: AppRoutePath = "/dashboard";
+export const defaultRoute: AppRoutePath = "/workspaces";
 
 export const navigationGroups: NavigationGroup[] = [
+  {
+    label: "Pilot",
+    items: [
+      {
+        path: "/workspaces",
+        label: "Workspace",
+        title: "Pilot Workspace",
+        description: "Create an assessment workspace, run discovery, inspect readiness, save a plan, and export a pilot report.",
+        icon: LayoutDashboard,
+      },
+    ],
+  },
   {
     label: "Operate",
     items: [

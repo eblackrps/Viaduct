@@ -15,7 +15,11 @@ interface GraphFilterState {
   search: string;
 }
 
-export function DependencyGraph() {
+interface DependencyGraphProps {
+  graph?: DependencyGraphModel | null;
+}
+
+export function DependencyGraph({ graph: providedGraph }: DependencyGraphProps) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [graph, setGraph] = useState<DependencyGraphModel | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
@@ -33,6 +37,13 @@ export function DependencyGraph() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (providedGraph !== undefined) {
+      setGraph(providedGraph ?? null);
+      setError(null);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setSelectedNodeId(null);
     getGraph()
@@ -42,7 +53,7 @@ export function DependencyGraph() {
       })
       .catch((reason: Error) => setError(reason.message))
       .finally(() => setLoading(false));
-  }, []);
+  }, [providedGraph]);
 
   const visibleGraph = useMemo(() => {
     const baseNodes = (graph?.nodes ?? []).filter((node) => {

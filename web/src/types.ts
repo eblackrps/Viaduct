@@ -514,3 +514,155 @@ export interface CurrentTenant {
   service_account_name?: string;
   service_account_count: number;
 }
+
+export type PilotWorkspaceStatus = "draft" | "discovered" | "graph-ready" | "simulated" | "planned" | "reported";
+export type WorkspaceJobType = "discovery" | "graph" | "simulation" | "plan";
+export type WorkspaceJobStatus = "queued" | "running" | "succeeded" | "failed";
+export type WorkspaceReadinessStatus = "ready" | "attention" | "blocked";
+export type WorkspaceApprovalStatus = "pending" | "approved" | "rejected";
+export type WorkspaceNoteKind = "operator" | "system";
+
+export interface WorkspaceSourceConnection {
+  id: string;
+  name: string;
+  platform: Platform;
+  address: string;
+  credential_ref?: string;
+  last_snapshot_id?: string;
+  last_discovered_at?: string;
+}
+
+export interface WorkspaceSnapshot {
+  snapshot_id: string;
+  source_connection_id?: string;
+  source: string;
+  platform: Platform;
+  vm_count: number;
+  discovered_at: string;
+}
+
+export interface WorkspaceTargetAssumptions {
+  platform?: Platform;
+  address?: string;
+  credential_ref?: string;
+  default_host?: string;
+  default_storage?: string;
+  default_network?: string;
+  notes?: string;
+}
+
+export interface WorkspacePlanSettings {
+  name?: string;
+  parallel?: number;
+  verify_boot?: boolean;
+  approval_required?: boolean;
+  approved_by?: string;
+  approval_ticket?: string;
+  window_start?: string;
+  window_end?: string;
+  wave_size?: number;
+  dependency_aware?: boolean;
+}
+
+export interface WorkspaceGraphArtifact {
+  generated_at: string;
+  node_count: number;
+  edge_count: number;
+  raw_json?: DependencyGraph;
+}
+
+export interface WorkspaceSimulationArtifact {
+  generated_at: string;
+  target_platform?: Platform;
+  selected_workload_ids?: string[];
+  moved_vms?: number;
+  raw_json?: SimulationResult;
+}
+
+export interface WorkspaceReadinessResult {
+  generated_at: string;
+  status: WorkspaceReadinessStatus;
+  selected_workload_count: number;
+  recommendation_count: number;
+  policy_violation_count: number;
+  blocking_issues?: string[];
+  warning_issues?: string[];
+}
+
+export interface WorkspaceSavedPlan {
+  migration_id: string;
+  generated_at: string;
+  spec_name: string;
+  source_platform?: Platform;
+  target_platform?: Platform;
+  workload_count: number;
+  selected_workload_ids?: string[];
+  spec_json?: MigrationSpec;
+  state_json?: MigrationState;
+}
+
+export interface WorkspaceApproval {
+  id: string;
+  stage: string;
+  status: WorkspaceApprovalStatus;
+  approved_by?: string;
+  ticket?: string;
+  notes?: string;
+  created_at: string;
+}
+
+export interface WorkspaceNote {
+  id: string;
+  kind: WorkspaceNoteKind;
+  author: string;
+  body: string;
+  created_at: string;
+}
+
+export interface WorkspaceReportArtifact {
+  id: string;
+  name: string;
+  format: string;
+  file_name: string;
+  correlation_id?: string;
+  exported_at: string;
+}
+
+export interface PilotWorkspace {
+  id: string;
+  tenant_id?: string;
+  name: string;
+  description?: string;
+  status: PilotWorkspaceStatus;
+  created_at: string;
+  updated_at: string;
+  source_connections?: WorkspaceSourceConnection[];
+  snapshots?: WorkspaceSnapshot[];
+  selected_workload_ids?: string[];
+  target_assumptions?: WorkspaceTargetAssumptions;
+  plan_settings?: WorkspacePlanSettings;
+  graph?: WorkspaceGraphArtifact;
+  simulation?: WorkspaceSimulationArtifact;
+  readiness?: WorkspaceReadinessResult;
+  saved_plan?: WorkspaceSavedPlan;
+  approvals?: WorkspaceApproval[];
+  notes?: WorkspaceNote[];
+  reports?: WorkspaceReportArtifact[];
+}
+
+export interface WorkspaceJob {
+  id: string;
+  tenant_id?: string;
+  workspace_id: string;
+  type: WorkspaceJobType;
+  status: WorkspaceJobStatus;
+  requested_by?: string;
+  requested_at: string;
+  started_at?: string;
+  updated_at: string;
+  completed_at?: string;
+  correlation_id?: string;
+  message?: string;
+  error?: string;
+  retryable?: boolean;
+}

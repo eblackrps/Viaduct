@@ -36,14 +36,15 @@ export interface InventoryWorkspaceState {
   toggleSelection: (id: string) => void;
   toggleSelectAllVisible: () => void;
   clearSelection: () => void;
+  replaceSelection: (ids: string[]) => void;
   resetFilters: () => void;
 }
 
-export function useInventoryWorkspace(rows: InventoryAssessmentRow[]): InventoryWorkspaceState {
+export function useInventoryWorkspace(rows: InventoryAssessmentRow[], initialSelectedIDs: string[] = []): InventoryWorkspaceState {
   const [filters, setFilters] = useState<InventoryFilterState>(defaultFilters);
   const [sortKey, setSortKey] = useState<InventorySortKey>("risk");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>(initialSelectedIDs);
   const [activeWorkloadId, setActiveWorkloadId] = useState<string | null>(null);
   const deferredSearch = useDeferredValue(filters.search);
   const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds]);
@@ -84,6 +85,10 @@ export function useInventoryWorkspace(rows: InventoryAssessmentRow[]): Inventory
   useEffect(() => {
     setSelectedIds((current) => current.filter((id) => rows.some((row) => row.id === id)));
   }, [rows]);
+
+  useEffect(() => {
+    setSelectedIds(initialSelectedIDs);
+  }, [initialSelectedIDs]);
 
   useEffect(() => {
     if (activeWorkloadId && filteredRows.some((row) => row.id === activeWorkloadId)) {
@@ -127,6 +132,10 @@ export function useInventoryWorkspace(rows: InventoryAssessmentRow[]): Inventory
     setSelectedIds([]);
   }
 
+  function replaceSelection(ids: string[]) {
+    setSelectedIds(Array.from(new Set(ids)));
+  }
+
   function resetFilters() {
     setFilters(defaultFilters);
   }
@@ -149,6 +158,7 @@ export function useInventoryWorkspace(rows: InventoryAssessmentRow[]): Inventory
     toggleSelection,
     toggleSelectAllVisible,
     clearSelection,
+    replaceSelection,
     resetFilters,
   };
 }
