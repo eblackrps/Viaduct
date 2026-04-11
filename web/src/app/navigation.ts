@@ -44,9 +44,9 @@ export const navigationGroups: NavigationGroup[] = [
     items: [
       {
         path: "/workspaces",
-        label: "Workspace",
-        title: "Pilot Workspace",
-        description: "Create an assessment workspace, run discovery, inspect readiness, save a plan, and export a pilot report.",
+        label: "Pilot Workspaces",
+        title: "Pilot Workspaces",
+        description: "Guide the workspace-first operator flow from intake and discovery through simulation, plan review, and report export.",
         icon: LayoutDashboard,
       },
     ],
@@ -56,9 +56,9 @@ export const navigationGroups: NavigationGroup[] = [
     items: [
       {
         path: "/dashboard",
-        label: "Dashboard",
+        label: "Overview",
         title: "Operational Dashboard",
-        description: "Review tenant posture, migration flow, and lifecycle signals in one operational surface.",
+        description: "Review tenant posture, migration flow, and lifecycle signals in one operator surface.",
         icon: LayoutDashboard,
       },
       {
@@ -70,7 +70,7 @@ export const navigationGroups: NavigationGroup[] = [
       },
       {
         path: "/migrations",
-        label: "Migrations",
+        label: "Migration Ops",
         title: "Migration Operations",
         description: "Plan, validate, execute, and review workload migrations without leaving the operational context.",
         icon: Waypoints,
@@ -109,15 +109,15 @@ export const navigationGroups: NavigationGroup[] = [
       {
         path: "/reports",
         label: "Reports",
-        title: "Reports and History",
+        title: "Reports And History",
         description: "Review historical migration records, discovery snapshots, and export-ready operator reports.",
         icon: FileText,
       },
       {
         path: "/settings",
         label: "Settings",
-        title: "Workspace Settings",
-        description: "Inspect tenant context, operator connection assumptions, and dashboard runtime configuration.",
+        title: "Operator Settings",
+        description: "Inspect tenant context, runtime authentication, and dashboard-side operator assumptions.",
         icon: Settings,
       },
     ],

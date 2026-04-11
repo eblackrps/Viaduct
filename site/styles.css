@@ -19,7 +19,7 @@
   --radius-lg: 24px;
   --radius-md: 18px;
   --radius-sm: 14px;
-  --shell-width: min(1180px, calc(100vw - 32px));
+  --shell-width: min(1200px, calc(100vw - 32px));
 }
 
 html {
@@ -258,7 +258,7 @@ code {
 
 .hero-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.08fr) minmax(360px, 0.92fr);
+  grid-template-columns: minmax(0, 1.05fr) minmax(360px, 0.95fr);
   gap: 1.6rem;
   align-items: start;
 }
@@ -279,6 +279,7 @@ code {
 .hero-copy h1,
 .section-heading h2,
 .cta-panel h3,
+.trust-panel h2,
 .error-panel h1 {
   margin: 0;
   font-family: "Space Grotesk", "Segoe UI", sans-serif;
@@ -297,7 +298,8 @@ code {
 .coverage-card p,
 .footer-copy,
 .error-panel p,
-.workspace-subtitle {
+.workspace-subtitle,
+.signal-card p {
   color: var(--text-soft);
 }
 
@@ -310,8 +312,9 @@ code {
 .status-callout,
 .surface-card,
 .coverage-card,
+.signal-card,
 .hero-panel,
-.truth-panel,
+.trust-panel,
 .cta-panel,
 .error-panel {
   border: 1px solid var(--line);
@@ -335,42 +338,59 @@ code {
   margin-top: 1.45rem;
 }
 
-.signal-list {
+.hero-proof-grid,
+.use-case-grid,
+.capability-grid,
+.workflow-grid,
+.architecture-grid,
+.evaluation-grid,
+.coverage-grid {
   display: grid;
+  gap: 1rem;
+}
+
+.hero-proof-grid,
+.use-case-grid,
+.evaluation-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.capability-grid,
+.workflow-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.85rem;
-  margin: 1.5rem 0 0;
-  padding: 0;
-  list-style: none;
 }
 
-.signal-list li {
-  padding: 1rem 1.05rem;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.03);
+.architecture-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
-.signal-list strong,
-.workspace-flow strong,
+.coverage-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.signal-card,
+.surface-card,
+.coverage-card {
+  padding: 1.25rem;
+  border-radius: var(--radius-lg);
+}
+
+.signal-card h2,
 .surface-card h3,
 .coverage-card h3,
-.truth-panel h3,
+.trust-panel h2,
 .cta-panel h3,
 .footer-title,
 .workspace-title {
   color: var(--text);
 }
 
-.signal-list strong {
-  display: block;
-  margin-bottom: 0.2rem;
-  font-size: 0.98rem;
-}
-
-.signal-list span {
-  color: var(--text-muted);
-  font-size: 0.94rem;
+.signal-card h2,
+.surface-card h3,
+.coverage-card h3 {
+  margin: 0.38rem 0 0.45rem;
+  font-family: "Space Grotesk", "Segoe UI", sans-serif;
+  font-size: 1.38rem;
 }
 
 .hero-panel {
@@ -532,61 +552,16 @@ code {
   margin: 0.9rem 0 0;
 }
 
-.use-case-grid,
-.workflow-grid,
-.architecture-grid,
-.evaluation-grid,
-.coverage-grid {
-  display: grid;
-  gap: 1rem;
-}
-
-.use-case-grid,
-.evaluation-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.workflow-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.architecture-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.coverage-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.surface-card,
-.coverage-card {
-  padding: 1.2rem;
-  border-radius: var(--radius-lg);
-}
-
-.surface-card h3,
-.coverage-card h3 {
-  margin: 0.38rem 0 0.45rem;
-  font-family: "Space Grotesk", "Segoe UI", sans-serif;
-  font-size: 1.38rem;
-}
-
-.surface-card p,
-.coverage-card p {
-  margin: 0;
-}
-
 .workflow-card .workflow-index {
   margin-bottom: 0.9rem;
 }
 
-.truth-panel {
+.trust-panel {
   display: grid;
-  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
   gap: 1rem;
-  margin-top: 1rem;
-  padding: 1.2rem;
-  border-radius: var(--radius-lg);
+  padding: 1.4rem;
+  border-radius: var(--radius-xl);
 }
 
 .truth-list {
@@ -689,12 +664,14 @@ code {
 
 @media (max-width: 1120px) {
   .hero-grid,
+  .hero-proof-grid,
   .use-case-grid,
+  .capability-grid,
   .workflow-grid,
   .architecture-grid,
   .evaluation-grid,
   .coverage-grid,
-  .truth-panel,
+  .trust-panel,
   .cta-panel {
     grid-template-columns: 1fr;
   }
@@ -721,7 +698,6 @@ code {
     max-width: none;
   }
 
-  .signal-list,
   .stack-strip {
     grid-template-columns: 1fr;
   }
@@ -741,9 +717,10 @@ code {
   }
 
   .hero-panel,
+  .signal-card,
   .surface-card,
   .coverage-card,
-  .truth-panel,
+  .trust-panel,
   .cta-panel,
   .error-panel {
     padding: 1rem;

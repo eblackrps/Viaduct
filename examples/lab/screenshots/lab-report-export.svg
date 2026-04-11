@@ -1,46 +1,60 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="840" viewBox="0 0 1280 840" fill="none">
-  <rect width="1280" height="840" fill="#EEF4F8"/>
-  <rect x="90" y="52" width="1100" height="736" rx="34" fill="#FBFEFF" stroke="#C7D7E2"/>
+  <rect width="1280" height="840" fill="#EAF1F6"/>
+  <rect x="52" y="40" width="1176" height="760" rx="36" fill="#FBFEFF" stroke="#C8D7E2"/>
 
-  <text x="142" y="116" fill="#577085" font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="700" letter-spacing="2">EXPORTED REPORT</text>
-  <text x="142" y="160" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="34" font-weight="700">Examples Lab Assessment</text>
-  <text x="142" y="198" fill="#4D6372" font-family="Segoe UI, Arial, sans-serif" font-size="18">Representative report summary for the seeded workspace and migration-window example.</text>
+  <text x="100" y="98" fill="#5C7689" font-family="Segoe UI, Arial, sans-serif" font-size="17" font-weight="700" letter-spacing="2">EXPORTED REPORT</text>
+  <text x="100" y="144" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="38" font-weight="700">Pilot Workspace Report</text>
+  <text x="100" y="182" fill="#567081" font-family="Segoe UI, Arial, sans-serif" font-size="18">Representative markdown export from POST /api/v1/workspaces/{workspaceID}/reports/export using the current lab data and workspace status.</text>
 
-  <rect x="142" y="238" width="196" height="34" rx="17" fill="#F4F8FB" stroke="#D5E1E8"/>
-  <text x="176" y="260" fill="#425B6B" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">workspace: lab-assessment</text>
-  <rect x="350" y="238" width="172" height="34" rx="17" fill="#F4F8FB" stroke="#D5E1E8"/>
-  <text x="384" y="260" fill="#425B6B" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">ticket: CHG-2026-0405</text>
-  <rect x="534" y="238" width="208" height="34" rx="17" fill="#E7F3F9"/>
-  <text x="568" y="260" fill="#1F657E" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">report format: markdown</text>
+  <rect x="100" y="208" width="246" height="34" rx="17" fill="#F3F8FB" stroke="#D5E1E8"/>
+  <text x="132" y="230" fill="#425B6B" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">workspace: Examples Lab Assessment</text>
+  <rect x="358" y="208" width="186" height="34" rx="17" fill="#FFF1E8"/>
+  <text x="390" y="230" fill="#AD5A2A" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">readiness: blocked</text>
+  <rect x="556" y="208" width="214" height="34" rx="17" fill="#E8F4FA"/>
+  <text x="590" y="230" fill="#1E657E" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">report format: markdown</text>
 
-  <rect x="142" y="306" width="460" height="188" rx="28" fill="#FFFFFF" stroke="#D5E1E8"/>
-  <text x="176" y="354" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="24" font-weight="700">Assessment scope</text>
-  <text x="176" y="388" fill="#4C6474" font-family="Segoe UI, Arial, sans-serif" font-size="15">Source connection</text>
-  <text x="356" y="388" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="700">Lab KVM (`examples/lab/kvm`)</text>
-  <text x="176" y="420" fill="#4C6474" font-family="Segoe UI, Arial, sans-serif" font-size="15">Target platform</text>
-  <text x="356" y="420" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="700">Proxmox</text>
-  <text x="176" y="452" fill="#4C6474" font-family="Segoe UI, Arial, sans-serif" font-size="15">Default target</text>
-  <text x="356" y="452" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="700">pve-node-01 / local-lvm / vmbr0</text>
-  <text x="176" y="484" fill="#4C6474" font-family="Segoe UI, Arial, sans-serif" font-size="15">Plan controls</text>
-  <text x="356" y="484" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="700">parallel=2, verify_boot=true, approval_required=true</text>
+  <rect x="100" y="274" width="330" height="466" rx="28" fill="#FFFFFF" stroke="#D5E1E8"/>
+  <text x="132" y="308" fill="#5C7689" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="700" letter-spacing="1.4">EXPORT SUMMARY</text>
+  <text x="132" y="340" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="26" font-weight="700">Operator handoff data</text>
+  <text x="132" y="374" fill="#5A7181" font-family="Segoe UI, Arial, sans-serif" font-size="14">The report preserves the same workspace state operators see in the dashboard instead of flattening the flow into disconnected notes.</text>
 
-  <rect x="624" y="306" width="424" height="188" rx="28" fill="#FFFFFF" stroke="#D5E1E8"/>
-  <text x="658" y="354" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="24" font-weight="700">Observed workloads</text>
-  <rect x="658" y="386" width="356" height="84" rx="18" fill="#F7FBFD"/>
-  <text x="684" y="418" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="700">ubuntu-web-01</text>
-  <text x="684" y="442" fill="#4C6474" font-family="Segoe UI, Arial, sans-serif" font-size="15">virtio disk, bridge br0, 4 vCPU, 4096 MiB</text>
-  <text x="684" y="470" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="700">windows-app-01</text>
-  <text x="684" y="494" fill="#4C6474" font-family="Segoe UI, Arial, sans-serif" font-size="15">raw disk, default network, 8 vCPU, 8192 MiB</text>
+  <text x="132" y="420" fill="#5A7181" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700">Workspace status</text>
+  <text x="280" y="420" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700">reported</text>
+  <text x="132" y="448" fill="#5A7181" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700">Snapshots</text>
+  <text x="280" y="448" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700">1</text>
+  <text x="132" y="476" fill="#5A7181" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700">Selected workloads</text>
+  <text x="280" y="476" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700">2</text>
+  <text x="132" y="504" fill="#5A7181" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700">Policy issues</text>
+  <text x="280" y="504" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700">6</text>
+  <text x="132" y="532" fill="#5A7181" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700">Recommendations</text>
+  <text x="280" y="532" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700">6</text>
+  <text x="132" y="560" fill="#5A7181" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700">Saved plan</text>
+  <text x="280" y="560" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700">examples-lab-assessment-plan</text>
+  <text x="132" y="588" fill="#5A7181" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700">Approval stage</text>
+  <text x="280" y="588" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700">plan (pending)</text>
+  <text x="132" y="616" fill="#5A7181" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700">Export history</text>
+  <text x="280" y="616" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700">examples-lab-assessment-*.md</text>
 
-  <rect x="142" y="520" width="906" height="212" rx="28" fill="#FFFFFF" stroke="#D5E1E8"/>
-  <text x="176" y="568" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="24" font-weight="700">Pilot summary</text>
-  <text x="176" y="604" fill="#4C6474" font-family="Segoe UI, Arial, sans-serif" font-size="15">The lab flow demonstrates a reproducible assessment record rather than a one-off demo action.</text>
-  <rect x="176" y="632" width="262" height="40" rx="20" fill="#F4F8FB"/>
-  <text x="204" y="657" fill="#425B6B" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">saved plan: examples-lab-assessment-plan</text>
-  <rect x="454" y="632" width="176" height="40" rx="20" fill="#F4F8FB"/>
-  <text x="486" y="657" fill="#425B6B" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">approval: required</text>
-  <rect x="646" y="632" width="206" height="40" rx="20" fill="#F4F8FB"/>
-  <text x="676" y="657" fill="#425B6B" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">window: 01:00Z to 05:00Z</text>
-  <text x="176" y="704" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="700">Recommended next step:</text>
-  <text x="366" y="704" fill="#4C6474" font-family="Segoe UI, Arial, sans-serif" font-size="15">review the saved plan, confirm the change ticket, and use PostgreSQL for any persistent pilot environment.</text>
+  <rect x="132" y="648" width="266" height="64" rx="20" fill="#F6FAFC" stroke="#D5E1E8"/>
+  <text x="154" y="672" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">Source connection</text>
+  <text x="154" y="694" fill="#5A7181" font-family="Segoe UI, Arial, sans-serif" font-size="13">Lab KVM at examples/lab/kvm with credential ref lab-kvm.</text>
+
+  <rect x="458" y="274" width="722" height="466" rx="28" fill="#FFFFFF" stroke="#D5E1E8"/>
+  <text x="490" y="308" fill="#5C7689" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="700" letter-spacing="1.4">MARKDOWN PREVIEW</text>
+  <text x="490" y="340" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="26" font-weight="700">Current report structure</text>
+
+  <rect x="490" y="366" width="658" height="340" rx="22" fill="#0F1F2E"/>
+  <text x="522" y="404" fill="#FFFFFF" font-family="Consolas, 'Courier New', monospace" font-size="17" font-weight="700"># Pilot Workspace Report</text>
+  <text x="522" y="436" fill="#D3DEE8" font-family="Consolas, 'Courier New', monospace" font-size="14">- Workspace: Examples Lab Assessment</text>
+  <text x="522" y="460" fill="#D3DEE8" font-family="Consolas, 'Courier New', monospace" font-size="14">- Status: reported</text>
+  <text x="522" y="484" fill="#D3DEE8" font-family="Consolas, 'Courier New', monospace" font-size="14">- Sources: 1</text>
+  <text x="522" y="508" fill="#D3DEE8" font-family="Consolas, 'Courier New', monospace" font-size="14">- Snapshots: 1</text>
+  <text x="522" y="532" fill="#D3DEE8" font-family="Consolas, 'Courier New', monospace" font-size="14">- Readiness: blocked</text>
+  <text x="522" y="556" fill="#D3DEE8" font-family="Consolas, 'Courier New', monospace" font-size="14">- Saved plan: examples-lab-assessment-plan</text>
+  <text x="522" y="596" fill="#8BC5FF" font-family="Consolas, 'Courier New', monospace" font-size="14" font-weight="700">## Source Connections</text>
+  <text x="522" y="620" fill="#D3DEE8" font-family="Consolas, 'Courier New', monospace" font-size="14">- Lab KVM (kvm) at examples/lab/kvm</text>
+  <text x="522" y="652" fill="#8BC5FF" font-family="Consolas, 'Courier New', monospace" font-size="14" font-weight="700">## Readiness</text>
+  <text x="522" y="676" fill="#D3DEE8" font-family="Consolas, 'Courier New', monospace" font-size="14">- Status: blocked</text>
+  <text x="760" y="676" fill="#D3DEE8" font-family="Consolas, 'Courier New', monospace" font-size="14">- Recommendations: 6</text>
+  <text x="522" y="700" fill="#D3DEE8" font-family="Consolas, 'Courier New', monospace" font-size="14">- Blocker: ubuntu-web-01 violates cluster-required</text>
 </svg>

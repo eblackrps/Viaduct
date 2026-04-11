@@ -17,7 +17,7 @@ export function LoadingState({ title, message, actions }: LoadingStateProps) {
         </div>
         <div>
           <p className="font-display text-2xl text-ink">{title}</p>
-          <p className="mt-2 max-w-2xl text-sm text-slate-500">{message}</p>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">{message}</p>
           {actions && <div className="mt-4 flex flex-wrap gap-2">{actions}</div>}
         </div>
       </div>

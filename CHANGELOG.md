@@ -8,6 +8,18 @@ This changelog tracks published releases and the major implementation milestones
 
 - No unreleased changes yet.
 
+## [1.8.0] - 2026-04-11
+
+### Dashboard And Operator Experience
+- refreshed the operator dashboard shell, page hierarchy, runtime auth recovery, inventory presentation, and workspace-first progression so the web UI reads more like a serious control plane
+- added clearer workflow guidance, state markers, empty states, loading states, and recovery language around the workspace path from authentication through report export
+- tightened the shared dashboard component system for headers, cards, badges, tables, and operator-facing status callouts
+
+### Public Website And Documentation
+- rewrote the public `site/` landing page, 404 surface, metadata, and social-card copy around discovery, dependency mapping, migration planning, supervised execution, and operator-visible reporting
+- aligned root docs, quickstart language, release notes, demo assets, and deeper workflow guides with the refreshed dashboard and public-site terminology
+- removed stale internal positioning language from tracked public docs so the repository, release surfaces, and website describe the same product clearly
+
 ## [1.7.0] - 2026-04-11
 
 ### Workspace Reliability And Operator Hardening
@@ -44,7 +56,7 @@ This changelog tracks published releases and the major implementation milestones
 ## [1.5.0] - 2026-04-08
 
 ### Early Product Hardening
-- narrowed the public product story around the VMware-exit assessment-to-pilot wedge with explicit beachhead, v1 scope, reliability-path, trust-control, observability, validation, demo, and commercialization artifacts
+- narrowed the public product story around VMware-exit migration assessment and supervised pilot planning with explicit v1 scope, reliability-path, trust-control, observability, validation, demo, and commercialization artifacts
 - aligned repo entrypoint docs so the current product direction, support boundary, and operator guidance are easier to evaluate from the packaged and source workflows
 
 ### API And Dashboard Trust Surfaces

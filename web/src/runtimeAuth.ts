@@ -1,5 +1,6 @@
 export type DashboardAuthMode = "tenant" | "service-account" | "none";
 export type DashboardAuthSource = "runtime" | "environment" | "none";
+export type DashboardAuthPersistence = "session" | "local" | "environment" | "none";
 
 export interface DashboardAuthSession {
   mode: DashboardAuthMode;
@@ -37,6 +38,17 @@ export function getDashboardAuthSession(): DashboardAuthSession {
     apiKey: "",
     source: "none",
   };
+}
+
+export function getDashboardAuthPersistence(): DashboardAuthPersistence {
+  const runtime = readStoredRuntimeAuth();
+  if (runtime?.persistence) {
+    return runtime.persistence;
+  }
+  if (environmentServiceAccountKey !== "" || environmentTenantKey !== "") {
+    return "environment";
+  }
+  return "none";
 }
 
 export function setDashboardAuthSession(
@@ -82,29 +94,63 @@ export function hasDashboardAuthConfigured(): boolean {
 }
 
 function readRuntimeAuth(): DashboardAuthSession {
-  if (typeof window === "undefined") {
-    return { mode: "none", apiKey: "", source: "none" };
-  }
-
-  for (const raw of [window.sessionStorage.getItem(sessionStorageKey), window.localStorage.getItem(localStorageKey)]) {
-    if (!raw) {
-      continue;
-    }
-    try {
-      const parsed = JSON.parse(raw) as Partial<DashboardAuthSession>;
-      const mode = parsed.mode === "tenant" || parsed.mode === "service-account" ? parsed.mode : "none";
-      const apiKey = typeof parsed.apiKey === "string" ? parsed.apiKey.trim() : "";
-      if (mode === "none" || apiKey === "") {
-        continue;
-      }
-      return {
-        mode,
-        apiKey,
-        source: "runtime",
-      };
-    } catch {
-      continue;
-    }
+  const runtime = readStoredRuntimeAuth();
+  if (runtime) {
+    return runtime.session;
   }
   return { mode: "none", apiKey: "", source: "none" };
+}
+
+function readStoredRuntimeAuth():
+  | {
+      session: DashboardAuthSession;
+      persistence: Exclude<DashboardAuthPersistence, "environment" | "none">;
+    }
+  | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const sources: Array<{
+    raw: string | null;
+    persistence: Exclude<DashboardAuthPersistence, "environment" | "none">;
+  }> = [
+    { raw: window.sessionStorage.getItem(sessionStorageKey), persistence: "session" },
+    { raw: window.localStorage.getItem(localStorageKey), persistence: "local" },
+  ];
+
+  for (const candidate of sources) {
+    const parsed = parseRuntimeSession(candidate.raw);
+    if (!parsed) {
+      continue;
+    }
+    return {
+      session: parsed,
+      persistence: candidate.persistence,
+    };
+  }
+
+  return null;
+}
+
+function parseRuntimeSession(raw: string | null): DashboardAuthSession | null {
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as Partial<DashboardAuthSession>;
+    const mode = parsed.mode === "tenant" || parsed.mode === "service-account" ? parsed.mode : "none";
+    const apiKey = typeof parsed.apiKey === "string" ? parsed.apiKey.trim() : "";
+    if (mode === "none" || apiKey === "") {
+      return null;
+    }
+    return {
+      mode,
+      apiKey,
+      source: "runtime",
+    };
+  } catch {
+    return null;
+  }
 }

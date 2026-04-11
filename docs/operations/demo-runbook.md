@@ -2,7 +2,7 @@
 
 This document defines the first serious demo assets for Viaduct after Phase 5.
 
-It is not a feature tour. It is a constrained demo kit for the current Viaduct wedge:
+It is not a feature tour. It is a constrained demo kit for the current Viaduct focus:
 
 **VMware-exit mixed-estate discovery and migration readiness assessment with approval-ready pilot planning**
 
@@ -32,8 +32,8 @@ Companion presenter assets live in [demo/README.md](demo/README.md).
 
 Viaduct already has enough real product surface to support two serious demos:
 
-- product wedge and support boundary in:
-  - `docs/beachhead-use-case.md`
+- product focus and support boundary in:
+  - `docs/initial-use-case-analysis.md`
   - `docs/v1-scope.md`
 - one primary reliability path in:
   - `docs/operations/primary-reliability-path.md`
@@ -65,7 +65,7 @@ The current demo story still has real risks:
 
 - the strongest repo rehearsal path is still the KVM lab, not a polished live VMware demo kit
 - discovery is still CLI-first, which is honest but can feel less polished if handled poorly
-- the repo has broader feature surface than the current wedge should demo
+- the repo has broader feature surface than the current focus should demo
 - execution maturity must still be framed as supervised pilot control, not zero-touch automation
 - demos can easily drift into lifecycle, plugins, or multi-platform breadth that weakens the first-wave story
 
@@ -73,7 +73,7 @@ The current demo story still has real risks:
 
 These demos should preserve:
 
-- the VMware-exit wedge
+- the VMware-exit focus
 - the v1 support promise of VMware source to Proxmox target for the named live motion
 - the CLI/API/dashboard split as it exists today
 - explicit operator controls, approvals, checkpoints, and reporting
@@ -391,7 +391,7 @@ This audience needs:
 
 Create operator trust strong enough that the audience believes:
 
-- Viaduct understands the assessment-to-pilot workflow
+- Viaduct understands the assessment and supervised pilot workflow
 - the current product has a real path from discovery to a supervised first wave
 - the team is honest about what is hardened and what is still pilot-scoped
 
@@ -483,7 +483,7 @@ Use this script structure closely.
 
 #### 0:00-1:15
 
-“Viaduct is not trying to be a generic virtualization control plane. The current wedge is VMware-exit discovery and migration-readiness assessment with approval-ready first-wave planning. So before I show anything else, I want to show the operator context: which tenant we’re in, how the dashboard is authenticated, what permissions we have, and what backend we’re talking to.”
+“Viaduct is not trying to be a generic virtualization control plane. The current focus is VMware-exit discovery and migration-readiness assessment with approval-ready first-wave planning. So before I show anything else, I want to show the operator context: which tenant we’re in, how the dashboard is authenticated, what permissions we have, and what backend we’re talking to.”
 
 #### 1:15-2:15
 

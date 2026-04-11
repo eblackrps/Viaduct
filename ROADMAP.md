@@ -76,7 +76,7 @@ Detail: [Phase 4 Archive](docs/roadmaps/phase-4.md)
 ## Current Refinement Track
 
 Focus areas:
-- clearer assessment-to-pilot product framing with explicit trust boundaries
+- clearer assessment and supervised pilot product framing with explicit trust boundaries
 - polished release bundles and install paths
 - better upgrade and rollback guidance
 - operator runbooks, demo assets, and evaluation materials
@@ -84,7 +84,7 @@ Focus areas:
 - more consistent public docs and repo entrypoints
 
 Expected outcomes:
-- a careful evaluation-ready release surface
+- a careful ready for technical assessment release surface
 - a tagged release flow that is easy to assess from source or packaged artifacts
 - documentation that matches the current architecture and operator workflow
 - contributor guidance that reinforces scope discipline and verification hygiene

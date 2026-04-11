@@ -1,12 +1,12 @@
-# Beachhead Use Case Analysis
+# Initial Use Case Analysis
 
-This document locks the first real product wedge for Viaduct. It is written to be used by the maintainer, product lead, demo owner, and early design-partner team when deciding what Viaduct should say, ship, and refuse to promise.
+This document locks the first real product focus for Viaduct. It is written to be used by the maintainer, product lead, demo owner, and early design-partner team when deciding what Viaduct should say, ship, and refuse to promise.
 
 ## Decision Goal
 
 Pick the narrowest buyer problem that Viaduct can credibly win first.
 
-The chosen wedge must:
+The chosen focus must:
 - fit the strongest current product behavior in the repo
 - map to an urgent and funded operator problem
 - work with the current evaluation and demo path, even if that path still needs tightening
@@ -29,9 +29,9 @@ These constraints matter more than market size slides or category language.
 - a first-class packaged VMware-exit pilot kit that is as polished as the current KVM lab evaluation path
 - an MSP-first or ecosystem-first operating model
 
-These constraints should drive the wedge choice. If the wedge ignores them, it becomes positioning debt.
+These constraints should drive the focus choice. If the focus ignores them, it becomes positioning debt.
 
-## Candidate Wedge Positions
+## Candidate Focus Positions
 
 ### Option 1: VMware To Proxmox Migration Planning And Supervised Execution
 
@@ -43,14 +43,14 @@ These constraints should drive the wedge choice. If the wedge ignores them, it b
 - Proxmox as a plausible and visible target in the repo
 - planning, preflight, approvals, checkpoints, and supervised pilot execution mechanics
 
-**Why This Should Not Be The First Wedge**
+**Why This Should Not Be The First Focus**
 - it forces the product story too quickly into target-specific execution confidence
 - it asks buyers to trust the riskiest part of the workflow before Viaduct has a polished, repo-backed evaluation path for this exact motion
 - it narrows the story to one destination even though many real buyers are still comparing targets
 
 **Verdict**
 - strong future packaged offer
-- not the safest opening wedge
+- not the safest opening focus
 
 ### Option 2: VMware-Exit Mixed-Estate Discovery And Migration Readiness Assessment With Approval-Ready Pilot Planning
 
@@ -70,7 +70,7 @@ These constraints should drive the wedge choice. If the wedge ignores them, it b
 - it gives Viaduct a clear path from evaluation into supervised pilot use
 
 **Verdict**
-- best first wedge
+- best initial focus
 
 ### Option 3: Dependency-Aware Migration Orchestration For Platform Teams
 
@@ -82,14 +82,14 @@ These constraints should drive the wedge choice. If the wedge ignores them, it b
 - wave planning structure
 - planning and execution control concepts
 
-**Why This Should Not Be The First Wedge**
+**Why This Should Not Be The First Focus**
 - it is a feature-centered message, not a clean buyer problem
 - it sounds differentiated to builders but still reads abstractly to operators and buyers
 - it pulls the story toward orchestration sophistication before the simpler trust story is fully earned
 
 **Verdict**
-- important differentiator inside the chosen wedge
-- weak opening wedge by itself
+- important differentiator inside the chosen focus
+- weak opening focus by itself
 
 ### Option 4: Lifecycle And Risk Assessment For Inherited Virtualization Estates
 
@@ -100,14 +100,14 @@ These constraints should drive the wedge choice. If the wedge ignores them, it b
 - discovery, cost, policy, drift, and reporting views
 - tenant-scoped operational visibility
 
-**Why This Should Not Be The First Wedge**
+**Why This Should Not Be The First Focus**
 - it is credible, but urgency is usually weaker than VMware-exit pressure
 - it risks positioning Viaduct as an assessment-only tool
 - it underuses Viaduct's planning and supervised migration strengths
 
 **Verdict**
 - credible secondary entry point
-- weaker than the VMware-exit wedge for first adoption
+- weaker than the VMware-exit focus for first adoption
 
 ### Option 5: Multi-Tenant Migration Control Plane For MSPs And Migration Partners
 
@@ -117,18 +117,18 @@ These constraints should drive the wedge choice. If the wedge ignores them, it b
 **What Viaduct Can Credibly Support Today**
 - tenant-scoped state, service accounts, packaging, and API surfaces
 
-**Why This Should Not Be The First Wedge**
+**Why This Should Not Be The First Focus**
 - it adds support, trust, audit, and workflow demands before the core direct-use path is proven
 - it depends on stronger operator maturity than the current repo should promise first
 - it creates go-to-market and product complexity too early
 
 **Verdict**
 - expansion path
-- not an opening wedge
+- not an opening focus
 
 ## Evaluation Criteria
 
-The first wedge should be judged against these exact questions:
+The initial focus should be judged against these exact questions:
 
 1. Does it map to a buyer who already has a funded problem right now?
 2. Can Viaduct demonstrate the core workflow from the current repo, docs, dashboard, API, and release artifacts without hand-waving?
@@ -148,11 +148,11 @@ The first wedge should be judged against these exact questions:
 
 ## Recommendation
 
-Lock Viaduct's first wedge to:
+Lock Viaduct's initial focus to:
 
 **VMware-exit mixed-estate discovery and migration readiness assessment with approval-ready pilot planning**
 
-That is the sharpest first wedge because it is the narrowest statement that still matches what the repo can defend today.
+That is the sharpest initial focus because it is the narrowest statement that still matches what the repo can defend today.
 
 ## Why This Recommendation Is Correct
 
@@ -225,13 +225,13 @@ Do not lead Viaduct with:
 - "MSP control plane" as the first product story
 - lifecycle optimization as a standalone opening message
 
-Those may become true or useful later, but they are not the first wedge.
+Those may become true or useful later, but they are not the initial focus.
 
 ## What This Means For The Real Repo
 
-If this wedge is real, the next product work should make these things truer:
+If this focus is real, the next product work should make these things truer:
 
 1. Viaduct should have a clearer first-wave planning path from discovery to preflight to approval-ready pilot output.
 2. The repo should gain a more explicit VMware-exit evaluation story instead of relying mainly on a KVM lab for the headline narrative.
 3. Docs, demos, and dashboard copy should emphasize readiness reduction and supervised pilot planning before execution breadth.
-4. Contract and observability work should focus first on the assessment-to-pilot workflow, not on adding more product surface.
+4. Contract and observability work should focus first on the assessment and supervised pilot workflow, not on adding more product surface.

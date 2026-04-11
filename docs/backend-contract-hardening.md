@@ -2,7 +2,7 @@
 
 This document defines the backend and API contracts that must become stable for Viaduct to be a credible early product, not just a broad technical repository.
 
-It is intentionally scoped to the current beachhead and v1 promise:
+It is intentionally scoped to the current focus and v1 promise:
 
 **VMware-exit mixed-estate discovery and migration readiness assessment with approval-ready pilot planning**
 
@@ -189,7 +189,7 @@ That is too much product logic to leave outside the shared backend contract.
 
 ### Stable Contract Shape
 
-Add a first-class readiness contract for the beachhead and v1 path.
+Add a first-class readiness contract for the initial focus and v1 path.
 
 Recommended route:
 
@@ -255,7 +255,7 @@ This should be the first new backend contract added for frontend reliability aft
 
 ### Current State
 
-This is the most important contract area for the v1 wedge.
+This is the most important contract area for the v1 focus.
 
 What already exists:
 
@@ -689,7 +689,7 @@ These are the specific dashboard assumptions that should move into the backend c
 
 Reason:
 
-- it is the most important contract for the v1 wedge
+- it is the most important contract for the v1 focus
 - it currently has the most dangerous trust gap because command flows depend on in-memory spec lookup
 
 Required work:
@@ -864,4 +864,4 @@ The smallest credible product move is:
 3. formalize inventory provenance and preflight semantics
 4. move readiness out of frontend-only composition and into a backend contract
 
-That sequence preserves the current architecture, directly improves operator trust, and aligns with the VMware-exit assessment-to-pilot wedge Viaduct is actually trying to own.
+That sequence preserves the current architecture, directly improves operator trust, and aligns with the VMware-exit assessment and supervised pilot focus Viaduct is actually trying to own.

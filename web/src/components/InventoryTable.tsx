@@ -77,116 +77,115 @@ export function InventoryTable({
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div>
-            <p className="font-display text-2xl text-ink">Operational inventory</p>
-            <p className="mt-1 text-sm text-slate-500">
+            <div className="flex flex-wrap gap-2">
+              <StatusBadge tone="accent">Operational inventory</StatusBadge>
+              <StatusBadge tone="info">{filteredCount} visible</StatusBadge>
+              <StatusBadge tone="neutral">{selectedCount} selected</StatusBadge>
+            </div>
+            <p className="mt-3 font-display text-2xl text-ink">Workload assessment table</p>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
               {filteredCount.toLocaleString()} of {totalCount.toLocaleString()} workload(s) shown. {selectedCount.toLocaleString()} selected for planning handoff.
             </p>
           </div>
+
           <div className="flex flex-wrap items-center gap-2">
-            <div className="inline-flex rounded-full border border-slate-200 bg-white p-1 text-sm">
+            <div className="operator-toggle">
               <button
                 type="button"
                 onClick={() => onFiltersChange({ scope: "all" })}
-                className={`rounded-full px-3 py-1.5 font-semibold transition ${filters.scope === "all" ? "bg-ink text-white" : "text-slate-600 hover:bg-slate-50"}`}
+                className={`operator-toggle-button ${filters.scope === "all" ? "operator-toggle-button-active" : ""}`}
               >
                 All workloads
               </button>
               <button
                 type="button"
                 onClick={() => onFiltersChange({ scope: "selected" })}
-                className={`rounded-full px-3 py-1.5 font-semibold transition ${filters.scope === "selected" ? "bg-ink text-white" : "text-slate-600 hover:bg-slate-50"}`}
+                className={`operator-toggle-button ${filters.scope === "selected" ? "operator-toggle-button-active" : ""}`}
                 disabled={selectedCount === 0}
               >
                 Selected only
               </button>
             </div>
+
             {hasActiveFilters && (
-              <button
-                type="button"
-                onClick={onResetFilters}
-                className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-              >
+              <button type="button" onClick={onResetFilters} className="operator-button-secondary px-3 py-2">
                 Clear filters
               </button>
             )}
+
             {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
           </div>
         </div>
 
-        <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_repeat(4,minmax(150px,1fr))]">
-          <label className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-500">
-            <Search className="h-4 w-4" />
-            <input
-              className="w-full border-none bg-transparent outline-none"
-              placeholder="Search workloads, assets, tags, or policy signals"
-              value={filters.search}
-              onChange={(event) => onFiltersChange({ search: event.target.value })}
-            />
+        <div className="grid gap-3 xl:grid-cols-[minmax(0,1.2fr)_repeat(4,minmax(150px,1fr))]">
+          <label className="metric-surface">
+            <span className="operator-kicker">Search</span>
+            <span className="mt-2 flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-500">
+              <Search className="h-4 w-4" />
+              <input
+                className="w-full border-none bg-transparent outline-none"
+                placeholder="Search workloads, assets, tags, or policy signals"
+                value={filters.search}
+                onChange={(event) => onFiltersChange({ search: event.target.value })}
+              />
+            </span>
           </label>
 
-          <select
-            className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700"
+          <FilterSelect
+            label="Platform"
             value={filters.platform}
-            onChange={(event) => onFiltersChange({ platform: event.target.value as InventoryFilterState["platform"] })}
-          >
-            <option value="all">All platforms</option>
-            {availablePlatforms.map((platform) => (
-              <option key={platform} value={platform}>
-                {platform}
-              </option>
-            ))}
-          </select>
+            onChange={(value) => onFiltersChange({ platform: value as InventoryFilterState["platform"] })}
+            options={[
+              { label: "All platforms", value: "all" },
+              ...availablePlatforms.map((platform) => ({ label: platform, value: platform })),
+            ]}
+          />
 
-          <select
-            className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700"
+          <FilterSelect
+            label="Power state"
             value={filters.power}
-            onChange={(event) => onFiltersChange({ power: event.target.value as InventoryFilterState["power"] })}
-          >
-            <option value="all">All power states</option>
-            <option value="on">Running</option>
-            <option value="off">Powered off</option>
-            <option value="suspended">Suspended</option>
-            <option value="unknown">Unknown</option>
-          </select>
+            onChange={(value) => onFiltersChange({ power: value as InventoryFilterState["power"] })}
+            options={[
+              { label: "All power states", value: "all" },
+              { label: "Running", value: "on" },
+              { label: "Powered off", value: "off" },
+              { label: "Suspended", value: "suspended" },
+              { label: "Unknown", value: "unknown" },
+            ]}
+          />
 
-          <select
-            className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700"
+          <FilterSelect
+            label="Readiness"
             value={filters.readiness}
-            onChange={(event) => onFiltersChange({ readiness: event.target.value as InventoryReadinessState | "all" })}
-          >
-            <option value="all">All readiness states</option>
-            <option value="ready">Ready</option>
-            <option value="needs-review">Needs review</option>
-            <option value="blocked">Blocked</option>
-          </select>
+            onChange={(value) => onFiltersChange({ readiness: value as InventoryReadinessState | "all" })}
+            options={[
+              { label: "All readiness states", value: "all" },
+              { label: "Ready", value: "ready" },
+              { label: "Needs review", value: "needs-review" },
+              { label: "Blocked", value: "blocked" },
+            ]}
+          />
 
-          <select
-            className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700"
+          <FilterSelect
+            label="Risk"
             value={filters.risk}
-            onChange={(event) => onFiltersChange({ risk: event.target.value as InventoryRiskState | "all" })}
-          >
-            <option value="all">All risk levels</option>
-            <option value="high">High risk</option>
-            <option value="medium">Medium risk</option>
-            <option value="low">Low risk</option>
-          </select>
+            onChange={(value) => onFiltersChange({ risk: value as InventoryRiskState | "all" })}
+            options={[
+              { label: "All risk levels", value: "all" },
+              { label: "High risk", value: "high" },
+              { label: "Medium risk", value: "medium" },
+              { label: "Low risk", value: "low" },
+            ]}
+          />
         </div>
 
         {selectedCount > 0 && (
-          <div className="flex flex-wrap items-center gap-2 rounded-3xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
+          <div className="metric-surface flex flex-wrap items-center gap-2 text-sm text-slate-600">
             <StatusBadge tone="accent">{selectedCount} selected</StatusBadge>
-            <button
-              type="button"
-              onClick={onToggleSelectAllVisible}
-              className="rounded-full border border-slate-200 bg-white px-3 py-1.5 font-semibold text-slate-700 transition hover:bg-slate-50"
-            >
+            <button type="button" onClick={onToggleSelectAllVisible} className="operator-button-secondary px-3 py-2">
               {allVisibleSelected ? "Unselect visible" : "Select visible"}
             </button>
-            <button
-              type="button"
-              onClick={onClearSelection}
-              className="rounded-full border border-slate-200 bg-white px-3 py-1.5 font-semibold text-slate-700 transition hover:bg-slate-50"
-            >
+            <button type="button" onClick={onClearSelection} className="operator-button-secondary px-3 py-2">
               Clear selection
             </button>
           </div>
@@ -241,7 +240,11 @@ export function InventoryTable({
                 return (
                   <tr
                     key={row.id}
-                    className={`cursor-pointer rounded-2xl text-sm text-slate-700 transition ${active ? "bg-sky-50 ring-1 ring-sky-200" : "bg-slate-50/80 hover:bg-slate-100"}`}
+                    className={`cursor-pointer rounded-2xl border text-sm text-slate-700 transition ${
+                      active
+                        ? "border-sky-200 bg-sky-50 ring-1 ring-sky-200"
+                        : "border-transparent bg-slate-50/80 hover:border-slate-200 hover:bg-slate-100"
+                    }`}
                     onClick={() => onFocusWorkload(row.id)}
                   >
                     <td className="rounded-l-2xl px-3 py-3" onClick={(event) => event.stopPropagation()}>
@@ -262,7 +265,9 @@ export function InventoryTable({
                           <StatusBadge tone={platformTone(row.vm.platform)}>{row.vm.platform}</StatusBadge>
                           <StatusBadge tone={powerTone(row.vm.power_state)}>{row.vm.power_state}</StatusBadge>
                         </div>
-                        <p className="text-xs text-slate-500">{row.vm.host || "Unknown host"} {row.vm.cluster ? `• ${row.vm.cluster}` : ""}</p>
+                        <p className="text-xs text-slate-500">
+                          {row.vm.host || "Unknown host"} {row.vm.cluster ? `• ${row.vm.cluster}` : ""}
+                        </p>
                       </div>
                     </td>
                     <td className="px-3 py-3">
@@ -270,9 +275,7 @@ export function InventoryTable({
                         <p className="font-semibold text-ink">
                           {row.vm.cpu_count} vCPU • {formatMemory(row.vm.memory_mb)} GB
                         </p>
-                        <p>
-                          {formatStorage(row.storageTotalMB)} GB storage • {row.vm.nics.length} NIC(s)
-                        </p>
+                        <p>{formatStorage(row.storageTotalMB)} GB storage • {row.vm.nics.length} NIC(s)</p>
                       </div>
                     </td>
                     <td className="px-3 py-3">
@@ -291,7 +294,7 @@ export function InventoryTable({
                       <div className="space-y-2">
                         <div className="flex flex-wrap gap-2">
                           <StatusBadge tone={riskTone(row.risk)}>{row.risk} risk</StatusBadge>
-                          {row.assessmentIncomplete && <StatusBadge tone="neutral">partial</StatusBadge>}
+                          {row.assessmentIncomplete ? <StatusBadge tone="neutral">partial</StatusBadge> : null}
                         </div>
                         <p className="text-xs text-slate-500">
                           Score {row.riskScore} • {row.riskReasons[0] ?? "No immediate derived issues"}
@@ -319,6 +322,31 @@ export function InventoryTable({
         </div>
       )}
     </section>
+  );
+}
+
+function FilterSelect({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: Array<{ label: string; value: string }>;
+}) {
+  return (
+    <label className="metric-surface">
+      <span className="operator-kicker">{label}</span>
+      <select className="operator-select mt-2" value={value} onChange={(event) => onChange(event.target.value)}>
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 

@@ -2,7 +2,7 @@
 
 This document defines the first practical user-validation plan for Viaduct after Phase 5.
 
-It is not a generic discovery-interview guide. It is a field-learning kit for putting the current Viaduct product in front of five real infrastructure-minded users and learning where the beachhead workflow breaks down.
+It is not a generic discovery-interview guide. It is a field-learning kit for putting the current Viaduct product in front of five real infrastructure-minded users and learning where the core focus workflow breaks down.
 
 The tested path is the same path Viaduct is already narrowing around:
 
@@ -27,8 +27,8 @@ Viaduct already has enough real product surface to run workflow-based sessions:
 - inventory review and workload inspection in `web/src/features/inventory/InventoryPage.tsx` and `web/src/features/inventory/WorkloadDetailPanel.tsx`
 - migration planning and preflight in `web/src/features/migrations/MigrationWorkflow.tsx`
 - monitoring, history, and report export in `web/src/features/reports/ReportsPage.tsx`
-- wedge, v1 boundary, and primary path already frozen in:
-  - `docs/beachhead-use-case.md`
+- focus, v1 boundary, and primary path already frozen in:
+  - `docs/initial-use-case-analysis.md`
   - `docs/v1-scope.md`
   - `docs/operations/primary-reliability-path.md`
   - `docs/operations/auth-role-audit-model.md`
@@ -58,7 +58,7 @@ Viaduct still has field-validation risk:
 
 This validation plan must preserve:
 
-- the current beachhead instead of broadening into generic migration tooling
+- the current focus instead of broadening into generic migration tooling
 - the current v1 support promise instead of testing unsupported paths
 - the primary reliability path instead of ten disconnected features
 - the existing CLI, API, and dashboard division of responsibility
@@ -80,11 +80,11 @@ The objective is not to collect compliments or prove that Viaduct is “cool.”
 
 The objective is to answer these questions with observed behavior:
 
-1. Can a real infrastructure operator understand the assessment-to-pilot workflow without heavy explanation?
+1. Can a real infrastructure operator understand the assessment and supervised pilot workflow without heavy explanation?
 2. Where do they hesitate because the product feels unsafe, unclear, or incomplete?
 3. What evidence do they need before trusting Viaduct to support a first-wave pilot decision?
 4. Which parts of the current workflow are strong enough to preserve?
-5. Which gaps are serious enough to block the current beachhead and v1 path?
+5. Which gaps are serious enough to block the current focus and v1 path?
 
 ### Validation Decision Rule
 
@@ -109,7 +109,7 @@ This is a workflow-trust round. Keep it that narrow.
 
 ### What This Round Actually Validates
 
-This round validates whether operators understand and trust the **assessment-to-pilot control path**.
+This round validates whether operators understand and trust the **migration assessment and supervised pilot control path**.
 
 It does **not** validate that Viaduct has earned real-world runtime proof for live workload movement. That remains a separate pilot-validation step after workflow trust is stronger.
 
@@ -150,7 +150,7 @@ Do **not** use these as primary participants:
 
 ### Recruiting Sources
 
-Use recruiting channels that actually reach the beachhead:
+Use recruiting channels that actually reach the initial focus:
 
 - existing VMware-exit contacts
 - platform and virtualization peers in your network
@@ -169,7 +169,7 @@ Use these questions before scheduling:
 4. “Would you describe your work as hands-on operator work, technical review, or procurement/business review?”
 5. “Are you comfortable walking through a CLI-plus-dashboard workflow?”
 
-Only schedule participants who clearly fit the operator, approver, or technical-reviewer profile for the current wedge.
+Only schedule participants who clearly fit the operator, approver, or technical-reviewer profile for the current focus.
 
 ## 4. Session Logistics
 
@@ -569,7 +569,7 @@ The copy-ready working version of this template is in [validation/round-synthesi
 - Sessions invalidated and why:
 
 # Decision Summary
-- Is the current beachhead still correct?
+- Is the current focus still correct?
 - Is the current primary reliability path still correct?
 - What part of the workflow earned the most trust?
 - What part of the workflow most damaged trust?
@@ -607,7 +607,7 @@ Use this rule set. Do not turn findings into an unranked ideas list.
 ### Priority Rules
 
 **P0**
-- blocks the beachhead workflow outright
+- blocks the core focus workflow outright
 - causes unsafe interpretation of readiness or execution state
 - makes the product feel untrustworthy on the main v1 path
 - observed in 2 or more participants, or severe enough in 1 participant that a real pilot would stop
@@ -615,7 +615,7 @@ Use this rule set. Do not turn findings into an unranked ideas list.
 **P1**
 - does not block the path completely but causes repeated hesitation, misinterpretation, or workarounds
 - weakens approval-ready planning or pilot control
-- clearly affects the chosen wedge, not a side feature
+- clearly affects the chosen focus, not a side feature
 
 **P2**
 - creates friction but does not materially change trust in the main path
@@ -623,7 +623,7 @@ Use this rule set. Do not turn findings into an unranked ideas list.
 
 **P3**
 - interesting, adjacent, or future-facing
-- not part of the current beachhead, v1 promise, or primary reliability path
+- not part of the current focus, v1 promise, or primary reliability path
 
 ### Decision Thresholds
 
@@ -633,7 +633,7 @@ Use these thresholds after the five sessions:
 - **2 or more participants hesitate for the same trust reason on the same workflow step**: treat as at least `P1`
 - **1 participant raises a severe unsafe-interpretation risk**: treat as `P0` until disproven
 - **requests that appear only as opinions, without observed workflow impact**: default to `P2` or `P3`
-- **adjacent feature asks outside the beachhead**: record, then defer unless they explain a real blocker on the main path
+- **adjacent feature asks outside the initial focus**: record, then defer unless they explain a real blocker on the main path
 
 ### Evidence Weighting Rules
 
@@ -651,7 +651,7 @@ Every backlog item created from this validation round should include:
 
 - workflow step affected
 - observed behavior
-- why it matters to the beachhead
+- why it matters to the initial focus
 - whether it is a trust, clarity, reliability, or scope problem
 - repo area likely affected
 - proposed acceptance check
@@ -671,7 +671,7 @@ Sort findings into one of these buckets first:
 5. **Docs and onboarding**
    CLI/dashboard split, product promises, operator expectations, session setup friction
 6. **Out-of-scope pressure**
-   feature asks that are real but should be deferred under the current wedge
+   feature asks that are real but should be deferred under the current focus
 
 ### Repo Routing Map
 
@@ -713,12 +713,12 @@ This keeps the learning tied to actual product decisions instead of creating res
 
 These guardrails matter for this product:
 
-- test the VMware-exit wedge, not generic platform management
+- test the VMware-exit focus, not generic platform management
 - keep the live migration target motion limited to VMware source and Proxmox target
 - do not present KVM lab rehearsal as equivalent to live pilot proof
 - do not imply that discovery is fully in-product today
 - do not run real destructive migration actions as part of a validation session unless the session is explicitly a lab-only engineering rehearsal
-- do not let lifecycle, policy, or backup portability become the headline if the participant has not yet trusted the core assessment-to-pilot workflow
+- do not let lifecycle, policy, or backup portability become the headline if the participant has not yet trusted the core assessment and supervised pilot workflow
 - if a participant strongly wants a workload activity feed, richer execution provenance, or clearer freshness evidence, treat that as a serious signal, not cosmetic feedback
 
 ## 16. Definition Of A Good Validation Round
@@ -728,7 +728,7 @@ This round is good if, after five sessions, Viaduct can answer these with eviden
 - which exact step most damages operator trust today
 - which exact step already feels strong enough to preserve
 - what proof operators need before they will trust a first-wave plan
-- whether the current CLI-plus-dashboard split is acceptable for the beachhead
+- whether the current CLI-plus-dashboard split is acceptable for the initial focus
 - what the next three product changes should be on the primary path
 
 If the output is just:

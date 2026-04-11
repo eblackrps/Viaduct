@@ -43,7 +43,7 @@ Create operator trust:
 
 ### 0:00-1:15
 
-"Viaduct is not trying to be a generic virtualization control plane. The current wedge is VMware-exit discovery and migration-readiness assessment with approval-ready first-wave planning. So before I show anything else, I want to show the operator context: which tenant we're in, how the dashboard is authenticated, what permissions we have, and what backend we're talking to."
+"Viaduct is not trying to be a generic virtualization control plane. The current focus is VMware-exit discovery and migration-readiness assessment with approval-ready first-wave planning. So before I show anything else, I want to show the operator context: which tenant we're in, how the dashboard is authenticated, what permissions we have, and what backend we're talking to."
 
 ### 1:15-2:15
 

@@ -1,6 +1,6 @@
 # Documentation Index
 
-This directory holds the deeper Viaduct documentation set. The repo-root docs are the public entrypoints; `docs/` carries the more detailed reference, operator, and scope material behind them.
+This directory holds the deeper Viaduct documentation set. The repo-root docs are the public entrypoints; `docs/` carries the more detailed reference, operator workflow, and scope material behind them.
 
 ## Getting Started
 
@@ -36,7 +36,7 @@ This directory holds the deeper Viaduct documentation set. The repo-root docs ar
 - [Plugin Certification Guide](reference/plugin-certification.md)
 - [Codebase Map](reference/codebase-map.md)
 - [Early Product Focus](early-product-focus.md)
-- [Beachhead Use Case Analysis](beachhead-use-case.md)
+- [Initial Use Case Analysis](initial-use-case-analysis.md)
 - [V1 Scope Definition](v1-scope.md)
 - [Backend Contract Hardening](backend-contract-hardening.md)
 

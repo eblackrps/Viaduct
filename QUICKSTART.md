@@ -4,7 +4,7 @@ This is the fastest source-based evaluation path for Viaduct. It uses the local 
 
 ## Maturity Note
 
-Viaduct is evaluation-ready. Start in the lab or a supervised pilot first.
+Viaduct is in active development. Start in the lab or a supervised pilot first.
 
 ## 1. Build The CLI
 
@@ -83,7 +83,7 @@ Authenticate with:
 - preferred: `lab-operator-key`
 - bootstrap only: `lab-tenant-key`
 
-The dashboard stores the runtime key in session storage by default. Use the remember option only when you intentionally want the browser to keep a local copy across restarts.
+The dashboard stores the runtime key in session storage by default. Use the "Remember this browser" option only when you intentionally want the browser to keep a local copy across restarts on a trusted workstation.
 
 ## 6. Run The Workspace-First Flow
 

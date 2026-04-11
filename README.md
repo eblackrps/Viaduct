@@ -1,5 +1,5 @@
 # Viaduct
-> Open-source, evaluation-ready control plane for mixed virtualization discovery, planning, and supervised pilot workflows.
+> Open-source control plane for mixed virtualization discovery, planning, and supervised migration operations.
 
 [![CI](https://github.com/eblackrps/Viaduct/actions/workflows/ci.yml/badge.svg)](https://github.com/eblackrps/Viaduct/actions/workflows/ci.yml)
 [![License](https://img.shields.io/github/license/eblackrps/Viaduct)](https://github.com/eblackrps/Viaduct/blob/main/LICENSE)
@@ -8,7 +8,7 @@ Viaduct helps operators understand mixed virtualization estates before they comm
 
 ## Current Status
 
-Viaduct is evaluation-ready and under active development. The strongest current story is:
+Viaduct is in active development. The strongest current story is:
 - mixed-estate discovery
 - dependency-aware assessment
 - readiness and simulation
@@ -19,7 +19,7 @@ The default first-run experience is the pilot workspace flow: create workspace, 
 
 ## Why Viaduct
 
-Many teams do not need more abstract migration talk. They need to know what exists, what depends on what, what should move first, and what evidence is good enough to approve a pilot. Viaduct is aimed at that assessment-to-pilot gap.
+Many teams do not need more abstract migration talk. They need to know what exists, what depends on what, what should move first, and what evidence is good enough to approve a pilot. Viaduct is aimed at that planning and handoff gap.
 
 It is strongest when operators need:
 - one normalized inventory across mixed platforms

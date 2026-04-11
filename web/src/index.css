@@ -11,16 +11,95 @@
     radial-gradient(circle at top right, rgba(31, 78, 121, 0.18), transparent 28%),
     linear-gradient(180deg, #fffdf8 0%, #f4f1ea 100%);
   font-family: "IBM Plex Sans", sans-serif;
+  color-scheme: light;
+}
+
+html {
+  background: transparent;
 }
 
 body {
   min-height: 100vh;
+  background: transparent;
+  color: #0f172a;
+  text-rendering: optimizeLegibility;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.42), transparent 42%),
+    linear-gradient(90deg, rgba(15, 23, 42, 0.03) 1px, transparent 1px),
+    linear-gradient(rgba(15, 23, 42, 0.03) 1px, transparent 1px);
+  background-size: auto, 72px 72px, 72px 72px;
+  mask-image: linear-gradient(180deg, black 0%, rgba(0, 0, 0, 0.15) 100%);
+  pointer-events: none;
+  z-index: -1;
 }
 
 #root {
   min-height: 100vh;
 }
 
-.panel {
-  @apply rounded-3xl border border-slate-200/80 bg-white/85 shadow-panel backdrop-blur;
+:focus-visible {
+  outline: 2px solid rgba(14, 165, 233, 0.7);
+  outline-offset: 3px;
+}
+
+::selection {
+  background: rgba(229, 107, 31, 0.18);
+}
+
+@layer components {
+  .panel {
+    @apply rounded-[2rem] border border-slate-200/80 bg-white/80 shadow-panel backdrop-blur-md;
+  }
+
+  .panel-muted {
+    @apply rounded-[1.75rem] border border-slate-200/80 bg-slate-50/90;
+  }
+
+  .operator-kicker {
+    @apply text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-slate-500;
+  }
+
+  .operator-button {
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-ink px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .operator-button-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .operator-button-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-full border border-rose-200 bg-white px-4 py-2.5 text-sm font-semibold text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .operator-toggle {
+    @apply inline-flex rounded-full border border-slate-200 bg-white p-1 text-sm;
+  }
+
+  .operator-toggle-button {
+    @apply rounded-full px-3 py-1.5 font-semibold text-slate-600 transition hover:bg-slate-50;
+  }
+
+  .operator-toggle-button-active {
+    @apply bg-ink text-white hover:bg-ink;
+  }
+
+  .operator-input,
+  .operator-select,
+  .operator-textarea {
+    @apply w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-ink outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-100;
+  }
+
+  .operator-textarea {
+    @apply min-h-32 resize-y;
+  }
+
+  .metric-surface {
+    @apply rounded-2xl border border-slate-200/80 bg-slate-50/90 px-4 py-4;
+  }
 }

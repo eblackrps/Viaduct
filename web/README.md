@@ -4,7 +4,7 @@ This directory contains the React and Vite dashboard for Viaduct.
 
 ## Purpose
 
-The dashboard is the operator UI for the current assessment-to-pilot wedge. Its first-run experience is the workspace-first flow: create workspace, discover, inspect, simulate, save plan, and export report.
+The dashboard is the operator UI for the current workspace-first workflow. Its first-run experience is: create workspace, discover, inspect, simulate, save plan, and export report.
 
 ## Development
 
@@ -37,9 +37,9 @@ Release bundles for the dashboard are produced through `make package-release-mat
 
 See [./.env.example](./.env.example).
 
-The dashboard also supports runtime authentication bootstrap. When no environment key is set, the app opens a bootstrap screen and stores the chosen service-account or tenant key locally in the browser until the operator signs out or replaces it.
+The dashboard also supports runtime authentication bootstrap. When no environment key is set, the app opens a bootstrap screen and stores the chosen service-account or tenant key in the browser until the operator replaces it or explicitly forgets it.
 
-The default storage is the browser session. Operators can explicitly opt into local storage with the remember option on the bootstrap screen.
+The default storage is the browser session. Operators can explicitly opt into local storage with the remember option on the bootstrap screen for trusted workstations.
 
 ## Notes
 
@@ -47,3 +47,4 @@ The default storage is the browser session. Operators can explicitly opt into lo
 - The Vite dev server is for local development only.
 - The dashboard depends on the same backend state as the CLI and API; avoid frontend-only assumptions about migration or policy state.
 - The default route is the pilot workspace flow in `web/src/features/workspaces/WorkspacePage.tsx`.
+- The app shell groups pages into pilot, operate, govern, admin, and analysis sections so the workspace-first route stays prominent without hiding the rest of the operator surfaces.

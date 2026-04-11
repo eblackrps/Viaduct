@@ -1,69 +1,73 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="840" viewBox="0 0 1280 840" fill="none">
-  <rect width="1280" height="840" fill="#EEF4F8"/>
-  <rect x="56" y="44" width="1168" height="752" rx="34" fill="#FBFEFF" stroke="#C7D7E2"/>
+  <rect width="1280" height="840" fill="#EAF1F6"/>
+  <rect x="44" y="36" width="1192" height="768" rx="36" fill="#FBFEFF" stroke="#C8D7E2"/>
 
-  <text x="112" y="110" fill="#577085" font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="700" letter-spacing="2">EXAMPLES LAB</text>
-  <text x="112" y="154" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="34" font-weight="700">Workspace Flow</text>
-  <text x="112" y="192" fill="#4D6372" font-family="Segoe UI, Arial, sans-serif" font-size="18">Seeded from `pilot-workspace-create.json` and the KVM fixture names in this directory.</text>
+  <text x="96" y="96" fill="#5C7689" font-family="Segoe UI, Arial, sans-serif" font-size="17" font-weight="700" letter-spacing="2">EXAMPLES LAB</text>
+  <text x="96" y="142" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="38" font-weight="700">Workspace-first operator flow</text>
+  <text x="96" y="180" fill="#567081" font-family="Segoe UI, Arial, sans-serif" font-size="18">Grounded in examples/lab/pilot-workspace-create.json, the KVM fixtures in this directory, and the current workspace/report APIs.</text>
 
-  <rect x="112" y="228" width="258" height="34" rx="17" fill="#F4F8FB" stroke="#D5E1E8"/>
-  <text x="146" y="250" fill="#425B6B" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">workspace: lab-assessment</text>
-  <rect x="382" y="228" width="194" height="34" rx="17" fill="#E7F3F9"/>
-  <text x="414" y="250" fill="#1F657E" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">service account auth</text>
-  <rect x="588" y="228" width="160" height="34" rx="17" fill="#F4F8FB" stroke="#D5E1E8"/>
-  <text x="625" y="250" fill="#425B6B" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">target: proxmox</text>
+  <rect x="96" y="206" width="230" height="34" rx="17" fill="#F3F8FB" stroke="#D5E1E8"/>
+  <text x="124" y="228" fill="#425B6B" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">workspace: Examples Lab Assessment</text>
+  <rect x="338" y="206" width="178" height="34" rx="17" fill="#E8F4FA"/>
+  <text x="372" y="228" fill="#1E657E" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">auth: service-account key</text>
+  <rect x="528" y="206" width="156" height="34" rx="17" fill="#F3F8FB" stroke="#D5E1E8"/>
+  <text x="565" y="228" fill="#425B6B" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">status: reported</text>
 
-  <rect x="112" y="296" width="468" height="214" rx="28" fill="#FFFFFF" stroke="#D5E1E8"/>
-  <text x="146" y="344" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="24" font-weight="700">Workspace intake</text>
-  <text x="146" y="376" fill="#5A7181" font-family="Segoe UI, Arial, sans-serif" font-size="16">The lab flow persists the source connection, target assumptions, and plan controls in one record.</text>
-  <rect x="146" y="410" width="202" height="44" rx="22" fill="#102231"/>
-  <text x="197" y="438" fill="#FFFFFF" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="700">Source: Lab KVM</text>
-  <rect x="362" y="410" width="182" height="44" rx="22" fill="#FFFFFF" stroke="#D5E1E8"/>
-  <text x="403" y="438" fill="#4C6474" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="700">Host: pve-node-01</text>
-  <rect x="146" y="468" width="156" height="44" rx="22" fill="#FFFFFF" stroke="#D5E1E8"/>
-  <text x="185" y="496" fill="#4C6474" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="700">Storage: local-lvm</text>
-  <rect x="316" y="468" width="120" height="44" rx="22" fill="#FFFFFF" stroke="#D5E1E8"/>
-  <text x="350" y="496" fill="#4C6474" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="700">Net: vmbr0</text>
-  <rect x="450" y="468" width="94" height="44" rx="22" fill="#FFFFFF" stroke="#D5E1E8"/>
-  <text x="476" y="496" fill="#4C6474" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="700">Wave: 2</text>
+  <rect x="96" y="270" width="492" height="202" rx="28" fill="#FFFFFF" stroke="#D5E1E8"/>
+  <text x="128" y="304" fill="#5C7689" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="700" letter-spacing="1.4">WORKSPACE SUMMARY</text>
+  <text x="128" y="338" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="26" font-weight="700">Persisted operator state</text>
+  <text x="128" y="366" fill="#5A7181" font-family="Segoe UI, Arial, sans-serif" font-size="15">One snapshot, four completed jobs, one pending approval record, and one exported report stay attached to the same workspace.</text>
+  <rect x="128" y="392" width="104" height="56" rx="20" fill="#F4F8FB"/>
+  <text x="152" y="414" fill="#5A7181" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="700">Snapshots</text>
+  <text x="174" y="438" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700">1</text>
+  <rect x="244" y="392" width="104" height="56" rx="20" fill="#F4F8FB"/>
+  <text x="272" y="414" fill="#5A7181" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="700">Jobs</text>
+  <text x="290" y="438" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700">4</text>
+  <rect x="360" y="392" width="104" height="56" rx="20" fill="#FFF1E8"/>
+  <text x="380" y="414" fill="#AD5A2A" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="700">Readiness</text>
+  <text x="382" y="438" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700">blocked</text>
+  <rect x="476" y="392" width="80" height="56" rx="20" fill="#F4F8FB"/>
+  <text x="498" y="414" fill="#5A7181" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="700">Reports</text>
+  <text x="512" y="438" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700">1</text>
 
-  <rect x="612" y="296" width="556" height="214" rx="28" fill="#FFFFFF" stroke="#D5E1E8"/>
-  <text x="646" y="344" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="24" font-weight="700">Persisted job flow</text>
-  <text x="646" y="376" fill="#5A7181" font-family="Segoe UI, Arial, sans-serif" font-size="16">Discovery, graph, simulation, and plan generation are tracked as workspace jobs.</text>
-  <rect x="646" y="408" width="118" height="40" rx="20" fill="#EAF7EE"/>
-  <text x="676" y="433" fill="#2E7D4D" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">discovery: done</text>
-  <rect x="778" y="408" width="96" height="40" rx="20" fill="#EAF7EE"/>
-  <text x="807" y="433" fill="#2E7D4D" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">graph: done</text>
-  <rect x="888" y="408" width="124" height="40" rx="20" fill="#FFF1E8"/>
-  <text x="918" y="433" fill="#AD5A2A" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">simulation: done</text>
-  <rect x="1026" y="408" width="112" height="40" rx="20" fill="#EAF7EE"/>
-  <text x="1057" y="433" fill="#2E7D4D" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">plan: saved</text>
-  <rect x="646" y="470" width="226" height="54" rx="18" fill="#F7FBFD"/>
-  <text x="672" y="503" fill="#4C6474" font-family="Segoe UI, Arial, sans-serif" font-size="15">approval required: true</text>
-  <rect x="888" y="470" width="250" height="54" rx="18" fill="#F7FBFD"/>
-  <text x="915" y="503" fill="#4C6474" font-family="Segoe UI, Arial, sans-serif" font-size="15">verify boot: true, dependency aware</text>
+  <rect x="612" y="270" width="528" height="202" rx="28" fill="#FFFFFF" stroke="#D5E1E8"/>
+  <text x="644" y="304" fill="#5C7689" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="700" letter-spacing="1.4">SOURCE, TARGET, AND PLAN DEFAULTS</text>
+  <text x="644" y="338" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="26" font-weight="700">Lab intake and plan settings</text>
+  <text x="644" y="370" fill="#5A7181" font-family="Segoe UI, Arial, sans-serif" font-size="15">Source Lab KVM uses examples/lab/kvm with credential ref lab-kvm. Target assumptions point at pilot-proxmox.local with host pve-node-01, storage local-lvm, and network vmbr0.</text>
+  <rect x="644" y="398" width="146" height="38" rx="19" fill="#F4F8FB"/>
+  <text x="672" y="422" fill="#425B6B" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700">parallel: 2</text>
+  <rect x="802" y="398" width="150" height="38" rx="19" fill="#F4F8FB"/>
+  <text x="828" y="422" fill="#425B6B" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700">verify boot: true</text>
+  <rect x="964" y="398" width="150" height="38" rx="19" fill="#F4F8FB"/>
+  <text x="986" y="422" fill="#425B6B" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700">approval required</text>
 
-  <rect x="112" y="534" width="714" height="214" rx="28" fill="#FFFFFF" stroke="#D5E1E8"/>
-  <text x="146" y="582" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="24" font-weight="700">Discovered workloads</text>
-  <rect x="146" y="614" width="646" height="106" rx="18" fill="#F7FBFD"/>
-  <text x="170" y="646" fill="#5A7181" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700">NAME</text>
-  <text x="342" y="646" fill="#5A7181" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700">SOURCE</text>
-  <text x="490" y="646" fill="#5A7181" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700">CPU / MEMORY</text>
-  <text x="664" y="646" fill="#5A7181" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700">NETWORK</text>
-  <text x="170" y="682" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="15">ubuntu-web-01</text>
-  <text x="343" y="682" fill="#4C6474" font-family="Segoe UI, Arial, sans-serif" font-size="15">kvm fixture</text>
-  <text x="491" y="682" fill="#4C6474" font-family="Segoe UI, Arial, sans-serif" font-size="15">4 vCPU / 4096 MiB</text>
-  <text x="664" y="682" fill="#4C6474" font-family="Segoe UI, Arial, sans-serif" font-size="15">br0</text>
-  <text x="170" y="712" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="15">windows-app-01</text>
-  <text x="343" y="712" fill="#4C6474" font-family="Segoe UI, Arial, sans-serif" font-size="15">kvm fixture</text>
-  <text x="491" y="712" fill="#4C6474" font-family="Segoe UI, Arial, sans-serif" font-size="15">8 vCPU / 8192 MiB</text>
-  <text x="664" y="712" fill="#4C6474" font-family="Segoe UI, Arial, sans-serif" font-size="15">default</text>
+  <rect x="96" y="496" width="548" height="262" rx="28" fill="#FFFFFF" stroke="#D5E1E8"/>
+  <text x="128" y="530" fill="#5C7689" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="700" letter-spacing="1.4">READINESS AND ARTIFACTS</text>
+  <text x="128" y="564" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="26" font-weight="700">Simulation and handoff state</text>
+  <rect x="128" y="586" width="118" height="56" rx="20" fill="#FFF1E8"/>
+  <text x="147" y="608" fill="#AD5A2A" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="700">Readiness status</text>
+  <text x="160" y="632" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700">blocked</text>
+  <rect x="258" y="586" width="118" height="56" rx="20" fill="#F4F8FB"/>
+  <text x="278" y="608" fill="#5A7181" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="700">Selected workloads</text>
+  <text x="308" y="632" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700">2</text>
+  <rect x="388" y="586" width="118" height="56" rx="20" fill="#FFF1E8"/>
+  <text x="414" y="608" fill="#AD5A2A" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="700">Policy issues</text>
+  <text x="438" y="632" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700">6</text>
+  <rect x="518" y="586" width="94" height="56" rx="20" fill="#E8F4FA"/>
+  <text x="531" y="608" fill="#1E657E" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="700">Recommendations</text>
+  <text x="552" y="632" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700">6</text>
+  <text x="128" y="674" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="700">Blocking issues</text>
+  <text x="128" y="700" fill="#5A7181" font-family="Segoe UI, Arial, sans-serif" font-size="14">ubuntu-web-01 violates enforce-level policy cluster-required</text>
+  <text x="128" y="724" fill="#5A7181" font-family="Segoe UI, Arial, sans-serif" font-size="14">windows-app-01 violates enforce-level policy cluster-required</text>
 
-  <rect x="850" y="534" width="318" height="214" rx="28" fill="#FFFFFF" stroke="#D5E1E8"/>
-  <text x="884" y="582" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="24" font-weight="700">End state</text>
-  <text x="884" y="614" fill="#5A7181" font-family="Segoe UI, Arial, sans-serif" font-size="16">The lab path ends with a saved plan and report export for the same workspace.</text>
-  <rect x="884" y="646" width="184" height="40" rx="20" fill="#102231"/>
-  <text x="924" y="671" fill="#FFFFFF" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="700">Export pilot report</text>
-  <text x="884" y="714" fill="#4C6474" font-family="Segoe UI, Arial, sans-serif" font-size="15">Next operator step:</text>
-  <text x="884" y="738" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="700">Review report and approval ticket CHG-2026-0405</text>
+  <rect x="668" y="496" width="472" height="122" rx="28" fill="#FFFFFF" stroke="#D5E1E8"/>
+  <text x="700" y="530" fill="#5C7689" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="700" letter-spacing="1.4">DISCOVERED WORKLOADS</text>
+  <text x="700" y="564" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="26" font-weight="700">Fixture inventory carried into planning</text>
+  <text x="700" y="594" fill="#5A7181" font-family="Segoe UI, Arial, sans-serif" font-size="14">ubuntu-web-01  |  4 vCPU / 4096 MiB  |  br0</text>
+  <text x="700" y="618" fill="#5A7181" font-family="Segoe UI, Arial, sans-serif" font-size="14">windows-app-01  |  8 vCPU / 8192 MiB  |  default</text>
+
+  <rect x="668" y="636" width="472" height="122" rx="28" fill="#FFFFFF" stroke="#D5E1E8"/>
+  <text x="700" y="670" fill="#5C7689" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="700" letter-spacing="1.4">JOBS, APPROVALS, AND REPORTS</text>
+  <text x="700" y="704" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="26" font-weight="700">Tracked operator evidence</text>
+  <text x="700" y="732" fill="#5A7181" font-family="Segoe UI, Arial, sans-serif" font-size="14">Jobs succeeded: discovery, graph, simulation, plan. Approval stage plan remains pending. Report history records examples-lab-assessment-*.md.</text>
 </svg>

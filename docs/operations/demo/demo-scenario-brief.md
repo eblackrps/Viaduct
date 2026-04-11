@@ -8,11 +8,11 @@ This is the canonical prepared state behind both [3-minute-demo-card.md](three-m
 
 - keep the short and long demos on the same story
 - prevent presenters from improvising seeded state
-- make the VMware-exit assessment-to-pilot lane feel consistent across calls
+- make the VMware-exit assessment and supervised pilot lane feel consistent across calls
 
 ## Canonical Demo Lane
 
-- beachhead: VMware-exit assessment leading to an approval-ready first wave
+- initial focus: VMware-exit assessment leading to an approval-ready first wave
 - named live-motion story: VMware vSphere source to Proxmox VE target
 - operator promise: supervised pilot control, not fleet-wide autonomous migration
 - source of truth: persisted backend state already loaded before the demo starts

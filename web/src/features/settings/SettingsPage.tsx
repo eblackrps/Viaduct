@@ -1,22 +1,27 @@
-import { dashboardAuthMode, hasApiKeyConfigured, type ErrorDisplay } from "../../api";
+import { hasApiKeyConfigured, type ErrorDisplay } from "../../api";
 import { EmptyState } from "../../components/primitives/EmptyState";
 import { ErrorState } from "../../components/primitives/ErrorState";
 import { LoadingState } from "../../components/primitives/LoadingState";
 import { PageHeader } from "../../components/primitives/PageHeader";
 import { SectionCard } from "../../components/primitives/SectionCard";
 import { StatusBadge } from "../../components/primitives/StatusBadge";
-import { getDashboardAuthSession } from "../../runtimeAuth";
 import type { TenantSummary } from "../../types";
 import { useSettingsData } from "./useSettingsData";
 
 interface SettingsPageProps {
   summary: TenantSummary | null;
+  authSourceLabel: string;
+  authPersistenceLabel: string;
+  onForgetRuntimeKey?: (() => void) | undefined;
 }
 
-export function SettingsPage({ summary }: SettingsPageProps) {
-  const authMode = dashboardAuthMode();
+export function SettingsPage({
+  summary,
+  authSourceLabel,
+  authPersistenceLabel,
+  onForgetRuntimeKey,
+}: SettingsPageProps) {
   const authConfigured = hasApiKeyConfigured();
-  const authSource = getDashboardAuthSession().source;
   const { about, currentTenant, loading, errors } = useSettingsData();
   const supportedPlatforms = about?.supported_platforms ?? Object.keys(summary?.platform_counts ?? {});
   const platformCounts = summary?.platform_counts ?? {};
@@ -30,13 +35,14 @@ export function SettingsPage({ summary }: SettingsPageProps) {
     <div className="space-y-6">
       <PageHeader
         eyebrow="Settings"
-        title="Workspace settings"
-        description="Read-only runtime context for the current tenant, operator connection assumptions, and dashboard-side configuration."
+        title="Operator settings"
+        description="Read-only runtime context for the current tenant, runtime credential handling, and dashboard-side operator assumptions."
         badges={[
           {
-            label: authMode === "service-account" ? "Service account auth" : authMode === "tenant" ? "Tenant key auth" : "No dashboard auth",
+            label: authSourceLabel,
             tone: authConfigured ? "success" : "warning",
           },
+          { label: authPersistenceLabel, tone: "neutral" },
           { label: currentTenant?.tenant_id ? `Tenant ${currentTenant.tenant_id}` : summary?.tenant_id ? `Tenant ${summary.tenant_id}` : "No tenant summary", tone: "neutral" },
         ]}
       />
@@ -69,20 +75,8 @@ export function SettingsPage({ summary }: SettingsPageProps) {
           ) : (
             <div className="space-y-4">
               <SettingRow label="API base" value="/api/v1 via Vite proxy in development or packaged backend in release builds" />
-              <SettingRow
-                label="Authentication"
-                value={
-                  authMode === "service-account"
-                    ? authSource === "runtime"
-                      ? "X-Service-Account-Key captured through runtime bootstrap"
-                      : "X-Service-Account-Key sourced from VITE_VIADUCT_SERVICE_ACCOUNT_KEY"
-                    : authMode === "tenant"
-                      ? authSource === "runtime"
-                        ? "X-API-Key captured through runtime bootstrap"
-                        : "X-API-Key sourced from VITE_VIADUCT_API_KEY"
-                      : "No dashboard auth header configured in the web client environment"
-                }
-              />
+              <SettingRow label="Authentication" value={authSourceLabel} />
+              <SettingRow label="Credential persistence" value={authPersistenceLabel} />
               <SettingRow label="Version" value={about ? `${about.name} ${about.version} (${about.api_version})` : "Unavailable"} />
               <SettingRow label="Build commit" value={about?.commit || "Unavailable"} />
               <SettingRow label="Plugin protocol" value={about?.plugin_protocol || "Unavailable"} />
@@ -106,6 +100,26 @@ export function SettingsPage({ summary }: SettingsPageProps) {
               <ContextStat label="Active migrations" value={String(summary?.active_migrations ?? 0)} />
               <ContextStat label="Pending approvals" value={String(summary?.pending_approvals ?? 0)} />
             </div>
+          )}
+        </SectionCard>
+
+        <SectionCard title="Runtime credential handling" description="Session-scoped browser storage is the default operator path. Remembered keys should be limited to trusted workstations.">
+          <div className="grid gap-3 md:grid-cols-2">
+            <ContextStat label="Credential source" value={authSourceLabel} />
+            <ContextStat label="Persistence" value={authPersistenceLabel} />
+            <ContextStat label="Recommended default" value="Session-scoped browser storage" />
+            <ContextStat label="Shared-workstation guidance" value="Forget remembered keys after the session ends" />
+          </div>
+          {onForgetRuntimeKey ? (
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button type="button" onClick={onForgetRuntimeKey} className="operator-button-danger">
+                Forget browser key
+              </button>
+            </div>
+          ) : (
+            <p className="mt-4 text-sm text-slate-600">
+              No browser-managed runtime key is active right now. If the dashboard is using an environment-provided key, rotate it through the deployment environment instead.
+            </p>
           )}
         </SectionCard>
 

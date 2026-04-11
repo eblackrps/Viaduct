@@ -23,7 +23,7 @@ Viaduct already has enough product surface to support one credible end-to-end op
 Relevant current repo surfaces:
 
 - CLI and API workflow guide: `docs/operations/migration-operations.md`
-- product wedge and narrowing: `docs/early-product-focus.md`
+- product focus and narrowing: `docs/early-product-focus.md`
 - v1 support boundary: `docs/v1-scope.md`
 - contract hardening priorities: `docs/backend-contract-hardening.md`
 - inventory surface: `web/src/features/inventory/InventoryPage.tsx`
@@ -104,7 +104,7 @@ The canonical operator sequence is:
 
 This path is the best first reliability target because it is the highest-overlap path across:
 
-- the stated beachhead
+- the stated initial focus
 - the explicit v1 support promise
 - real operator value
 - real demo value

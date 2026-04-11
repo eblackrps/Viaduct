@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { AuthBootstrapScreen } from "../features/auth/AuthBootstrapScreen";
-import { useAuthBootstrap } from "../features/auth/useAuthBootstrap";
+import { useAuthBootstrap, type AuthBootstrapState } from "../features/auth/useAuthBootstrap";
 import { DashboardPage } from "../features/dashboard/DashboardPage";
 import { DriftPage } from "../features/drift/DriftPage";
 import { GraphPage } from "../features/graph/GraphPage";
@@ -12,11 +12,20 @@ import { ReportsPage } from "../features/reports/ReportsPage";
 import { SettingsPage } from "../features/settings/SettingsPage";
 import { WorkspacePage } from "../features/workspaces/WorkspacePage";
 import { AppShell } from "../layouts/AppShell";
+import { getDashboardAuthPersistence, getDashboardAuthSession } from "../runtimeAuth";
 import { getNavigationItem, type AppRoutePath } from "./navigation";
 import { useHashRoute } from "./useHashRoute";
 import { useOperatorOverview, type OperatorOverviewState } from "./useOperatorOverview";
 
-function renderRoute(path: AppRoutePath, overview: OperatorOverviewState): ReactNode {
+function renderRoute(
+  path: AppRoutePath,
+  overview: OperatorOverviewState,
+  options: {
+    authSourceLabel: string;
+    authPersistenceLabel: string;
+    onForgetRuntimeKey?: (() => void) | undefined;
+  },
+): ReactNode {
   const inventoryError = joinMessages(overview.errors.inventory, overview.errors.summary);
 
   switch (path) {
@@ -90,7 +99,14 @@ function renderRoute(path: AppRoutePath, overview: OperatorOverviewState): React
         />
       );
     case "/settings":
-      return <SettingsPage summary={overview.summary} />;
+      return (
+        <SettingsPage
+          summary={overview.summary}
+          authSourceLabel={options.authSourceLabel}
+          authPersistenceLabel={options.authPersistenceLabel}
+          onForgetRuntimeKey={options.onForgetRuntimeKey}
+        />
+      );
     case "/graph":
       return <GraphPage />;
     default:
@@ -98,10 +114,26 @@ function renderRoute(path: AppRoutePath, overview: OperatorOverviewState): React
   }
 }
 
-function AuthenticatedAppRoutes() {
+function AuthenticatedAppRoutes({ auth }: { auth: AuthBootstrapState }) {
   const { path } = useHashRoute();
   const overview = useOperatorOverview();
   const currentRoute = getNavigationItem(path);
+  const authSession = getDashboardAuthSession();
+  const authPersistence = getDashboardAuthPersistence();
+  const authSourceLabel =
+    authSession.mode === "service-account"
+      ? "Service-account key"
+      : authSession.mode === "tenant"
+        ? "Tenant key"
+        : "No runtime credential";
+  const authPersistenceLabel =
+    authPersistence === "local"
+      ? "Remembered in this browser"
+      : authPersistence === "session"
+        ? "Session-only browser key"
+        : authPersistence === "environment"
+          ? "Provided by environment configuration"
+          : "No stored credential";
 
   return (
     <AppShell
@@ -116,9 +148,18 @@ function AuthenticatedAppRoutes() {
       ]}
       refreshing={overview.refreshing}
       onRefresh={overview.refresh}
+      authSummary={{
+        modeLabel: authSourceLabel,
+        persistenceLabel: authPersistenceLabel,
+      }}
+      onSignOut={authSession.source === "runtime" ? auth.signOut : undefined}
       error={overview.error}
     >
-      {renderRoute(currentRoute.path, overview)}
+      {renderRoute(currentRoute.path, overview, {
+        authSourceLabel,
+        authPersistenceLabel,
+        onForgetRuntimeKey: authSession.source === "runtime" ? auth.signOut : undefined,
+      })}
     </AppShell>
   );
 }
@@ -130,7 +171,7 @@ export function AppRoutes() {
     return <AuthBootstrapScreen auth={auth} />;
   }
 
-  return <AuthenticatedAppRoutes />;
+  return <AuthenticatedAppRoutes auth={auth} />;
 }
 
 function joinMessages(...values: Array<string | null | undefined>): string | null {

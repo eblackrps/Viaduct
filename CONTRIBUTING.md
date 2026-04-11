@@ -61,7 +61,7 @@ make release-gate
 - Preserve API, state-store, and plugin compatibility where possible.
 - Keep tenant boundaries strict and explicit.
 - Prefer extending existing packages over introducing parallel abstractions.
-- Keep the public maturity language honest. Use evaluation-ready or more cautious wording unless stronger proof exists.
+- Keep the public maturity language honest. Use ready for technical assessment or more cautious wording unless stronger proof exists.
 
 ## Helpful References
 

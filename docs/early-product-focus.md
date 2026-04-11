@@ -1,6 +1,6 @@
 # Early Product Focus
 
-This document defines the current Viaduct product wedge after the Phase 4 implementation work. The goal is not to reset the architecture or shrink the repository to a toy. The goal is to make the product promise narrower, more believable, and easier to harden with real operator feedback.
+This document defines the current Viaduct product focus after the Phase 4 implementation work. The goal is not to reset the architecture or shrink the repository to a toy. The goal is to make the product promise narrower, more believable, and easier to harden with real operator feedback.
 
 ## Why Narrowing Matters Now
 
@@ -37,13 +37,13 @@ The current repo still has early-product gaps:
 
 These are not arguments for a rewrite. They are arguments for a more disciplined product boundary.
 
-## Recommended Beachhead Use Case
+## Recommended Initial Focus Use Case
 
-Viaduct's best early wedge is:
+Viaduct's best early focus is:
 
 **VMware-exit mixed-estate discovery and migration readiness assessment with approval-ready pilot planning**
 
-See [Beachhead Use Case Analysis](beachhead-use-case.md) for the candidate wedge options, scoring criteria, final recommendation, and positioning guidance behind this choice.
+See [Initial Use Case Analysis](initial-use-case-analysis.md) for the candidate focus options, scoring criteria, final recommendation, and positioning guidance behind this choice.
 
 In practice, that means helping an operator:
 1. discover a mixed estate
@@ -52,7 +52,7 @@ In practice, that means helping an operator:
 4. draft and validate migration plans
 5. run supervised pilot migrations with explicit approvals and rollback visibility
 
-This wedge fits the repo better than a broader promise of hands-off production migration across every connector pair. It aligns with the project origin, the current dashboard and API surfaces, the dependency and lifecycle layers, and the operator need to make migration decisions before they trust full execution automation.
+This focus fits the repo better than a broader promise of hands-off production migration across every connector pair. It aligns with the project origin, the current dashboard and API surfaces, the dependency and lifecycle layers, and the operator need to make migration decisions before they trust full execution automation.
 
 ## Disciplined V1 Scope
 
@@ -117,7 +117,7 @@ See [Backend Contract Hardening](backend-contract-hardening.md) for the specific
 ## Change Bar For New Work
 
 Before adding new product surface, ask:
-- does this make the assessment-to-pilot workflow more trustworthy?
+- does this make the assessment and supervised pilot workflow more trustworthy?
 - does it reduce ambiguity in the operator contract?
 - does it strengthen a shared backend capability instead of adding frontend-only behavior?
 - does it improve demo, packaging, support, or real-user validation readiness?

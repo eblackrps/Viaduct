@@ -11,7 +11,7 @@ Use this after all five valid sessions are complete.
 - Sessions invalidated and why:
 
 # Decision Summary
-- Is the current beachhead still correct?
+- Is the current focus still correct?
 - Is the current primary reliability path still correct?
 - What part of the workflow earned the most trust?
 - What part of the workflow most damaged trust?

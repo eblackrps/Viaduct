@@ -6,7 +6,7 @@ The rule is simple:
 
 **Implemented in the repo does not automatically mean supported in v1.**
 
-Viaduct already contains more technical surface area than a credible first release should promise. This document narrows that surface to the minimum real product needed for the chosen wedge:
+Viaduct already contains more technical surface area than a credible first release should promise. This document narrows that surface to the minimum real product needed for the chosen focus:
 
 **VMware-exit mixed-estate discovery and migration readiness assessment with approval-ready pilot planning**
 
@@ -71,11 +71,11 @@ Everything else should be treated as one of the following:
 
 ### Core Supported Source
 - VMware vSphere
-  Use in v1: primary source platform for the VMware-exit wedge, including discovery and migration-readiness planning.
+  Use in v1: primary source platform for the VMware-exit focus, including discovery and migration-readiness planning.
 
 ### Evaluation And Demo Source
 - KVM/libvirt fixture lab
-  Use in v1: packaged evaluation and demo path only. This is a real repo workflow, but it is not the headline production source story for the wedge.
+  Use in v1: packaged evaluation and demo path only. This is a real repo workflow, but it is not the headline production source story for the focus.
 
 ### Implemented But Not Part Of The V1 Support Promise
 - Proxmox as a source
@@ -128,7 +128,7 @@ For v1, the CLI and API are the source of truth for workflow state.
 
 The dashboard is required as an operator surface, but it must stay faithful to persisted backend state rather than introducing frontend-only execution logic.
 
-V1 does not require every workflow to be equally polished across CLI, API, and dashboard. It does require the dashboard to accurately reflect the supported backend workflow for the core assessment-to-pilot path.
+V1 does not require every workflow to be equally polished across CLI, API, and dashboard. It does require the dashboard to accurately reflect the supported backend workflow for the core assessment and supervised pilot path.
 
 ## 7. Required Reports And Exports For V1
 
@@ -167,7 +167,7 @@ These are the capabilities that make v1 real:
 - actionable preflight checks for the VMware-to-Proxmox first-wave path
 - explicit approval gates and execution windows
 - checkpoint-aware execution state, resume support, and rollback visibility
-- operator access through CLI, API, and dashboard for the core assessment-to-pilot workflow
+- operator access through CLI, API, and dashboard for the core assessment and supervised pilot workflow
 - tenant-scoped auth sufficient for a direct-use pilot deployment
 - summary, migration, and audit reporting suitable for operator review
 - stable documented contract for the supported planning, execution, resume, rollback, and reporting routes
@@ -211,7 +211,7 @@ These must be called out honestly in demos, docs, and release discussions:
 - fixture-backed connector certification is not the same thing as live-environment runtime certification
 - soak coverage and simulated migration flows are not proof of broad production migration readiness
 - implemented connectors outside the v1 support promise must not be sold as equal first-release commitments
-- warm migration, backup portability, lifecycle remediation, and plugin support may exist in the repo, but they are not the core proof point for the v1 beachhead
+- warm migration, backup portability, lifecycle remediation, and plugin support may exist in the repo, but they are not the core proof point for the v1 initial focus
 
 ## 12. Exit Criteria For Calling V1 "Real Enough"
 
@@ -256,5 +256,5 @@ If those conditions are not met, Viaduct is still an evaluation build or pilot c
 Use this document to stop these recurring mistakes:
 - adding roadmap items just because code exists somewhere in the repo
 - broadening the public story to match implementation breadth instead of support confidence
-- calling a feature "v1" when it does not directly strengthen the assessment-to-pilot workflow
+- calling a feature "v1" when it does not directly strengthen the assessment and supervised pilot workflow
 - letting demos center on impressive surfaces that are not part of the core release promise

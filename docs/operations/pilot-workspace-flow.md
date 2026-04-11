@@ -1,6 +1,6 @@
 # Pilot Workspace Flow
 
-This guide documents the first-class operator flow Viaduct now ships for the assessment-to-pilot wedge.
+This guide documents the first-class operator flow Viaduct ships for workspace-first migration assessment, planning, and supervised pilot execution.
 
 A pilot workspace is the persisted assessment record that ties together:
 - source connections and credential references
@@ -100,12 +100,12 @@ Inside the dashboard:
 
 1. Create a workspace from the prefilled lab defaults.
 2. Run discovery to save workspace snapshots.
-3. Inspect the workload table and dependency graph.
+3. Inspect the workload table, dependency graph, and selected workload set.
 4. Run simulation to derive readiness and recommendations.
 5. Save the plan to persist a dry-run migration record.
 6. Export the pilot report.
 
-The workspace keeps the discovery baseline, readiness result, saved plan, notes, approvals, and report history attached to the same object.
+The workspace keeps the discovery baseline, readiness result, saved plan, notes, approvals, report history, and job correlation detail attached to the same object.
 
 Read-only operators can inspect workspace state and export reports with viewer access, but only operator-level principals can mutate workspace state or start jobs.
 

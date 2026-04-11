@@ -2,7 +2,7 @@
 
 This document defines the realistic commercialization paths for Viaduct at its current stage and the product consequences of each.
 
-It is not a generic startup strategy memo. It is a steering document for the current repo, current support boundary, and current early-product wedge:
+It is not a generic startup strategy memo. It is a steering document for the current repo, current support boundary, and current early-product focus:
 
 **VMware-exit mixed-estate discovery and migration readiness assessment with approval-ready pilot planning**
 
@@ -11,7 +11,7 @@ It is not a generic startup strategy memo. It is a steering document for the cur
 Viaduct already has several important product and commercialization foundations:
 
 - an Apache 2.0 open source repo with public docs, packaging, and release discipline
-- a credible early-product wedge in [early-product-focus.md](early-product-focus.md), [beachhead-use-case.md](beachhead-use-case.md), and [v1-scope.md](v1-scope.md)
+- a credible early-product focus in [early-product-focus.md](early-product-focus.md), [initial-use-case-analysis.md](initial-use-case-analysis.md), and [v1-scope.md](v1-scope.md)
 - a packaged evaluation path, release bundles, install docs, upgrade docs, rollback docs, and support docs
 - tenant-scoped auth, service accounts, auditability, observability requirements, and a primary reliability path
 - a serious demo and validation kit for design-partner conversations
@@ -26,7 +26,7 @@ Prior phases appear to have created the minimum product surface needed for comme
 - persistent state and tenant-scoped workflows
 - release-gated packaging and deployable artifacts
 - public operator documentation
-- a narrowed beachhead and v1 boundary instead of a broad repo-first story
+- a narrowed initial focus and v1 boundary instead of a broad repo-first story
 
 ### What is still weak or risky
 
@@ -44,7 +44,7 @@ The current repo still has commercialization constraints that matter:
 Whatever commercialization path Viaduct chooses next should preserve:
 
 - the current Apache 2.0 core and open-source credibility
-- the VMware-exit assessment-to-pilot wedge
+- the VMware-exit assessment and supervised pilot focus
 - the one-path-first hardening discipline
 - the existing packaging and release-gate discipline
 - honest support and maturity boundaries
@@ -55,7 +55,7 @@ The right commercialization model for Viaduct now is the one that:
 
 1. monetizes the product where it is already strongest
 2. does not force enterprise-platform obligations before the product can support them
-3. keeps the public story aligned with the current wedge and v1 scope
+3. keeps the public story aligned with the current focus and v1 scope
 4. preserves trust with operators who expect serious infrastructure software to be transparent about support, telemetry, and licensing
 5. leaves room for a stronger recurring product business later if field evidence supports it
 
@@ -101,7 +101,7 @@ Keep Viaduct as an Apache 2.0 open-source product and monetize through:
 - fastest honest path to revenue
 - consistent with the current Apache 2.0 and community-support posture
 - lets field learning directly harden the product
-- works well with the current beachhead and pilot framing
+- works well with the current focus and pilot framing
 - avoids premature license and entitlement complexity
 
 ### Cons
@@ -313,7 +313,7 @@ Treat Viaduct mainly as an engineering showcase, internal tool, or research plat
 ### Cons
 
 - directly conflicts with the repo’s current open-source, packaging, docs, and pilot direction
-- wastes the work already done to narrow the wedge and harden the operator path
+- wastes the work already done to narrow the focus and harden the operator path
 - produces little pressure to fix the real trust and support gaps that matter for external users
 
 ### Product implications
@@ -440,7 +440,7 @@ Do not do these in the next commercialization phase:
 ### Decide now
 
 - Viaduct is becoming a real open-source product with paid pilot and design-partner services, not just a showcase repo.
-- The VMware-exit assessment-to-pilot wedge stays primary.
+- The VMware-exit assessment and supervised pilot focus stays primary.
 - The Apache 2.0 core stays intact.
 - Mandatory phone-home telemetry and aggressive license gating are out of bounds for the current stage.
 - The roadmap should favor pilot hardening, packaging, supportability, docs, and field validation over breadth.
@@ -476,7 +476,7 @@ If Viaduct follows the recommended path, the next commercialization-supporting p
 1. harden the VMware-to-Proxmox pilot path until it is boringly reliable
 2. improve installability, packaging, upgrade confidence, and rollback clarity for pilot deployments
 3. make support and observability workflows strong enough for paid pilot work
-4. keep docs, demos, and validation assets tightly aligned to the one wedge
+4. keep docs, demos, and validation assets tightly aligned to the one focus
 5. define repeatable paid pilot deliverables instead of drifting into custom consulting
 
 ### What this means in the repo in the next 90 days
@@ -486,7 +486,7 @@ If Viaduct follows the recommended path, the next commercialization-supporting p
 - keep release and packaging work centered on [RELEASE.md](../RELEASE.md), `make release-gate`, and `make package-release-matrix`
 - keep auth work centered on the current tenant and service-account model, not SSO-first expansion
 - keep telemetry limited to observability, request correlation, audit/report exports, and support packets unless a later explicit decision changes that
-- reject feature additions that do not make the assessment-to-pilot path more supportable, more trustworthy, or easier to deliver repeatedly
+- reject feature additions that do not make the assessment and supervised pilot path more supportable, more trustworthy, or easier to deliver repeatedly
 
 ## 7. What The Recommended Path Should Delay
 
@@ -496,7 +496,7 @@ This path should deliberately delay:
 - feature gating and license enforcement inside the current core path
 - hosted control-plane or SaaS-first assumptions
 - MSP-first workflow expansion
-- roadmap additions that do not strengthen the assessment-to-pilot path
+- roadmap additions that do not strengthen the assessment and supervised pilot path
 
 ## 8. Self-Review And Corrections
 
