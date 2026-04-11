@@ -1,13 +1,13 @@
 # Security Policy
 
-Viaduct publishes security fixes to `main` and, when practical, to the most recent tagged release.
+Viaduct publishes security fixes to `main` and, when practical, to the most recent tagged release. This remains a best-effort open-source process, not a guaranteed support window.
 
-## Supported Versions
+## Maintained References
 
-| Version | Supported |
+| Version | Maintenance |
 | --- | --- |
-| `main` | Yes |
-| most recent tagged release | Yes |
+| `main` | Best effort |
+| most recent tagged release | Best effort when practical |
 | older snapshots or forks | No |
 
 ## Reporting A Vulnerability

@@ -28,6 +28,8 @@ npm run build
 
 ## Packaged Release Bundle
 
+Tagged release bundles are attached to [GitHub Releases](https://github.com/eblackrps/Viaduct/releases). The same structure can also be generated locally through `make package-release-matrix`.
+
 Generate a self-contained local bundle:
 
 ```bash
@@ -44,6 +46,7 @@ Each bundle includes:
 - install scripts
 - docs, configs, and examples
 - `release-manifest.json`
+- `dependency-manifest.json`
 - `SHA256SUMS.txt`
 
 ## Container Build

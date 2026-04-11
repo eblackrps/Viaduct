@@ -19,7 +19,8 @@ make build
 On Windows without `make`:
 
 ```powershell
-go build -ldflags "-X main.version=dev -X main.commit=none -X main.date=unknown" -o bin/viaduct.exe ./cmd/viaduct
+go mod tidy
+go build -o bin/viaduct.exe ./cmd/viaduct
 .\bin\viaduct.exe version
 ```
 

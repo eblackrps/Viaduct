@@ -1,6 +1,6 @@
 # Release
 
-This document describes the stable packaging and release process for Viaduct.
+This document describes the current packaging and release process for Viaduct.
 
 ## Canonical Commands
 - `make release-gate`: full verification flow for backend, CLI, dashboard, soak coverage, certification coverage, packaging, and coverage enforcement
@@ -8,7 +8,7 @@ This document describes the stable packaging and release process for Viaduct.
 - `make certification-test`: run connector certification fixtures
 - `make soak-test`: run the tagged migration soak workflow
 - `make plugin-check`: validate plugin manifest compatibility against the host version
-- `make contract-check`: verify the published OpenAPI reference still covers the stable operator routes
+- `make contract-check`: verify the published OpenAPI reference still covers the documented operator routes
 
 On Windows, `make release-gate` still builds `bin/viaduct.exe`, but it validates the CLI smoke commands through a LocalAppData-staged `go run ./cmd/viaduct` helper because some operator workstations enforce Application Control policies that block freshly built unsigned binaries from direct execution or from `%TEMP%`. The Windows test helpers stage race and coverage artifacts under repo-local cache directories so the canonical gate remains reproducible on locked-down workstations.
 
@@ -42,6 +42,7 @@ The standalone public site under [`site/`](site/README.md) is published through 
 - call out any connector-specific caveats
 - include the workspace-first operator flow and runtime-auth bootstrap changes when they are part of the release
 - include current screenshot assets when the dashboard experience changed materially
+- use absolute GitHub URLs in the published GitHub release body when relative asset links would be ambiguous
 - update [CHANGELOG.md](CHANGELOG.md) with notable release information
 
 ## Rollback

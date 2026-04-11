@@ -6,6 +6,8 @@ This changelog tracks published releases and the major implementation milestones
 
 ## [Unreleased]
 
+- No unreleased changes yet.
+
 ## [1.7.0] - 2026-04-11
 
 ### Workspace Reliability And Operator Hardening

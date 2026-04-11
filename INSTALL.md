@@ -12,7 +12,7 @@ This is the top-level installation entrypoint for Viaduct. Use it together with 
 ## Install From Source
 
 ```bash
-git clone https://github.com/eblackrps/viaduct.git
+git clone https://github.com/eblackrps/Viaduct.git
 cd viaduct
 go mod tidy
 make build
@@ -28,6 +28,8 @@ npm run build
 ```
 
 ## Install From A Release Bundle
+
+Tagged bundles are attached to [GitHub Releases](https://github.com/eblackrps/Viaduct/releases), and the same layout can be generated locally through `make package-release-matrix`.
 
 Release bundles produced by `make package-release-matrix` include:
 - CLI binary

@@ -16,6 +16,7 @@ This directory contains the default local evaluation path for Viaduct.
 ```bash
 mkdir -p ~/.viaduct
 cp examples/lab/config.yaml ~/.viaduct/config.yaml
+make build
 export VIADUCT_ADMIN_KEY=lab-admin
 ./bin/viaduct serve-api --port 8080
 ```

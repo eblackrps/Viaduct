@@ -1,10 +1,10 @@
 # Viaduct
 > Open-source, evaluation-ready control plane for mixed virtualization discovery, planning, and supervised pilot workflows.
 
-[![CI](https://github.com/eblackrps/viaduct/actions/workflows/ci.yml/badge.svg)](https://github.com/eblackrps/viaduct/actions/workflows/ci.yml)
-[![License](https://img.shields.io/github/license/eblackrps/viaduct)](https://github.com/eblackrps/viaduct/blob/main/LICENSE)
+[![CI](https://github.com/eblackrps/Viaduct/actions/workflows/ci.yml/badge.svg)](https://github.com/eblackrps/Viaduct/actions/workflows/ci.yml)
+[![License](https://img.shields.io/github/license/eblackrps/Viaduct)](https://github.com/eblackrps/Viaduct/blob/main/LICENSE)
 
-Viaduct helps operators understand mixed virtualization estates before they commit to a migration path. The repository combines a Go backend, REST API, CLI, React dashboard, and a small public site around one shared model for discovery, dependency-aware planning, migration readiness, saved pilot workspaces, and exported operator evidence.
+Viaduct helps operators understand mixed virtualization estates before they commit to a migration path. The repository combines a Go backend, REST API, CLI, React dashboard, and a standalone public site around one shared model for discovery, dependency-aware planning, migration readiness, saved pilot workspaces, and exported operator evidence.
 
 ## Current Status
 
@@ -119,6 +119,7 @@ make package-release-matrix
 - Quickstart: [QUICKSTART.md](QUICKSTART.md)
 - Upgrade: [UPGRADE.md](UPGRADE.md)
 - Release process: [RELEASE.md](RELEASE.md)
+- Release notes: [docs/releases/README.md](docs/releases/README.md)
 - Support: [SUPPORT.md](SUPPORT.md)
 - Security: [SECURITY.md](SECURITY.md)
 - Documentation index: [docs/README.md](docs/README.md)

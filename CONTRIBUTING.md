@@ -50,7 +50,9 @@ make release-gate
 
 ## Verification Expectations
 
-- Run `go test ./... -v -race`, `go vet ./...`, `make build`, and `cd web && npm run build` for the relevant surfaces.
+- Run `go vet ./...`, `make build`, and `cd web && npm run build` for the relevant surfaces.
+- Run `go test ./... -v -race` when your workstation can execute the default Go race path directly.
+- Prefer `make release-gate` as the canonical verification path for release, packaging, dashboard, migration, tenant, plugin, doc, or public-asset changes. On Windows workstations with Application Control constraints, rely on the repo's helper-backed `make release-gate` path rather than ad hoc command substitutions.
 - Run `make release-gate` before asking for review when the change affects release, packaging, dashboard, migrations, tenants, plugins, docs, or public assets.
 - Add regression coverage for bug fixes.
 

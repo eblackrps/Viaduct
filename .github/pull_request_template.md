@@ -8,7 +8,7 @@
 
 - [ ] `go mod tidy`
 - [ ] `go build ./...`
-- [ ] `go test ./... -v -race -count=1`
+- [ ] `go test ./... -v -race -count=1` or the equivalent platform-constrained helper path
 - [ ] `go vet ./...`
 - [ ] `golangci-lint run ./...`
 - [ ] `make build`
