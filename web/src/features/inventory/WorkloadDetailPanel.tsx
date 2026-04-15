@@ -60,7 +60,7 @@ export function WorkloadDetailPanel({ row, latestSnapshot, assessmentErrors, onP
       }
     >
       <div className="space-y-5">
-        <div className="rounded-3xl bg-slate-50 px-4 py-4">
+      <div className="rounded-2xl bg-slate-50 px-4 py-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="font-display text-2xl text-ink">{vm.name}</p>
@@ -233,7 +233,7 @@ export function WorkloadDetailPanel({ row, latestSnapshot, assessmentErrors, onP
 
 function DetailSection({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="rounded-3xl border border-slate-200/80 bg-white px-4 py-4">
+        <section className="rounded-2xl border border-slate-200/80 bg-white px-4 py-4">
       <p className="text-xs uppercase tracking-[0.18em] text-slate-500">{title}</p>
       <div className="mt-3">{children}</div>
     </section>

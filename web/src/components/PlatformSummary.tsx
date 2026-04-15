@@ -30,7 +30,7 @@ export function PlatformSummary({ inventory }: PlatformSummaryProps) {
 
         <div className="mt-5 grid gap-4 md:grid-cols-3">
           {rows.map((row) => (
-            <article key={row.platform} className="rounded-3xl bg-slate-50 p-4">
+          <article key={row.platform} className="rounded-2xl bg-slate-50 p-4">
               <p className="text-xs uppercase tracking-[0.22em] text-slate-500">{row.platform}</p>
               <p className="mt-3 font-display text-3xl text-ink">{row.count}</p>
               <p className="mt-1 text-sm text-slate-500">{row.cpu} vCPU / {row.memory.toLocaleString()} MB</p>

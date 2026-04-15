@@ -178,7 +178,7 @@ export function MigrationsPage({
               )}
             </div>
           ) : (
-            <div className="rounded-3xl border border-dashed border-slate-300 px-5 py-6 text-sm text-slate-600">
+        <div className="rounded-2xl border border-dashed border-slate-300 px-5 py-6 text-sm text-slate-600">
               <p className="font-semibold text-ink">No inventory draft is active.</p>
               <p className="mt-2">
                 Start from the inventory route when you want a selected workload set to carry directly into migration planning.
@@ -283,7 +283,7 @@ function PostureMetric({
   tone: "neutral" | "info" | "success" | "warning" | "danger" | "accent";
 }) {
   return (
-    <div className="rounded-3xl bg-slate-50 px-4 py-4">
+          <div className="rounded-2xl bg-slate-50 px-4 py-4">
       <div className="flex items-center justify-between gap-3">
         <p className="text-xs uppercase tracking-[0.18em] text-slate-500">{label}</p>
         <StatusBadge tone={tone}>{label}</StatusBadge>

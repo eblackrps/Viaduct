@@ -19,7 +19,7 @@ export function RemediationPanel({ report, simulation, onSimulate, simulationLoa
         <p className="text-sm font-semibold text-slate-500">{report?.recommendations.length ?? 0} recommendations</p>
       </div>
 
-      <div className="mt-5 rounded-3xl bg-slate-50 p-4">
+      <div className="mt-5 rounded-2xl bg-slate-50 p-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="font-semibold text-ink">Fleet Movement Simulation</p>

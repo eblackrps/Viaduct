@@ -313,8 +313,8 @@ export function DependencyGraph({ graph: providedGraph }: DependencyGraphProps) 
           </div>
         ) : (
           <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_260px]">
-            <svg ref={svgRef} className="h-[560px] w-full rounded-3xl bg-slate-50" />
-            <div className="space-y-3 rounded-3xl bg-slate-50 p-4">
+              <svg ref={svgRef} className="h-[560px] w-full rounded-2xl bg-slate-50" />
+              <div className="space-y-3 rounded-2xl bg-slate-50 p-4">
               <p className="font-semibold text-ink">Most connected workloads</p>
               <p className="text-sm text-slate-500">
                 Use the graph plus this list to focus on workloads with the most adjacent assets.
@@ -351,7 +351,7 @@ export function DependencyGraph({ graph: providedGraph }: DependencyGraphProps) 
         )}
         {selectedNode && (
           <div className="mt-4 space-y-4 text-sm text-slate-600">
-            <div className="rounded-3xl bg-slate-50 px-4 py-4">
+                <div className="rounded-2xl bg-slate-50 px-4 py-4">
               <div className="flex flex-wrap items-center gap-2">
                 <p className="font-semibold text-ink">{selectedNode.label}</p>
                 <StatusBadge tone={selectedNode.type === "vm" ? "info" : "neutral"}>{selectedNode.type}</StatusBadge>

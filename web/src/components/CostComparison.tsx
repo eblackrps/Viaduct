@@ -17,7 +17,7 @@ export function CostComparison({ comparisons }: CostComparisonProps) {
 
       <div className="mt-5 space-y-3">
         {comparisons.map((comparison) => (
-          <article key={comparison.vm.id || comparison.vm.name} className="rounded-3xl bg-slate-50 p-4">
+          <article key={comparison.vm.id || comparison.vm.name} className="rounded-2xl bg-slate-50 p-4">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
                 <p className="font-semibold text-ink">{comparison.vm.name}</p>
