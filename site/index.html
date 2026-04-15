@@ -69,18 +69,36 @@
 
     <main id="content" class="site-main">
       <div class="shell">
-        <div class="hero">
-          <p class="hero-chip">Open source · Apache 2.0</p>
-          <h1>Virtualization migration without the guesswork.</h1>
-          <p class="lead">
-            Viaduct discovers mixed hypervisor estates, maps the dependencies between workloads, and runs migrations under operator control.
-          </p>
-          <div class="hero-actions">
-            <a class="button button-primary" href="#get-started">Get started</a>
-            <a class="button button-secondary" href="https://github.com/eblackrps/Viaduct">View on GitHub</a>
+        <section class="hero" aria-labelledby="hero-title">
+          <div class="hero-copy">
+            <p class="hero-chip">Open source · Apache 2.0</p>
+            <h1 id="hero-title">Virtualization migration without the guesswork.</h1>
+            <p class="lead">
+              Viaduct discovers mixed hypervisor estates, maps the dependencies between workloads, and runs migrations under operator control.
+            </p>
+            <div class="hero-actions">
+              <a class="button button-primary" href="#get-started">Get started</a>
+              <a class="button button-secondary" href="https://github.com/eblackrps/Viaduct">View on GitHub</a>
+            </div>
+            <p class="hero-note">Works with VMware, Proxmox, Hyper-V, KVM, Nutanix, and Veeam.</p>
           </div>
-          <p class="hero-note">Works with VMware, Proxmox, Hyper-V, KVM, Nutanix, and Veeam.</p>
-        </div>
+          <aside class="hero-panel" aria-label="At a glance">
+            <p class="panel-label">At a glance</p>
+            <div class="panel-group">
+              <p class="panel-title">Interfaces</p>
+              <p class="panel-copy">CLI, API, and web dashboard on the same backend state.</p>
+            </div>
+            <div class="panel-group">
+              <p class="panel-title">Supported sources</p>
+              <p class="panel-copy">VMware, Proxmox, Hyper-V, KVM, Nutanix, Veeam, and plugins.</p>
+            </div>
+            <div class="panel-group">
+              <p class="panel-title">Local start</p>
+              <code class="inline-code">./bin/viaduct start</code>
+              <p class="panel-copy">Starts the bundled lab runtime at <span>127.0.0.1:8080</span>.</p>
+            </div>
+          </aside>
+        </section>
 
         <section class="section" aria-labelledby="what-it-does">
           <div class="section-heading">
@@ -89,18 +107,24 @@
           <div class="feature-grid">
             <article class="feature-card">
               <span class="feature-index">01</span>
-              <h3>Discovery</h3>
-              <p>Reads inventory from every supported platform into one normalized model.</p>
+              <div>
+                <h3>Discovery</h3>
+                <p>Reads inventory from every supported platform into one normalized model.</p>
+              </div>
             </article>
             <article class="feature-card">
               <span class="feature-index">02</span>
-              <h3>Dependency mapping</h3>
-              <p>Builds a graph of network, storage, and backup relationships so you know what has to move together.</p>
+              <div>
+                <h3>Dependency mapping</h3>
+                <p>Builds a graph of network, storage, and backup relationships so you know what has to move together.</p>
+              </div>
             </article>
             <article class="feature-card">
               <span class="feature-index">03</span>
-              <h3>Controlled migration</h3>
-              <p>Plan, dry-run, approve, execute, and roll back from a CLI, API, or web dashboard that share the same state.</p>
+              <div>
+                <h3>Controlled migration</h3>
+                <p>Plan, dry-run, approve, execute, and roll back from a CLI, API, or web dashboard that share the same state.</p>
+              </div>
             </article>
           </div>
         </section>
@@ -167,7 +191,7 @@
               <li>Build the CLI and web assets.</li>
               <li>Start the bundled lab runtime.</li>
             </ol>
-            <pre><code>git clone https://github.com/eblackrps/Viaduct
+            <pre class="command-block"><code>git clone https://github.com/eblackrps/Viaduct
 cd Viaduct
 make build web-build
 ./bin/viaduct start</code></pre>
