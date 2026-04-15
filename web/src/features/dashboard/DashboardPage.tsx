@@ -86,9 +86,6 @@ export function DashboardPage({
               <SectionCard key={card.label} className="p-4">
                 <p className="text-xs uppercase tracking-[0.22em] text-slate-500">{card.label}</p>
                 <p className="mt-3 font-display text-3xl text-ink">{card.value}</p>
-                <div className="mt-3">
-                  <StatusBadge tone={card.tone}>{card.label}</StatusBadge>
-                </div>
               </SectionCard>
             ))}
           </section>
@@ -111,7 +108,7 @@ export function DashboardPage({
             >
               <div className="space-y-4 text-sm text-slate-600">
                 {postureLoading && !policies && !drift && !remediation && (
-                  <p className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
+                  <p className="rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
                     Loading policy, drift, and remediation posture for this tenant.
                   </p>
                 )}
@@ -144,7 +141,7 @@ export function DashboardPage({
                     {Object.keys(platformCounts).length === 0 && <StatusBadge tone="neutral">No platform counts yet</StatusBadge>}
                   </div>
                 </div>
-                <div className="rounded-2xl bg-slate-50 px-4 py-4">
+                <div className="rounded-xl bg-slate-50 px-4 py-4">
                   <p className="font-semibold text-ink">Dependency analysis</p>
                   <p className="mt-2 text-sm text-slate-500">
                     Open the dedicated analysis view to inspect workload relationships across storage, network, and backup dependencies.
@@ -165,12 +162,21 @@ export function DashboardPage({
   );
 }
 
+const toneLabel: Record<StatusTone, string> = {
+  success: "Healthy",
+  warning: "Attention",
+  danger: "Critical",
+  info: "Active",
+  neutral: "None",
+  accent: "Active",
+};
+
 function SignalRow({ label, value, badgeTone }: { label: string; value: string; badgeTone: StatusTone }) {
   return (
-    <div className="rounded-2xl bg-slate-50 px-4 py-4">
+    <div className="rounded-xl bg-slate-50 px-4 py-4">
       <div className="flex items-center justify-between gap-3">
         <p className="font-semibold text-ink">{label}</p>
-        <StatusBadge tone={badgeTone}>{label}</StatusBadge>
+        <StatusBadge tone={badgeTone}>{toneLabel[badgeTone]}</StatusBadge>
       </div>
       <p className="mt-2 text-slate-500">{value}</p>
     </div>

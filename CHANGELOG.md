@@ -8,6 +8,21 @@ This changelog tracks published releases and the major implementation milestones
 
 - No unreleased changes yet.
 
+## [2.1.0] - 2026-04-15
+
+### Dashboard And UI Polish
+
+- normalized all custom `rounded-[...]` border-radius values to standard Tailwind steps (`rounded-xl`, `rounded-2xl`) throughout the entire dashboard — removes the bubbly appearance and gives the operator console a crisper, more professional look
+- replaced per-item description lines in the sidebar navigation with compact icon-and-label rows, reducing sidebar height by roughly 60% and making the nav feel like an operator tool rather than a feature brochure
+- slimmed the sidebar brand panel by removing the "Default flow" and "Shared truth" info callouts and the "Operator path" section, leaving a clean brand mark and navigation
+- simplified the TopBar to a compact header strip — removed the 5-column metric grid, removed the static "REST API + shared store" and "Tenant-scoped visibility" badges that carried no operator signal; metrics remain available on the Dashboard page
+- fixed duplicate status badge labels in metric cards and `SignalRow` components — badges now show a meaningful status word ("Healthy", "Attention", "Critical") instead of repeating the adjacent label text
+- removed the outer `.panel` wrapper that surrounded all page content in `AppShell`, eliminating an extra layer of nesting that was fighting with `PageHeader` and `SectionCard` panels on each page
+- corrected page heading hierarchy — `PageHeader` titles are now `text-2xl` (the page's primary heading); the TopBar shows a compact navigation label at `text-base`
+- assigned unique icons to every navigation route — `/workspaces` now uses `FolderKanban`, `/inventory` uses `Server`, `/lifecycle` uses `TrendingUp`, `/drift` uses `GitCompare`, `/graph` uses `Network`; no two routes share the same icon
+- added `MobileSidebarDrawer` — a hamburger button and slide-in drawer are now available on viewports below the `xl` breakpoint (1280 px), replacing the previous stacked-sidebar behaviour on tablets and laptops
+- replaced the bare error paragraph in `AppShell` with a new `ErrorBanner` component that includes an `AlertTriangle` icon, a `role="alert"` attribute, and an optional dismiss button
+
 ## [2.0.0] - 2026-04-11
 
 ### Installation, Startup, And First Run

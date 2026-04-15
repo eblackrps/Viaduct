@@ -144,12 +144,6 @@ function AuthenticatedAppRoutes({ auth }: { auth: AuthBootstrapState }) {
       currentPath={currentRoute.path}
       tenantId={overview.summary?.tenant_id}
       lastDiscoveryAt={overview.summary?.last_discovery_at ?? overview.latestSnapshot?.discovered_at}
-      statusItems={[
-        { label: "Workloads", value: overview.summary?.workload_count ?? overview.inventory?.vms.length ?? 0, tone: "info" },
-        { label: "Active", value: overview.summary?.active_migrations ?? 0, tone: "accent" },
-        { label: "Approvals", value: overview.summary?.pending_approvals ?? 0, tone: "warning" },
-        { label: "Failed", value: overview.summary?.failed_migrations ?? 0, tone: (overview.summary?.failed_migrations ?? 0) > 0 ? "danger" : "neutral" },
-      ]}
       refreshing={overview.refreshing}
       onRefresh={overview.refresh}
       authSummary={{

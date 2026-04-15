@@ -54,11 +54,11 @@ body::before {
 
 @layer components {
   .panel {
-    @apply rounded-[2rem] border border-slate-200/80 bg-white/80 shadow-panel backdrop-blur-md;
+    @apply rounded-2xl border border-slate-200/80 bg-white/80 shadow-panel backdrop-blur-md;
   }
 
   .panel-muted {
-    @apply rounded-[1.75rem] border border-slate-200/80 bg-slate-50/90;
+    @apply rounded-xl border border-slate-200/80 bg-slate-50/90;
   }
 
   .operator-kicker {
@@ -92,7 +92,7 @@ body::before {
   .operator-input,
   .operator-select,
   .operator-textarea {
-    @apply w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-ink outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-100;
+    @apply w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-ink outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-100;
   }
 
   .operator-textarea {
@@ -100,6 +100,6 @@ body::before {
   }
 
   .metric-surface {
-    @apply rounded-2xl border border-slate-200/80 bg-slate-50/90 px-4 py-4;
+    @apply rounded-xl border border-slate-200/80 bg-slate-50/90 px-4 py-4;
   }
 }

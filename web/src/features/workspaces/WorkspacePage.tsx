@@ -632,7 +632,7 @@ export function WorkspacePage() {
           </div>
 
           {activeJob ? (
-            <div className="mt-4 rounded-[1.4rem] border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-900">
+            <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-900">
               <p className="font-semibold">Current background work</p>
               <p className="mt-1">
                 {activeJob.type} is {activeJob.status}. {activeJob.message ?? "The operator API is still processing the workspace job."}
@@ -944,7 +944,7 @@ export function WorkspacePage() {
           ) : (
             <div className="space-y-3">
               {jobHistory.slice(0, 8).map((job) => (
-                <div key={job.id} className="rounded-[1.6rem] border border-slate-200 bg-slate-50/80 px-4 py-4">
+                <div key={job.id} className="rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="space-y-2">
                       <div className="flex flex-wrap items-center gap-2">
@@ -1325,7 +1325,7 @@ function WorkspaceCheckbox({
 
 function WorkflowStepCard({ step, index }: { step: WorkflowStep; index: number }) {
   return (
-    <div className={`rounded-[1.5rem] border px-4 py-4 ${workflowStepClasses(step.status)}`}>
+    <div className={`rounded-xl border px-4 py-4 ${workflowStepClasses(step.status)}`}>
       <div className="flex items-start gap-3">
         <span className={`inline-flex h-10 w-10 items-center justify-center rounded-2xl text-sm font-semibold ${workflowIndexClasses(step.status)}`}>
           {String(index).padStart(2, "0")}

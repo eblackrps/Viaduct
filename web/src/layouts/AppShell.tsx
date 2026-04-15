@@ -1,20 +1,16 @@
 import type { ReactNode } from "react";
+import { useState } from "react";
+import { Menu } from "lucide-react";
 import { navigationGroups, type AppRoutePath } from "../app/navigation";
 import { SidebarNav } from "../components/navigation/SidebarNav";
+import { MobileSidebarDrawer } from "../components/navigation/MobileSidebarDrawer";
 import { TopBar } from "../components/navigation/TopBar";
-import type { StatusTone } from "../components/primitives/StatusBadge";
-
-interface AppShellStatusItem {
-  label: string;
-  value: string | number;
-  tone?: StatusTone;
-}
+import { ErrorBanner } from "../components/primitives/ErrorBanner";
 
 interface AppShellProps {
   currentPath: AppRoutePath;
   tenantId?: string;
   lastDiscoveryAt?: string;
-  statusItems: AppShellStatusItem[];
   refreshing: boolean;
   onRefresh: () => void | Promise<void>;
   authSummary?: {
@@ -30,7 +26,6 @@ export function AppShell({
   currentPath,
   tenantId,
   lastDiscoveryAt,
-  statusItems,
   refreshing,
   onRefresh,
   authSummary,
@@ -38,56 +33,62 @@ export function AppShell({
   error,
   children,
 }: AppShellProps) {
-  const currentItem = navigationGroups.flatMap((group) => group.items).find((item) => item.path === currentPath);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-transparent px-4 py-4 md:px-6 md:py-6">
-      <div className="mx-auto grid max-w-[1600px] gap-6 xl:grid-cols-[320px_1fr]">
-        <aside className="space-y-5">
-          <div className="panel overflow-hidden p-5">
-            <div className="rounded-[1.8rem] bg-gradient-to-br from-ink via-steel to-slate-900 px-6 py-6 text-white">
-              <p className="operator-kicker !text-slate-300">Viaduct operator console</p>
-              <p className="mt-3 font-display text-4xl">Viaduct</p>
-              <p className="mt-3 max-w-xs text-sm leading-6 text-slate-200">
-                Discover mixed estates, map dependencies, plan controlled migrations, and keep operator handoff data in one tenant-scoped system.
+      <div className="mx-auto grid max-w-[1600px] gap-6 xl:grid-cols-[280px_1fr]">
+        {/* Desktop sidebar */}
+        <aside className="hidden xl:block">
+          <div className="panel p-4 space-y-4">
+            {/* Brand */}
+            <div className="rounded-xl bg-gradient-to-br from-ink via-steel to-slate-900 px-5 py-4 text-white">
+              <p className="operator-kicker !text-slate-300">Operator console</p>
+              <p className="mt-2 font-display text-2xl">Viaduct</p>
+              <p className="mt-2 text-xs leading-5 text-slate-300">
+                Discover, plan, and execute migrations from one tenant-scoped control plane.
               </p>
             </div>
 
-            <div className="mt-5 grid gap-3">
-              <div className="panel-muted p-4">
-                <p className="operator-kicker">Default flow</p>
-                <p className="mt-2 text-sm font-semibold text-ink">Authenticate, create a workspace, discover, inspect, simulate, plan, and export.</p>
-              </div>
-              <div className="panel-muted p-4">
-                <p className="operator-kicker">Shared truth</p>
-                <p className="mt-2 text-sm text-slate-600">The dashboard stays aligned with the same persisted API and store-backed model used by the CLI and packaged release.</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="panel p-5">
             <SidebarNav groups={navigationGroups} currentPath={currentPath} />
           </div>
         </aside>
 
-        <main className="space-y-6">
-          <TopBar
-            currentTitle={currentItem?.title ?? "Operator Console"}
-            currentDescription={currentItem?.description ?? "Operate Viaduct from a shared, tenant-scoped control plane."}
-            tenantId={tenantId}
-            lastDiscoveryAt={lastDiscoveryAt}
-            statusItems={statusItems}
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            authSummary={authSummary}
-            onSignOut={onSignOut}
-          />
+        <main className="min-w-0 space-y-5">
+          {/* Mobile hamburger + TopBar row */}
+          <div className="flex items-start gap-3">
+            <button
+              type="button"
+              aria-label="Open navigation"
+              onClick={() => setMobileNavOpen(true)}
+              className="xl:hidden mt-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+            >
+              <Menu className="h-4 w-4" />
+            </button>
+            <div className="flex-1 min-w-0">
+              <TopBar
+                currentPath={currentPath}
+                tenantId={tenantId}
+                lastDiscoveryAt={lastDiscoveryAt}
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                authSummary={authSummary}
+                onSignOut={onSignOut}
+              />
+            </div>
+          </div>
 
-          {error && <p className="panel-muted border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</p>}
+          {error && <ErrorBanner message={error} />}
 
-          <div className="panel p-6 lg:p-7">{children}</div>
+          <div className="space-y-5">{children}</div>
         </main>
       </div>
+
+      <MobileSidebarDrawer
+        open={mobileNavOpen}
+        onClose={() => setMobileNavOpen(false)}
+        currentPath={currentPath}
+      />
     </div>
   );
 }

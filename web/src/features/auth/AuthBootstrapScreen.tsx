@@ -123,7 +123,7 @@ export function AuthBootstrapScreen({ auth }: AuthBootstrapScreenProps) {
                     </p>
                   </div>
 
-                  <label className="flex items-start gap-3 rounded-[1.4rem] border border-slate-200 bg-slate-50/90 px-4 py-4 text-sm text-slate-700 md:col-span-2">
+                  <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50/90 px-4 py-4 text-sm text-slate-700 md:col-span-2">
                     <input
                       type="checkbox"
                       checked={remember}
@@ -217,7 +217,7 @@ export function AuthBootstrapScreen({ auth }: AuthBootstrapScreenProps) {
                     <StatusBadge tone="neutral">Tenant context will appear after validation</StatusBadge>
                   )}
                 </div>
-                <div className="mt-4 rounded-[1.4rem] border border-slate-200 bg-slate-50/90 px-4 py-4 text-sm text-slate-600">
+                <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50/90 px-4 py-4 text-sm text-slate-600">
                   <div className="flex items-start gap-3">
                     <div className="rounded-2xl bg-white p-2 text-slate-600">
                       <ShieldCheck className="h-4 w-4" />
