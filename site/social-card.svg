@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" fill="none">
-  <rect width="1200" height="630" fill="#FAFAF9" />
+  <rect width="1200" height="630" fill="#F2EEE7" />
   <rect x="42" y="42" width="1116" height="546" rx="34" fill="#FFFFFF" stroke="#E7E5E4" />
   <rect x="776" y="96" width="328" height="438" rx="24" fill="#1C1917" />
   <text x="96" y="146" fill="#78716C" font-family="Inter, system-ui, sans-serif" font-size="22" font-weight="500">Open source · Apache 2.0</text>
