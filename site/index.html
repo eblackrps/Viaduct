@@ -71,10 +71,10 @@
       <div class="shell">
         <section class="hero" aria-labelledby="hero-title">
           <div class="hero-copy">
-            <p class="hero-chip">Open source · Apache 2.0</p>
+            <p class="eyebrow">Open source · Apache 2.0</p>
             <h1 id="hero-title">Virtualization migration without the guesswork.</h1>
             <p class="lead">
-              Viaduct discovers mixed hypervisor estates, maps the dependencies between workloads, and runs migrations under operator control.
+              Viaduct discovers mixed hypervisor estates, maps workload dependencies, and keeps migration planning and execution in one control plane.
             </p>
             <div class="hero-actions">
               <a class="button button-primary" href="#get-started">Get started</a>
@@ -82,56 +82,74 @@
             </div>
             <p class="hero-note">Works with VMware, Proxmox, Hyper-V, KVM, Nutanix, and Veeam.</p>
           </div>
-          <aside class="hero-panel" aria-label="At a glance">
-            <p class="panel-label">At a glance</p>
-            <div class="panel-group">
-              <p class="panel-title">Interfaces</p>
-              <p class="panel-copy">CLI, API, and web dashboard on the same backend state.</p>
-            </div>
-            <div class="panel-group">
-              <p class="panel-title">Supported sources</p>
-              <p class="panel-copy">VMware, Proxmox, Hyper-V, KVM, Nutanix, Veeam, and plugins.</p>
-            </div>
-            <div class="panel-group">
-              <p class="panel-title">Local start</p>
-              <code class="inline-code">./bin/viaduct start</code>
-              <p class="panel-copy">Starts the bundled lab runtime at <span>127.0.0.1:8080</span>.</p>
+          <aside class="brief-card" aria-label="Migration brief">
+            <p class="brief-kicker">Migration brief</p>
+            <ol class="brief-list">
+              <li class="brief-item">
+                <span class="brief-index">01</span>
+                <div>
+                  <p class="brief-title">Discovery</p>
+                  <p class="brief-copy">Inventory from VMware, Proxmox, Hyper-V, KVM, Nutanix, and Veeam.</p>
+                </div>
+              </li>
+              <li class="brief-item">
+                <span class="brief-index">02</span>
+                <div>
+                  <p class="brief-title">Dependencies</p>
+                  <p class="brief-copy">Network, storage, and backup relationships in one normalized model.</p>
+                </div>
+              </li>
+              <li class="brief-item">
+                <span class="brief-index">03</span>
+                <div>
+                  <p class="brief-title">Execution</p>
+                  <p class="brief-copy">Plan, approve, and run migrations from the CLI, API, or dashboard.</p>
+                </div>
+              </li>
+            </ol>
+            <div class="brief-command">
+              <span class="brief-title">Start</span>
+              <code>./bin/viaduct start</code>
             </div>
           </aside>
         </section>
 
         <section class="section" aria-labelledby="what-it-does">
           <div class="section-heading">
+            <p class="section-index">01</p>
             <h2 id="what-it-does">What it does</h2>
+            <p class="section-intro">One inventory model, one dependency graph, one execution path.</p>
           </div>
-          <div class="feature-grid">
-            <article class="feature-card">
-              <span class="feature-index">01</span>
-              <div>
+          <div class="feature-list">
+            <article class="feature-row">
+              <div class="feature-meta">
+                <span class="feature-number">01</span>
                 <h3>Discovery</h3>
-                <p>Reads inventory from every supported platform into one normalized model.</p>
               </div>
+              <p>Reads inventory from every supported platform into one normalized model.</p>
             </article>
-            <article class="feature-card">
-              <span class="feature-index">02</span>
-              <div>
+            <article class="feature-row">
+              <div class="feature-meta">
+                <span class="feature-number">02</span>
                 <h3>Dependency mapping</h3>
-                <p>Builds a graph of network, storage, and backup relationships so you know what has to move together.</p>
               </div>
+              <p>Builds a graph of network, storage, and backup relationships so you know what has to move together.</p>
             </article>
-            <article class="feature-card">
-              <span class="feature-index">03</span>
-              <div>
+            <article class="feature-row">
+              <div class="feature-meta">
+                <span class="feature-number">03</span>
                 <h3>Controlled migration</h3>
-                <p>Plan, dry-run, approve, execute, and roll back from a CLI, API, or web dashboard that share the same state.</p>
               </div>
+              <p>Plan, dry-run, approve, execute, and roll back from a CLI, API, or web dashboard that share the same state.</p>
             </article>
           </div>
         </section>
 
         <section class="section" aria-labelledby="supported-platforms">
           <div class="section-heading">
+            <p class="section-index">02</p>
             <h2 id="supported-platforms">Supported platforms</h2>
+            <p class="section-intro">Connector coverage spans hypervisors, backup systems, and community extensions.</p>
           </div>
           <div class="table-wrap">
             <table class="platform-table">
@@ -180,12 +198,13 @@
 
         <section class="section" id="get-started" aria-labelledby="getting-started">
           <div class="section-heading">
+            <p class="section-index">03</p>
             <h2 id="getting-started">Getting started</h2>
-            <p>
+            <p class="section-intro">
               Clone the repo, build, and start the bundled lab runtime. The first run creates a config at <code>~/.viaduct/config.yaml</code> pointing at the included KVM fixtures.
             </p>
           </div>
-          <div class="start-layout">
+          <div class="start-card">
             <ol class="step-list">
               <li>Clone the repository.</li>
               <li>Build the CLI and web assets.</li>
