@@ -224,7 +224,7 @@ export function MigrationPrepareStage({ workspace }: StageProps) {
               <input className="w-full rounded-2xl border border-slate-200 px-4 py-3" type="datetime-local" value={workspace.scheduledEnd} onChange={(event) => workspace.setScheduledEnd(event.target.value)} />
             </label>
           </div>
-          <div className="mt-5 space-y-3 rounded-3xl bg-slate-50 px-4 py-4">
+            <div className="mt-5 space-y-3 rounded-2xl bg-slate-50 px-4 py-4">
             <label className="flex items-center gap-3 text-sm font-semibold text-ink"><input type="checkbox" checked={workspace.dependencyAware} onChange={(event) => workspace.setDependencyAware(event.target.checked)} />Keep wave planning dependency-aware</label>
             <label className="flex items-center gap-3 text-sm font-semibold text-ink"><input type="checkbox" checked={workspace.shutdownSource} onChange={(event) => workspace.setShutdownSource(event.target.checked)} />Shut down source workloads before export</label>
             <label className="flex items-center gap-3 text-sm font-semibold text-ink"><input type="checkbox" checked={workspace.verifyBoot} onChange={(event) => workspace.setVerifyBoot(event.target.checked)} />Verify target boot</label>
@@ -296,7 +296,7 @@ export function MigrationValidateStage({ workspace }: StageProps) {
           </div>
         }
       >
-        <div className="rounded-3xl bg-slate-50 px-4 py-4">
+            <div className="rounded-2xl bg-slate-50 px-4 py-4">
           <div className="flex flex-wrap gap-2">
             <StatusBadge tone={workspace.workflowPresentation.tone}>{workspace.workflowPresentation.label}</StatusBadge>
             {workspace.preflight && <StatusBadge tone={workspace.preflight.fail_count > 0 ? "danger" : workspace.preflight.warn_count > 0 ? "warning" : "success"}>{workspace.preflight.fail_count} blocker(s) • {workspace.preflight.warn_count} warning(s)</StatusBadge>}
@@ -393,7 +393,7 @@ function PlatformSelect({ value, onChange }: { value: Platform; onChange: (value
 
 export function MigrationMetric({ label, value, tone, detail }: { label: string; value: string; tone: StatusTone; detail: string }) {
   return (
-    <div className="rounded-3xl bg-slate-50 px-4 py-4">
+      <div className="rounded-2xl bg-slate-50 px-4 py-4">
       <div className="flex items-center justify-between gap-3">
         <p className="text-xs uppercase tracking-[0.18em] text-slate-500">{label}</p>
         <StatusBadge tone={tone}>{value}</StatusBadge>

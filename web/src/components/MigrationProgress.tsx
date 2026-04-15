@@ -58,7 +58,7 @@ export function MigrationProgress({ state, onRollback }: MigrationProgressProps)
 
   if (!state) {
     return (
-      <div className="rounded-3xl border border-dashed border-slate-300 px-4 py-8 text-sm text-slate-500">
+      <div className="rounded-2xl border border-dashed border-slate-300 px-4 py-8 text-sm text-slate-500">
         Start a migration to see per-VM progress.
       </div>
     );
@@ -113,7 +113,7 @@ export function MigrationProgress({ state, onRollback }: MigrationProgressProps)
         )}
 
         {state.plan && state.plan.waves.length > 0 && (
-          <div className="mt-4 rounded-3xl bg-slate-50 p-4 text-sm text-slate-600">
+        <div className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">
             <p className="font-semibold text-ink">Runbook</p>
             <p className="mt-1">Planned across {state.plan.waves.length} wave(s) with batch size {state.plan.wave_strategy.size ?? state.plan.waves.length}.</p>
           </div>

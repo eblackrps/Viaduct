@@ -258,7 +258,7 @@ function MetricCard({
   tone: "neutral" | "info" | "success" | "warning" | "danger" | "accent";
 }) {
   return (
-    <div className="rounded-3xl bg-slate-50 px-4 py-4">
+        <div className="rounded-2xl bg-slate-50 px-4 py-4">
       <div className="flex items-center justify-between gap-3">
         <p className="text-xs uppercase tracking-[0.18em] text-slate-500">{label}</p>
         <StatusBadge tone={tone}>{label}</StatusBadge>
