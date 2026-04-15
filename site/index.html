@@ -3,16 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Viaduct | Open-Source Control Plane For Virtualization Migration Assessment And Controlled Execution</title>
+    <title>Viaduct — Virtualization migration control plane</title>
     <meta
       name="description"
-      content="Viaduct is an open-source control plane for mixed virtualization discovery, dependency mapping, migration planning, controlled operator execution, and audit-ready reporting."
+      content="Open-source tooling to discover, plan, and execute migrations across VMware, Proxmox, Hyper-V, KVM, and Nutanix."
     />
-    <meta
-      name="keywords"
-      content="Viaduct, virtualization migration, discovery, dependency mapping, VMware, Proxmox, Hyper-V, KVM, Nutanix, Veeam, control plane"
-    />
-    <meta name="theme-color" content="#08111f" />
+    <meta name="theme-color" content="#fafaf9" />
     <meta name="robots" content="index,follow" />
     <link rel="canonical" href="https://viaducthq.com/" />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
@@ -21,22 +17,19 @@
     <meta property="og:site_name" content="Viaduct" />
     <meta property="og:locale" content="en_US" />
     <meta property="og:url" content="https://viaducthq.com/" />
-    <meta property="og:title" content="Viaduct | Open-Source Control Plane For Virtualization Migration Assessment And Controlled Execution" />
+    <meta property="og:title" content="Viaduct — Virtualization migration control plane" />
     <meta
       property="og:description"
-      content="Discover mixed estates, map dependencies, build migration plans, and run controlled operator workflows across mixed virtualization environments."
+      content="Open-source tooling to discover, plan, and execute migrations across VMware, Proxmox, Hyper-V, KVM, and Nutanix."
     />
     <meta property="og:image" content="https://viaducthq.com/social-card.svg" />
-    <meta
-      property="og:image:alt"
-      content="Viaduct: open-source control plane for mixed virtualization discovery, dependency mapping, migration planning, and supervised execution."
-    />
+    <meta property="og:image:alt" content="Viaduct — Virtualization migration control plane" />
 
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Viaduct | Open-Source Control Plane For Virtualization Migration Assessment And Controlled Execution" />
+    <meta name="twitter:title" content="Viaduct — Virtualization migration control plane" />
     <meta
       name="twitter:description"
-      content="Open-source control plane for discovery, dependency mapping, migration planning, supervised execution, and operator-visible reporting."
+      content="Open-source tooling to discover, plan, and execute migrations across VMware, Proxmox, Hyper-V, KVM, and Nutanix."
     />
     <meta name="twitter:image" content="https://viaducthq.com/social-card.svg" />
 
@@ -45,7 +38,7 @@
         "@context": "https://schema.org",
         "@type": "SoftwareSourceCode",
         "name": "Viaduct",
-        "description": "Open-source control plane for mixed virtualization discovery, dependency mapping, migration planning, controlled operator execution, and audit-ready reporting.",
+        "description": "Open-source tooling to discover, plan, and execute migrations across VMware, Proxmox, Hyper-V, KVM, and Nutanix.",
         "codeRepository": "https://github.com/eblackrps/Viaduct",
         "license": "https://github.com/eblackrps/Viaduct/blob/main/LICENSE",
         "url": "https://viaducthq.com/",
@@ -56,430 +49,147 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <a class="skip-link" href="#content">Skip to content</a>
-    <div class="page-shell">
-      <header class="site-header">
-        <div class="shell-inner header-inner">
-          <a class="brand" href="#top" aria-label="Viaduct home">
-            <span class="brand-mark" aria-hidden="true">V</span>
-            <span class="brand-copy">
-              <span class="brand-name">Viaduct</span>
-              <span class="brand-tag">operator control plane</span>
-            </span>
-          </a>
+    <header class="site-header">
+      <div class="shell header-row">
+        <a class="wordmark" href="/">Viaduct</a>
+        <nav class="site-nav" aria-label="Primary">
+          <a href="https://github.com/eblackrps/Viaduct/tree/main/docs">Docs</a>
+          <a href="https://github.com/eblackrps/Viaduct">GitHub</a>
+          <a href="https://github.com/eblackrps/Viaduct/blob/main/docs/releases/v2.1.0.md">v2.1.0</a>
+        </nav>
+      </div>
+    </header>
 
-          <nav class="site-nav" aria-label="Primary">
-            <a href="#why">Why Viaduct</a>
-            <a href="#capabilities">Capabilities</a>
-            <a href="#workflow">Workflow</a>
-            <a href="#coverage">Coverage</a>
-            <a href="#architecture">Architecture</a>
-            <a href="#get-started">Get started</a>
-          </nav>
-
-          <div class="header-actions">
-            <a class="button button-secondary button-compact" href="https://github.com/eblackrps/Viaduct/blob/main/docs/reference/openapi.yaml">
-              API contract
-            </a>
-            <a class="button button-primary button-compact" href="https://github.com/eblackrps/Viaduct">
-              GitHub
-            </a>
+    <main id="content" class="site-main">
+      <div class="shell">
+        <div class="hero">
+          <p class="hero-chip">Open source · Apache 2.0</p>
+          <h1>Virtualization migration without the guesswork.</h1>
+          <p class="lead">
+            Viaduct discovers mixed hypervisor estates, maps the dependencies between workloads, and runs migrations under operator control.
+          </p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="#get-started">Get started</a>
+            <a class="button button-secondary" href="https://github.com/eblackrps/Viaduct">View on GitHub</a>
           </div>
+          <p class="hero-note">Works with VMware, Proxmox, Hyper-V, KVM, Nutanix, and Veeam.</p>
         </div>
-      </header>
 
-      <main id="content">
-        <section class="hero-section" id="top">
-          <div class="shell-inner hero-grid">
-            <div class="hero-copy">
-              <p class="eyebrow">Open-source control plane for mixed virtualization environments</p>
-              <h1>Migration assessment, planning, and controlled execution for mixed estates.</h1>
-              <p class="hero-lead">
-                Discover mixed estates, normalize inventory, map dependencies, build migration plans, and manage controlled execution across VMware, Proxmox, Hyper-V, KVM, Nutanix, Veeam-backed, and plugin-extended environments.
-              </p>
-
-              <div class="status-callout" role="note" aria-label="Maturity note">
-                <strong>Operator-controlled by design.</strong>
-                <span>Start locally with the bundled lab, validate connectors in your own environment, and keep unattended automation assumptions narrow and explicit.</span>
-              </div>
-
-              <div class="hero-actions">
-                <a class="button button-primary" href="https://github.com/eblackrps/Viaduct/blob/main/QUICKSTART.md">Start locally</a>
-                <a class="button button-secondary" href="https://github.com/eblackrps/Viaduct/blob/main/INSTALL.md">Install guide</a>
-                <a class="button button-secondary" href="https://github.com/eblackrps/Viaduct/blob/main/README.md">Repository overview</a>
-              </div>
-
-              <div class="hero-proof-grid" aria-label="Trust signals">
-                <article class="signal-card">
-                  <p class="card-kicker">Open source</p>
-                  <h2>Apache 2.0</h2>
-                  <p>Developed in the open with the CLI, REST API, dashboard, docs, and packaging flow in one repository.</p>
-                </article>
-                <article class="signal-card">
-                  <p class="card-kicker">Operator control</p>
-                  <h2>Tenant-scoped workflows</h2>
-                  <p>Service accounts, tenant roles, request correlation, and persisted workspace state stay visible to the operator.</p>
-                </article>
-                <article class="signal-card">
-                  <p class="card-kicker">First run</p>
-                  <h2>`examples/lab` by default</h2>
-                  <p>The default path from fresh clone to first workspace, plan, and exported report is now `viaduct start` plus the bundled lab fixtures.</p>
-                </article>
-              </div>
-            </div>
-
-            <aside class="hero-panel" aria-labelledby="operator-workflow-title">
-              <div class="hero-panel-top">
-                <p class="panel-label">Operator workflow</p>
-                <p class="panel-version">workspace-first</p>
-              </div>
-
-              <div class="workspace-shell">
-                <div class="workspace-header">
-                  <div>
-                    <p class="workspace-title" id="operator-workflow-title">Controlled migration operations</p>
-                    <p class="workspace-subtitle">One persisted workspace from discovery through report export</p>
-                  </div>
-                  <span class="workspace-badge">tenant scoped</span>
-                </div>
-
-                <div class="workspace-metrics">
-                  <article>
-                    <span class="metric-label">Auth</span>
-                    <strong>Service account</strong>
-                  </article>
-                  <article>
-                    <span class="metric-label">State</span>
-                    <strong>Persisted jobs</strong>
-                  </article>
-                  <article>
-                    <span class="metric-label">Evidence</span>
-                    <strong>Reports and notes</strong>
-                  </article>
-                </div>
-
-                <ol class="workspace-flow">
-                  <li>
-                    <span class="flow-step">01</span>
-                    <div>
-                      <strong>Create workspace</strong>
-                      <p>Capture source details, credential references, and target assumptions in one operator-owned record.</p>
-                    </div>
-                  </li>
-                  <li>
-                    <span class="flow-step">02</span>
-                    <div>
-                      <strong>Discover and inspect</strong>
-                      <p>Persist inventory snapshots and dependency outputs before planning or simulation starts.</p>
-                    </div>
-                  </li>
-                  <li>
-                    <span class="flow-step">03</span>
-                    <div>
-                      <strong>Simulate and plan</strong>
-                      <p>Review readiness, recommendations, and dry-run plans with the same backend state and job history.</p>
-                    </div>
-                  </li>
-                  <li>
-                    <span class="flow-step">04</span>
-                    <div>
-                      <strong>Export and hand off</strong>
-                      <p>Keep notes, approvals, and exported reports attached to the same workspace for pilot review.</p>
-                    </div>
-                  </li>
-                </ol>
-
-                <div class="workspace-footer">
-                  <span class="job-pill job-done">discovery</span>
-                  <span class="job-pill job-done">graph</span>
-                  <span class="job-pill job-review">simulation</span>
-                  <span class="job-pill job-done">report export</span>
-                </div>
-              </div>
-            </aside>
+        <section class="section" aria-labelledby="what-it-does">
+          <div class="section-heading">
+            <h2 id="what-it-does">What it does</h2>
+          </div>
+          <div class="feature-grid">
+            <article class="feature-card">
+              <span class="feature-index">01</span>
+              <h3>Discovery</h3>
+              <p>Reads inventory from every supported platform into one normalized model.</p>
+            </article>
+            <article class="feature-card">
+              <span class="feature-index">02</span>
+              <h3>Dependency mapping</h3>
+              <p>Builds a graph of network, storage, and backup relationships so you know what has to move together.</p>
+            </article>
+            <article class="feature-card">
+              <span class="feature-index">03</span>
+              <h3>Controlled migration</h3>
+              <p>Plan, dry-run, approve, execute, and roll back from a CLI, API, or web dashboard that share the same state.</p>
+            </article>
           </div>
         </section>
 
-        <section class="section section-compact" id="why">
-          <div class="shell-inner">
-            <div class="section-heading">
-              <p class="eyebrow">Why Viaduct</p>
-              <h2>Built for the operators who need migration clarity before they commit to execution.</h2>
-              <p>
-                In mixed estates, the hard part is rarely just moving bits. Operators need current inventory, dependency context, planning discipline, and evidence they can hand to the next review step.
-              </p>
-            </div>
-
-            <div class="use-case-grid">
-              <article class="surface-card">
-                <p class="card-kicker">Mixed-estate visibility</p>
-                <h3>Normalize inventory across platforms</h3>
-                <p>Bring VMware, Proxmox, Hyper-V, KVM, Nutanix, and Veeam context into one operator surface instead of working from disconnected inventories.</p>
-              </article>
-              <article class="surface-card">
-                <p class="card-kicker">Dependency context</p>
-                <h3>See what should move together</h3>
-                <p>Use network, storage, and backup relationships to understand clustering, sequencing, and risk before the first pilot workload is chosen.</p>
-              </article>
-              <article class="surface-card">
-                <p class="card-kicker">Handoff-ready evidence</p>
-                <h3>Keep notes, plans, and exports aligned</h3>
-                <p>Persist the workspace record so discovery, simulation, saved plans, approvals, and exported reports stay tied to the same operator story.</p>
-              </article>
-            </div>
+        <section class="section" aria-labelledby="supported-platforms">
+          <div class="section-heading">
+            <h2 id="supported-platforms">Supported platforms</h2>
           </div>
+          <div class="table-wrap">
+            <table class="platform-table">
+              <thead>
+                <tr>
+                  <th scope="col">Platform</th>
+                  <th scope="col">Method</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>VMware vSphere</td>
+                  <td>vCenter API</td>
+                </tr>
+                <tr>
+                  <td>Proxmox VE</td>
+                  <td>REST API</td>
+                </tr>
+                <tr>
+                  <td>Microsoft Hyper-V</td>
+                  <td>WinRM + PowerShell</td>
+                </tr>
+                <tr>
+                  <td>KVM / libvirt</td>
+                  <td>libvirt (optional live) or XML fixtures</td>
+                </tr>
+                <tr>
+                  <td>Nutanix AHV</td>
+                  <td>Prism Central v3</td>
+                </tr>
+                <tr>
+                  <td>Veeam B&amp;R</td>
+                  <td>Backup and restore-point correlation</td>
+                </tr>
+                <tr>
+                  <td>Community plugins</td>
+                  <td>gRPC plugin host</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="section-note">
+            See the <a class="inline-link" href="https://github.com/eblackrps/Viaduct/blob/main/docs/reference/support-matrix.md">support matrix</a> for version coverage and caveats.
+          </p>
         </section>
 
-        <section class="section" id="capabilities">
-          <div class="shell-inner">
-            <div class="section-heading">
-              <p class="eyebrow">Core capabilities</p>
-              <h2>Professional operator surfaces built on the existing CLI, API, and shared backend model.</h2>
-              <p>
-                Viaduct keeps the current stack intact: Go backend, REST API, CLI, React dashboard in <code>web/</code>, and a static public site in <code>site/</code>. The product value comes from the shared model and disciplined workflow.
-              </p>
-            </div>
-
-            <div class="capability-grid">
-              <article class="surface-card">
-                <p class="card-kicker">Discovery</p>
-                <h3>Inventory normalization</h3>
-                <p>Collect mixed-platform inventory and infrastructure metadata into one operator-visible schema before planning begins.</p>
-              </article>
-              <article class="surface-card">
-                <p class="card-kicker">Analysis</p>
-                <h3>Dependency mapping</h3>
-                <p>Build workload, network, storage, and backup graph context so planning stays grounded in the actual estate.</p>
-              </article>
-              <article class="surface-card">
-                <p class="card-kicker">Planning</p>
-                <h3>Migration planning and supervised execution</h3>
-                <p>Use declarative specs, readiness checks, saved plans, checkpoints, and operator-controlled execution instead of frontend-only assumptions.</p>
-              </article>
-              <article class="surface-card">
-                <p class="card-kicker">Operations</p>
-                <h3>Reports, auditability, and tenant context</h3>
-                <p>Keep request correlation, service-account permissions, exported reports, and tenant-scoped operations visible across the dashboard and API.</p>
-              </article>
-            </div>
+        <section class="section" id="get-started" aria-labelledby="getting-started">
+          <div class="section-heading">
+            <h2 id="getting-started">Getting started</h2>
+            <p>
+              Clone the repo, build, and start the bundled lab runtime. The first run creates a config at <code>~/.viaduct/config.yaml</code> pointing at the included KVM fixtures.
+            </p>
           </div>
+          <div class="start-layout">
+            <ol class="step-list">
+              <li>Clone the repository.</li>
+              <li>Build the CLI and web assets.</li>
+              <li>Start the bundled lab runtime.</li>
+            </ol>
+            <pre><code>git clone https://github.com/eblackrps/Viaduct
+cd Viaduct
+make build web-build
+./bin/viaduct start</code></pre>
+          </div>
+          <p class="section-note">
+            Opens at <a class="inline-link" href="http://127.0.0.1:8080">http://127.0.0.1:8080</a>. Full install guide:
+            <a class="inline-link" href="https://github.com/eblackrps/Viaduct/blob/main/INSTALL.md">INSTALL.md</a>.
+          </p>
         </section>
+      </div>
+    </main>
 
-        <section class="section section-compact">
-          <div class="shell-inner">
-            <div class="trust-panel">
-              <div>
-                <p class="eyebrow">Open source and operator controlled</p>
-                <h2>Designed for controlled operator rollout, reviewable change control, and documented handoff.</h2>
-              </div>
-              <ul class="truth-list">
-                <li>The repo ships the CLI, API, dashboard, docs, examples, release packaging, and published OpenAPI contract together.</li>
-                <li>PostgreSQL is the recommended persistent backend outside the demo path, while the lab stays fast with the in-memory store.</li>
-                <li><code>make release-gate</code> remains the canonical verification path for backend, frontend, packaging, and smoke coverage.</li>
-              </ul>
-            </div>
-          </div>
-        </section>
-
-        <section class="section" id="workflow">
-          <div class="shell-inner">
-            <div class="section-heading">
-              <p class="eyebrow">Operator workflow</p>
-              <h2>A guided workflow from bootstrap through report export.</h2>
-              <p>
-                The current operator experience starts with runtime authentication, then moves through one workspace record that keeps discovery, dependency analysis, readiness, plan state, and report export connected.
-              </p>
-            </div>
-
-            <div class="workflow-grid">
-              <article class="surface-card workflow-card">
-                <span class="workflow-index">01</span>
-                <h3>Bootstrap access</h3>
-                <p>Use the local single-user path for the default lab start, or switch to service-account and tenant credentials when you move into shared operator environments.</p>
-              </article>
-              <article class="surface-card workflow-card">
-                <span class="workflow-index">02</span>
-                <h3>Create a workspace</h3>
-                <p>Start with a named assessment record that holds the source connection, target assumptions, plan defaults, and operator notes.</p>
-              </article>
-              <article class="surface-card workflow-card">
-                <span class="workflow-index">03</span>
-                <h3>Discover and inspect</h3>
-                <p>Persist snapshots and dependency outputs so the same evidence survives refreshes, retries, and support handoffs.</p>
-              </article>
-              <article class="surface-card workflow-card">
-                <span class="workflow-index">04</span>
-                <h3>Simulate readiness</h3>
-                <p>Review readiness, policy issues, and remediation signals against the same workspace instead of detached reports.</p>
-              </article>
-              <article class="surface-card workflow-card">
-                <span class="workflow-index">05</span>
-                <h3>Save the plan</h3>
-                <p>Persist dry-run migration state through the backend migration model so operator review stays reproducible.</p>
-              </article>
-              <article class="surface-card workflow-card">
-                <span class="workflow-index">06</span>
-                <h3>Export evidence</h3>
-                <p>Attach reports, notes, and approval history to the same workspace so pilot review stays traceable.</p>
-              </article>
-            </div>
-          </div>
-        </section>
-
-        <section class="section section-compact" id="coverage">
-          <div class="shell-inner">
-            <div class="section-heading">
-              <p class="eyebrow">Platform coverage</p>
-              <h2>Coverage for the mixed environments operators actually inherit.</h2>
-              <p>
-                Viaduct focuses on mixed hypervisor estates where discovery, planning, and operator visibility matter as much as the eventual move itself.
-              </p>
-            </div>
-
-            <div class="coverage-grid">
-              <article class="coverage-card">
-                <h3>VMware</h3>
-                <p>vSphere discovery and migration planning inputs.</p>
-              </article>
-              <article class="coverage-card">
-                <h3>Proxmox</h3>
-                <p>REST-backed discovery and a common target in current pilot examples.</p>
-              </article>
-              <article class="coverage-card">
-                <h3>Hyper-V</h3>
-                <p>WinRM and PowerShell-backed collection.</p>
-              </article>
-              <article class="coverage-card">
-                <h3>KVM</h3>
-                <p>Fixture-backed local lab plus optional live libvirt support.</p>
-              </article>
-              <article class="coverage-card">
-                <h3>Nutanix</h3>
-                <p>Prism Central v3 discovery and planning visibility.</p>
-              </article>
-              <article class="coverage-card">
-                <h3>Veeam</h3>
-                <p>Backup discovery, restore-point correlation, and portability context.</p>
-              </article>
-              <article class="coverage-card">
-                <h3>Community plugins</h3>
-                <p>gRPC-based extension path with compatibility and health checks.</p>
-              </article>
-            </div>
-          </div>
-        </section>
-
-        <section class="section" id="architecture">
-          <div class="shell-inner">
-            <div class="section-heading">
-              <p class="eyebrow">Architecture</p>
-              <h2>One shared model across connectors, jobs, plans, and reports.</h2>
-              <p>
-                The architecture stays intentionally straightforward: connectors normalize source data, the core engines build planning context, and the operator surfaces share the same persisted backend truth.
-              </p>
-            </div>
-
-            <div class="architecture-grid">
-              <article class="surface-card">
-                <p class="card-kicker">Connectors</p>
-                <h3>Read-only collection first</h3>
-                <p>Platform-specific connectors normalize source metadata into the shared model before planning or execution logic is applied.</p>
-              </article>
-              <article class="surface-card">
-                <p class="card-kicker">Core engines</p>
-                <h3>Discovery, graph, migrate, lifecycle</h3>
-                <p>The four-engine structure keeps discovery, dependency analysis, migration planning, and lifecycle analysis reviewable and separable.</p>
-              </article>
-              <article class="surface-card">
-                <p class="card-kicker">Persistence</p>
-                <h3>Workspace and job state survives refreshes</h3>
-                <p>Persisted workspaces, job history, notes, and report exports stay available across retries, refreshes, and operator handoff.</p>
-              </article>
-              <article class="surface-card">
-                <p class="card-kicker">Operator surfaces</p>
-                <h3>CLI, API, and dashboard share the same truth</h3>
-                <p>The dashboard is not a separate demo shell. It reflects the same tenant-scoped state used by the API and CLI.</p>
-              </article>
-            </div>
-
-            <div class="stack-strip" aria-label="Viaduct architecture stack">
-              <div>Source connectors</div>
-              <div>Discovery snapshots</div>
-              <div>Dependency graph</div>
-              <div>Plans and simulations</div>
-              <div>Reports and approvals</div>
-            </div>
-          </div>
-        </section>
-
-        <section class="section" id="get-started">
-          <div class="shell-inner">
-            <div class="section-heading">
-              <p class="eyebrow">Get started</p>
-              <h2>The cleanest path starts local, then moves outward deliberately.</h2>
-              <p>
-                Fresh clone to first successful workspace and report flow should be reproducible from source. The local lab, operator docs, API contract, and release packaging stay aligned around that expectation.
-              </p>
-            </div>
-
-            <div class="evaluation-grid">
-              <article class="surface-card">
-                <p class="card-kicker">Recommended order</p>
-                <h3>1. Build and start</h3>
-                <p>Run <code>make build</code>, <code>make web-build</code>, and <code>viaduct start</code> to bring up the default local runtime at <code>http://127.0.0.1:8080</code>.</p>
-              </article>
-              <article class="surface-card">
-                <p class="card-kicker">Recommended order</p>
-                <h3>2. Run the workspace flow</h3>
-                <p>Create a workspace, discover, inspect, simulate, save a plan, and export a report against the bundled lab fixtures before you point Viaduct at a live estate.</p>
-              </article>
-              <article class="surface-card">
-                <p class="card-kicker">Recommended order</p>
-                <h3>3. Expand into a pilot</h3>
-                <p>Switch to PostgreSQL, keep service-account access explicit, review the API contract, and validate connector-specific behavior in your own controlled environment.</p>
-              </article>
-            </div>
-
-            <div class="cta-panel">
-              <div>
-                <p class="eyebrow">Open source and documented</p>
-                <h3>Install, start, inspect the API, and work from the same public repository.</h3>
-                <p>
-                  The public site stays concise. The detailed install steps, startup flow, operator workflow, and API contract live in the repo and ship with the same release process.
-                </p>
-              </div>
-              <div class="cta-actions">
-                <a class="button button-primary" href="https://github.com/eblackrps/Viaduct/blob/main/QUICKSTART.md">Start locally</a>
-                <a class="button button-secondary" href="https://github.com/eblackrps/Viaduct/blob/main/INSTALL.md">Install guide</a>
-                <a class="button button-secondary" href="https://github.com/eblackrps/Viaduct/blob/main/docs/reference/openapi.yaml">OpenAPI</a>
-                <a class="button button-secondary" href="https://github.com/eblackrps/Viaduct">Repository</a>
-              </div>
-            </div>
-          </div>
-        </section>
-      </main>
-
-      <footer class="site-footer">
-        <div class="shell-inner footer-inner">
-          <div>
-            <p class="footer-title">Viaduct</p>
-            <p class="footer-copy">Open-source control plane for mixed virtualization discovery, planning, controlled execution, and operator-visible reporting.</p>
-          </div>
-          <div class="footer-links" aria-label="Footer">
-            <a href="https://github.com/eblackrps/Viaduct/blob/main/README.md">Overview</a>
-            <a href="https://github.com/eblackrps/Viaduct/blob/main/QUICKSTART.md">Quickstart</a>
-            <a href="https://github.com/eblackrps/Viaduct/blob/main/INSTALL.md">Install</a>
-            <a href="https://github.com/eblackrps/Viaduct/blob/main/docs/reference/openapi.yaml">API contract</a>
-            <a href="https://github.com/eblackrps/Viaduct/blob/main/SUPPORT.md">Support</a>
-          </div>
-        </div>
-      </footer>
-    </div>
+    <footer class="site-footer">
+      <div class="shell footer-row">
+        <p>Viaduct — Apache 2.0</p>
+        <nav class="footer-links" aria-label="Footer">
+          <a href="https://github.com/eblackrps/Viaduct/tree/main/docs">Docs</a>
+          <a href="https://github.com/eblackrps/Viaduct/blob/main/QUICKSTART.md">Quickstart</a>
+          <a href="https://github.com/eblackrps/Viaduct/blob/main/docs/reference/openapi.yaml">OpenAPI</a>
+          <a href="https://github.com/eblackrps/Viaduct/blob/main/SECURITY.md">Security</a>
+        </nav>
+      </div>
+    </footer>
   </body>
 </html>

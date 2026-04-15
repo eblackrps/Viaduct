@@ -3,40 +3,41 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Not Found | Viaduct</title>
-    <meta
-      name="description"
-      content="This route is not part of the current Viaduct site. Return to the homepage, quickstart, install guide, or repository."
-    />
-    <meta name="theme-color" content="#08111f" />
+    <title>Page not found — Viaduct</title>
+    <meta name="description" content="That URL is not part of the Viaduct site." />
+    <meta name="theme-color" content="#fafaf9" />
     <meta name="robots" content="noindex" />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <a class="skip-link" href="#content">Skip to content</a>
-    <div class="page-shell">
-      <main class="error-shell" id="content">
-        <section class="error-panel" aria-labelledby="not-found-title">
-          <p class="eyebrow">404</p>
-          <h1 id="not-found-title">This page is outside the current Viaduct site map.</h1>
-          <p>
-            Head back to the main site or jump directly into the repo entrypoints for installation, local startup, quickstart guidance, and the published operator API contract.
-          </p>
-          <div class="error-links">
-            <a class="button button-primary" href="./">Return home</a>
-            <a class="button button-secondary" href="https://github.com/eblackrps/Viaduct/blob/main/QUICKSTART.md">Quickstart</a>
-            <a class="button button-secondary" href="https://github.com/eblackrps/Viaduct/blob/main/INSTALL.md">Install</a>
-            <a class="button button-secondary" href="https://github.com/eblackrps/Viaduct/blob/main/docs/reference/openapi.yaml">API contract</a>
-          </div>
-        </section>
-      </main>
-    </div>
+    <header class="site-header">
+      <div class="shell header-row">
+        <a class="wordmark" href="/">Viaduct</a>
+        <nav class="site-nav" aria-label="Primary">
+          <a href="https://github.com/eblackrps/Viaduct/tree/main/docs">Docs</a>
+          <a href="https://github.com/eblackrps/Viaduct">GitHub</a>
+          <a href="/">Home</a>
+        </nav>
+      </div>
+    </header>
+
+    <main id="content" class="site-main error-main">
+      <div class="shell">
+        <div class="error-card">
+          <p class="error-eyebrow">404</p>
+          <h1>Page not found.</h1>
+          <p class="lead">That URL is not part of this site.</p>
+          <a class="button button-secondary" href="/">Return home</a>
+        </div>
+      </div>
+    </main>
   </body>
 </html>
