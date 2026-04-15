@@ -205,15 +205,45 @@
             </p>
           </div>
           <div class="start-card">
-            <ol class="step-list">
-              <li>Clone the repository.</li>
-              <li>Build the CLI and web assets.</li>
-              <li>Start the bundled lab runtime.</li>
-            </ol>
-            <pre class="command-block"><code>git clone https://github.com/eblackrps/Viaduct
-cd Viaduct
-make build web-build
-./bin/viaduct start</code></pre>
+            <div class="start-steps">
+              <ol class="step-list">
+                <li>
+                  <span class="step-index-pill">1</span>
+                  <div>
+                    <strong>Clone the repository.</strong>
+                    <p>Pull the current source so the local lab, CLI, and web assets stay aligned.</p>
+                  </div>
+                </li>
+                <li>
+                  <span class="step-index-pill">2</span>
+                  <div>
+                    <strong>Build the CLI and web assets.</strong>
+                    <p>Compile the binary and bundle the dashboard before starting the local runtime.</p>
+                  </div>
+                </li>
+                <li>
+                  <span class="step-index-pill">3</span>
+                  <div>
+                    <strong>Start the bundled lab runtime.</strong>
+                    <p>Launch the first-run environment backed by the included KVM fixtures and dashboard assets.</p>
+                  </div>
+                </li>
+              </ol>
+            </div>
+            <div class="terminal-panel" aria-label="Quickstart terminal commands">
+              <div class="terminal-toolbar">
+                <div class="terminal-lights" aria-hidden="true">
+                  <span class="terminal-light terminal-light-red"></span>
+                  <span class="terminal-light terminal-light-amber"></span>
+                  <span class="terminal-light terminal-light-green"></span>
+                </div>
+                <p class="terminal-title">Local lab bootstrap</p>
+              </div>
+              <pre class="command-block"><code><span class="command-line"><span class="command-prompt">$</span>git clone https://github.com/eblackrps/Viaduct</span>
+<span class="command-line"><span class="command-prompt">$</span>cd Viaduct</span>
+<span class="command-line"><span class="command-prompt">$</span>make build web-build</span>
+<span class="command-line"><span class="command-prompt">$</span>./bin/viaduct start</span></code></pre>
+            </div>
           </div>
           <p class="section-note">
             Opens at <a class="inline-link" href="http://127.0.0.1:8080">http://127.0.0.1:8080</a>. Full install guide:
