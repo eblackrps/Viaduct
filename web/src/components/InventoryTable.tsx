@@ -350,7 +350,7 @@ export function InventoryTable({
 											/>
 										</td>
 										<td className="px-3 py-3">
-									<div className="space-y-1">
+											<div className="space-y-1">
 												<p className="font-semibold text-ink">{row.vm.name}</p>
 												<p className="text-xs text-slate-600">
 													{row.vm.guest_os || "Guest OS unavailable"}

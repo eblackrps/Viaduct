@@ -82,7 +82,10 @@ export function PlatformSummary({ inventory }: PlatformSummaryProps) {
 										{row.count} VM{row.count === 1 ? "" : "s"}
 									</p>
 								</div>
-								<div aria-hidden="true" className="mt-3 h-2.5 rounded-full bg-slate-200">
+								<div
+									aria-hidden="true"
+									className="mt-3 h-2.5 rounded-full bg-slate-200"
+								>
 									<div
 										className="h-full rounded-full bg-ink"
 										style={{
