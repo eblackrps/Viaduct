@@ -72,6 +72,39 @@ func TestMemoryStore_ListSnapshots_TenantScoped(t *testing.T) {
 	}
 }
 
+func TestMemoryStore_ListSnapshotsPage_ReturnsWindowAndTotal_Expected(t *testing.T) {
+	t.Parallel()
+
+	stateStore := NewMemoryStore()
+	ctx := context.Background()
+
+	for index := 0; index < 3; index++ {
+		_, err := stateStore.SaveDiscovery(ctx, DefaultTenantID, &models.DiscoveryResult{
+			Source:       "source",
+			Platform:     models.PlatformVMware,
+			DiscoveredAt: time.Date(2026, time.April, 3, 12, index, 0, 0, time.UTC),
+		})
+		if err != nil {
+			t.Fatalf("SaveDiscovery(%d) error = %v", index, err)
+		}
+	}
+
+	items, total, err := stateStore.ListSnapshotsPage(ctx, DefaultTenantID, models.PlatformVMware, 2, 1)
+	if err != nil {
+		t.Fatalf("ListSnapshotsPage() error = %v", err)
+	}
+
+	if total != 3 {
+		t.Fatalf("total = %d, want 3", total)
+	}
+	if len(items) != 1 {
+		t.Fatalf("len(items) = %d, want 1", len(items))
+	}
+	if got, want := items[0].DiscoveredAt, time.Date(2026, time.April, 3, 12, 1, 0, 0, time.UTC); !got.Equal(want) {
+		t.Fatalf("items[0].DiscoveredAt = %s, want %s", got, want)
+	}
+}
+
 func TestMemoryStore_QueryVMs_TenantScoped(t *testing.T) {
 	t.Parallel()
 
@@ -164,6 +197,42 @@ func TestMemoryStore_SaveAndListMigration_TenantScoped(t *testing.T) {
 
 	if len(items) != 1 || items[0].ID != "mig-001" || items[0].TenantID != "tenant-a" {
 		t.Fatalf("unexpected migration metadata: %#v", items)
+	}
+}
+
+func TestMemoryStore_ListMigrationsPage_ReturnsWindowAndTotal_Expected(t *testing.T) {
+	t.Parallel()
+
+	stateStore := NewMemoryStore()
+	ctx := context.Background()
+
+	for index := 0; index < 3; index++ {
+		err := stateStore.SaveMigration(ctx, DefaultTenantID, MigrationRecord{
+			ID:        "migration-" + string(rune('a'+index)),
+			SpecName:  "phase-test",
+			Phase:     "plan",
+			StartedAt: time.Date(2026, time.April, 4, 10, 0, 0, 0, time.UTC),
+			UpdatedAt: time.Date(2026, time.April, 4, 10, index, 0, 0, time.UTC),
+			RawJSON:   json.RawMessage(`{"phase":"plan"}`),
+		})
+		if err != nil {
+			t.Fatalf("SaveMigration(%d) error = %v", index, err)
+		}
+	}
+
+	items, total, err := stateStore.ListMigrationsPage(ctx, DefaultTenantID, 2, 1)
+	if err != nil {
+		t.Fatalf("ListMigrationsPage() error = %v", err)
+	}
+
+	if total != 3 {
+		t.Fatalf("total = %d, want 3", total)
+	}
+	if len(items) != 1 {
+		t.Fatalf("len(items) = %d, want 1", len(items))
+	}
+	if got, want := items[0].UpdatedAt, time.Date(2026, time.April, 4, 10, 1, 0, 0, time.UTC); !got.Equal(want) {
+		t.Fatalf("items[0].UpdatedAt = %s, want %s", got, want)
 	}
 }
 

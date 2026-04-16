@@ -29,6 +29,7 @@ Start the local operator runtime:
 On a fresh source checkout, `viaduct start` generates the default local lab config when `~/.viaduct/config.yaml` is missing, serves the built dashboard and API together, and prints the WebUI URL.
 
 The default local URL is [http://127.0.0.1:8080](http://127.0.0.1:8080).
+The same runtime also serves live API docs at [http://127.0.0.1:8080/api/v1/docs](http://127.0.0.1:8080/api/v1/docs).
 
 ## Install From A Release Bundle
 
@@ -87,8 +88,9 @@ The cleanest evaluation path is still the local lab in [examples/lab](examples/l
 For packaged or persistent evaluation environments:
 - use PostgreSQL instead of the in-memory store
 - prefer service-account keys for normal operator access
-- set `VIADUCT_ALLOWED_ORIGINS` only when the dashboard is served from a different origin than the API
+- keep `VIADUCT_ALLOWED_ORIGINS` empty for same-origin deployments; set it only when the dashboard is served from a different origin than the API
 - set `VIADUCT_WEB_DIR` only when you keep built dashboard assets in a non-standard location
 - tune `VIADUCT_WORKSPACE_JOB_TIMEOUT` if discovery or planning jobs need a different server-side timeout budget
+- keep the dashboard runtime auth flow on its default server-backed session path unless you have a reason to pre-seed browser credentials in development
 - keep the Vite dev server out of any shared or internet-facing environment
 - use `viaduct serve-api` directly for service, container, or intentionally headless deployments

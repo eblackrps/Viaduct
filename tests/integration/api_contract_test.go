@@ -24,6 +24,13 @@ func TestOpenAPISpec_StableRoutesDocumented_Expected(t *testing.T) {
 	if document["openapi"] != "3.1.0" {
 		t.Fatalf("openapi = %#v, want 3.1.0", document["openapi"])
 	}
+	info, ok := document["info"].(map[string]any)
+	if !ok {
+		t.Fatalf("info = %#v, want map", document["info"])
+	}
+	if info["version"] != "v2" {
+		t.Fatalf("info.version = %#v, want v2", info["version"])
+	}
 
 	paths, ok := document["paths"].(map[string]any)
 	if !ok {
@@ -33,12 +40,16 @@ func TestOpenAPISpec_StableRoutesDocumented_Expected(t *testing.T) {
 		"/api/v1/health",
 		"/api/v1/about",
 		"/api/v1/inventory",
+		"/api/v1/snapshots",
 		"/api/v1/summary",
 		"/api/v1/workspaces",
 		"/api/v1/workspaces/{workspaceID}",
 		"/api/v1/tenants/current",
 		"/api/v1/service-accounts",
 		"/api/v1/migrations",
+		"/api/v2/inventory",
+		"/api/v2/snapshots",
+		"/api/v2/migrations",
 	} {
 		if _, ok := paths[route]; !ok {
 			t.Fatalf("OpenAPI paths missing %s", route)

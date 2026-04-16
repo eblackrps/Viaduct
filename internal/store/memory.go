@@ -131,9 +131,18 @@ func (s *MemoryStore) GetSnapshot(ctx context.Context, tenantID, snapshotID stri
 
 // ListSnapshots returns snapshot metadata from the in-memory store.
 func (s *MemoryStore) ListSnapshots(ctx context.Context, tenantID string, platform models.Platform, limit int) ([]SnapshotMeta, error) {
+	items, _, err := s.ListSnapshotsPage(ctx, tenantID, platform, 1, limit)
+	if err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+// ListSnapshotsPage returns paginated snapshot metadata from the in-memory store.
+func (s *MemoryStore) ListSnapshotsPage(ctx context.Context, tenantID string, platform models.Platform, page, perPage int) ([]SnapshotMeta, int, error) {
 	select {
 	case <-ctx.Done():
-		return nil, fmt.Errorf("memory store: list snapshots: %w", ctx.Err())
+		return nil, 0, fmt.Errorf("memory store: list snapshots: %w", ctx.Err())
 	default:
 	}
 
@@ -142,34 +151,9 @@ func (s *MemoryStore) ListSnapshots(ctx context.Context, tenantID string, platfo
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	items := make([]SnapshotMeta, 0, len(s.snapshots))
-	for id, snapshot := range s.snapshots {
-		if snapshot.result == nil || snapshot.tenantID != tenantID {
-			continue
-		}
-		if platform != "" && snapshot.result.Platform != platform {
-			continue
-		}
-
-		items = append(items, SnapshotMeta{
-			ID:           id,
-			TenantID:     tenantID,
-			Source:       snapshot.result.Source,
-			Platform:     snapshot.result.Platform,
-			VMCount:      len(snapshot.result.VMs),
-			DiscoveredAt: snapshot.result.DiscoveredAt,
-		})
-	}
-
-	sort.Slice(items, func(i, j int) bool {
-		return items[i].DiscoveredAt.After(items[j].DiscoveredAt)
-	})
-
-	if limit > 0 && len(items) > limit {
-		items = items[:limit]
-	}
-
-	return items, nil
+	items := s.listSnapshotsLocked(tenantID, platform)
+	total := len(items)
+	return paginateItems(items, page, perPage), total, nil
 }
 
 // QueryVMs returns VMs from stored snapshots that match the supplied filter.
@@ -265,9 +249,18 @@ func (s *MemoryStore) GetMigration(ctx context.Context, tenantID, migrationID st
 
 // ListMigrations returns migration metadata ordered from newest to oldest.
 func (s *MemoryStore) ListMigrations(ctx context.Context, tenantID string, limit int) ([]MigrationMeta, error) {
+	items, _, err := s.ListMigrationsPage(ctx, tenantID, 1, limit)
+	if err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+// ListMigrationsPage returns paginated migration metadata ordered from newest to oldest.
+func (s *MemoryStore) ListMigrationsPage(ctx context.Context, tenantID string, page, perPage int) ([]MigrationMeta, int, error) {
 	select {
 	case <-ctx.Done():
-		return nil, fmt.Errorf("memory store: list migrations: %w", ctx.Err())
+		return nil, 0, fmt.Errorf("memory store: list migrations: %w", ctx.Err())
 	default:
 	}
 
@@ -276,6 +269,38 @@ func (s *MemoryStore) ListMigrations(ctx context.Context, tenantID string, limit
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
+	items := s.listMigrationsLocked(tenantID)
+	total := len(items)
+	return paginateItems(items, page, perPage), total, nil
+}
+
+func (s *MemoryStore) listSnapshotsLocked(tenantID string, platform models.Platform) []SnapshotMeta {
+	items := make([]SnapshotMeta, 0, len(s.snapshots))
+	for id, snapshot := range s.snapshots {
+		if snapshot.result == nil || snapshot.tenantID != tenantID {
+			continue
+		}
+		if platform != "" && snapshot.result.Platform != platform {
+			continue
+		}
+
+		items = append(items, SnapshotMeta{
+			ID:           id,
+			TenantID:     tenantID,
+			Source:       snapshot.result.Source,
+			Platform:     snapshot.result.Platform,
+			VMCount:      len(snapshot.result.VMs),
+			DiscoveredAt: snapshot.result.DiscoveredAt,
+		})
+	}
+
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].DiscoveredAt.After(items[j].DiscoveredAt)
+	})
+	return items
+}
+
+func (s *MemoryStore) listMigrationsLocked(tenantID string) []MigrationMeta {
 	items := make([]MigrationMeta, 0, len(s.migrations))
 	for _, item := range s.migrations {
 		if item.tenantID != tenantID {
@@ -296,12 +321,7 @@ func (s *MemoryStore) ListMigrations(ctx context.Context, tenantID string, limit
 	sort.Slice(items, func(i, j int) bool {
 		return items[i].UpdatedAt.After(items[j].UpdatedAt)
 	})
-
-	if limit > 0 && len(items) > limit {
-		items = items[:limit]
-	}
-
-	return items, nil
+	return items
 }
 
 // SaveRecoveryPoint persists a serialized recovery point in memory.
@@ -894,6 +914,25 @@ func (s *MemoryStore) migrationCountLocked(tenantID string) int {
 		}
 	}
 	return count
+}
+
+func paginateItems[T any](items []T, page, perPage int) []T {
+	if perPage <= 0 {
+		return append([]T(nil), items...)
+	}
+	if page <= 0 {
+		page = 1
+	}
+
+	start := (page - 1) * perPage
+	if start >= len(items) {
+		return []T{}
+	}
+	end := start + perPage
+	if end > len(items) {
+		end = len(items)
+	}
+	return append([]T(nil), items[start:end]...)
 }
 
 func matchesFilter(vm models.VirtualMachine, filter VMFilter) bool {

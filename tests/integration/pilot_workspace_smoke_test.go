@@ -39,7 +39,10 @@ func TestPilotWorkspace_LabFlow_CreateDiscoverGraphSimulatePlanReport_Expected(t
 		t.Fatalf("CreateTenant() error = %v", err)
 	}
 
-	server := api.NewServer(nil, stateStore, 0, nil)
+	server, err := api.NewServer(nil, stateStore, 0, nil)
+	if err != nil {
+		t.Fatalf("NewServer() error = %v", err)
+	}
 	handler := server.Handler()
 
 	createRecorder := sendWorkspaceRequest(t, handler, "sa-pilot-key", http.MethodPost, "/api/v1/workspaces", `{

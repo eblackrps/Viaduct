@@ -16,7 +16,7 @@ import (
 func TestServer_WithObservability_AddsRequestIDAndMetrics_Expected(t *testing.T) {
 	t.Parallel()
 
-	server := NewServer(nil, store.NewMemoryStore(), 0, nil)
+	server := mustNewServer(t, store.NewMemoryStore())
 	handler := server.withObservability(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if RequestIDFromContext(r.Context()) == "" {
 			t.Fatal("request ID missing from context")
@@ -48,7 +48,7 @@ func TestServer_WithObservability_CapturesAuthenticatedTenantScope_Expected(t *t
 	t.Parallel()
 
 	stateStore := newTenantTestStore(t)
-	server := NewServer(nil, stateStore, 0, nil)
+	server := mustNewServer(t, stateStore)
 	handler := server.withObservability(TenantAuthMiddleware(stateStore, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		scope := requestScopeFromContext(r.Context())
 		if scope == nil {
@@ -133,6 +133,25 @@ func TestTenantRateLimitMiddleware_UsesTenantQuotaOverride_Expected(t *testing.T
 	}
 }
 
+func TestClientRateLimitMiddleware_LimitExceeded_ReturnsTooManyRequests(t *testing.T) {
+	t.Parallel()
+
+	handler := ClientRateLimitMiddleware(newTenantRateLimiter(1, time.Minute), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+
+	for idx, expectedStatus := range []int{http.StatusNoContent, http.StatusTooManyRequests} {
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/about", nil)
+		req.RemoteAddr = "203.0.113.10:41000"
+		recorder := httptest.NewRecorder()
+
+		handler.ServeHTTP(recorder, req)
+		if recorder.Code != expectedStatus {
+			t.Fatalf("request %d status = %d, want %d", idx, recorder.Code, expectedStatus)
+		}
+	}
+}
+
 func TestServer_HandleMetrics_OperationalMetricsIncluded_Expected(t *testing.T) {
 	t.Parallel()
 
@@ -177,7 +196,7 @@ func TestServer_HandleMetrics_OperationalMetricsIncluded_Expected(t *testing.T) 
 		t.Fatalf("SaveMigration() error = %v", err)
 	}
 
-	server := NewServer(nil, stateStore, 0, nil)
+	server := mustNewServer(t, stateStore)
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/metrics", nil)
 	recorder := httptest.NewRecorder()
 

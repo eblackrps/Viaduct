@@ -1,0 +1,2754 @@
+{
+  "components": {
+    "responses": {
+      "ErrorResponse": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiErrorEnvelope"
+            }
+          }
+        },
+        "description": "Structured API error"
+      }
+    },
+    "schemas": {
+      "AboutResponse": {
+        "properties": {
+          "api_version": {
+            "type": "string"
+          },
+          "built_at": {
+            "type": "string"
+          },
+          "commit": {
+            "type": "string"
+          },
+          "go_version": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "persistent_store": {
+            "type": "boolean"
+          },
+          "plugin_protocol": {
+            "type": "string"
+          },
+          "store_backend": {
+            "type": "string"
+          },
+          "store_schema_version": {
+            "type": "integer"
+          },
+          "supported_permissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "supported_platforms": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ApiError": {
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "details": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "field_errors": {
+            "items": {
+              "$ref": "#/components/schemas/ApiFieldError"
+            },
+            "type": "array"
+          },
+          "message": {
+            "type": "string"
+          },
+          "request_id": {
+            "type": "string"
+          },
+          "retryable": {
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "ApiErrorEnvelope": {
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ApiError"
+          }
+        },
+        "type": "object"
+      },
+      "ApiFieldError": {
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ApprovalGate": {
+        "properties": {
+          "approved_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "approved_by": {
+            "type": "string"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "ticket": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "AuditEvent": {
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "outcome": {
+            "type": "string"
+          },
+          "request_id": {
+            "type": "string"
+          },
+          "resource": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "CheckResult": {
+        "properties": {
+          "duration": {
+            "type": "integer"
+          },
+          "message": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "pass",
+              "warn",
+              "fail"
+            ],
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "CurrentTenant": {
+        "properties": {
+          "active": {
+            "type": "boolean"
+          },
+          "auth_method": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "permissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "quotas": {
+            "$ref": "#/components/schemas/TenantQuota"
+          },
+          "role": {
+            "type": "string"
+          },
+          "service_account_count": {
+            "type": "integer"
+          },
+          "service_account_id": {
+            "type": "string"
+          },
+          "service_account_name": {
+            "type": "string"
+          },
+          "tenant_id": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "DiscoveryResult": {
+        "properties": {
+          "discovered_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "platform": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "vms": {
+            "items": {
+              "$ref": "#/components/schemas/VirtualMachine"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "InventoryListResponse": {
+        "properties": {
+          "inventory": {
+            "$ref": "#/components/schemas/DiscoveryResult"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/Pagination"
+          }
+        },
+        "type": "object"
+      },
+      "MigrationCheckpoint": {
+        "properties": {
+          "completed_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "diagnostics": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "message": {
+            "type": "string"
+          },
+          "phase": {
+            "type": "string"
+          },
+          "started_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "MigrationCommandResponse": {
+        "properties": {
+          "accepted_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "action": {
+            "enum": [
+              "execute",
+              "resume"
+            ],
+            "type": "string"
+          },
+          "lifecycle_state": {
+            "type": "string"
+          },
+          "migration_id": {
+            "type": "string"
+          },
+          "operation_state": {
+            "enum": [
+              "accepted"
+            ],
+            "type": "string"
+          },
+          "phase": {
+            "type": "string"
+          },
+          "request_id": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "MigrationExecutionRequest": {
+        "properties": {
+          "approved_by": {
+            "type": "string"
+          },
+          "ticket": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "MigrationListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/MigrationMeta"
+            },
+            "type": "array"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/Pagination"
+          }
+        },
+        "type": "object"
+      },
+      "MigrationMeta": {
+        "properties": {
+          "completed_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "phase": {
+            "type": "string"
+          },
+          "spec_name": {
+            "type": "string"
+          },
+          "started_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "MigrationPlan": {
+        "properties": {
+          "approval_satisfied": {
+            "type": "boolean"
+          },
+          "requires_approval": {
+            "type": "boolean"
+          },
+          "waves": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "MigrationState": {
+        "properties": {
+          "approval": {
+            "$ref": "#/components/schemas/ApprovalGate"
+          },
+          "checkpoints": {
+            "items": {
+              "$ref": "#/components/schemas/MigrationCheckpoint"
+            },
+            "type": "array"
+          },
+          "completed_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "id": {
+            "type": "string"
+          },
+          "pending_approval": {
+            "type": "boolean"
+          },
+          "phase": {
+            "type": "string"
+          },
+          "plan": {
+            "$ref": "#/components/schemas/MigrationPlan"
+          },
+          "started_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "Pagination": {
+        "properties": {
+          "page": {
+            "type": "integer"
+          },
+          "per_page": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          },
+          "total_pages": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "PilotWorkspace": {
+        "properties": {
+          "approvals": {
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceApproval"
+            },
+            "type": "array"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "graph": {
+            "$ref": "#/components/schemas/WorkspaceGraphArtifact"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "notes": {
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceNote"
+            },
+            "type": "array"
+          },
+          "plan_settings": {
+            "$ref": "#/components/schemas/WorkspacePlanSettings"
+          },
+          "readiness": {
+            "$ref": "#/components/schemas/WorkspaceReadinessResult"
+          },
+          "reports": {
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceReportArtifact"
+            },
+            "type": "array"
+          },
+          "saved_plan": {
+            "$ref": "#/components/schemas/WorkspaceSavedPlan"
+          },
+          "selected_workload_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "simulation": {
+            "$ref": "#/components/schemas/WorkspaceSimulationArtifact"
+          },
+          "snapshots": {
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceSnapshot"
+            },
+            "type": "array"
+          },
+          "source_connections": {
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceSourceConnection"
+            },
+            "type": "array"
+          },
+          "status": {
+            "$ref": "#/components/schemas/PilotWorkspaceStatus"
+          },
+          "target_assumptions": {
+            "$ref": "#/components/schemas/WorkspaceTargetAssumptions"
+          },
+          "tenant_id": {
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "PilotWorkspaceStatus": {
+        "enum": [
+          "draft",
+          "discovered",
+          "graph-ready",
+          "simulated",
+          "planned",
+          "reported"
+        ],
+        "type": "string"
+      },
+      "Platform": {
+        "enum": [
+          "vmware",
+          "proxmox",
+          "hyperv",
+          "kvm",
+          "nutanix"
+        ],
+        "type": "string"
+      },
+      "PreflightReport": {
+        "properties": {
+          "can_proceed": {
+            "type": "boolean"
+          },
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/CheckResult"
+            },
+            "type": "array"
+          },
+          "fail_count": {
+            "type": "integer"
+          },
+          "pass_count": {
+            "type": "integer"
+          },
+          "plan": {
+            "$ref": "#/components/schemas/MigrationPlan"
+          },
+          "warn_count": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "RollbackResult": {
+        "properties": {
+          "duration": {
+            "type": "integer"
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "files_cleaned_up": {
+            "type": "integer"
+          },
+          "migration_id": {
+            "type": "string"
+          },
+          "source_vms_restored": {
+            "type": "integer"
+          },
+          "target_vms_removed": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "ServiceAccount": {
+        "properties": {
+          "active": {
+            "type": "boolean"
+          },
+          "api_key": {
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "last_rotated_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "permissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "role": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ServiceAccountCreateRequest": {
+        "properties": {
+          "active": {
+            "type": "boolean"
+          },
+          "api_key": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "permissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "role": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "SnapshotListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SnapshotMeta"
+            },
+            "type": "array"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/Pagination"
+          }
+        },
+        "type": "object"
+      },
+      "SnapshotMeta": {
+        "properties": {
+          "discovered_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "platform": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "vm_count": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "TenantQuota": {
+        "properties": {
+          "max_migrations": {
+            "type": "integer"
+          },
+          "max_snapshots": {
+            "type": "integer"
+          },
+          "requests_per_minute": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "TenantSummary": {
+        "properties": {
+          "active_migrations": {
+            "type": "integer"
+          },
+          "completed_migrations": {
+            "type": "integer"
+          },
+          "failed_migrations": {
+            "type": "integer"
+          },
+          "pending_approvals": {
+            "type": "integer"
+          },
+          "quotas": {
+            "$ref": "#/components/schemas/TenantQuota"
+          },
+          "recommendation_count": {
+            "type": "integer"
+          },
+          "snapshot_count": {
+            "type": "integer"
+          },
+          "tenant_id": {
+            "type": "string"
+          },
+          "workload_count": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "VirtualMachine": {
+        "properties": {
+          "cpu_count": {
+            "type": "integer"
+          },
+          "guest_os": {
+            "type": "string"
+          },
+          "host": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "memory_mb": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "platform": {
+            "type": "string"
+          },
+          "power_state": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "WorkspaceApproval": {
+        "properties": {
+          "approved_by": {
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "stage": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/WorkspaceApprovalStatus"
+          },
+          "ticket": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "WorkspaceApprovalStatus": {
+        "enum": [
+          "pending",
+          "approved",
+          "rejected"
+        ],
+        "type": "string"
+      },
+      "WorkspaceCreateRequest": {
+        "properties": {
+          "approvals": {
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceApproval"
+            },
+            "type": "array"
+          },
+          "description": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "notes": {
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceNote"
+            },
+            "type": "array"
+          },
+          "plan_settings": {
+            "$ref": "#/components/schemas/WorkspacePlanSettings"
+          },
+          "selected_workload_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "source_connections": {
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceSourceConnection"
+            },
+            "type": "array"
+          },
+          "target_assumptions": {
+            "$ref": "#/components/schemas/WorkspaceTargetAssumptions"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "WorkspaceGraphArtifact": {
+        "properties": {
+          "edge_count": {
+            "type": "integer"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "node_count": {
+            "type": "integer"
+          },
+          "raw_json": {
+            "additionalProperties": true,
+            "type": "object"
+          }
+        },
+        "type": "object"
+      },
+      "WorkspaceJob": {
+        "properties": {
+          "completed_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "correlation_id": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "input_json": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "message": {
+            "type": "string"
+          },
+          "output_json": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "requested_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "requested_by": {
+            "type": "string"
+          },
+          "retryable": {
+            "type": "boolean"
+          },
+          "started_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/WorkspaceJobStatus"
+          },
+          "tenant_id": {
+            "type": "string"
+          },
+          "type": {
+            "$ref": "#/components/schemas/WorkspaceJobType"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "workspace_id": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "WorkspaceJobCreateRequest": {
+        "properties": {
+          "requested_by": {
+            "type": "string"
+          },
+          "selected_workload_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "simulation": {
+            "$ref": "#/components/schemas/WorkspaceSimulationRequest"
+          },
+          "source_connection_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "type": {
+            "$ref": "#/components/schemas/WorkspaceJobType"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "type": "object"
+      },
+      "WorkspaceJobStatus": {
+        "enum": [
+          "queued",
+          "running",
+          "succeeded",
+          "failed"
+        ],
+        "type": "string"
+      },
+      "WorkspaceJobType": {
+        "enum": [
+          "discovery",
+          "graph",
+          "simulation",
+          "plan"
+        ],
+        "type": "string"
+      },
+      "WorkspaceNote": {
+        "properties": {
+          "author": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/WorkspaceNoteKind"
+          }
+        },
+        "type": "object"
+      },
+      "WorkspaceNoteKind": {
+        "enum": [
+          "operator",
+          "system"
+        ],
+        "type": "string"
+      },
+      "WorkspacePlanSettings": {
+        "properties": {
+          "approval_required": {
+            "type": "boolean"
+          },
+          "approval_ticket": {
+            "type": "string"
+          },
+          "approved_by": {
+            "type": "string"
+          },
+          "dependency_aware": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "parallel": {
+            "type": "integer"
+          },
+          "verify_boot": {
+            "type": "boolean"
+          },
+          "wave_size": {
+            "type": "integer"
+          },
+          "window_end": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "window_start": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "WorkspaceReadinessResult": {
+        "properties": {
+          "blocking_issues": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "policy_violation_count": {
+            "type": "integer"
+          },
+          "recommendation_count": {
+            "type": "integer"
+          },
+          "selected_workload_count": {
+            "type": "integer"
+          },
+          "status": {
+            "$ref": "#/components/schemas/WorkspaceReadinessStatus"
+          },
+          "warning_issues": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "WorkspaceReadinessStatus": {
+        "enum": [
+          "ready",
+          "attention",
+          "blocked"
+        ],
+        "type": "string"
+      },
+      "WorkspaceReportArtifact": {
+        "properties": {
+          "correlation_id": {
+            "type": "string"
+          },
+          "exported_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "file_name": {
+            "type": "string"
+          },
+          "format": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "WorkspaceReportDocument": {
+        "properties": {
+          "exported_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "jobs": {
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceJob"
+            },
+            "type": "array"
+          },
+          "workspace": {
+            "$ref": "#/components/schemas/PilotWorkspace"
+          }
+        },
+        "type": "object"
+      },
+      "WorkspaceReportExportRequest": {
+        "properties": {
+          "format": {
+            "enum": [
+              "markdown",
+              "json"
+            ],
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "WorkspaceSavedPlan": {
+        "properties": {
+          "generated_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "migration_id": {
+            "type": "string"
+          },
+          "selected_workload_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "source_platform": {
+            "$ref": "#/components/schemas/Platform"
+          },
+          "spec_json": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "spec_name": {
+            "type": "string"
+          },
+          "state_json": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "target_platform": {
+            "$ref": "#/components/schemas/Platform"
+          },
+          "workload_count": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "WorkspaceSimulationArtifact": {
+        "properties": {
+          "generated_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "moved_vms": {
+            "type": "integer"
+          },
+          "raw_json": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "selected_workload_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "target_platform": {
+            "$ref": "#/components/schemas/Platform"
+          }
+        },
+        "type": "object"
+      },
+      "WorkspaceSimulationRequest": {
+        "properties": {
+          "include_all": {
+            "type": "boolean"
+          },
+          "target_platform": {
+            "$ref": "#/components/schemas/Platform"
+          },
+          "vm_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "WorkspaceSnapshot": {
+        "properties": {
+          "discovered_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "platform": {
+            "$ref": "#/components/schemas/Platform"
+          },
+          "snapshot_id": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "source_connection_id": {
+            "type": "string"
+          },
+          "vm_count": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "WorkspaceSourceConnection": {
+        "properties": {
+          "address": {
+            "type": "string"
+          },
+          "credential_ref": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "last_discovered_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "last_snapshot_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "platform": {
+            "$ref": "#/components/schemas/Platform"
+          }
+        },
+        "type": "object"
+      },
+      "WorkspaceTargetAssumptions": {
+        "properties": {
+          "address": {
+            "type": "string"
+          },
+          "credential_ref": {
+            "type": "string"
+          },
+          "default_host": {
+            "type": "string"
+          },
+          "default_network": {
+            "type": "string"
+          },
+          "default_storage": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "platform": {
+            "$ref": "#/components/schemas/Platform"
+          }
+        },
+        "type": "object"
+      },
+      "WorkspaceUpdateRequest": {
+        "properties": {
+          "approvals": {
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceApproval"
+            },
+            "type": "array"
+          },
+          "description": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "notes": {
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceNote"
+            },
+            "type": "array"
+          },
+          "plan_settings": {
+            "$ref": "#/components/schemas/WorkspacePlanSettings"
+          },
+          "selected_workload_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "source_connections": {
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceSourceConnection"
+            },
+            "type": "array"
+          },
+          "target_assumptions": {
+            "$ref": "#/components/schemas/WorkspaceTargetAssumptions"
+          }
+        },
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "AdminAPIKey": {
+        "in": "header",
+        "name": "X-Admin-Key",
+        "type": "apiKey"
+      },
+      "ServiceAccountKey": {
+        "in": "header",
+        "name": "X-Service-Account-Key",
+        "type": "apiKey"
+      },
+      "TenantAPIKey": {
+        "in": "header",
+        "name": "X-API-Key",
+        "type": "apiKey"
+      }
+    }
+  },
+  "info": {
+    "description": "Stable Viaduct operator and automation endpoints. This document covers the release-grade API surfaces used by the packaged dashboard, CLI-assisted workflows, and tenant automation. It is additive and may omit internal or less frequently used route variants.\n",
+    "title": "Viaduct Operator API",
+    "version": "v2"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/v1/about": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AboutResponse"
+                }
+              }
+            },
+            "description": "Current build metadata"
+          }
+        },
+        "summary": "Build and compatibility metadata"
+      }
+    },
+    "/api/v1/audit": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AuditEvent"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Audit events for the current tenant"
+          },
+          "401": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "TenantAPIKey": []
+          },
+          {
+            "ServiceAccountKey": []
+          }
+        ],
+        "summary": "Tenant audit events"
+      }
+    },
+    "/api/v1/health": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "status": {
+                      "example": "ok",
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "API is running"
+          }
+        },
+        "summary": "Liveness probe"
+      }
+    },
+    "/api/v1/inventory": {
+      "get": {
+        "parameters": [
+          {
+            "in": "query",
+            "name": "platform",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscoveryResult"
+                }
+              }
+            },
+            "description": "Latest inventory view"
+          }
+        },
+        "security": [
+          {
+            "TenantAPIKey": []
+          },
+          {
+            "ServiceAccountKey": []
+          }
+        ],
+        "summary": "Latest tenant inventory"
+      }
+    },
+    "/api/v1/metrics": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Prometheus metrics payload"
+          }
+        },
+        "summary": "Prometheus metrics"
+      }
+    },
+    "/api/v1/migrations": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MigrationMeta"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Migration history"
+          }
+        },
+        "security": [
+          {
+            "TenantAPIKey": []
+          },
+          {
+            "ServiceAccountKey": []
+          }
+        ],
+        "summary": "List tenant migrations"
+      },
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MigrationState"
+                }
+              }
+            },
+            "description": "Migration plan accepted"
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "TenantAPIKey": []
+          },
+          {
+            "ServiceAccountKey": []
+          }
+        ],
+        "summary": "Create or plan a migration"
+      }
+    },
+    "/api/v1/migrations/{migrationID}": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "migrationID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MigrationState"
+                }
+              }
+            },
+            "description": "Migration state"
+          },
+          "401": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "TenantAPIKey": []
+          },
+          {
+            "ServiceAccountKey": []
+          }
+        ],
+        "summary": "Get migration state"
+      }
+    },
+    "/api/v1/migrations/{migrationID}/execute": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "migrationID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MigrationExecutionRequest"
+              }
+            }
+          },
+          "required": false
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MigrationCommandResponse"
+                }
+              }
+            },
+            "description": "Execution accepted"
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "TenantAPIKey": []
+          },
+          {
+            "ServiceAccountKey": []
+          }
+        ],
+        "summary": "Start an approved migration run"
+      }
+    },
+    "/api/v1/migrations/{migrationID}/resume": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "migrationID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MigrationExecutionRequest"
+              }
+            }
+          },
+          "required": false
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MigrationCommandResponse"
+                }
+              }
+            },
+            "description": "Resume accepted"
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "TenantAPIKey": []
+          },
+          {
+            "ServiceAccountKey": []
+          }
+        ],
+        "summary": "Resume a paused or failed migration run"
+      }
+    },
+    "/api/v1/migrations/{migrationID}/rollback": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "migrationID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RollbackResult"
+                }
+              }
+            },
+            "description": "Rollback result"
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "TenantAPIKey": []
+          },
+          {
+            "ServiceAccountKey": []
+          }
+        ],
+        "summary": "Roll back a migration run"
+      }
+    },
+    "/api/v1/preflight": {
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreflightReport"
+                }
+              }
+            },
+            "description": "Preflight report"
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "TenantAPIKey": []
+          },
+          {
+            "ServiceAccountKey": []
+          }
+        ],
+        "summary": "Run migration preflight checks"
+      }
+    },
+    "/api/v1/reports/{name}": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "enum": [
+                "summary",
+                "migrations",
+                "audit"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "format",
+            "schema": {
+              "enum": [
+                "json",
+                "csv"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              },
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Requested report"
+          }
+        },
+        "security": [
+          {
+            "TenantAPIKey": []
+          },
+          {
+            "ServiceAccountKey": []
+          }
+        ],
+        "summary": "Export tenant report"
+      }
+    },
+    "/api/v1/service-accounts": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ServiceAccount"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Service accounts for the current tenant"
+          }
+        },
+        "security": [
+          {
+            "TenantAPIKey": []
+          },
+          {
+            "ServiceAccountKey": []
+          }
+        ],
+        "summary": "List tenant service accounts"
+      },
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServiceAccountCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceAccount"
+                }
+              }
+            },
+            "description": "Service account created"
+          }
+        },
+        "security": [
+          {
+            "TenantAPIKey": []
+          }
+        ],
+        "summary": "Create a tenant service account"
+      }
+    },
+    "/api/v1/service-accounts/{serviceAccountID}/rotate": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "serviceAccountID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "api_key": {
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": false
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceAccount"
+                }
+              }
+            },
+            "description": "Service account rotated"
+          }
+        },
+        "security": [
+          {
+            "TenantAPIKey": []
+          }
+        ],
+        "summary": "Rotate a tenant service-account API key"
+      }
+    },
+    "/api/v1/snapshots": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SnapshotMeta"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Snapshot metadata ordered from newest to oldest"
+          }
+        },
+        "security": [
+          {
+            "TenantAPIKey": []
+          },
+          {
+            "ServiceAccountKey": []
+          }
+        ],
+        "summary": "List tenant discovery snapshots"
+      }
+    },
+    "/api/v1/summary": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantSummary"
+                }
+              }
+            },
+            "description": "Summary of current tenant state"
+          }
+        },
+        "security": [
+          {
+            "TenantAPIKey": []
+          },
+          {
+            "ServiceAccountKey": []
+          }
+        ],
+        "summary": "Tenant fleet summary"
+      }
+    },
+    "/api/v1/tenants/current": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentTenant"
+                }
+              }
+            },
+            "description": "Effective tenant and auth context"
+          }
+        },
+        "security": [
+          {
+            "TenantAPIKey": []
+          },
+          {
+            "ServiceAccountKey": []
+          }
+        ],
+        "summary": "Current tenant and effective principal"
+      }
+    },
+    "/api/v1/workspaces": {
+      "get": {
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PilotWorkspace"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Saved pilot workspaces"
+          },
+          "401": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "TenantAPIKey": []
+          },
+          {
+            "ServiceAccountKey": []
+          }
+        ],
+        "summary": "List pilot workspaces"
+      },
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkspaceCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PilotWorkspace"
+                }
+              }
+            },
+            "description": "Pilot workspace created"
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "TenantAPIKey": []
+          },
+          {
+            "ServiceAccountKey": []
+          }
+        ],
+        "summary": "Create a pilot workspace"
+      }
+    },
+    "/api/v1/workspaces/{workspaceID}": {
+      "delete": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspaceID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Pilot workspace deleted"
+          },
+          "401": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "TenantAPIKey": []
+          },
+          {
+            "ServiceAccountKey": []
+          }
+        ],
+        "summary": "Delete a pilot workspace"
+      },
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspaceID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PilotWorkspace"
+                }
+              }
+            },
+            "description": "Pilot workspace state"
+          },
+          "401": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "TenantAPIKey": []
+          },
+          {
+            "ServiceAccountKey": []
+          }
+        ],
+        "summary": "Get a pilot workspace"
+      },
+      "patch": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspaceID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkspaceUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PilotWorkspace"
+                }
+              }
+            },
+            "description": "Updated pilot workspace state"
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "TenantAPIKey": []
+          },
+          {
+            "ServiceAccountKey": []
+          }
+        ],
+        "summary": "Update pilot workspace state"
+      }
+    },
+    "/api/v1/workspaces/{workspaceID}/jobs": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspaceID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/WorkspaceJob"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Persisted background jobs for the workspace"
+          },
+          "401": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "TenantAPIKey": []
+          },
+          {
+            "ServiceAccountKey": []
+          }
+        ],
+        "summary": "List persisted pilot workspace jobs"
+      },
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspaceID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkspaceJobCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceJob"
+                }
+              }
+            },
+            "description": "Workspace job accepted"
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "TenantAPIKey": []
+          },
+          {
+            "ServiceAccountKey": []
+          }
+        ],
+        "summary": "Create a persisted pilot workspace job"
+      }
+    },
+    "/api/v1/workspaces/{workspaceID}/jobs/{jobID}": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspaceID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "jobID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceJob"
+                }
+              }
+            },
+            "description": "Pilot workspace job state"
+          },
+          "401": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "TenantAPIKey": []
+          },
+          {
+            "ServiceAccountKey": []
+          }
+        ],
+        "summary": "Get pilot workspace job status"
+      }
+    },
+    "/api/v1/workspaces/{workspaceID}/reports/export": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspaceID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkspaceReportExportRequest"
+              }
+            }
+          },
+          "required": false
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceReportDocument"
+                }
+              },
+              "text/markdown": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Exported pilot workspace report document"
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "TenantAPIKey": []
+          },
+          {
+            "ServiceAccountKey": []
+          }
+        ],
+        "summary": "Export a pilot workspace report"
+      }
+    },
+    "/api/v2/inventory": {
+      "get": {
+        "parameters": [
+          {
+            "in": "query",
+            "name": "platform",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "per_page",
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryListResponse"
+                }
+              }
+            },
+            "description": "Latest inventory view with pagination metadata"
+          }
+        },
+        "security": [
+          {
+            "TenantAPIKey": []
+          },
+          {
+            "ServiceAccountKey": []
+          }
+        ],
+        "summary": "Latest tenant inventory (paginated)"
+      }
+    },
+    "/api/v2/migrations": {
+      "get": {
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "per_page",
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MigrationListResponse"
+                }
+              }
+            },
+            "description": "Migration history with pagination metadata"
+          }
+        },
+        "security": [
+          {
+            "TenantAPIKey": []
+          },
+          {
+            "ServiceAccountKey": []
+          }
+        ],
+        "summary": "List tenant migrations (paginated)"
+      },
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MigrationState"
+                }
+              }
+            },
+            "description": "Migration plan accepted"
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "TenantAPIKey": []
+          },
+          {
+            "ServiceAccountKey": []
+          }
+        ],
+        "summary": "Create or plan a migration"
+      }
+    },
+    "/api/v2/snapshots": {
+      "get": {
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "per_page",
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnapshotListResponse"
+                }
+              }
+            },
+            "description": "Snapshot metadata ordered from newest to oldest with pagination metadata"
+          }
+        },
+        "security": [
+          {
+            "TenantAPIKey": []
+          },
+          {
+            "ServiceAccountKey": []
+          }
+        ],
+        "summary": "List tenant discovery snapshots (paginated)"
+      }
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080"
+    }
+  ]
+}

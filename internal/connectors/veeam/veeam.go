@@ -23,7 +23,7 @@ func NewVeeamConnector(cfg connectors.Config) *VeeamConnector {
 
 // Connect authenticates to the Veeam REST API.
 func (c *VeeamConnector) Connect(ctx context.Context) error {
-	client := NewVeeamClient(c.config.Address, c.config.Insecure)
+	client := NewVeeamClient(c.config.Address, c.config.Insecure, c.config.RequestID)
 	if err := client.Authenticate(ctx, c.config.Username, c.config.Password); err != nil {
 		return fmt.Errorf("veeam: connect: %w", err)
 	}

@@ -17,4 +17,4 @@ Use these files alongside [../real-user-validation-plan.md](../real-user-validat
 3. Use [participant-note-template.md](participant-note-template.md) during each session.
 4. Use [round-synthesis-template.md](round-synthesis-template.md) after all five sessions to turn observations into backlog decisions.
 
-These templates are deliberately narrow. They are for the VMware-exit assessment and supervised pilot workflow Viaduct is currently optimizing, not a general product-research program.
+These templates are deliberately narrow. They are for the mixed-estate assessment and supervised pilot workflow Viaduct is currently optimizing, not a general product-research program.

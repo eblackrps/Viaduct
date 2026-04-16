@@ -43,12 +43,13 @@ The local runtime serves the WebUI at [http://127.0.0.1:8080](http://127.0.0.1:8
 ## 2. Open The Dashboard
 
 Open [http://127.0.0.1:8080](http://127.0.0.1:8080). The dashboard opens on the pilot workspace route and can use the built-in single-user fallback for this default local lab path, so no pasted browser key is required.
+Live operator API docs remain available at [http://127.0.0.1:8080/api/v1/docs](http://127.0.0.1:8080/api/v1/docs) throughout the flow.
 
 If you intentionally configure tenant-scoped access instead, the runtime authentication bootstrap screen still supports:
 - `Service account` for normal operator access
 - `Tenant key` for bootstrap or break-glass administrative recovery
 
-The dashboard stores runtime credentials in session storage by default. Use the optional remember toggle only on a trusted browser that should keep a key across restarts.
+The dashboard runtime auth flow now creates a server-backed session. The browser stores only an opaque session marker, while the actual API credential remains in an `httpOnly` cookie. Use the optional remember toggle only on a trusted browser that should keep that marker across restarts.
 
 You can still pre-seed development credentials with:
 - `VITE_VIADUCT_SERVICE_ACCOUNT_KEY`

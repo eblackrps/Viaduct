@@ -68,7 +68,9 @@ func writeAPIError(w http.ResponseWriter, r *http.Request, status int, code, mes
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(payload)
+	if err := json.NewEncoder(w).Encode(payload); err != nil {
+		packageLogger.Error("failed to encode API error response", "request_id", requestID, "status", status, "error", err.Error())
+	}
 }
 
 func responseRequestID(w http.ResponseWriter, r *http.Request) string {

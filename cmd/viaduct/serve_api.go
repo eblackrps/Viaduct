@@ -65,7 +65,10 @@ func runServeAPI(ctx context.Context, options serveAPIOptions) error {
 	}
 	defer stateStore.Close()
 
-	server := viaductapi.NewServer(discovery.NewEngine(), stateStore, options.Port, catalog)
+	server, err := viaductapi.NewServer(discovery.NewEngine(), stateStore, options.Port, catalog)
+	if err != nil {
+		return fmt.Errorf("serve-api: create server: %w", err)
+	}
 	server.SetBuildInfo(version, commit, date)
 	server.SetBindHost(options.Host)
 	server.SetDashboardDir(options.WebDir)

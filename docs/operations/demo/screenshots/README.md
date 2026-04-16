@@ -8,6 +8,7 @@ Use these images in:
 - demo prep
 - evaluator packets
 - operator-facing docs when the pilot workflow changes
+- the root `README.md` screenshot gallery
 
 ## Files
 

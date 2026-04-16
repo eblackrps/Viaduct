@@ -87,12 +87,14 @@ Fix:
 ## Dashboard Sign-In Disappears After Closing The Browser
 
 Cause:
-- the runtime bootstrap stores keys in session storage by default
+- the runtime bootstrap uses a non-persistent browser session by default
+- the browser session marker was stored only in session storage, so it was intentionally cleared when the browser closed
 
 Fix:
 - sign in again
-- use the bootstrap screen's remember option if you intentionally want the browser to keep a local copy of the key
-- prefer service-account keys over tenant keys for saved browser credentials
+- use the bootstrap screen's remember option if you intentionally want the browser to keep a local session marker across restarts
+- prefer service-account keys over tenant keys for remembered browser sessions
+- review `VIADUCT_AUTH_SESSION_TTL` and `VIADUCT_AUTH_REMEMBER_TTL` if the server-side session window is too short for your environment
 
 ## KVM Fixture Discovery Returns No VMs
 

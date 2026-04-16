@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/eblackrps/viaduct/internal/connectors"
 )
 
 // PrismClient is a lightweight Prism Central v3 REST client.
@@ -18,16 +20,21 @@ type PrismClient struct {
 	httpClient *http.Client
 	username   string
 	password   string
+	requestID  string
 }
 
 // NewPrismClient creates a Prism Central client for the supplied endpoint.
-func NewPrismClient(address, username, password string, insecure bool) *PrismClient {
+func NewPrismClient(address, username, password string, insecure bool, requestID ...string) *PrismClient {
 	address = strings.TrimSpace(address)
 	if address == "" {
 		address = "https://localhost:9440"
 	}
 	if !strings.HasPrefix(address, "http://") && !strings.HasPrefix(address, "https://") {
 		address = "https://" + address
+	}
+	propagatedRequestID := ""
+	if len(requestID) > 0 {
+		propagatedRequestID = strings.TrimSpace(requestID[0])
 	}
 
 	return &PrismClient{
@@ -38,8 +45,9 @@ func NewPrismClient(address, username, password string, insecure bool) *PrismCli
 				TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS12, InsecureSkipVerify: insecure},
 			},
 		},
-		username: username,
-		password: password,
+		username:  username,
+		password:  password,
+		requestID: propagatedRequestID,
 	}
 }
 
@@ -121,6 +129,9 @@ func (c *PrismClient) do(ctx context.Context, method, endpoint string, payload i
 		return nil, fmt.Errorf("build request: %w", err)
 	}
 	req.SetBasicAuth(c.username, c.password)
+	if c.requestID != "" {
+		req.Header.Set(connectors.RequestIDHeader, c.requestID)
+	}
 	if payload != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}

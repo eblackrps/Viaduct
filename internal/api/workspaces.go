@@ -503,6 +503,7 @@ func (s *Server) runWorkspaceJob(tenantID, workspaceID, jobID string) {
 	if s != nil && s.workspaceJobTimeout > 0 {
 		execCtx, cancel = context.WithTimeout(storeCtx, s.workspaceJobTimeout)
 	}
+	execCtx = contextWithConnectorRequestID(execCtx, job.CorrelationID)
 	defer cancel()
 	switch job.Type {
 	case models.WorkspaceJobTypeDiscovery:
@@ -544,7 +545,7 @@ func (s *Server) executeWorkspaceDiscoveryJob(ctx context.Context, tenantID stri
 	engine := discovery.NewEngine()
 	addressToConnectionID := make(map[string]string, len(sourceConnections))
 	for _, source := range sourceConnections {
-		connector, err := catalog.Build(source.Platform, s.resolveConfig(source.Platform, source.Address, source.CredentialRef))
+		connector, err := s.buildConnector(ctx, catalog, source.Platform, source.Address, source.CredentialRef)
 		if err != nil {
 			return nil, "", fmt.Errorf("workspace discovery: build %s connector: %w", source.Platform, err)
 		}

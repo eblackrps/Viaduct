@@ -34,6 +34,7 @@ The default local path now starts with `viaduct start`, opens the WebUI at `http
 - [Support Matrix](reference/support-matrix.md)
 - [Troubleshooting](reference/troubleshooting.md)
 - [OpenAPI Reference](reference/openapi.yaml)
+- Runtime Swagger UI (`/api/v1/docs` on any running Viaduct server)
 - [Plugin Author Guide](reference/plugin-author-guide.md)
 - [Plugin Certification Guide](reference/plugin-certification.md)
 - [Codebase Map](reference/codebase-map.md)

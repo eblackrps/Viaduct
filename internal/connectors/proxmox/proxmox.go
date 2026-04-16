@@ -23,7 +23,7 @@ func NewProxmoxConnector(cfg connectors.Config) *ProxmoxConnector {
 
 // Connect establishes an authenticated connection to the Proxmox API.
 func (c *ProxmoxConnector) Connect(ctx context.Context) error {
-	client := NewProxmoxClient(c.config.Address, c.config.Insecure)
+	client := NewProxmoxClient(c.config.Address, c.config.Insecure, c.config.RequestID)
 
 	if strings.Contains(c.config.Username, "!") {
 		client.AuthenticateToken(c.config.Username, c.config.Password)

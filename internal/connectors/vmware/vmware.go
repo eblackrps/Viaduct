@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
@@ -12,7 +13,9 @@ import (
 	"github.com/eblackrps/viaduct/internal/connectors"
 	"github.com/eblackrps/viaduct/internal/models"
 	"github.com/vmware/govmomi"
+	"github.com/vmware/govmomi/session"
 	"github.com/vmware/govmomi/view"
+	"github.com/vmware/govmomi/vim25"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/soap"
 	"github.com/vmware/govmomi/vim25/types"
@@ -37,9 +40,26 @@ func (c *VMwareConnector) Connect(ctx context.Context) error {
 		return fmt.Errorf("vmware: parse endpoint: %w", err)
 	}
 
-	client, err := govmomi.NewClient(ctx, endpoint, c.config.Insecure)
+	soapClient := soap.NewClient(endpoint, c.config.Insecure)
+	if requestID := strings.TrimSpace(c.config.RequestID); requestID != "" {
+		soapClient.Transport = requestIDTransport{
+			base:      soapClient.Transport,
+			requestID: requestID,
+		}
+	}
+
+	vimClient, err := vim25.NewClient(ctx, soapClient)
 	if err != nil {
 		return fmt.Errorf("vmware: connect: %w", err)
+	}
+	client := &govmomi.Client{
+		Client:         vimClient,
+		SessionManager: session.NewManager(vimClient),
+	}
+	if endpoint.User != nil {
+		if err := client.Login(ctx, endpoint.User); err != nil {
+			return fmt.Errorf("vmware: connect: %w", err)
+		}
 	}
 
 	c.client = client
@@ -232,3 +252,15 @@ func buildVCenterURL(cfg connectors.Config) string {
 }
 
 var _ connectors.Connector = (*VMwareConnector)(nil)
+
+type requestIDTransport struct {
+	base      http.RoundTripper
+	requestID string
+}
+
+func (t requestIDTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	clone := req.Clone(req.Context())
+	clone.Header = clone.Header.Clone()
+	clone.Header.Set(connectors.RequestIDHeader, t.requestID)
+	return t.base.RoundTrip(clone)
+}

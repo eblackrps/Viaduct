@@ -17,3 +17,4 @@ Start with [lab/README.md](lab/README.md) if you want to evaluate Viaduct withou
 - Plugin authoring: [../docs/reference/plugin-author-guide.md](../docs/reference/plugin-author-guide.md)
 - Plugin certification: [../docs/reference/plugin-certification.md](../docs/reference/plugin-certification.md)
 - Deployment references: [deploy/README.md](deploy/README.md)
+- Live operator API docs: `/api/v1/docs` once the local runtime is running

@@ -19,7 +19,7 @@ func TestServer_HandleWorkspaces_CreateUpdateAndList_Expected(t *testing.T) {
 	t.Parallel()
 
 	stateStore := store.NewMemoryStore()
-	server := NewServer(nil, stateStore, 0, nil)
+	server := mustNewServer(t, stateStore)
 	ctx := store.ContextWithTenantID(context.Background(), store.DefaultTenantID)
 
 	createRequest := httptest.NewRequest(http.MethodPost, "/api/v1/workspaces", bytes.NewBufferString(`{
@@ -72,7 +72,7 @@ func TestServer_HandleWorkspaceJobs_DiscoveryAndReport_Expected(t *testing.T) {
 	t.Parallel()
 
 	stateStore := store.NewMemoryStore()
-	server := NewServer(nil, stateStore, 0, nil)
+	server := mustNewServer(t, stateStore)
 	ctx := store.ContextWithTenantID(context.Background(), store.DefaultTenantID)
 
 	if err := stateStore.CreateWorkspace(ctx, store.DefaultTenantID, models.PilotWorkspace{
@@ -163,7 +163,7 @@ func TestServer_HandleWorkspaceJobs_DiscoveryAndReport_Expected(t *testing.T) {
 func TestServer_HandleWorkspaces_CreateValidation_Expected(t *testing.T) {
 	t.Parallel()
 
-	server := NewServer(nil, store.NewMemoryStore(), 0, nil)
+	server := mustNewServer(t, store.NewMemoryStore())
 	ctx := store.ContextWithTenantID(context.Background(), store.DefaultTenantID)
 
 	request := httptest.NewRequest(http.MethodPost, "/api/v1/workspaces", bytes.NewBufferString(`{
@@ -191,7 +191,7 @@ func TestServer_HandleWorkspaceDocument_DeleteWorkspace_Expected(t *testing.T) {
 	t.Parallel()
 
 	stateStore := store.NewMemoryStore()
-	server := NewServer(nil, stateStore, 0, nil)
+	server := mustNewServer(t, stateStore)
 	ctx := store.ContextWithTenantID(context.Background(), store.DefaultTenantID)
 
 	if err := stateStore.CreateWorkspace(ctx, store.DefaultTenantID, models.PilotWorkspace{
@@ -232,7 +232,7 @@ func TestServer_HandleWorkspaceJobs_CreateValidation_Expected(t *testing.T) {
 	t.Parallel()
 
 	stateStore := store.NewMemoryStore()
-	server := NewServer(nil, stateStore, 0, nil)
+	server := mustNewServer(t, stateStore)
 	ctx := store.ContextWithTenantID(context.Background(), store.DefaultTenantID)
 
 	if err := stateStore.CreateWorkspace(ctx, store.DefaultTenantID, models.PilotWorkspace{
@@ -312,7 +312,7 @@ func TestServer_WorkspaceRoutes_ViewerCanReadButNotMutate_Expected(t *testing.T)
 		t.Fatalf("CreateWorkspace() error = %v", err)
 	}
 
-	server := NewServer(nil, stateStore, 0, nil)
+	server := mustNewServer(t, stateStore)
 	handler := server.Handler()
 
 	getRequest := httptest.NewRequest(http.MethodGet, "/api/v1/workspaces/workspace-view", nil)
@@ -352,7 +352,7 @@ func TestServer_RecoverWorkspaceJobs_RerunsQueuedDiscoveryJob_Expected(t *testin
 	t.Parallel()
 
 	stateStore := store.NewMemoryStore()
-	server := NewServer(nil, stateStore, 0, nil)
+	server := mustNewServer(t, stateStore)
 	ctx := store.ContextWithTenantID(context.Background(), store.DefaultTenantID)
 
 	if err := stateStore.CreateWorkspace(ctx, store.DefaultTenantID, models.PilotWorkspace{

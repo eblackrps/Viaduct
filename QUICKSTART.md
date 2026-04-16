@@ -31,10 +31,11 @@ For any persistent non-demo environment, configure `state_store_dsn` and use Pos
 ## 2. Open The WebUI
 
 Open [http://127.0.0.1:8080](http://127.0.0.1:8080). The same local runtime serves the WebUI at `/` and the API at `/api/v1/`.
+Live Swagger UI is also available at [http://127.0.0.1:8080/api/v1/docs](http://127.0.0.1:8080/api/v1/docs).
 
 For the default local lab path, the dashboard can use the built-in single-user fallback and does not require a pasted browser key.
 
-If you intentionally configure tenant keys or service-account keys, the runtime bootstrap screen remains available. The browser stores runtime credentials in session storage by default and offers an explicit remember option for trusted workstations.
+If you intentionally configure tenant keys or service-account keys, the runtime bootstrap screen remains available. The runtime auth flow now creates a server-backed session: the browser keeps only a non-sensitive session marker, and the API credential itself stays in an `httpOnly` cookie. Use the remember option only on a trusted workstation.
 
 If you want the Vite development server instead of the packaged local shell:
 

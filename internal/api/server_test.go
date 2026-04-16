@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -15,11 +16,40 @@ import (
 	"github.com/eblackrps/viaduct/internal/store"
 )
 
+type paginationProbeStore struct {
+	store.Store
+
+	listSnapshotsCalls      int
+	listSnapshotsPageCalls  int
+	listMigrationsCalls     int
+	listMigrationsPageCalls int
+}
+
+func (s *paginationProbeStore) ListSnapshots(ctx context.Context, tenantID string, platform models.Platform, limit int) ([]store.SnapshotMeta, error) {
+	s.listSnapshotsCalls++
+	return s.Store.ListSnapshots(ctx, tenantID, platform, limit)
+}
+
+func (s *paginationProbeStore) ListSnapshotsPage(ctx context.Context, tenantID string, platform models.Platform, page, perPage int) ([]store.SnapshotMeta, int, error) {
+	s.listSnapshotsPageCalls++
+	return s.Store.ListSnapshotsPage(ctx, tenantID, platform, page, perPage)
+}
+
+func (s *paginationProbeStore) ListMigrations(ctx context.Context, tenantID string, limit int) ([]store.MigrationMeta, error) {
+	s.listMigrationsCalls++
+	return s.Store.ListMigrations(ctx, tenantID, limit)
+}
+
+func (s *paginationProbeStore) ListMigrationsPage(ctx context.Context, tenantID string, page, perPage int) ([]store.MigrationMeta, int, error) {
+	s.listMigrationsPageCalls++
+	return s.Store.ListMigrationsPage(ctx, tenantID, page, perPage)
+}
+
 func TestServer_LatestInventory_UsesLatestSnapshotPerSourcePlatform_Expected(t *testing.T) {
 	t.Parallel()
 
 	stateStore := store.NewMemoryStore()
-	server := NewServer(nil, stateStore, 0, nil)
+	server := mustNewServer(t, stateStore)
 	ctx := context.Background()
 
 	for _, result := range []*models.DiscoveryResult{
@@ -65,7 +95,7 @@ func TestServer_HandleAdminTenants_ExplicitInactiveTenantPreserved_Expected(t *t
 	t.Parallel()
 
 	stateStore := store.NewMemoryStore()
-	server := NewServer(nil, stateStore, 0, nil)
+	server := mustNewServer(t, stateStore)
 
 	body := bytes.NewBufferString(`{"name":"Inactive Tenant","active":false}`)
 	request := httptest.NewRequest(http.MethodPost, "/api/v1/admin/tenants", body)
@@ -97,7 +127,7 @@ func TestServer_HandleAdminTenants_ListRedactsSecrets_Expected(t *testing.T) {
 	t.Parallel()
 
 	stateStore := store.NewMemoryStore()
-	server := NewServer(nil, stateStore, 0, nil)
+	server := mustNewServer(t, stateStore)
 	tenant := models.Tenant{
 		ID:        "tenant-a",
 		Name:      "Tenant A",
@@ -161,7 +191,7 @@ func TestServer_HandleAdminTenants_ListRedactsSecrets_Expected(t *testing.T) {
 func TestServer_HandleAdminTenantByID_InvalidNestedPathRejected_Expected(t *testing.T) {
 	t.Parallel()
 
-	server := NewServer(nil, store.NewMemoryStore(), 0, nil)
+	server := mustNewServer(t, store.NewMemoryStore())
 	request := httptest.NewRequest(http.MethodDelete, "/api/v1/admin/tenants/tenant-a/extra", nil)
 	recorder := httptest.NewRecorder()
 
@@ -184,7 +214,7 @@ func TestServer_HandleSummary_TenantScopedCounts_Expected(t *testing.T) {
 		}
 	}
 
-	server := NewServer(nil, stateStore, 0, nil)
+	server := mustNewServer(t, stateStore)
 	_, _ = stateStore.SaveDiscovery(context.Background(), "tenant-a", &models.DiscoveryResult{
 		Source:       "tenant-a-source",
 		Platform:     models.PlatformVMware,
@@ -222,7 +252,7 @@ func TestServer_HandleMigrationByID_ExecuteApprovalRequiredConflict_Expected(t *
 	t.Parallel()
 
 	stateStore := store.NewMemoryStore()
-	server := NewServer(nil, stateStore, 0, nil)
+	server := mustNewServer(t, stateStore)
 	server.mu.Lock()
 	server.specs[server.specKey(store.DefaultTenantID, "migration-1")] = &migratepkg.MigrationSpec{
 		Name: "approval-required",
@@ -264,7 +294,7 @@ func TestServer_NewMigrationCommandResponse_UsesStoredPhaseAndRequestID_Expected
 	t.Parallel()
 
 	stateStore := store.NewMemoryStore()
-	server := NewServer(nil, stateStore, 0, nil)
+	server := mustNewServer(t, stateStore)
 	if err := stateStore.SaveMigration(context.Background(), store.DefaultTenantID, store.MigrationRecord{
 		ID:        "migration-2",
 		TenantID:  store.DefaultTenantID,
@@ -297,7 +327,7 @@ func TestServer_LatestInventory_MoreThanTwentySources_IncludesAllLatestSources(t
 	t.Parallel()
 
 	stateStore := store.NewMemoryStore()
-	server := NewServer(nil, stateStore, 0, nil)
+	server := mustNewServer(t, stateStore)
 	ctx := context.Background()
 
 	for index := 0; index < 25; index++ {
@@ -327,7 +357,7 @@ func TestServer_HandleSummary_PendingApprovalParsedFromRecord_Expected(t *testin
 	t.Parallel()
 
 	stateStore := store.NewMemoryStore()
-	server := NewServer(nil, stateStore, 0, nil)
+	server := mustNewServer(t, stateStore)
 	if err := stateStore.SaveMigration(context.Background(), store.DefaultTenantID, store.MigrationRecord{
 		ID:        "migration-pending-approval",
 		SpecName:  "approval-test",
@@ -364,7 +394,7 @@ func TestServer_HandleSummary_PendingApprovalParsedFromRecord_Expected(t *testin
 func TestServer_HandleAbout_ReturnsBuildInfo_Expected(t *testing.T) {
 	t.Parallel()
 
-	server := NewServer(nil, store.NewMemoryStore(), 0, nil)
+	server := mustNewServer(t, store.NewMemoryStore())
 	server.SetBuildInfo("v1.2.0", "deadbee", "2026-04-07T15:00:00Z")
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/about", nil)
@@ -393,10 +423,349 @@ func TestServer_HandleAbout_ReturnsBuildInfo_Expected(t *testing.T) {
 	}
 }
 
+func TestServer_Handler_OpenAPIDocsRedirectAndJSON_Expected(t *testing.T) {
+	t.Parallel()
+
+	server := mustNewServer(t, store.NewMemoryStore())
+	handler := server.Handler()
+
+	redirectRequest := httptest.NewRequest(http.MethodGet, "/api/v1/docs", nil)
+	redirectRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(redirectRecorder, redirectRequest)
+	if redirectRecorder.Code != http.StatusPermanentRedirect {
+		t.Fatalf("redirect status = %d, want %d", redirectRecorder.Code, http.StatusPermanentRedirect)
+	}
+	if location := redirectRecorder.Header().Get("Location"); location != "/api/v1/docs/index.html" {
+		t.Fatalf("redirect location = %q, want /api/v1/docs/index.html", location)
+	}
+
+	jsonRequest := httptest.NewRequest(http.MethodGet, "/api/v1/docs/swagger.json", nil)
+	jsonRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(jsonRecorder, jsonRequest)
+	if jsonRecorder.Code != http.StatusOK {
+		t.Fatalf("swagger status = %d, want %d: %s", jsonRecorder.Code, http.StatusOK, jsonRecorder.Body.String())
+	}
+	if contentType := jsonRecorder.Header().Get("Content-Type"); !strings.Contains(contentType, "application/json") {
+		t.Fatalf("Content-Type = %q, want application/json", contentType)
+	}
+
+	var document map[string]any
+	if err := json.Unmarshal(jsonRecorder.Body.Bytes(), &document); err != nil {
+		t.Fatalf("Unmarshal() error = %v", err)
+	}
+	if document["openapi"] == nil {
+		t.Fatalf("openapi field missing from swagger document: %#v", document)
+	}
+}
+
+func TestServer_Handler_AuthSessionRouteRateLimited_Expected(t *testing.T) {
+	t.Parallel()
+
+	stateStore := store.NewMemoryStore()
+	if err := stateStore.CreateTenant(context.Background(), models.Tenant{
+		ID:     "tenant-a",
+		Name:   "Tenant A",
+		APIKey: "tenant-a-key",
+		Active: true,
+	}); err != nil {
+		t.Fatalf("CreateTenant() error = %v", err)
+	}
+
+	server := mustNewServer(t, stateStore)
+	server.authRateLimiter = newTenantRateLimiter(1, time.Minute)
+	handler := server.Handler()
+
+	for index, expectedStatus := range []int{http.StatusCreated, http.StatusTooManyRequests} {
+		request := httptest.NewRequest(http.MethodPost, "/api/v1/auth/session", bytes.NewBufferString(`{"mode":"tenant","api_key":"tenant-a-key"}`))
+		request.RemoteAddr = "203.0.113.10:41000"
+		request.Header.Set("Content-Type", "application/json")
+		recorder := httptest.NewRecorder()
+
+		handler.ServeHTTP(recorder, request)
+		if recorder.Code != expectedStatus {
+			t.Fatalf("request %d status = %d, want %d: %s", index, recorder.Code, expectedStatus, recorder.Body.String())
+		}
+	}
+}
+
+func TestServer_HandleInventory_V1ShapePreserved_Expected(t *testing.T) {
+	t.Parallel()
+
+	stateStore := store.NewMemoryStore()
+	server := mustNewServer(t, stateStore)
+
+	for index := 0; index < 2; index++ {
+		_, err := stateStore.SaveDiscovery(context.Background(), store.DefaultTenantID, &models.DiscoveryResult{
+			Source:       fmt.Sprintf("source-%d", index),
+			Platform:     models.PlatformVMware,
+			DiscoveredAt: time.Date(2026, time.April, 10, 11, index, 0, 0, time.UTC),
+			VMs: []models.VirtualMachine{
+				{ID: fmt.Sprintf("vm-%d", index), Name: fmt.Sprintf("vm-%d", index), Platform: models.PlatformVMware},
+			},
+		})
+		if err != nil {
+			t.Fatalf("SaveDiscovery(%d) error = %v", index, err)
+		}
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/inventory", nil)
+	req = req.WithContext(store.ContextWithTenantID(req.Context(), store.DefaultTenantID))
+	recorder := httptest.NewRecorder()
+
+	server.handleInventory(recorder, req)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d: %s", recorder.Code, http.StatusOK, recorder.Body.String())
+	}
+
+	var response models.DiscoveryResult
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Unmarshal() error = %v", err)
+	}
+	if len(response.VMs) != 2 {
+		t.Fatalf("len(response.VMs) = %d, want 2", len(response.VMs))
+	}
+}
+
+func TestServer_HandleInventory_V2PaginationEnvelope_Expected(t *testing.T) {
+	t.Parallel()
+
+	stateStore := store.NewMemoryStore()
+	server := mustNewServer(t, stateStore)
+
+	for index := 0; index < 3; index++ {
+		_, err := stateStore.SaveDiscovery(context.Background(), store.DefaultTenantID, &models.DiscoveryResult{
+			Source:       fmt.Sprintf("source-%d", index),
+			Platform:     models.PlatformVMware,
+			DiscoveredAt: time.Date(2026, time.April, 10, 11, index, 0, 0, time.UTC),
+			VMs: []models.VirtualMachine{
+				{ID: fmt.Sprintf("vm-%d", index), Name: fmt.Sprintf("vm-%d", index), Platform: models.PlatformVMware},
+			},
+		})
+		if err != nil {
+			t.Fatalf("SaveDiscovery(%d) error = %v", index, err)
+		}
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v2/inventory?page=2&per_page=1", nil)
+	req = req.WithContext(store.ContextWithTenantID(req.Context(), store.DefaultTenantID))
+	recorder := httptest.NewRecorder()
+
+	server.handleInventory(recorder, req)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d: %s", recorder.Code, http.StatusOK, recorder.Body.String())
+	}
+
+	var response struct {
+		Inventory  models.DiscoveryResult `json:"inventory"`
+		Pagination paginationResponse     `json:"pagination"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Unmarshal() error = %v", err)
+	}
+	if response.Pagination.Total != 3 || response.Pagination.Page != 2 || response.Pagination.PerPage != 1 || response.Pagination.TotalPages != 3 {
+		t.Fatalf("unexpected pagination: %#v", response.Pagination)
+	}
+	if len(response.Inventory.VMs) != 1 {
+		t.Fatalf("len(response.Inventory.VMs) = %d, want 1", len(response.Inventory.VMs))
+	}
+}
+
+func TestServer_HandleSnapshots_UsesStorePagination_Expected(t *testing.T) {
+	t.Parallel()
+
+	baseStore := store.NewMemoryStore()
+	probeStore := &paginationProbeStore{Store: baseStore}
+	server := mustNewServer(t, probeStore)
+
+	for index := 0; index < 3; index++ {
+		_, err := baseStore.SaveDiscovery(context.Background(), store.DefaultTenantID, &models.DiscoveryResult{
+			Source:       "source",
+			Platform:     models.PlatformVMware,
+			DiscoveredAt: time.Date(2026, time.April, 10, 12, index, 0, 0, time.UTC),
+		})
+		if err != nil {
+			t.Fatalf("SaveDiscovery(%d) error = %v", index, err)
+		}
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v2/snapshots?page=2&per_page=1", nil)
+	req = req.WithContext(store.ContextWithTenantID(req.Context(), store.DefaultTenantID))
+	recorder := httptest.NewRecorder()
+
+	server.handleSnapshots(recorder, req)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d: %s", recorder.Code, http.StatusOK, recorder.Body.String())
+	}
+
+	if probeStore.listSnapshotsPageCalls != 1 {
+		t.Fatalf("ListSnapshotsPage() calls = %d, want 1", probeStore.listSnapshotsPageCalls)
+	}
+	if probeStore.listSnapshotsCalls != 0 {
+		t.Fatalf("ListSnapshots() calls = %d, want 0", probeStore.listSnapshotsCalls)
+	}
+
+	var response pagedItemsResponse[store.SnapshotMeta]
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Unmarshal() error = %v", err)
+	}
+	if response.Pagination.Total != 3 || response.Pagination.Page != 2 || response.Pagination.PerPage != 1 || response.Pagination.TotalPages != 3 {
+		t.Fatalf("unexpected pagination: %#v", response.Pagination)
+	}
+	if len(response.Items) != 1 {
+		t.Fatalf("len(response.Items) = %d, want 1", len(response.Items))
+	}
+	if got, want := response.Items[0].DiscoveredAt, time.Date(2026, time.April, 10, 12, 1, 0, 0, time.UTC); !got.Equal(want) {
+		t.Fatalf("response.Items[0].DiscoveredAt = %s, want %s", got, want)
+	}
+}
+
+func TestServer_HandleSnapshots_V1ShapePreserved_Expected(t *testing.T) {
+	t.Parallel()
+
+	baseStore := store.NewMemoryStore()
+	probeStore := &paginationProbeStore{Store: baseStore}
+	server := mustNewServer(t, probeStore)
+
+	for index := 0; index < 2; index++ {
+		_, err := baseStore.SaveDiscovery(context.Background(), store.DefaultTenantID, &models.DiscoveryResult{
+			Source:       fmt.Sprintf("source-%d", index),
+			Platform:     models.PlatformVMware,
+			DiscoveredAt: time.Date(2026, time.April, 10, 12, index, 0, 0, time.UTC),
+		})
+		if err != nil {
+			t.Fatalf("SaveDiscovery(%d) error = %v", index, err)
+		}
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/snapshots", nil)
+	req = req.WithContext(store.ContextWithTenantID(req.Context(), store.DefaultTenantID))
+	recorder := httptest.NewRecorder()
+
+	server.handleSnapshots(recorder, req)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d: %s", recorder.Code, http.StatusOK, recorder.Body.String())
+	}
+
+	if probeStore.listSnapshotsCalls != 1 {
+		t.Fatalf("ListSnapshots() calls = %d, want 1", probeStore.listSnapshotsCalls)
+	}
+	if probeStore.listSnapshotsPageCalls != 0 {
+		t.Fatalf("ListSnapshotsPage() calls = %d, want 0", probeStore.listSnapshotsPageCalls)
+	}
+
+	var response []store.SnapshotMeta
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Unmarshal() error = %v", err)
+	}
+	if len(response) != 2 {
+		t.Fatalf("len(response) = %d, want 2", len(response))
+	}
+}
+
+func TestServer_HandleMigrations_UsesStorePagination_Expected(t *testing.T) {
+	t.Parallel()
+
+	baseStore := store.NewMemoryStore()
+	probeStore := &paginationProbeStore{Store: baseStore}
+	server := mustNewServer(t, probeStore)
+
+	for index := 0; index < 3; index++ {
+		err := baseStore.SaveMigration(context.Background(), store.DefaultTenantID, store.MigrationRecord{
+			ID:        fmt.Sprintf("migration-%d", index),
+			TenantID:  store.DefaultTenantID,
+			SpecName:  "phase-test",
+			Phase:     string(migratepkg.PhasePlan),
+			StartedAt: time.Date(2026, time.April, 10, 14, 0, 0, 0, time.UTC),
+			UpdatedAt: time.Date(2026, time.April, 10, 14, index, 0, 0, time.UTC),
+			RawJSON:   json.RawMessage(`{"phase":"plan"}`),
+		})
+		if err != nil {
+			t.Fatalf("SaveMigration(%d) error = %v", index, err)
+		}
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v2/migrations?page=2&per_page=1", nil)
+	req = req.WithContext(store.ContextWithTenantID(req.Context(), store.DefaultTenantID))
+	recorder := httptest.NewRecorder()
+
+	server.handleMigrations(recorder, req)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d: %s", recorder.Code, http.StatusOK, recorder.Body.String())
+	}
+
+	if probeStore.listMigrationsPageCalls != 1 {
+		t.Fatalf("ListMigrationsPage() calls = %d, want 1", probeStore.listMigrationsPageCalls)
+	}
+	if probeStore.listMigrationsCalls != 0 {
+		t.Fatalf("ListMigrations() calls = %d, want 0", probeStore.listMigrationsCalls)
+	}
+
+	var response pagedItemsResponse[store.MigrationMeta]
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Unmarshal() error = %v", err)
+	}
+	if response.Pagination.Total != 3 || response.Pagination.Page != 2 || response.Pagination.PerPage != 1 || response.Pagination.TotalPages != 3 {
+		t.Fatalf("unexpected pagination: %#v", response.Pagination)
+	}
+	if len(response.Items) != 1 {
+		t.Fatalf("len(response.Items) = %d, want 1", len(response.Items))
+	}
+	if got, want := response.Items[0].UpdatedAt, time.Date(2026, time.April, 10, 14, 1, 0, 0, time.UTC); !got.Equal(want) {
+		t.Fatalf("response.Items[0].UpdatedAt = %s, want %s", got, want)
+	}
+}
+
+func TestServer_HandleMigrations_V1ShapePreserved_Expected(t *testing.T) {
+	t.Parallel()
+
+	baseStore := store.NewMemoryStore()
+	probeStore := &paginationProbeStore{Store: baseStore}
+	server := mustNewServer(t, probeStore)
+
+	for index := 0; index < 2; index++ {
+		err := baseStore.SaveMigration(context.Background(), store.DefaultTenantID, store.MigrationRecord{
+			ID:        fmt.Sprintf("migration-v1-%d", index),
+			TenantID:  store.DefaultTenantID,
+			SpecName:  "phase-test",
+			Phase:     string(migratepkg.PhasePlan),
+			StartedAt: time.Date(2026, time.April, 10, 14, 0, 0, 0, time.UTC),
+			UpdatedAt: time.Date(2026, time.April, 10, 14, index, 0, 0, time.UTC),
+			RawJSON:   json.RawMessage(`{"phase":"plan"}`),
+		})
+		if err != nil {
+			t.Fatalf("SaveMigration(%d) error = %v", index, err)
+		}
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/migrations", nil)
+	req = req.WithContext(store.ContextWithTenantID(req.Context(), store.DefaultTenantID))
+	recorder := httptest.NewRecorder()
+
+	server.handleMigrations(recorder, req)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d: %s", recorder.Code, http.StatusOK, recorder.Body.String())
+	}
+
+	if probeStore.listMigrationsCalls != 1 {
+		t.Fatalf("ListMigrations() calls = %d, want 1", probeStore.listMigrationsCalls)
+	}
+	if probeStore.listMigrationsPageCalls != 0 {
+		t.Fatalf("ListMigrationsPage() calls = %d, want 0", probeStore.listMigrationsPageCalls)
+	}
+
+	var response []store.MigrationMeta
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Unmarshal() error = %v", err)
+	}
+	if len(response) != 2 {
+		t.Fatalf("len(response) = %d, want 2", len(response))
+	}
+}
+
 func TestServer_Handler_CORSAndSecurityHeaders_Expected(t *testing.T) {
 	t.Parallel()
 
-	server := NewServer(nil, store.NewMemoryStore(), 0, nil)
+	server := mustNewServer(t, store.NewMemoryStore())
 	handler := server.Handler()
 
 	request := httptest.NewRequest(http.MethodOptions, "/api/v1/health", nil)
@@ -404,17 +773,17 @@ func TestServer_Handler_CORSAndSecurityHeaders_Expected(t *testing.T) {
 	recorder := httptest.NewRecorder()
 
 	handler.ServeHTTP(recorder, request)
-	if recorder.Code != http.StatusNoContent {
-		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusNoContent)
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusForbidden)
 	}
-	if got := recorder.Header().Get("Access-Control-Allow-Origin"); got != "http://localhost:5173" {
-		t.Fatalf("Access-Control-Allow-Origin = %q, want localhost dev origin", got)
+	if got := recorder.Header().Get("Access-Control-Allow-Origin"); got != "" {
+		t.Fatalf("Access-Control-Allow-Origin = %q, want empty", got)
 	}
 	for header, want := range map[string]string{
 		"Cache-Control":           "no-store",
 		"Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
 		"Permissions-Policy":      "camera=(), geolocation=(), microphone=()",
-		"Referrer-Policy":         "no-referrer",
+		"Referrer-Policy":         "strict-origin-when-cross-origin",
 		"X-Content-Type-Options":  "nosniff",
 		"X-Frame-Options":         "DENY",
 	} {
@@ -427,7 +796,7 @@ func TestServer_Handler_CORSAndSecurityHeaders_Expected(t *testing.T) {
 func TestServer_Handler_DisallowedCORSOriginRejected_Expected(t *testing.T) {
 	t.Parallel()
 
-	server := NewServer(nil, store.NewMemoryStore(), 0, nil)
+	server := mustNewServer(t, store.NewMemoryStore())
 	handler := server.Handler()
 
 	request := httptest.NewRequest(http.MethodOptions, "/api/v1/health", nil)
@@ -443,10 +812,41 @@ func TestServer_Handler_DisallowedCORSOriginRejected_Expected(t *testing.T) {
 	}
 }
 
+func TestServer_Handler_ExplicitAllowedCORSOrigin_Expected(t *testing.T) {
+	t.Setenv("VIADUCT_ALLOWED_ORIGINS", "http://localhost:5173")
+	server := mustNewServer(t, store.NewMemoryStore())
+	handler := server.Handler()
+
+	request := httptest.NewRequest(http.MethodOptions, "/api/v1/health", nil)
+	request.Header.Set("Origin", "http://localhost:5173")
+	recorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusNoContent)
+	}
+	if got := recorder.Header().Get("Access-Control-Allow-Origin"); got != "http://localhost:5173" {
+		t.Fatalf("Access-Control-Allow-Origin = %q, want explicit configured origin", got)
+	}
+}
+
+func TestNewServer_WildcardAllowedOriginsWithAuthEnabled_ReturnsError(t *testing.T) {
+	t.Setenv("VIADUCT_ADMIN_KEY", "admin-key")
+	t.Setenv("VIADUCT_ALLOWED_ORIGINS", "*")
+
+	_, err := NewServer(nil, store.NewMemoryStore(), 0, nil)
+	if err == nil {
+		t.Fatal("NewServer() error = nil, want wildcard CORS validation failure")
+	}
+	if got := err.Error(); got == "" || !strings.Contains(got, "VIADUCT_ALLOWED_ORIGINS") || !strings.Contains(got, "*") {
+		t.Fatalf("NewServer() error = %q, want wildcard CORS validation context", got)
+	}
+}
+
 func TestServer_HandlePreflight_InvalidSpecReturnsFieldErrors_Expected(t *testing.T) {
 	t.Parallel()
 
-	server := NewServer(nil, store.NewMemoryStore(), 0, nil)
+	server := mustNewServer(t, store.NewMemoryStore())
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/preflight", bytes.NewBufferString(`{"name":"bad-spec"}`))
 	recorder := httptest.NewRecorder()
 

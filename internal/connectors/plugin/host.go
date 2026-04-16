@@ -51,21 +51,23 @@ type ConnectRequest struct {
 // the password field across the plugin RPC boundary.
 func (r ConnectRequest) MarshalJSON() ([]byte, error) {
 	type jsonConfig struct {
-		Address  string `json:"address"`
-		Username string `json:"username"`
-		Password string `json:"password"`
-		Insecure bool   `json:"insecure"`
-		Port     int    `json:"port,omitempty"`
+		Address   string `json:"address"`
+		Username  string `json:"username"`
+		Password  string `json:"password"`
+		Insecure  bool   `json:"insecure"`
+		Port      int    `json:"port,omitempty"`
+		RequestID string `json:"request_id,omitempty"`
 	}
 	return json.Marshal(struct {
 		Config jsonConfig `json:"config"`
 	}{
 		Config: jsonConfig{
-			Address:  r.Config.Address,
-			Username: r.Config.Username,
-			Password: r.Config.Password,
-			Insecure: r.Config.Insecure,
-			Port:     r.Config.Port,
+			Address:   r.Config.Address,
+			Username:  r.Config.Username,
+			Password:  r.Config.Password,
+			Insecure:  r.Config.Insecure,
+			Port:      r.Config.Port,
+			RequestID: r.Config.RequestID,
 		},
 	})
 }
@@ -73,11 +75,12 @@ func (r ConnectRequest) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON decodes a plugin connection request and restores the shared connector config.
 func (r *ConnectRequest) UnmarshalJSON(data []byte) error {
 	type jsonConfig struct {
-		Address  string `json:"address"`
-		Username string `json:"username"`
-		Password string `json:"password"`
-		Insecure bool   `json:"insecure"`
-		Port     int    `json:"port,omitempty"`
+		Address   string `json:"address"`
+		Username  string `json:"username"`
+		Password  string `json:"password"`
+		Insecure  bool   `json:"insecure"`
+		Port      int    `json:"port,omitempty"`
+		RequestID string `json:"request_id,omitempty"`
 	}
 	var payload struct {
 		Config jsonConfig `json:"config"`
@@ -86,11 +89,12 @@ func (r *ConnectRequest) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	r.Config = connectors.Config{
-		Address:  payload.Config.Address,
-		Username: payload.Config.Username,
-		Password: payload.Config.Password,
-		Insecure: payload.Config.Insecure,
-		Port:     payload.Config.Port,
+		Address:   payload.Config.Address,
+		Username:  payload.Config.Username,
+		Password:  payload.Config.Password,
+		Insecure:  payload.Config.Insecure,
+		Port:      payload.Config.Port,
+		RequestID: payload.Config.RequestID,
 	}
 	return nil
 }

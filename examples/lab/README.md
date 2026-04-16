@@ -22,12 +22,13 @@ make web-build
 On a fresh source checkout, `viaduct start` generates `~/.viaduct/config.yaml` automatically when it is missing and points it at the fixtures in this directory.
 
 Then open [http://127.0.0.1:8080](http://127.0.0.1:8080). For the default local lab path, the dashboard can use the built-in single-user fallback and does not require a pasted browser key.
+Live operator API docs are also available at [http://127.0.0.1:8080/api/v1/docs](http://127.0.0.1:8080/api/v1/docs).
 
 If you intentionally want to exercise the tenant-scoped bootstrap path, use the seeded payloads in this directory:
 - `tenant-create.json`
 - `service-account-create.json`
 
-The bootstrap screen stores runtime keys in session storage by default. Use the remember option only when you want the browser to retain a key across restarts.
+The bootstrap screen now creates a server-backed session. The browser stores only an opaque session marker, while the actual API credential remains in an `httpOnly` cookie. Use the remember option only when you want that non-sensitive marker to survive browser restarts on a trusted workstation.
 
 If you are actively editing the dashboard, you can still run `npm run dev` inside `web/` and use the Vite server instead. The default operator path for the lab is the same-origin shell served by `viaduct start`.
 

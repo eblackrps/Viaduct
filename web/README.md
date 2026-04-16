@@ -21,6 +21,15 @@ npm ci
 npm run dev:full
 ```
 
+Quality checks for dashboard work:
+
+```bash
+npm run lint
+npm run format
+npm run test
+npm run e2e
+```
+
 ## Build
 
 ```bash
@@ -44,6 +53,7 @@ Then open [http://127.0.0.1:8080](http://127.0.0.1:8080). The local runtime serv
 
 - `VITE_VIADUCT_API_KEY`: tenant-scoped API key for development bootstrap or tenant-admin access
 - `VITE_VIADUCT_SERVICE_ACCOUNT_KEY`: preferred service-account key for the normal operator flow
+- `VITE_VIADUCT_API_TIMEOUT_MS`: request timeout in milliseconds for dashboard fetches
 
 See [./.env.example](./.env.example).
 
@@ -51,7 +61,7 @@ The dashboard also supports runtime authentication bootstrap. When no environmen
 - uses the local single-user fallback when the default tenant is available without a key, or
 - opens the bootstrap screen so the operator can provide a service-account or tenant key at runtime
 
-The default storage is the browser session. Operators can explicitly opt into local storage with the remember option on the bootstrap screen for trusted workstations.
+The runtime bootstrap path now keeps the actual API credential in a server-backed session and `httpOnly` cookie. The browser stores only an opaque session marker. Non-persistent sessions use session storage for that marker, and the remember option persists only the marker in local storage on trusted workstations.
 
 ## Notes
 
@@ -60,3 +70,4 @@ The default storage is the browser session. Operators can explicitly opt into lo
 - The dashboard depends on the same backend state as the CLI and API; avoid frontend-only assumptions about migration or policy state.
 - The default route is the pilot workspace flow in `web/src/features/workspaces/WorkspacePage.tsx`.
 - The app shell groups pages into pilot, operate, govern, admin, and analysis sections so the workspace-first route stays prominent without hiding the rest of the operator surfaces.
+- Live runtime API docs are served by the backend at `/api/v1/docs`.

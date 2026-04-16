@@ -3,6 +3,7 @@
 
 [![CI](https://github.com/eblackrps/Viaduct/actions/workflows/ci.yml/badge.svg)](https://github.com/eblackrps/Viaduct/actions/workflows/ci.yml)
 [![License](https://img.shields.io/github/license/eblackrps/Viaduct)](https://github.com/eblackrps/Viaduct/blob/main/LICENSE)
+[![Release](https://img.shields.io/github/v/release/eblackrps/Viaduct?display_name=tag)](https://github.com/eblackrps/Viaduct/releases)
 
 Viaduct helps operators discover mixed virtualization estates, map dependencies, build migration plans, and manage controlled migration work from one shared backend model. The repository combines a Go backend, REST API, CLI, React dashboard, and standalone public site around the same persisted inventory, workspace, planning, and reporting surfaces.
 
@@ -34,6 +35,19 @@ It is strongest when operators need:
 - Migration planning: use declarative specs, preflight checks, saved dry-run plans, execution windows, approval requirements, checkpoints, resume support, and rollback state.
 - Lifecycle analysis: review drift, policy, cost, remediation guidance, and backup portability inputs in the same control plane.
 - Multi-tenancy and extensibility: use tenant-scoped APIs, service accounts, PostgreSQL-backed state, and the community plugin host.
+
+## Screenshots
+
+The current repo ships with release-facing dashboard captures so evaluators can see the actual operator flow before they build anything.
+
+<p align="center">
+  <img src="docs/operations/demo/screenshots/pilot-bootstrap.svg" alt="Viaduct dashboard bootstrap screen" width="48%" />
+  <img src="docs/operations/demo/screenshots/pilot-workspace-flow.svg" alt="Viaduct pilot workspace flow" width="48%" />
+</p>
+<p align="center">
+  <img src="examples/lab/screenshots/lab-workspace-flow.svg" alt="Viaduct local lab workspace flow" width="48%" />
+  <img src="examples/lab/screenshots/lab-report-export.svg" alt="Viaduct local lab report export" width="48%" />
+</p>
 
 ## Platform Coverage
 
@@ -73,6 +87,8 @@ Use these companion commands when you need them:
 ./bin/viaduct doctor
 ./bin/viaduct stop
 ```
+
+The same runtime also publishes live operator API docs at [http://127.0.0.1:8080/api/v1/docs](http://127.0.0.1:8080/api/v1/docs), backed by the checked-in contract in [docs/reference/openapi.yaml](docs/reference/openapi.yaml).
 
 `viaduct serve-api` remains the lower-level API command for container, service, and intentionally headless deployments. It still serves the built dashboard automatically when assets are present in `web/dist`, a packaged `web/` directory, or an installed `share/viaduct/web` layout. If you prefer the Vite development server while changing frontend code, that flow still lives in [web/README.md](web/README.md).
 
@@ -118,6 +134,7 @@ make package-release-matrix
 - Security: [SECURITY.md](SECURITY.md)
 - Documentation index: [docs/README.md](docs/README.md)
 - API contract: [docs/reference/openapi.yaml](docs/reference/openapi.yaml)
+- Live API docs: `/api/v1/docs` on any running Viaduct server
 - Support matrix: [docs/reference/support-matrix.md](docs/reference/support-matrix.md)
 
 ## Contributing

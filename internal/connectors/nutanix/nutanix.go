@@ -22,7 +22,7 @@ func NewNutanixConnector(cfg connectors.Config) *NutanixConnector {
 
 // Connect validates Prism Central access using the current credentials.
 func (c *NutanixConnector) Connect(ctx context.Context) error {
-	client := NewPrismClient(c.config.Address, c.config.Username, c.config.Password, c.config.Insecure)
+	client := NewPrismClient(c.config.Address, c.config.Username, c.config.Password, c.config.Insecure, c.config.RequestID)
 	if _, err := client.Get(ctx, "/api/nutanix/v3/users/me"); err != nil {
 		return fmt.Errorf("nutanix: connect: %w", err)
 	}

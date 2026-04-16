@@ -21,6 +21,7 @@ make web-build
 ```
 
 On a fresh source checkout, `viaduct start` creates the default local lab config when it is missing, points it at `examples/lab/kvm`, and serves the WebUI and API together at `http://127.0.0.1:8080`.
+The same runtime also serves live operator API docs at `http://127.0.0.1:8080/api/v1/docs`.
 
 ## Packaged Release Bundle
 
@@ -104,8 +105,9 @@ viaduct doctor
 If you installed only the CLI and not the dashboard assets, the API and migration/lifecycle backends still work; only the packaged static WebUI is absent.
 
 For browser access in packaged environments:
-- set `VIADUCT_ALLOWED_ORIGINS` only if the dashboard is served from a non-default origin
+- keep `VIADUCT_ALLOWED_ORIGINS` empty for same-origin deployments; set it only if the dashboard is served from a different trusted origin
 - set `VIADUCT_WEB_DIR` only if the built dashboard assets live outside the standard packaged or installed paths
 - prefer service-account keys for normal operator access
+- rely on the runtime auth bootstrap for packaged environments unless you intentionally pre-seed a development-only browser credential
 - use `VIADUCT_WORKSPACE_JOB_TIMEOUT` if workspace jobs need a different server-side timeout budget
 - use `viaduct serve-api` directly only when you intentionally want the lower-level service command instead of the local `start` flow

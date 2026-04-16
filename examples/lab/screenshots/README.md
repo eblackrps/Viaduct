@@ -2,6 +2,7 @@
 
 These screenshots are grounded in the current `examples/lab` seed data. They are meant to help evaluators understand what the local workspace flow and exported report should look like at a glance.
 They mirror the current dashboard labels, the seeded lab workspace defaults, and the current report/export behavior.
+They are also suitable for the root `README.md`, release notes, and lightweight evaluator packets.
 
 ## Files
 

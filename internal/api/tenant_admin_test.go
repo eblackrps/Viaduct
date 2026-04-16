@@ -37,7 +37,7 @@ func TestServer_HandleCurrentTenant_ServiceAccountResponseRedactsKeys_Expected(t
 		t.Fatalf("CreateTenant() error = %v", err)
 	}
 
-	server := NewServer(nil, stateStore, 0, nil)
+	server := mustNewServer(t, stateStore)
 	handler := TenantAuthMiddleware(stateStore, http.HandlerFunc(server.handleCurrentTenant))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/tenants/current", nil)
@@ -80,7 +80,7 @@ func TestServer_HandleServiceAccounts_CreateAndRotate_Expected(t *testing.T) {
 		t.Fatalf("CreateTenant() error = %v", err)
 	}
 
-	server := NewServer(nil, stateStore, 0, nil)
+	server := mustNewServer(t, stateStore)
 	handler := TenantAuthMiddleware(stateStore, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/api/v1/service-accounts":

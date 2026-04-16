@@ -15,7 +15,7 @@ func TestServer_Handler_ServesBuiltDashboardAndFallbackRoutes_Expected(t *testin
 	t.Parallel()
 
 	dashboardDir := builtDashboardFixture(t)
-	server := NewServer(nil, store.NewMemoryStore(), 0, nil)
+	server := mustNewServer(t, store.NewMemoryStore())
 	server.SetDashboardDir(dashboardDir)
 
 	handler := server.Handler()
@@ -44,7 +44,7 @@ func TestServer_Handler_ServesDashboardAssetsWithImmutableCache_Expected(t *test
 	t.Parallel()
 
 	dashboardDir := builtDashboardFixture(t)
-	server := NewServer(nil, store.NewMemoryStore(), 0, nil)
+	server := mustNewServer(t, store.NewMemoryStore())
 	server.SetDashboardDir(dashboardDir)
 
 	request := httptest.NewRequest(http.MethodGet, "/assets/app.js", nil)
@@ -66,7 +66,7 @@ func TestServer_Handler_MissingDashboardAssetReturnsNotFound_Expected(t *testing
 	t.Parallel()
 
 	dashboardDir := builtDashboardFixture(t)
-	server := NewServer(nil, store.NewMemoryStore(), 0, nil)
+	server := mustNewServer(t, store.NewMemoryStore())
 	server.SetDashboardDir(dashboardDir)
 
 	request := httptest.NewRequest(http.MethodGet, "/assets/missing.js", nil)

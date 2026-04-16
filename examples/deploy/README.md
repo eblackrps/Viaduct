@@ -23,6 +23,7 @@ The Compose stack expects `examples/deploy/config/config.yaml` and reads environ
 When the image includes built dashboard assets, the same HTTP listener serves:
 - dashboard shell: `/`
 - API routes: `/api/v1/*`
+- live API docs: `/api/v1/docs`
 
 For the default local mapping in this example, open [http://localhost:8080](http://localhost:8080).
 
@@ -46,5 +47,6 @@ See [kubernetes/README.md](kubernetes/README.md) for apply order and manifest no
 - These examples are intended for evaluation and controlled pilot environments.
 - Persistent environments should point `state_store_dsn` at PostgreSQL instead of using the in-memory store.
 - The bundled dashboard is built into the release package and served by the same `viaduct serve-api` process when those assets are present.
+- Keep `VIADUCT_ALLOWED_ORIGINS` empty for same-origin deployments and set it only for explicit trusted cross-origin dashboards.
 - `viaduct start` is the default local operator entrypoint; use `viaduct serve-api` directly in service and container contexts.
 - Treat these manifests as references to adapt, not as comprehensive hardening guidance.

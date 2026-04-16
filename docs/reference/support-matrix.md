@@ -14,9 +14,11 @@ This matrix reflects what is implemented and what is currently validated in the 
 | Area | Validation Scope | Notes |
 | --- | --- | --- |
 | Backend build and tests | CI and local release-gate coverage | Includes build, vet, lint, race tests, coverage, and packaging. |
+| Dashboard lint and unit tests | CI and local | `npm run lint` and `npm run test` enforce frontend quality and auth/workspace regressions. |
+| Dashboard end-to-end tests | CI and local | `npm run e2e` exercises the login bootstrap, operator console, inventory, and migration workflow paths. |
 | Connector certification | Fixture-backed local and CI coverage | `make certification-test` validates KVM and Proxmox normalization against stable fixtures. |
 | Migration soak | Tagged local and CI coverage | `make soak-test` exercises large-wave orchestration behavior without requiring external hypervisors. |
-| API contract | Local and CI contract check | `make contract-check` verifies the published OpenAPI reference still covers the documented routes. |
+| API contract | Local and CI contract check | `make contract-check` verifies the published OpenAPI reference plus `/api/v1/docs/swagger.json` coverage for documented routes. |
 | Plugin compatibility | Local and CI manifest validation | `make plugin-check` validates manifest protocol and host-version compatibility markers. |
 | CLI packaging | Local and CI packaging checks | Release bundles are ZIP-based and include docs, configs, and web assets. |
 | Dashboard build | CI and local | `npm run build` is part of the release gate. |

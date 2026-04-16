@@ -58,7 +58,7 @@ func TestServer_HandleAudit_TenantScoped_Expected(t *testing.T) {
 		}
 	}
 
-	server := NewServer(nil, stateStore, 0, nil)
+	server := mustNewServer(t, stateStore)
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/audit", nil)
 	req = req.WithContext(store.ContextWithTenantID(req.Context(), "tenant-a"))
 	recorder := httptest.NewRecorder()
@@ -81,7 +81,7 @@ func TestServer_HandleReports_AuditCSV_Expected(t *testing.T) {
 	t.Parallel()
 
 	stateStore := store.NewMemoryStore()
-	server := NewServer(nil, stateStore, 0, nil)
+	server := mustNewServer(t, stateStore)
 	if err := stateStore.SaveAuditEvent(context.Background(), models.AuditEvent{
 		ID:        "audit-1",
 		TenantID:  store.DefaultTenantID,
@@ -134,7 +134,7 @@ func TestServer_HandleReports_MigrationsCSV_Expected(t *testing.T) {
 		t.Fatalf("SaveMigration() error = %v", err)
 	}
 
-	server := NewServer(nil, stateStore, 0, nil)
+	server := mustNewServer(t, stateStore)
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/reports/migrations?format=csv", nil)
 	req = req.WithContext(store.ContextWithTenantID(req.Context(), store.DefaultTenantID))
 	recorder := httptest.NewRecorder()
@@ -155,7 +155,7 @@ func TestServer_HandleReports_MigrationsCSV_Expected(t *testing.T) {
 func TestServer_HandleReports_UnknownReport_ReturnsStructuredError(t *testing.T) {
 	t.Parallel()
 
-	server := NewServer(nil, store.NewMemoryStore(), 0, nil)
+	server := mustNewServer(t, store.NewMemoryStore())
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/reports/unknown", nil)
 	req = req.WithContext(store.ContextWithTenantID(req.Context(), store.DefaultTenantID))
 	recorder := httptest.NewRecorder()

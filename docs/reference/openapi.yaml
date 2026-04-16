@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Viaduct Operator API
-  version: v1
+  version: v2
   description: >
     Stable Viaduct operator and automation endpoints. This document covers the
     release-grade API surfaces used by the packaged dashboard, CLI-assisted
@@ -62,6 +62,79 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DiscoveryResult"
+  /api/v1/snapshots:
+    get:
+      summary: List tenant discovery snapshots
+      security:
+        - TenantAPIKey: []
+        - ServiceAccountKey: []
+      responses:
+        "200":
+          description: Snapshot metadata ordered from newest to oldest
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SnapshotMeta"
+  /api/v2/inventory:
+    get:
+      summary: Latest tenant inventory (paginated)
+      security:
+        - TenantAPIKey: []
+        - ServiceAccountKey: []
+      parameters:
+        - in: query
+          name: platform
+          schema:
+            type: string
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - in: query
+          name: per_page
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        "200":
+          description: Latest inventory view with pagination metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InventoryListResponse"
+  /api/v2/snapshots:
+    get:
+      summary: List tenant discovery snapshots (paginated)
+      security:
+        - TenantAPIKey: []
+        - ServiceAccountKey: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - in: query
+          name: per_page
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        "200":
+          description: Snapshot metadata ordered from newest to oldest with pagination metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SnapshotListResponse"
   /api/v1/summary:
     get:
       summary: Tenant fleet summary
@@ -210,6 +283,59 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/MigrationMeta"
+    post:
+      summary: Create or plan a migration
+      security:
+        - TenantAPIKey: []
+        - ServiceAccountKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "202":
+          description: Migration plan accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MigrationState"
+        "400":
+          $ref: "#/components/responses/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+        "403":
+          $ref: "#/components/responses/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/ErrorResponse"
+  /api/v2/migrations:
+    get:
+      summary: List tenant migrations (paginated)
+      security:
+        - TenantAPIKey: []
+        - ServiceAccountKey: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - in: query
+          name: per_page
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        "200":
+          description: Migration history with pagination metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MigrationListResponse"
     post:
       summary: Create or plan a migration
       security:
@@ -763,6 +889,47 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/VirtualMachine"
+    Pagination:
+      type: object
+      properties:
+        total:
+          type: integer
+        page:
+          type: integer
+        per_page:
+          type: integer
+        total_pages:
+          type: integer
+    InventoryListResponse:
+      type: object
+      properties:
+        inventory:
+          $ref: "#/components/schemas/DiscoveryResult"
+        pagination:
+          $ref: "#/components/schemas/Pagination"
+    SnapshotMeta:
+      type: object
+      properties:
+        id:
+          type: string
+        source:
+          type: string
+        platform:
+          type: string
+        vm_count:
+          type: integer
+        discovered_at:
+          type: string
+          format: date-time
+    SnapshotListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/SnapshotMeta"
+        pagination:
+          $ref: "#/components/schemas/Pagination"
     VirtualMachine:
       type: object
       properties:
@@ -906,6 +1073,15 @@ components:
         completed_at:
           type: string
           format: date-time
+    MigrationListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/MigrationMeta"
+        pagination:
+          $ref: "#/components/schemas/Pagination"
     MigrationExecutionRequest:
       type: object
       properties:

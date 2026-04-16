@@ -2,11 +2,11 @@ import type { InventoryPlanningDraft } from "../features/inventory/inventoryPlan
 import { MigrationWorkflow } from "../features/migrations/MigrationWorkflow";
 
 interface MigrationWizardProps {
-  planningDraft?: InventoryPlanningDraft | null;
-  onPlanningDraftCleared?: () => void;
-  onMigrationChange?: () => void;
+	planningDraft?: InventoryPlanningDraft | null;
+	onPlanningDraftCleared?: () => void;
+	onMigrationChange?: () => void;
 }
 
 export function MigrationWizard(props: MigrationWizardProps) {
-  return <MigrationWorkflow {...props} />;
+	return <MigrationWorkflow {...props} />;
 }

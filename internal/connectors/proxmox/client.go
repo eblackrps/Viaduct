@@ -12,6 +12,8 @@ import (
 	"path"
 	"strings"
 	"time"
+
+	"github.com/eblackrps/viaduct/internal/connectors"
 )
 
 type apiEnvelope struct {
@@ -30,13 +32,18 @@ type ProxmoxClient struct {
 	authToken  string
 	authTicket string
 	csrfToken  string
+	requestID  string
 }
 
 // NewProxmoxClient builds a Proxmox API client for the provided address.
-func NewProxmoxClient(address string, insecure bool) *ProxmoxClient {
+func NewProxmoxClient(address string, insecure bool, requestID ...string) *ProxmoxClient {
 	baseURL := normalizeBaseURL(address)
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS12, InsecureSkipVerify: insecure},
+	}
+	propagatedRequestID := ""
+	if len(requestID) > 0 {
+		propagatedRequestID = strings.TrimSpace(requestID[0])
 	}
 
 	return &ProxmoxClient{
@@ -45,6 +52,7 @@ func NewProxmoxClient(address string, insecure bool) *ProxmoxClient {
 			Timeout:   30 * time.Second,
 			Transport: transport,
 		},
+		requestID: propagatedRequestID,
 	}
 }
 
@@ -60,6 +68,9 @@ func (c *ProxmoxClient) Authenticate(ctx context.Context, username, password str
 	}
 
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if c.requestID != "" {
+		req.Header.Set(connectors.RequestIDHeader, c.requestID)
+	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -158,6 +169,9 @@ func (c *ProxmoxClient) buildURL(endpoint string) string {
 }
 
 func (c *ProxmoxClient) addAuthHeaders(req *http.Request) {
+	if c.requestID != "" {
+		req.Header.Set(connectors.RequestIDHeader, c.requestID)
+	}
 	if c.authToken != "" {
 		req.Header.Set("Authorization", "PVEAPIToken="+c.authToken)
 	}

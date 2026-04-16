@@ -39,6 +39,8 @@ type Store interface {
 	GetSnapshot(ctx context.Context, tenantID, snapshotID string) (*models.DiscoveryResult, error)
 	// ListSnapshots returns snapshot metadata ordered from newest to oldest.
 	ListSnapshots(ctx context.Context, tenantID string, platform models.Platform, limit int) ([]SnapshotMeta, error)
+	// ListSnapshotsPage returns a single page of snapshot metadata plus the total number of matching snapshots.
+	ListSnapshotsPage(ctx context.Context, tenantID string, platform models.Platform, page, perPage int) ([]SnapshotMeta, int, error)
 	// QueryVMs returns VMs that match the supplied filter criteria across stored snapshots.
 	QueryVMs(ctx context.Context, tenantID string, filter VMFilter) ([]models.VirtualMachine, error)
 	// SaveMigration persists a migration state payload by identifier.
@@ -47,6 +49,8 @@ type Store interface {
 	GetMigration(ctx context.Context, tenantID, migrationID string) (*MigrationRecord, error)
 	// ListMigrations returns migration metadata ordered from newest to oldest updates.
 	ListMigrations(ctx context.Context, tenantID string, limit int) ([]MigrationMeta, error)
+	// ListMigrationsPage returns a single page of migration metadata plus the total number of matching migrations.
+	ListMigrationsPage(ctx context.Context, tenantID string, page, perPage int) ([]MigrationMeta, int, error)
 	// SaveRecoveryPoint persists a rollback recovery point payload for a migration.
 	SaveRecoveryPoint(ctx context.Context, tenantID string, record RecoveryPointRecord) error
 	// GetRecoveryPoint retrieves the persisted rollback recovery point for a migration.
@@ -93,6 +97,23 @@ type Diagnostics struct {
 	SchemaVersion int `json:"schema_version,omitempty" yaml:"schema_version,omitempty"`
 	// Persistent reports whether the backend survives process restarts.
 	Persistent bool `json:"persistent" yaml:"persistent"`
+	// DBPool reports connection-pool settings and runtime metrics when the backend is SQL-backed.
+	DBPool *DBPoolDiagnostics `json:"db_pool,omitempty" yaml:"db_pool,omitempty"`
+}
+
+// DBPoolDiagnostics reports SQL pool configuration and runtime counters.
+type DBPoolDiagnostics struct {
+	MaxOpenConnections int           `json:"max_open_connections,omitempty" yaml:"max_open_connections,omitempty"`
+	OpenConnections    int           `json:"open_connections,omitempty" yaml:"open_connections,omitempty"`
+	InUse              int           `json:"in_use,omitempty" yaml:"in_use,omitempty"`
+	Idle               int           `json:"idle,omitempty" yaml:"idle,omitempty"`
+	WaitCount          int64         `json:"wait_count,omitempty" yaml:"wait_count,omitempty"`
+	WaitDuration       time.Duration `json:"wait_duration,omitempty" yaml:"wait_duration,omitempty"`
+	MaxIdleClosed      int64         `json:"max_idle_closed,omitempty" yaml:"max_idle_closed,omitempty"`
+	MaxIdleTimeClosed  int64         `json:"max_idle_time_closed,omitempty" yaml:"max_idle_time_closed,omitempty"`
+	MaxLifetimeClosed  int64         `json:"max_lifetime_closed,omitempty" yaml:"max_lifetime_closed,omitempty"`
+	ReadTimeout        time.Duration `json:"read_timeout,omitempty" yaml:"read_timeout,omitempty"`
+	WriteTimeout       time.Duration `json:"write_timeout,omitempty" yaml:"write_timeout,omitempty"`
 }
 
 // DiagnosticsProvider is implemented by stores that expose operator-visible backend metadata.

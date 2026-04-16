@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -159,35 +161,125 @@ CREATE INDEX IF NOT EXISTS idx_workspace_jobs_tenant_workspace_updated_at ON wor
 
 // PostgresStore is a PostgreSQL-backed Store implementation.
 type PostgresStore struct {
-	db *sql.DB
+	db           *sql.DB
+	readTimeout  time.Duration
+	writeTimeout time.Duration
+	maxOpenConns int
 }
 
 // NewPostgresStore connects to PostgreSQL and ensures the required schema exists.
 func NewPostgresStore(ctx context.Context, dsn string) (*PostgresStore, error) {
+	settings := loadPostgresSettings()
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("postgres store: open database: %w", err)
 	}
+	db.SetMaxOpenConns(settings.MaxOpenConns)
+	db.SetMaxIdleConns(settings.MaxIdleConns)
+	db.SetConnMaxLifetime(settings.ConnMaxLifetime)
 
-	if err := db.PingContext(ctx); err != nil {
+	pingCtx, cancel := withTimeout(ctx, settings.WriteTimeout)
+	defer cancel()
+	if err := db.PingContext(pingCtx); err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("postgres store: ping database: %w", err)
 	}
 
-	if _, err := db.ExecContext(ctx, createStoreSchemaSQL); err != nil {
+	migrationCtx, migrationCancel := withTimeout(ctx, settings.WriteTimeout)
+	defer migrationCancel()
+	if _, err := db.ExecContext(migrationCtx, createStoreSchemaSQL); err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("postgres store: run migrations: %w", err)
 	}
-	if err := recordStoreSchemaHistory(ctx, db); err != nil {
+	recordCtx, recordCancel := withTimeout(ctx, settings.WriteTimeout)
+	defer recordCancel()
+	if err := recordStoreSchemaHistory(recordCtx, db); err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("postgres store: record schema history: %w", err)
 	}
 
-	return &PostgresStore{db: db}, nil
+	return &PostgresStore{
+		db:           db,
+		readTimeout:  settings.ReadTimeout,
+		writeTimeout: settings.WriteTimeout,
+		maxOpenConns: settings.MaxOpenConns,
+	}, nil
+}
+
+type postgresSettings struct {
+	ReadTimeout     time.Duration
+	WriteTimeout    time.Duration
+	MaxOpenConns    int
+	MaxIdleConns    int
+	ConnMaxLifetime time.Duration
+}
+
+func loadPostgresSettings() postgresSettings {
+	return postgresSettings{
+		ReadTimeout:     durationFromEnv("VIADUCT_DB_READ_TIMEOUT", 5*time.Second),
+		WriteTimeout:    durationFromEnv("VIADUCT_DB_WRITE_TIMEOUT", 10*time.Second),
+		MaxOpenConns:    intFromEnv("VIADUCT_DB_MAX_OPEN_CONNS", 25),
+		MaxIdleConns:    intFromEnv("VIADUCT_DB_MAX_IDLE_CONNS", 5),
+		ConnMaxLifetime: durationFromEnv("VIADUCT_DB_CONN_MAX_LIFETIME", 5*time.Minute),
+	}
+}
+
+func (s *PostgresStore) readContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	if s == nil {
+		return withTimeout(ctx, 5*time.Second)
+	}
+	return withTimeout(ctx, s.readTimeout)
+}
+
+func (s *PostgresStore) writeContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	if s == nil {
+		return withTimeout(ctx, 10*time.Second)
+	}
+	return withTimeout(ctx, s.writeTimeout)
+}
+
+func withTimeout(ctx context.Context, timeout time.Duration) (context.Context, context.CancelFunc) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if timeout <= 0 {
+		return ctx, func() {}
+	}
+	if deadline, ok := ctx.Deadline(); ok && time.Until(deadline) <= timeout {
+		return ctx, func() {}
+	}
+	return context.WithTimeout(ctx, timeout)
+}
+
+func durationFromEnv(name string, fallback time.Duration) time.Duration {
+	value := strings.TrimSpace(os.Getenv(name))
+	if value == "" {
+		return fallback
+	}
+	parsed, err := time.ParseDuration(value)
+	if err != nil || parsed <= 0 {
+		return fallback
+	}
+	return parsed
+}
+
+func intFromEnv(name string, fallback int) int {
+	value := strings.TrimSpace(os.Getenv(name))
+	if value == "" {
+		return fallback
+	}
+	parsed, err := strconv.Atoi(value)
+	if err != nil || parsed <= 0 {
+		return fallback
+	}
+	return parsed
 }
 
 // SaveDiscovery persists a discovery result to PostgreSQL.
 func (s *PostgresStore) SaveDiscovery(ctx context.Context, tenantID string, result *models.DiscoveryResult) (string, error) {
+	ctx, cancel := s.writeContext(ctx)
+	defer cancel()
+
 	if result == nil {
 		return "", fmt.Errorf("postgres store: save discovery: result is nil")
 	}
@@ -235,6 +327,9 @@ func (s *PostgresStore) SaveDiscovery(ctx context.Context, tenantID string, resu
 
 // GetSnapshot retrieves a discovery snapshot by identifier from PostgreSQL.
 func (s *PostgresStore) GetSnapshot(ctx context.Context, tenantID, snapshotID string) (*models.DiscoveryResult, error) {
+	ctx, cancel := s.readContext(ctx)
+	defer cancel()
+
 	tenantID = normalizeTenantID(tenantID)
 
 	var payload []byte
@@ -257,9 +352,21 @@ func (s *PostgresStore) GetSnapshot(ctx context.Context, tenantID, snapshotID st
 
 // ListSnapshots returns snapshot metadata ordered from newest to oldest.
 func (s *PostgresStore) ListSnapshots(ctx context.Context, tenantID string, platform models.Platform, limit int) ([]SnapshotMeta, error) {
+	items, _, err := s.ListSnapshotsPage(ctx, tenantID, platform, 1, limit)
+	if err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+// ListSnapshotsPage returns paginated snapshot metadata ordered from newest to oldest.
+func (s *PostgresStore) ListSnapshotsPage(ctx context.Context, tenantID string, platform models.Platform, page, perPage int) ([]SnapshotMeta, int, error) {
+	ctx, cancel := s.readContext(ctx)
+	defer cancel()
+
 	tenantID = normalizeTenantID(tenantID)
 
-	query := `SELECT id, tenant_id, source, platform, vm_count, discovered_at FROM snapshots WHERE tenant_id = $1`
+	query := `FROM snapshots WHERE tenant_id = $1`
 	args := []interface{}{tenantID}
 
 	if platform != "" {
@@ -267,37 +374,45 @@ func (s *PostgresStore) ListSnapshots(ctx context.Context, tenantID string, plat
 		args = append(args, string(platform))
 	}
 
-	query += ` ORDER BY discovered_at DESC`
-	if limit > 0 {
-		query += fmt.Sprintf(` LIMIT %d`, limit)
+	var total int
+	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) `+query, args...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("postgres store: count snapshots: %w", err)
 	}
 
-	rows, err := s.db.QueryContext(ctx, query, args...)
+	selectQuery := `SELECT id, tenant_id, source, platform, vm_count, discovered_at ` + query + ` ORDER BY discovered_at DESC`
+	if perPage > 0 {
+		selectQuery += fmt.Sprintf(` LIMIT %d OFFSET %d`, perPage, pageOffset(page, perPage))
+	}
+
+	rows, err := s.db.QueryContext(ctx, selectQuery, args...)
 	if err != nil {
-		return nil, fmt.Errorf("postgres store: list snapshots: %w", err)
+		return nil, 0, fmt.Errorf("postgres store: list snapshots: %w", err)
 	}
 	defer rows.Close()
 
-	items := make([]SnapshotMeta, 0)
+	items := make([]SnapshotMeta, 0, pageCapacity(total, perPage))
 	for rows.Next() {
 		var item SnapshotMeta
 		var platformName string
 		if err := rows.Scan(&item.ID, &item.TenantID, &item.Source, &platformName, &item.VMCount, &item.DiscoveredAt); err != nil {
-			return nil, fmt.Errorf("postgres store: scan snapshot metadata: %w", err)
+			return nil, 0, fmt.Errorf("postgres store: scan snapshot metadata: %w", err)
 		}
 		item.Platform = models.Platform(platformName)
 		items = append(items, item)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("postgres store: iterate snapshot metadata: %w", err)
+		return nil, 0, fmt.Errorf("postgres store: iterate snapshot metadata: %w", err)
 	}
 
-	return items, nil
+	return items, total, nil
 }
 
 // QueryVMs returns stored VMs that match the supplied filter criteria.
 func (s *PostgresStore) QueryVMs(ctx context.Context, tenantID string, filter VMFilter) ([]models.VirtualMachine, error) {
+	ctx, cancel := s.readContext(ctx)
+	defer cancel()
+
 	tenantID = normalizeTenantID(tenantID)
 
 	rows, err := s.db.QueryContext(ctx, `SELECT raw_json FROM snapshots WHERE tenant_id = $1 ORDER BY discovered_at DESC`, tenantID)
@@ -339,6 +454,9 @@ func (s *PostgresStore) QueryVMs(ctx context.Context, tenantID string, filter VM
 
 // SaveMigration persists a serialized migration record to PostgreSQL.
 func (s *PostgresStore) SaveMigration(ctx context.Context, tenantID string, record MigrationRecord) error {
+	ctx, cancel := s.writeContext(ctx)
+	defer cancel()
+
 	if record.ID == "" {
 		return fmt.Errorf("postgres store: save migration: migration ID is empty")
 	}
@@ -397,6 +515,9 @@ func (s *PostgresStore) SaveMigration(ctx context.Context, tenantID string, reco
 
 // GetMigration retrieves a serialized migration record from PostgreSQL.
 func (s *PostgresStore) GetMigration(ctx context.Context, tenantID, migrationID string) (*MigrationRecord, error) {
+	ctx, cancel := s.readContext(ctx)
+	defer cancel()
+
 	tenantID = normalizeTenantID(tenantID)
 
 	var record MigrationRecord
@@ -420,26 +541,44 @@ func (s *PostgresStore) GetMigration(ctx context.Context, tenantID, migrationID 
 
 // ListMigrations returns migration metadata ordered by most recent update.
 func (s *PostgresStore) ListMigrations(ctx context.Context, tenantID string, limit int) ([]MigrationMeta, error) {
+	items, _, err := s.ListMigrationsPage(ctx, tenantID, 1, limit)
+	if err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+// ListMigrationsPage returns paginated migration metadata ordered by most recent update.
+func (s *PostgresStore) ListMigrationsPage(ctx context.Context, tenantID string, page, perPage int) ([]MigrationMeta, int, error) {
+	ctx, cancel := s.readContext(ctx)
+	defer cancel()
+
 	tenantID = normalizeTenantID(tenantID)
 
-	query := `SELECT id, tenant_id, spec_name, phase, started_at, updated_at, completed_at
-		FROM migrations WHERE tenant_id = $1 ORDER BY updated_at DESC`
-	if limit > 0 {
-		query += fmt.Sprintf(` LIMIT %d`, limit)
+	baseQuery := `FROM migrations WHERE tenant_id = $1`
+
+	var total int
+	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) `+baseQuery, tenantID).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("postgres store: count migrations: %w", err)
+	}
+
+	query := `SELECT id, tenant_id, spec_name, phase, started_at, updated_at, completed_at ` + baseQuery + ` ORDER BY updated_at DESC`
+	if perPage > 0 {
+		query += fmt.Sprintf(` LIMIT %d OFFSET %d`, perPage, pageOffset(page, perPage))
 	}
 
 	rows, err := s.db.QueryContext(ctx, query, tenantID)
 	if err != nil {
-		return nil, fmt.Errorf("postgres store: list migrations: %w", err)
+		return nil, 0, fmt.Errorf("postgres store: list migrations: %w", err)
 	}
 	defer rows.Close()
 
-	items := make([]MigrationMeta, 0)
+	items := make([]MigrationMeta, 0, pageCapacity(total, perPage))
 	for rows.Next() {
 		var item MigrationMeta
 		var completedAt sql.NullTime
 		if err := rows.Scan(&item.ID, &item.TenantID, &item.SpecName, &item.Phase, &item.StartedAt, &item.UpdatedAt, &completedAt); err != nil {
-			return nil, fmt.Errorf("postgres store: scan migration metadata: %w", err)
+			return nil, 0, fmt.Errorf("postgres store: scan migration metadata: %w", err)
 		}
 		if completedAt.Valid {
 			item.CompletedAt = completedAt.Time
@@ -448,14 +587,17 @@ func (s *PostgresStore) ListMigrations(ctx context.Context, tenantID string, lim
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("postgres store: iterate migration metadata: %w", err)
+		return nil, 0, fmt.Errorf("postgres store: iterate migration metadata: %w", err)
 	}
 
-	return items, nil
+	return items, total, nil
 }
 
 // SaveRecoveryPoint persists a serialized recovery point to PostgreSQL.
 func (s *PostgresStore) SaveRecoveryPoint(ctx context.Context, tenantID string, record RecoveryPointRecord) error {
+	ctx, cancel := s.writeContext(ctx)
+	defer cancel()
+
 	if record.MigrationID == "" {
 		return fmt.Errorf("postgres store: save recovery point: migration ID is empty")
 	}
@@ -492,6 +634,9 @@ func (s *PostgresStore) SaveRecoveryPoint(ctx context.Context, tenantID string, 
 
 // GetRecoveryPoint retrieves a serialized recovery point from PostgreSQL.
 func (s *PostgresStore) GetRecoveryPoint(ctx context.Context, tenantID, migrationID string) (*RecoveryPointRecord, error) {
+	ctx, cancel := s.readContext(ctx)
+	defer cancel()
+
 	tenantID = normalizeTenantID(tenantID)
 
 	var record RecoveryPointRecord
@@ -510,6 +655,9 @@ func (s *PostgresStore) GetRecoveryPoint(ctx context.Context, tenantID, migratio
 
 // CreateTenant persists tenant metadata in PostgreSQL.
 func (s *PostgresStore) CreateTenant(ctx context.Context, tenant models.Tenant) error {
+	ctx, cancel := s.writeContext(ctx)
+	defer cancel()
+
 	tenant.ID = normalizeTenantID(tenant.ID)
 	if tenant.ID == DefaultTenantID {
 		tenant = defaultTenant()
@@ -553,6 +701,9 @@ func (s *PostgresStore) CreateTenant(ctx context.Context, tenant models.Tenant) 
 
 // UpdateTenant overwrites tenant metadata in PostgreSQL.
 func (s *PostgresStore) UpdateTenant(ctx context.Context, tenant models.Tenant) error {
+	ctx, cancel := s.writeContext(ctx)
+	defer cancel()
+
 	tenant.ID = normalizeTenantID(tenant.ID)
 	if tenant.Name == "" {
 		return fmt.Errorf("postgres store: update tenant: tenant name is empty")
@@ -616,6 +767,9 @@ func (s *PostgresStore) UpdateTenant(ctx context.Context, tenant models.Tenant) 
 
 // GetTenant retrieves a tenant from PostgreSQL by identifier.
 func (s *PostgresStore) GetTenant(ctx context.Context, tenantID string) (*models.Tenant, error) {
+	ctx, cancel := s.readContext(ctx)
+	defer cancel()
+
 	tenantID = normalizeTenantID(tenantID)
 
 	var (
@@ -641,6 +795,9 @@ func (s *PostgresStore) GetTenant(ctx context.Context, tenantID string) (*models
 
 // ListTenants returns all configured tenants from PostgreSQL.
 func (s *PostgresStore) ListTenants(ctx context.Context) ([]models.Tenant, error) {
+	ctx, cancel := s.readContext(ctx)
+	defer cancel()
+
 	rows, err := s.db.QueryContext(ctx, `SELECT id, name, api_key, created_at, active, settings, quotas, service_accounts FROM tenants ORDER BY created_at ASC`)
 	if err != nil {
 		return nil, fmt.Errorf("postgres store: list tenants: %w", err)
@@ -673,6 +830,9 @@ func (s *PostgresStore) ListTenants(ctx context.Context) ([]models.Tenant, error
 
 // DeleteTenant removes a tenant and all associated tenant-scoped data.
 func (s *PostgresStore) DeleteTenant(ctx context.Context, tenantID string) error {
+	ctx, cancel := s.writeContext(ctx)
+	defer cancel()
+
 	tenantID = normalizeTenantID(tenantID)
 	if tenantID == DefaultTenantID {
 		return fmt.Errorf("postgres store: delete tenant: default tenant cannot be removed")
@@ -722,20 +882,41 @@ func (s *PostgresStore) Diagnostics(ctx context.Context) (Diagnostics, error) {
 		return Diagnostics{}, fmt.Errorf("postgres store: diagnostics: database is not configured")
 	}
 
+	ctx, cancel := s.readContext(ctx)
+	defer cancel()
+
 	var version int
 	if err := s.db.QueryRowContext(ctx, `SELECT COALESCE(MAX(version), 0) FROM schema_migrations`).Scan(&version); err != nil {
 		return Diagnostics{}, fmt.Errorf("postgres store: diagnostics: query schema version: %w", err)
 	}
 
+	stats := s.db.Stats()
+
 	return Diagnostics{
 		Backend:       "postgres",
 		SchemaVersion: version,
 		Persistent:    true,
+		DBPool: &DBPoolDiagnostics{
+			MaxOpenConnections: stats.MaxOpenConnections,
+			OpenConnections:    stats.OpenConnections,
+			InUse:              stats.InUse,
+			Idle:               stats.Idle,
+			WaitCount:          stats.WaitCount,
+			WaitDuration:       stats.WaitDuration,
+			MaxIdleClosed:      stats.MaxIdleClosed,
+			MaxIdleTimeClosed:  stats.MaxIdleTimeClosed,
+			MaxLifetimeClosed:  stats.MaxLifetimeClosed,
+			ReadTimeout:        s.readTimeout,
+			WriteTimeout:       s.writeTimeout,
+		},
 	}, nil
 }
 
 // SaveAuditEvent persists a tenant-scoped audit event to PostgreSQL.
 func (s *PostgresStore) SaveAuditEvent(ctx context.Context, event models.AuditEvent) error {
+	ctx, cancel := s.writeContext(ctx)
+	defer cancel()
+
 	event.TenantID = normalizeTenantID(event.TenantID)
 	if event.ID == "" {
 		event.ID = uuid.NewString()
@@ -784,6 +965,9 @@ func (s *PostgresStore) SaveAuditEvent(ctx context.Context, event models.AuditEv
 
 // ListAuditEvents returns tenant audit events ordered from newest to oldest.
 func (s *PostgresStore) ListAuditEvents(ctx context.Context, tenantID string, limit int) ([]models.AuditEvent, error) {
+	ctx, cancel := s.readContext(ctx)
+	defer cancel()
+
 	tenantID = normalizeTenantID(tenantID)
 
 	query := `SELECT id, tenant_id, actor, request_id, category, action, resource, outcome, message, details, created_at
@@ -838,6 +1022,9 @@ func (s *PostgresStore) ListAuditEvents(ctx context.Context, tenantID string, li
 
 // CreateWorkspace persists a pilot workspace to PostgreSQL.
 func (s *PostgresStore) CreateWorkspace(ctx context.Context, tenantID string, workspace models.PilotWorkspace) error {
+	ctx, cancel := s.writeContext(ctx)
+	defer cancel()
+
 	if strings.TrimSpace(workspace.ID) == "" {
 		return fmt.Errorf("postgres store: create workspace: workspace ID is empty")
 	}
@@ -877,6 +1064,9 @@ func (s *PostgresStore) CreateWorkspace(ctx context.Context, tenantID string, wo
 
 // UpdateWorkspace overwrites a persisted pilot workspace in PostgreSQL.
 func (s *PostgresStore) UpdateWorkspace(ctx context.Context, tenantID string, workspace models.PilotWorkspace) error {
+	ctx, cancel := s.writeContext(ctx)
+	defer cancel()
+
 	if strings.TrimSpace(workspace.ID) == "" {
 		return fmt.Errorf("postgres store: update workspace: workspace ID is empty")
 	}
@@ -933,6 +1123,9 @@ func (s *PostgresStore) UpdateWorkspace(ctx context.Context, tenantID string, wo
 
 // GetWorkspace retrieves a persisted pilot workspace from PostgreSQL by identifier.
 func (s *PostgresStore) GetWorkspace(ctx context.Context, tenantID, workspaceID string) (*models.PilotWorkspace, error) {
+	ctx, cancel := s.readContext(ctx)
+	defer cancel()
+
 	tenantID = normalizeTenantID(tenantID)
 
 	var payload []byte
@@ -955,6 +1148,9 @@ func (s *PostgresStore) GetWorkspace(ctx context.Context, tenantID, workspaceID 
 
 // ListWorkspaces returns pilot workspaces ordered from newest to oldest updates.
 func (s *PostgresStore) ListWorkspaces(ctx context.Context, tenantID string, limit int) ([]models.PilotWorkspace, error) {
+	ctx, cancel := s.readContext(ctx)
+	defer cancel()
+
 	tenantID = normalizeTenantID(tenantID)
 
 	query := `SELECT raw_json FROM workspaces WHERE tenant_id = $1 ORDER BY updated_at DESC`
@@ -990,6 +1186,9 @@ func (s *PostgresStore) ListWorkspaces(ctx context.Context, tenantID string, lim
 
 // DeleteWorkspace removes a persisted pilot workspace and any background jobs tied to it.
 func (s *PostgresStore) DeleteWorkspace(ctx context.Context, tenantID, workspaceID string) error {
+	ctx, cancel := s.writeContext(ctx)
+	defer cancel()
+
 	tenantID = normalizeTenantID(tenantID)
 
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -1024,6 +1223,9 @@ func (s *PostgresStore) DeleteWorkspace(ctx context.Context, tenantID, workspace
 
 // SaveWorkspaceJob persists a pilot workspace background job to PostgreSQL.
 func (s *PostgresStore) SaveWorkspaceJob(ctx context.Context, tenantID string, job models.WorkspaceJob) error {
+	ctx, cancel := s.writeContext(ctx)
+	defer cancel()
+
 	if strings.TrimSpace(job.ID) == "" {
 		return fmt.Errorf("postgres store: save workspace job: job ID is empty")
 	}
@@ -1082,6 +1284,9 @@ func (s *PostgresStore) SaveWorkspaceJob(ctx context.Context, tenantID string, j
 
 // GetWorkspaceJob retrieves a persisted pilot workspace background job from PostgreSQL by identifier.
 func (s *PostgresStore) GetWorkspaceJob(ctx context.Context, tenantID, workspaceID, jobID string) (*models.WorkspaceJob, error) {
+	ctx, cancel := s.readContext(ctx)
+	defer cancel()
+
 	tenantID = normalizeTenantID(tenantID)
 
 	var payload []byte
@@ -1105,6 +1310,9 @@ func (s *PostgresStore) GetWorkspaceJob(ctx context.Context, tenantID, workspace
 
 // ListWorkspaceJobs returns pilot workspace background jobs ordered from newest to oldest updates.
 func (s *PostgresStore) ListWorkspaceJobs(ctx context.Context, tenantID, workspaceID string, limit int) ([]models.WorkspaceJob, error) {
+	ctx, cancel := s.readContext(ctx)
+	defer cancel()
+
 	tenantID = normalizeTenantID(tenantID)
 
 	query := `SELECT raw_json FROM workspace_jobs WHERE tenant_id = $1 AND workspace_id = $2 ORDER BY updated_at DESC`
@@ -1140,6 +1348,9 @@ func (s *PostgresStore) ListWorkspaceJobs(ctx context.Context, tenantID, workspa
 }
 
 func (s *PostgresStore) ensureTenant(ctx context.Context, tenantID string) (models.Tenant, error) {
+	ctx, cancel := s.writeContext(ctx)
+	defer cancel()
+
 	if tenantID == DefaultTenantID {
 		_, err := s.db.ExecContext(
 			ctx,
@@ -1173,6 +1384,9 @@ func (s *PostgresStore) ensureTenant(ctx context.Context, tenantID string) (mode
 }
 
 func (s *PostgresStore) snapshotCount(ctx context.Context, tenantID string) (int, error) {
+	ctx, cancel := s.readContext(ctx)
+	defer cancel()
+
 	var count int
 	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM snapshots WHERE tenant_id = $1`, tenantID).Scan(&count); err != nil {
 		return 0, fmt.Errorf("count snapshots for tenant %s: %w", tenantID, err)
@@ -1181,6 +1395,9 @@ func (s *PostgresStore) snapshotCount(ctx context.Context, tenantID string) (int
 }
 
 func (s *PostgresStore) migrationExists(ctx context.Context, tenantID, migrationID string) (bool, error) {
+	ctx, cancel := s.readContext(ctx)
+	defer cancel()
+
 	var exists bool
 	if err := s.db.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM migrations WHERE tenant_id = $1 AND id = $2)`, tenantID, migrationID).Scan(&exists); err != nil {
 		return false, fmt.Errorf("check migration %s for tenant %s: %w", migrationID, tenantID, err)
@@ -1189,6 +1406,9 @@ func (s *PostgresStore) migrationExists(ctx context.Context, tenantID, migration
 }
 
 func (s *PostgresStore) migrationCount(ctx context.Context, tenantID string) (int, error) {
+	ctx, cancel := s.readContext(ctx)
+	defer cancel()
+
 	var count int
 	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM migrations WHERE tenant_id = $1`, tenantID).Scan(&count); err != nil {
 		return 0, fmt.Errorf("count migrations for tenant %s: %w", tenantID, err)
@@ -1231,6 +1451,26 @@ func nullTime(value time.Time) interface{} {
 	}
 
 	return value
+}
+
+func pageOffset(page, perPage int) int {
+	if page <= 1 || perPage <= 0 {
+		return 0
+	}
+	return (page - 1) * perPage
+}
+
+func pageCapacity(total, perPage int) int {
+	switch {
+	case total <= 0:
+		return 0
+	case perPage <= 0:
+		return total
+	case total < perPage:
+		return total
+	default:
+		return perPage
+	}
 }
 
 func recordStoreSchemaHistory(ctx context.Context, db *sql.DB) error {

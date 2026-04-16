@@ -45,7 +45,7 @@ PLUGIN_MANIFEST ?= examples/plugin-example/plugin.json
 LINUX_BINARY = bin/viaduct-linux-amd64
 WINDOWS_BINARY = bin/viaduct.exe
 
-.PHONY: all build build-linux build-windows test lint proto docker dashboard serve web-build package-release package-release-linux package-release-windows package-release-matrix certification-test soak-test plugin-check contract-check release-gate clean
+.PHONY: all build build-linux build-windows test lint proto docker dashboard serve web-build package-release package-release-linux package-release-windows package-release-matrix certification-test soak-test plugin-check openapi-generate contract-check release-gate clean
 
 all: lint test build
 
@@ -118,8 +118,12 @@ soak-test:
 plugin-check:
 	$(GO_RUN) ./scripts/plugin_manifest_check -manifest $(PLUGIN_MANIFEST) -host-version $(VERSION)
 
+openapi-generate:
+	$(GO_RUN) ./scripts/openapi_generate
+
 contract-check:
-	go test ./tests/integration/... -run TestOpenAPISpec_StableRoutesDocumented_Expected -count=1
+	$(MAKE) openapi-generate
+	go test ./tests/integration/... -run TestOpenAPISpec_ -count=1
 
 release-gate:
 	$(RM_DIST)

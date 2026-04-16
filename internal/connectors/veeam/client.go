@@ -12,6 +12,8 @@ import (
 	"path"
 	"strings"
 	"time"
+
+	"github.com/eblackrps/viaduct/internal/connectors"
 )
 
 type oauthTokenResponse struct {
@@ -25,10 +27,15 @@ type VeeamClient struct {
 	accessToken string
 	username    string
 	password    string
+	requestID   string
 }
 
 // NewVeeamClient creates a new Veeam REST client for the supplied address.
-func NewVeeamClient(address string, insecure bool) *VeeamClient {
+func NewVeeamClient(address string, insecure bool, requestID ...string) *VeeamClient {
+	propagatedRequestID := ""
+	if len(requestID) > 0 {
+		propagatedRequestID = strings.TrimSpace(requestID[0])
+	}
 	return &VeeamClient{
 		baseURL: normalizeBaseURL(address),
 		httpClient: &http.Client{
@@ -37,6 +44,7 @@ func NewVeeamClient(address string, insecure bool) *VeeamClient {
 				TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS12, InsecureSkipVerify: insecure},
 			},
 		},
+		requestID: propagatedRequestID,
 	}
 }
 
@@ -52,6 +60,9 @@ func (c *VeeamClient) Authenticate(ctx context.Context, username, password strin
 		return fmt.Errorf("veeam: build auth request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if c.requestID != "" {
+		req.Header.Set(connectors.RequestIDHeader, c.requestID)
+	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -158,6 +169,9 @@ func (c *VeeamClient) doRequest(ctx context.Context, method, endpoint string, pa
 	}
 	if c.accessToken != "" {
 		req.Header.Set("Authorization", "Bearer "+c.accessToken)
+	}
+	if c.requestID != "" {
+		req.Header.Set(connectors.RequestIDHeader, c.requestID)
 	}
 	if payload != nil {
 		req.Header.Set("Content-Type", "application/json")

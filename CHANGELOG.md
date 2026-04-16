@@ -6,7 +6,23 @@ This changelog tracks published releases and the major implementation milestones
 
 ## [Unreleased]
 
-- No unreleased changes yet.
+No unreleased changes yet.
+
+## [2.2.0] - 2026-04-16
+
+### Fixed
+
+- fail fast on invalid lifecycle policy bundles during API startup while warning cleanly when the policy directory is absent
+- downgrade anonymous default-tenant fallback to viewer unless `VIADUCT_ALLOW_ANONYMOUS_ADMIN=true` is explicitly set, add pre-auth IP rate limiting for auth flows, and tighten same-origin/CORS defaults for API-key deployments
+- move dashboard runtime auth off browser-stored plaintext API keys onto cookie-backed sessions, log corrupted session payload cleanup, and add request timeout plus abort handling for operator overview refreshes
+- stop swallowing API error-response and Swagger JSON write failures by logging request-correlated server-side errors
+- add store-backed pagination totals for snapshot and migration history so large tenants no longer require loading entire result sets into memory
+
+### Added
+
+- frontend lint, format, unit-test, and Playwright CI coverage for the dashboard workspace and auth flows
+- structured request logging, security headers, OpenAPI JSON generation checks, and database pool diagnostics for the API server
+- versioned `/api/v2` paginated inventory, snapshot, and migration list endpoints while preserving legacy `/api/v1` response shapes for existing clients
 
 ## [2.1.0] - 2026-04-15
 

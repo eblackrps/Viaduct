@@ -18,6 +18,9 @@ type Connector interface {
 	Close() error
 }
 
+// RequestIDHeader identifies the correlation header propagated to downstream connector calls.
+const RequestIDHeader = "X-Request-ID"
+
 // Config holds connection parameters for any connector.
 type Config struct {
 	// Address is the hostname, IP address, or URL of the source platform.
@@ -30,4 +33,6 @@ type Config struct {
 	Insecure bool `json:"insecure" yaml:"insecure"`
 	// Port overrides the default platform API port when needed.
 	Port int `json:"port,omitempty" yaml:"port,omitempty"`
+	// RequestID propagates the current API request correlation identifier to downstream connector calls.
+	RequestID string `json:"request_id,omitempty" yaml:"request_id,omitempty"`
 }

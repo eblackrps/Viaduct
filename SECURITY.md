@@ -34,6 +34,10 @@ When reporting a vulnerability, include:
 
 - Never include secrets, tenant keys, service-account keys, or real environment credentials in a report.
 - Prefer service-account keys for normal operator access. Reserve tenant keys for bootstrap or intentional tenant-admin actions.
+- The dashboard runtime auth flow keeps the actual API credential server-side and in an `httpOnly` cookie. The browser stores only an opaque session identifier.
+- When `VIADUCT_ALLOWED_ORIGINS` is empty, Viaduct stays same-origin only. Do not use `*` for API-key deployments.
+- Keep `VIADUCT_ALLOW_ANONYMOUS_ADMIN=false` outside disposable local labs. The default anonymous fallback is viewer-only unless that override is explicitly enabled.
+- The API and bundled dashboard now emit CSP, `X-Content-Type-Options`, `X-Frame-Options`, and `Referrer-Policy` headers, with HSTS added automatically on HTTPS requests.
 - Do not expose the Vite development server as a shared or internet-facing surface.
 
 See [SUPPORT.md](SUPPORT.md) for non-security usage questions.

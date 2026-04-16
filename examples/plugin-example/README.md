@@ -41,3 +41,4 @@ plugins:
 - run `go run ./scripts/plugin_manifest_check -manifest examples/plugin-example/plugin.json -host-version <viaduct-version>` before publishing
 - use the host behavior in `internal/connectors/plugin/host.go` as the compatibility contract
 - ensure your plugin returns a non-empty platform and a non-nil discovery result
+- verify the plugin against a running build that still serves `/api/v1/about` and `/api/v1/docs` as expected for the target release

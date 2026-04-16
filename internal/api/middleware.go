@@ -34,6 +34,17 @@ type AuthenticatedPrincipal struct {
 
 // TenantAuthMiddleware authenticates tenant API keys and injects tenant context.
 func TenantAuthMiddleware(stateStore store.Store, next http.Handler) http.Handler {
+	return tenantAuthMiddleware(stateStore, nil, false, next)
+}
+
+func (s *Server) tenantAuthMiddleware(next http.Handler) http.Handler {
+	if s == nil {
+		return next
+	}
+	return tenantAuthMiddleware(s.store, s.authSessions, s.allowAnonymousAdmin, next)
+}
+
+func tenantAuthMiddleware(stateStore store.Store, sessions *authSessionManager, allowAnonymousAdmin bool, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if stateStore == nil {
 			writeAPIError(w, r, http.StatusInternalServerError, "internal_error", "tenant store is not configured", apiErrorOptions{Retryable: true})
@@ -41,20 +52,36 @@ func TenantAuthMiddleware(stateStore store.Store, next http.Handler) http.Handle
 		}
 
 		apiKey := strings.TrimSpace(r.Header.Get(tenantAPIKeyHeader))
+		serviceAccountKey := strings.TrimSpace(r.Header.Get(serviceAccountAPIKeyHeader))
+		authMethod := ""
+		if apiKey == "" && serviceAccountKey == "" && sessions != nil {
+			if sessionRecord, ok := sessions.Lookup(readAuthSessionSecret(r)); ok {
+				switch sessionRecord.Mode {
+				case "tenant":
+					apiKey = sessionRecord.APIKey
+				case "service-account":
+					serviceAccountKey = sessionRecord.APIKey
+				}
+				authMethod = "runtime-session"
+			}
+		}
 		tenants, err := stateStore.ListTenants(r.Context())
 		if err != nil {
 			writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 			return
 		}
 
-		serviceAccountKey := strings.TrimSpace(r.Header.Get(serviceAccountAPIKeyHeader))
 		principal, ok := authenticateTenantPrincipal(tenants, apiKey, serviceAccountKey)
 		if !ok {
 			if apiKey == "" && serviceAccountKey == "" {
 				if tenant, fallbackOK := defaultTenantFallback(tenants); fallbackOK {
+					role := models.TenantRoleViewer
+					if allowAnonymousAdmin {
+						role = models.TenantRoleAdmin
+					}
 					principal = AuthenticatedPrincipal{
 						Tenant:     tenant,
-						Role:       models.TenantRoleAdmin,
+						Role:       role,
 						AuthMethod: "default-fallback",
 					}
 					ctx := withPrincipal(r.Context(), principal)
@@ -67,6 +94,9 @@ func TenantAuthMiddleware(stateStore store.Store, next http.Handler) http.Handle
 
 			writeAPIError(w, r, http.StatusUnauthorized, "invalid_credentials", "invalid tenant credentials", apiErrorOptions{})
 			return
+		}
+		if authMethod != "" {
+			principal.AuthMethod = authMethod
 		}
 
 		ctx := withPrincipal(r.Context(), principal)

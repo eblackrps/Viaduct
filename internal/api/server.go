@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -91,6 +90,12 @@ type aboutResponse struct {
 	PersistentStore      bool                      `json:"persistent_store"`
 }
 
+type healthResponse struct {
+	Status          string                     `json:"status"`
+	Store           *store.Diagnostics         `json:"store,omitempty"`
+	CircuitBreakers []connectorCircuitSnapshot `json:"circuit_breakers,omitempty"`
+}
+
 // Server serves Viaduct REST API endpoints for discovery, migration, and lifecycle workflows.
 type Server struct {
 	engine               *discovery.Engine
@@ -100,6 +105,7 @@ type Server struct {
 	catalog              *connectorcatalog.Catalog
 	metrics              *apiMetrics
 	rateLimiter          *tenantRateLimiter
+	authRateLimiter      *tenantRateLimiter
 	build                buildInfo
 	backups              *models.BackupDiscoveryResult
 	costEngine           *lifecycle.CostEngine
@@ -111,13 +117,18 @@ type Server struct {
 	bindHost             string
 	allowedOrigins       map[string]struct{}
 	workspaceJobTimeout  time.Duration
+	allowAnonymousAdmin  bool
+	authSessions         *authSessionManager
+	connectorCircuits    *connectorCircuitRegistry
+	apiCSP               string
+	dashboardCSP         string
 
 	mu    sync.RWMutex
 	specs map[string]*migratepkg.MigrationSpec
 }
 
 // NewServer creates a REST API server on the supplied port.
-func NewServer(engine *discovery.Engine, stateStore store.Store, port int, catalog *connectorcatalog.Catalog) *Server {
+func NewServer(engine *discovery.Engine, stateStore store.Store, port int, catalog *connectorcatalog.Catalog) (*Server, error) {
 	if stateStore == nil {
 		stateStore = store.NewMemoryStore()
 	}
@@ -136,7 +147,39 @@ func NewServer(engine *discovery.Engine, stateStore store.Store, port int, catal
 	}
 
 	policyEngine := lifecycle.NewPolicyEngine(costEngine)
-	_ = policyEngine.LoadPolicies(resolveOperatorPath(filepath.Join("configs", "policies")))
+	policyPath := resolveOperatorPath(filepath.Join("configs", "policies"))
+	switch _, err := os.Stat(policyPath); {
+	case err == nil:
+		if err := policyEngine.LoadPolicies(policyPath); err != nil {
+			packageLogger.Warn("failed to load lifecycle policies", "path", policyPath, "error", err.Error())
+			return nil, fmt.Errorf("api server: load policies: %w", err)
+		}
+	case errors.Is(err, os.ErrNotExist):
+		packageLogger.Warn("policy directory not found; continuing without lifecycle policies", "path", policyPath)
+	case err != nil:
+		packageLogger.Warn("failed to inspect lifecycle policies", "path", policyPath, "error", err.Error())
+		return nil, fmt.Errorf("api server: stat policies directory: %w", err)
+	}
+
+	allowAnonymousAdmin := strings.EqualFold(strings.TrimSpace(os.Getenv("VIADUCT_ALLOW_ANONYMOUS_ADMIN")), "true")
+	authEnabled := hasConfiguredAPIKeys(context.Background(), stateStore, os.Getenv("VIADUCT_ADMIN_KEY"))
+	allowedOrigins, err := configuredAllowedOrigins(os.Getenv("VIADUCT_ALLOWED_ORIGINS"), authEnabled)
+	if err != nil {
+		return nil, err
+	}
+	if len(allowedOrigins) == 0 {
+		packageLogger.Info("api CORS policy set to same-origin only")
+	} else {
+		packageLogger.Info("api CORS policy configured", "allowed_origins", keysFromSet(allowedOrigins))
+	}
+	if !authEnabled {
+		packageLogger.Warn(
+			"no API keys are configured; anonymous requests will fall back to the default tenant",
+			"tenant", store.DefaultTenantID,
+			"role", anonymousFallbackRole(allowAnonymousAdmin),
+			"allow_anonymous_admin", allowAnonymousAdmin,
+		)
+	}
 
 	return &Server{
 		engine:               engine,
@@ -146,14 +189,23 @@ func NewServer(engine *discovery.Engine, stateStore store.Store, port int, catal
 		catalog:              catalog,
 		metrics:              newAPIMetrics(),
 		rateLimiter:          newTenantRateLimiter(300, time.Minute),
+		authRateLimiter:      newTenantRateLimiter(20, time.Minute),
 		build:                buildInfo{version: "dev", commit: "none", date: "unknown"},
 		costEngine:           costEngine,
 		policyEngine:         policyEngine,
 		recommendationEngine: lifecycle.NewRecommendationEngine(costEngine, policyEngine),
 		driftDetector:        lifecycle.NewDriftDetector(stateStore, policyEngine, lifecycle.DriftConfig{}),
 		dashboardDir:         resolveDashboardAssetDir(""),
-		allowedOrigins:       configuredAllowedOrigins(os.Getenv("VIADUCT_ALLOWED_ORIGINS")),
+		allowedOrigins:       allowedOrigins,
 		workspaceJobTimeout:  durationEnv("VIADUCT_WORKSPACE_JOB_TIMEOUT", 2*time.Minute),
+		allowAnonymousAdmin:  allowAnonymousAdmin,
+		authSessions:         newAuthSessionManager(durationEnv("VIADUCT_AUTH_SESSION_TTL", 12*time.Hour), durationEnv("VIADUCT_AUTH_REMEMBER_TTL", 30*24*time.Hour)),
+		connectorCircuits:    newConnectorCircuitRegistry(loadConnectorCircuitConfig()),
+		apiCSP:               configuredSecurityHeader("VIADUCT_API_CSP", "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"),
+		dashboardCSP: configuredSecurityHeader(
+			"VIADUCT_DASHBOARD_CSP",
+			"default-src 'self'; base-uri 'none'; connect-src 'self'; font-src 'self' data:; form-action 'self'; frame-ancestors 'none'; img-src 'self' data:; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'",
+		),
 		resolveConfig: func(platform models.Platform, address, credentialRef string) connectors.Config {
 			resolvedAddress := address
 			if platform == models.PlatformKVM {
@@ -162,7 +214,7 @@ func NewServer(engine *discovery.Engine, stateStore store.Store, port int, catal
 			return connectors.Config{Address: resolvedAddress}
 		},
 		specs: make(map[string]*migratepkg.MigrationSpec),
-	}
+	}, nil
 }
 
 // SetDashboardDir configures the directory used to serve built dashboard assets from the API process.
@@ -251,7 +303,7 @@ func (s *Server) Start(ctx context.Context) error {
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 	if err := s.recoverWorkspaceJobs(ctx); err != nil {
-		log.Printf("component=api category=workspace-jobs action=recover outcome=failure message=%q", err.Error())
+		packageLogger.Warn("failed to recover workspace jobs", "error", err.Error())
 	}
 
 	go func() {
@@ -274,6 +326,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/v1/health", s.handleHealth)
 	mux.HandleFunc("/api/v1/about", s.handleAbout)
 	mux.HandleFunc("/api/v1/metrics", s.handleMetrics)
+	mux.HandleFunc("/api/v1/docs", s.handleOpenAPIDocsRedirect)
+	mux.HandleFunc("/api/v1/docs/swagger.json", s.handleSwaggerJSON)
+	mux.Handle("/api/v1/docs/", swaggerUIHandler())
+	mux.Handle("/api/v1/auth/session", ClientRateLimitMiddleware(s.authRateLimiter, http.HandlerFunc(s.handleAuthSession)))
 	mux.Handle("/api/v1/admin/tenants", AdminAuthMiddleware(s.adminAPIKey, http.HandlerFunc(s.handleAdminTenants)))
 	mux.Handle("/api/v1/admin/tenants/", AdminAuthMiddleware(s.adminAPIKey, http.HandlerFunc(s.handleAdminTenantByID)))
 
@@ -282,13 +338,18 @@ func (s *Server) Handler() http.Handler {
 		return RequireTenantRole(requiredRole, RequireTenantPermission(requiredPermission, handler))
 	}
 	tenantMux.Handle("/api/v1/inventory", tenantRoute(models.TenantRoleViewer, models.TenantPermissionInventoryRead, s.handleInventory))
+	tenantMux.Handle("/api/v2/inventory", tenantRoute(models.TenantRoleViewer, models.TenantPermissionInventoryRead, s.handleInventory))
 	tenantMux.Handle("/api/v1/audit", tenantRoute(models.TenantRoleViewer, models.TenantPermissionReportsRead, s.handleAudit))
 	tenantMux.Handle("/api/v1/snapshots", tenantRoute(models.TenantRoleViewer, models.TenantPermissionInventoryRead, s.handleSnapshots))
 	tenantMux.Handle("/api/v1/snapshots/", tenantRoute(models.TenantRoleViewer, models.TenantPermissionInventoryRead, s.handleSnapshotByID))
+	tenantMux.Handle("/api/v2/snapshots", tenantRoute(models.TenantRoleViewer, models.TenantPermissionInventoryRead, s.handleSnapshots))
+	tenantMux.Handle("/api/v2/snapshots/", tenantRoute(models.TenantRoleViewer, models.TenantPermissionInventoryRead, s.handleSnapshotByID))
 	tenantMux.Handle("/api/v1/graph", tenantRoute(models.TenantRoleViewer, models.TenantPermissionInventoryRead, s.handleGraph))
 	tenantMux.Handle("/api/v1/preflight", tenantRoute(models.TenantRoleOperator, models.TenantPermissionMigrationManage, s.handlePreflight))
 	tenantMux.Handle("/api/v1/migrations", tenantRoute(models.TenantRoleOperator, models.TenantPermissionMigrationManage, s.handleMigrations))
 	tenantMux.Handle("/api/v1/migrations/", tenantRoute(models.TenantRoleOperator, models.TenantPermissionMigrationManage, s.handleMigrationByID))
+	tenantMux.Handle("/api/v2/migrations", tenantRoute(models.TenantRoleOperator, models.TenantPermissionMigrationManage, s.handleMigrations))
+	tenantMux.Handle("/api/v2/migrations/", tenantRoute(models.TenantRoleOperator, models.TenantPermissionMigrationManage, s.handleMigrationByID))
 	tenantMux.Handle("/api/v1/costs", tenantRoute(models.TenantRoleViewer, models.TenantPermissionLifecycleRead, s.handleCosts))
 	tenantMux.Handle("/api/v1/policies", tenantRoute(models.TenantRoleViewer, models.TenantPermissionLifecycleRead, s.handlePolicies))
 	tenantMux.Handle("/api/v1/drift", tenantRoute(models.TenantRoleViewer, models.TenantPermissionLifecycleRead, s.handleDrift))
@@ -302,15 +363,20 @@ func (s *Server) Handler() http.Handler {
 	tenantMux.Handle("/api/v1/service-accounts", tenantRoute(models.TenantRoleAdmin, models.TenantPermissionTenantManage, s.handleServiceAccounts))
 	tenantMux.Handle("/api/v1/service-accounts/", tenantRoute(models.TenantRoleAdmin, models.TenantPermissionTenantManage, s.handleServiceAccountByID))
 
-	tenantHandler := TenantAuthMiddleware(s.store, TenantRateLimitMiddleware(s.rateLimiter, tenantMux))
+	tenantHandler := ClientRateLimitMiddleware(s.authRateLimiter, s.tenantAuthMiddleware(TenantRateLimitMiddleware(s.rateLimiter, tenantMux)))
 	mux.Handle("/api/v1/inventory", tenantHandler)
+	mux.Handle("/api/v2/inventory", tenantHandler)
 	mux.Handle("/api/v1/audit", tenantHandler)
 	mux.Handle("/api/v1/snapshots", tenantHandler)
 	mux.Handle("/api/v1/snapshots/", tenantHandler)
+	mux.Handle("/api/v2/snapshots", tenantHandler)
+	mux.Handle("/api/v2/snapshots/", tenantHandler)
 	mux.Handle("/api/v1/graph", tenantHandler)
 	mux.Handle("/api/v1/preflight", tenantHandler)
 	mux.Handle("/api/v1/migrations", tenantHandler)
 	mux.Handle("/api/v1/migrations/", tenantHandler)
+	mux.Handle("/api/v2/migrations", tenantHandler)
+	mux.Handle("/api/v2/migrations/", tenantHandler)
 	mux.Handle("/api/v1/costs", tenantHandler)
 	mux.Handle("/api/v1/policies", tenantHandler)
 	mux.Handle("/api/v1/drift", tenantHandler)
@@ -356,7 +422,21 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	response := healthResponse{Status: "ok"}
+	if provider, ok := s.store.(store.DiagnosticsProvider); ok {
+		if diagnostics, err := provider.Diagnostics(r.Context()); err == nil {
+			response.Store = &diagnostics
+		}
+	}
+	response.CircuitBreakers = s.connectorCircuits.snapshots()
+	for _, circuit := range response.CircuitBreakers {
+		if circuit.State == connectorCircuitOpen {
+			response.Status = "degraded"
+			break
+		}
+	}
+
+	writeJSON(w, http.StatusOK, response)
 }
 
 func (s *Server) handleAbout(w http.ResponseWriter, r *http.Request) {
@@ -377,7 +457,7 @@ func (s *Server) handleAbout(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusOK, aboutResponse{
 		Name:                 "Viaduct",
-		APIVersion:           "v1",
+		APIVersion:           "v2",
 		Version:              s.build.version,
 		Commit:               s.build.commit,
 		BuiltAt:              s.build.date,
@@ -501,7 +581,28 @@ func (s *Server) handleInventory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, result)
+	if !isV2Path(r.URL.Path) {
+		writeJSON(w, http.StatusOK, result)
+		return
+	}
+
+	paging, err := parsePagination(r)
+	if err != nil {
+		writeAPIError(w, r, http.StatusBadRequest, "invalid_request", err.Error(), apiErrorOptions{
+			FieldErrors: []apiFieldError{{Path: "pagination", Message: err.Error()}},
+		})
+		return
+	}
+
+	items, pagination := slicePage(result.VMs, paging.Page, paging.PerPage)
+	result.VMs = items
+	writeJSON(w, http.StatusOK, struct {
+		Inventory  *models.DiscoveryResult `json:"inventory"`
+		Pagination paginationResponse      `json:"pagination"`
+	}{
+		Inventory:  result,
+		Pagination: pagination,
+	})
 }
 
 func (s *Server) handleSnapshots(w http.ResponseWriter, r *http.Request) {
@@ -510,13 +611,41 @@ func (s *Server) handleSnapshots(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	items, err := s.store.ListSnapshots(r.Context(), store.TenantIDFromContext(r.Context()), "", 100)
+	if !isV2Path(r.URL.Path) {
+		items, err := s.store.ListSnapshots(r.Context(), store.TenantIDFromContext(r.Context()), "", 100)
+		if err != nil {
+			writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
+			return
+		}
+
+		writeJSON(w, http.StatusOK, items)
+		return
+	}
+
+	paging, err := parsePagination(r)
+	if err != nil {
+		writeAPIError(w, r, http.StatusBadRequest, "invalid_request", err.Error(), apiErrorOptions{
+			FieldErrors: []apiFieldError{{Path: "pagination", Message: err.Error()}},
+		})
+		return
+	}
+
+	items, total, err := s.store.ListSnapshotsPage(
+		r.Context(),
+		store.TenantIDFromContext(r.Context()),
+		"",
+		paging.Page,
+		paging.PerPage,
+	)
 	if err != nil {
 		writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 		return
 	}
 
-	writeJSON(w, http.StatusOK, items)
+	writeJSON(w, http.StatusOK, pagedItemsResponse[store.SnapshotMeta]{
+		Items:      items,
+		Pagination: buildPagination(total, paging.Page, paging.PerPage),
+	})
 }
 
 func (s *Server) handleSnapshotByID(w http.ResponseWriter, r *http.Request) {
@@ -525,7 +654,7 @@ func (s *Server) handleSnapshotByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	snapshotID := strings.TrimPrefix(r.URL.Path, "/api/v1/snapshots/")
+	snapshotID := trimVersionedPathPrefix(r.URL.Path, "/snapshots/")
 	result, err := s.store.GetSnapshot(r.Context(), store.TenantIDFromContext(r.Context()), snapshotID)
 	if err != nil {
 		writeAPIError(w, r, http.StatusNotFound, "invalid_request", err.Error(), apiErrorOptions{
@@ -573,8 +702,11 @@ func (s *Server) handlePreflight(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sourceConnector, targetConnector, err := s.connectorsForSpec(spec)
+	sourceConnector, targetConnector, err := s.connectorsForSpec(r.Context(), spec)
 	if err != nil {
+		if writeConnectorUnavailable(w, r, err) {
+			return
+		}
 		writeAPIError(w, r, http.StatusBadRequest, "invalid_request", err.Error(), apiErrorOptions{})
 		return
 	}
@@ -593,12 +725,33 @@ func (s *Server) handleMigrations(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case http.MethodGet:
-		items, err := s.store.ListMigrations(r.Context(), tenantID, 100)
+		if !isV2Path(r.URL.Path) {
+			items, err := s.store.ListMigrations(r.Context(), tenantID, 100)
+			if err != nil {
+				writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
+				return
+			}
+			writeJSON(w, http.StatusOK, items)
+			return
+		}
+
+		paging, err := parsePagination(r)
+		if err != nil {
+			writeAPIError(w, r, http.StatusBadRequest, "invalid_request", err.Error(), apiErrorOptions{
+				FieldErrors: []apiFieldError{{Path: "pagination", Message: err.Error()}},
+			})
+			return
+		}
+
+		items, total, err := s.store.ListMigrationsPage(r.Context(), tenantID, paging.Page, paging.PerPage)
 		if err != nil {
 			writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 			return
 		}
-		writeJSON(w, http.StatusOK, items)
+		writeJSON(w, http.StatusOK, pagedItemsResponse[store.MigrationMeta]{
+			Items:      items,
+			Pagination: buildPagination(total, paging.Page, paging.PerPage),
+		})
 	case http.MethodPost:
 		spec, err := decodeSpec(r)
 		if err != nil {
@@ -613,8 +766,11 @@ func (s *Server) handleMigrations(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		sourceConnector, targetConnector, err := s.connectorsForSpec(spec)
+		sourceConnector, targetConnector, err := s.connectorsForSpec(r.Context(), spec)
 		if err != nil {
+			if writeConnectorUnavailable(w, r, err) {
+				return
+			}
 			writeAPIError(w, r, http.StatusBadRequest, "invalid_request", err.Error(), apiErrorOptions{})
 			return
 		}
@@ -654,7 +810,7 @@ func (s *Server) handleMigrations(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleMigrationByID(w http.ResponseWriter, r *http.Request) {
 	tenantID := store.TenantIDFromContext(r.Context())
-	path := strings.TrimPrefix(r.URL.Path, "/api/v1/migrations/")
+	path := trimVersionedPathPrefix(r.URL.Path, "/migrations/")
 	parts := strings.Split(strings.Trim(path, "/"), "/")
 	if len(parts) == 0 || parts[0] == "" {
 		writeAPIError(w, r, http.StatusBadRequest, "invalid_request", "migration ID is required", apiErrorOptions{
@@ -706,8 +862,11 @@ func (s *Server) handleMigrationByID(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		sourceConnector, targetConnector, err := s.connectorsForSpec(spec)
+		sourceConnector, targetConnector, err := s.connectorsForSpec(r.Context(), spec)
 		if err != nil {
+			if writeConnectorUnavailable(w, r, err) {
+				return
+			}
 			writeAPIError(w, r, http.StatusBadRequest, "invalid_request", err.Error(), apiErrorOptions{})
 			return
 		}
@@ -736,12 +895,13 @@ func (s *Server) handleMigrationByID(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		go func(spec *migratepkg.MigrationSpec, id, tenantID string) {
+		requestID := RequestIDFromContext(r.Context())
+		go func(spec *migratepkg.MigrationSpec, id, tenantID, requestID string) {
 			orchestrator := migratepkg.NewOrchestrator(sourceConnector, targetConnector, s.store, nil)
 			orchestrator.SetIDGenerator(func() string { return id })
-			ctx := store.ContextWithTenantID(context.Background(), tenantID)
+			ctx := contextWithConnectorRequestID(store.ContextWithTenantID(context.Background(), tenantID), requestID)
 			_, _ = orchestrator.Execute(ctx, spec)
-		}(&executionSpec, migrationID, tenantID)
+		}(&executionSpec, migrationID, tenantID, requestID)
 		s.recordAuditEvent(r, models.AuditEvent{
 			Category: "migration",
 			Action:   "execute",
@@ -770,8 +930,11 @@ func (s *Server) handleMigrationByID(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		sourceConnector, targetConnector, err := s.connectorsForSpec(spec)
+		sourceConnector, targetConnector, err := s.connectorsForSpec(r.Context(), spec)
 		if err != nil {
+			if writeConnectorUnavailable(w, r, err) {
+				return
+			}
 			writeAPIError(w, r, http.StatusBadRequest, "invalid_request", err.Error(), apiErrorOptions{})
 			return
 		}
@@ -800,11 +963,12 @@ func (s *Server) handleMigrationByID(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		go func(spec *migratepkg.MigrationSpec, id, tenantID string) {
+		requestID := RequestIDFromContext(r.Context())
+		go func(spec *migratepkg.MigrationSpec, id, tenantID, requestID string) {
 			orchestrator := migratepkg.NewOrchestrator(sourceConnector, targetConnector, s.store, nil)
-			ctx := store.ContextWithTenantID(context.Background(), tenantID)
+			ctx := contextWithConnectorRequestID(store.ContextWithTenantID(context.Background(), tenantID), requestID)
 			_, _ = orchestrator.Resume(ctx, id, spec)
-		}(&resumeSpec, migrationID, tenantID)
+		}(&resumeSpec, migrationID, tenantID, requestID)
 		s.recordAuditEvent(r, models.AuditEvent{
 			Category: "migration",
 			Action:   "resume",
@@ -830,8 +994,11 @@ func (s *Server) handleMigrationByID(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		sourceConnector, targetConnector, err := s.connectorsForSpec(spec)
+		sourceConnector, targetConnector, err := s.connectorsForSpec(r.Context(), spec)
 		if err != nil {
+			if writeConnectorUnavailable(w, r, err) {
+				return
+			}
 			writeAPIError(w, r, http.StatusBadRequest, "invalid_request", err.Error(), apiErrorOptions{})
 			return
 		}
@@ -1176,7 +1343,7 @@ func latestSnapshotsBySource(items []store.SnapshotMeta) []store.SnapshotMeta {
 	return selected
 }
 
-func (s *Server) connectorsForSpec(spec *migratepkg.MigrationSpec) (connectors.Connector, connectors.Connector, error) {
+func (s *Server) connectorsForSpec(ctx context.Context, spec *migratepkg.MigrationSpec) (connectors.Connector, connectors.Connector, error) {
 	catalog := s.catalog
 	if catalog == nil {
 		var err error
@@ -1186,6 +1353,20 @@ func (s *Server) connectorsForSpec(spec *migratepkg.MigrationSpec) (connectors.C
 		}
 	}
 
+	sourceConnector, err := s.buildConnector(ctx, catalog, spec.Source.Platform, spec.Source.Address, spec.Source.CredentialRef)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	targetConnector, err := s.buildConnector(ctx, catalog, spec.Target.Platform, spec.Target.Address, spec.Target.CredentialRef)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return sourceConnector, targetConnector, nil
+}
+
+func (s *Server) resolvedConnectorConfig(ctx context.Context, platform models.Platform, address, credentialRef string) connectors.Config {
 	resolveConfig := s.resolveConfig
 	if resolveConfig == nil {
 		resolveConfig = func(platform models.Platform, address, credentialRef string) connectors.Config {
@@ -1193,17 +1374,27 @@ func (s *Server) connectorsForSpec(spec *migratepkg.MigrationSpec) (connectors.C
 		}
 	}
 
-	sourceConnector, err := catalog.Build(spec.Source.Platform, resolveConfig(spec.Source.Platform, spec.Source.Address, spec.Source.CredentialRef))
-	if err != nil {
-		return nil, nil, err
+	cfg := resolveConfig(platform, address, credentialRef)
+	cfg.RequestID = strings.TrimSpace(RequestIDFromContext(ctx))
+	return cfg
+}
+
+func (s *Server) buildConnector(ctx context.Context, catalog *connectorcatalog.Catalog, platform models.Platform, address, credentialRef string) (connectors.Connector, error) {
+	cfg := s.resolvedConnectorConfig(ctx, platform, address, credentialRef)
+	if s != nil && s.connectorCircuits != nil {
+		if err := s.connectorCircuits.CheckAvailability(platform, cfg.Address); err != nil {
+			return nil, err
+		}
 	}
 
-	targetConnector, err := catalog.Build(spec.Target.Platform, resolveConfig(spec.Target.Platform, spec.Target.Address, spec.Target.CredentialRef))
+	connector, err := catalog.Build(platform, cfg)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-
-	return sourceConnector, targetConnector, nil
+	if s != nil && s.connectorCircuits != nil {
+		return s.connectorCircuits.Wrap(platform, cfg.Address, connector), nil
+	}
+	return connector, nil
 }
 
 func decodeSpec(r *http.Request) (*migratepkg.MigrationSpec, error) {
@@ -1311,24 +1502,24 @@ func (s *Server) supportedPlatforms() []models.Platform {
 
 func (s *Server) applySecurityHeaders(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
-	w.Header().Set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'")
-	w.Header().Set("Permissions-Policy", "camera=(), geolocation=(), microphone=()")
-	w.Header().Set("Referrer-Policy", "no-referrer")
-	w.Header().Set("X-Content-Type-Options", "nosniff")
-	w.Header().Set("X-Frame-Options", "DENY")
-	if requestScheme(r) == "https" {
-		w.Header().Set("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
-	}
-}
-
-func (s *Server) applyDashboardSecurityHeaders(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Security-Policy", "default-src 'self'; base-uri 'none'; connect-src 'self'; font-src 'self' data:; form-action 'self'; frame-ancestors 'none'; img-src 'self' data:; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'")
+	w.Header().Set("Content-Security-Policy", s.apiCSP)
 	w.Header().Set("Permissions-Policy", "camera=(), geolocation=(), microphone=()")
 	w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("X-Frame-Options", "DENY")
 	if requestScheme(r) == "https" {
-		w.Header().Set("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
+		w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+	}
+}
+
+func (s *Server) applyDashboardSecurityHeaders(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Security-Policy", s.dashboardCSP)
+	w.Header().Set("Permissions-Policy", "camera=(), geolocation=(), microphone=()")
+	w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("X-Frame-Options", "DENY")
+	if requestScheme(r) == "https" {
+		w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 	}
 }
 
@@ -1368,26 +1559,37 @@ func requestScheme(r *http.Request) string {
 	return "http"
 }
 
-func configuredAllowedOrigins(raw string) map[string]struct{} {
-	items := []string{
-		"http://127.0.0.1:4173",
-		"http://127.0.0.1:5173",
-		"http://localhost:4173",
-		"http://localhost:5173",
+func isV2Path(path string) bool {
+	return strings.HasPrefix(strings.TrimSpace(path), "/api/v2/")
+}
+
+func trimVersionedPathPrefix(path, suffix string) string {
+	for _, prefix := range []string{"/api/v1", "/api/v2"} {
+		candidate := prefix + suffix
+		if strings.HasPrefix(path, candidate) {
+			return strings.TrimPrefix(path, candidate)
+		}
 	}
-	if strings.TrimSpace(raw) != "" {
-		items = strings.Split(raw, ",")
+	return path
+}
+
+func configuredAllowedOrigins(raw string, authEnabled bool) (map[string]struct{}, error) {
+	if strings.TrimSpace(raw) == "" {
+		return map[string]struct{}{}, nil
 	}
 
-	allowed := make(map[string]struct{}, len(items))
-	for _, item := range items {
+	allowed := make(map[string]struct{})
+	for _, item := range strings.Split(raw, ",") {
 		origin := strings.TrimSpace(item)
 		if origin == "" {
 			continue
 		}
+		if origin == "*" && authEnabled {
+			return nil, fmt.Errorf("api server: VIADUCT_ALLOWED_ORIGINS cannot include * when API key authentication is enabled")
+		}
 		allowed[origin] = struct{}{}
 	}
-	return allowed
+	return allowed, nil
 }
 
 func durationEnv(name string, fallback time.Duration) time.Duration {
@@ -1417,5 +1619,60 @@ func pendingApprovalFromRecord(record *store.MigrationRecord) bool {
 func writeJSON(w http.ResponseWriter, status int, payload interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(payload)
+	if err := json.NewEncoder(w).Encode(payload); err != nil {
+		packageLogger.Error(
+			"failed to encode JSON response",
+			"request_id", strings.TrimSpace(w.Header().Get(requestIDHeader)),
+			"status", status,
+			"error", err.Error(),
+		)
+	}
+}
+
+func configuredSecurityHeader(envName, fallback string) string {
+	if value := strings.TrimSpace(os.Getenv(envName)); value != "" {
+		return value
+	}
+	return fallback
+}
+
+func hasConfiguredAPIKeys(ctx context.Context, stateStore store.Store, adminAPIKey string) bool {
+	if strings.TrimSpace(adminAPIKey) != "" {
+		return true
+	}
+	if stateStore == nil {
+		return false
+	}
+
+	tenants, err := stateStore.ListTenants(ctx)
+	if err != nil {
+		packageLogger.Warn("failed to inspect configured API keys", "error", err.Error())
+		return false
+	}
+	for _, tenant := range tenants {
+		if strings.TrimSpace(tenant.APIKey) != "" {
+			return true
+		}
+		for _, account := range tenant.ServiceAccounts {
+			if strings.TrimSpace(account.APIKey) != "" {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func keysFromSet(values map[string]struct{}) []string {
+	keys := make([]string, 0, len(values))
+	for value := range values {
+		keys = append(keys, value)
+	}
+	return keys
+}
+
+func anonymousFallbackRole(allowAnonymousAdmin bool) string {
+	if allowAnonymousAdmin {
+		return string(models.TenantRoleAdmin)
+	}
+	return string(models.TenantRoleViewer)
 }

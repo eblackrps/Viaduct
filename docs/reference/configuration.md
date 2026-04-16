@@ -55,13 +55,24 @@ Fields:
 - `VIADUCT_PASSWORD`: overrides config file password for CLI connector auth
 - `VIADUCT_ADMIN_KEY`: admin API key used by the REST server for tenant administration
 - `VIADUCT_PLUGIN_ADDR`: plugin listener address used by community connector plugins
-- `VIADUCT_ALLOWED_ORIGINS`: comma-separated browser origins allowed to call the API from another origin; defaults to the local Vite origins on ports `5173` and `4173`
+- `VIADUCT_ALLOWED_ORIGINS`: comma-separated browser origins allowed to call the API from another origin; defaults to same-origin only when empty
+- `VIADUCT_ALLOW_ANONYMOUS_ADMIN`: explicit local-lab override that preserves anonymous admin access on the default tenant; keep this `false` outside disposable environments
 - `VIADUCT_WEB_DIR`: override path for built dashboard assets when they are not in `web/dist`, `web/`, or the installed `share/viaduct/web` layout
 - `VIADUCT_WORKSPACE_JOB_TIMEOUT`: per-job server-side timeout for pilot workspace discovery, graph, simulation, and plan generation; defaults to `2m`
+- `VIADUCT_AUTH_SESSION_TTL`: dashboard runtime auth-session lifetime for non-persistent browser sessions; defaults to `12h`
+- `VIADUCT_AUTH_REMEMBER_TTL`: dashboard runtime auth-session lifetime for remembered browser sessions; defaults to `720h` (30 days)
+- `VIADUCT_API_CSP`: override the default API response Content Security Policy
+- `VIADUCT_DASHBOARD_CSP`: override the default bundled-dashboard Content Security Policy
+- `VIADUCT_DB_READ_TIMEOUT`: PostgreSQL read-query timeout; defaults to `5s`
+- `VIADUCT_DB_WRITE_TIMEOUT`: PostgreSQL write-query timeout; defaults to `10s`
+- `VIADUCT_DB_MAX_OPEN_CONNS`: PostgreSQL maximum open connections; defaults to `25`
+- `VIADUCT_DB_MAX_IDLE_CONNS`: PostgreSQL maximum idle connections; defaults to `5`
+- `VIADUCT_DB_CONN_MAX_LIFETIME`: PostgreSQL connection max lifetime; defaults to `5m`
 
 ## Dashboard Environment Variables
 - `VITE_VIADUCT_API_KEY`: tenant API key injected into dashboard requests
 - `VITE_VIADUCT_SERVICE_ACCOUNT_KEY`: scoped service-account key injected into dashboard requests; when set, the dashboard prefers this header over `VITE_VIADUCT_API_KEY`
+- `VITE_VIADUCT_API_TIMEOUT_MS`: dashboard fetch timeout in milliseconds; defaults to `30000`
 
 The dashboard reads this through Vite. See [`../../web/.env.example`](../../web/.env.example).
 
@@ -69,7 +80,7 @@ The dashboard now also supports runtime authentication bootstrap. When neither v
 - uses the built-in local single-user fallback when only the default tenant exists and that tenant has no API key configured, or
 - starts on a bootstrap screen and accepts either a service-account key or tenant key at runtime
 
-The selected browser credential is stored in session storage by default and is cleared when the browser session ends. Operators can explicitly choose to remember a runtime key in local storage on trusted workstations.
+The runtime bootstrap flow creates a server-backed session. The browser stores only an opaque session identifier, and the actual API credential stays in an `httpOnly` cookie. Non-persistent sessions keep that identifier in session storage. Operators can explicitly choose to remember only that non-sensitive marker in local storage on trusted workstations.
 
 Prefer `VITE_VIADUCT_SERVICE_ACCOUNT_KEY` for normal dashboard access when you intentionally pre-seed a development build. Reserve `VITE_VIADUCT_API_KEY` for tenant bootstrap, short-lived admin work, or break-glass access.
 
@@ -82,6 +93,7 @@ Prefer `VITE_VIADUCT_SERVICE_ACCOUNT_KEY` for normal dashboard access when you i
 ## Tenant Defaults
 - The built-in `default` tenant exists automatically in both the memory store and PostgreSQL store.
 - The API can fall back to the default tenant only when there are no active custom tenants and the default tenant has no API key configured.
+- The default anonymous fallback is viewer-only unless `VIADUCT_ALLOW_ANONYMOUS_ADMIN=true` is set explicitly.
 - `viaduct start` relies on that default-tenant fallback for the standard local lab path so a fresh clone can reach the WebUI without manual key seeding.
 - Any shared or persistent deployment should use explicit tenant keys rather than relying on fallback behavior.
 - Any pilot or packaged dashboard deployment should prefer named service-account credentials over a shared tenant-wide key.

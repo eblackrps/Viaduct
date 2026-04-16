@@ -2,7 +2,7 @@
   "name": "viaduct-dashboard",
   "description": "React dashboard for Viaduct migration, lifecycle, and multi-tenant operations.",
   "private": true,
-  "version": "2.1.0",
+  "version": "2.2.0",
   "type": "module",
   "engines": {
     "node": ">=20.19.0"
@@ -11,7 +11,12 @@
     "dev": "vite",
     "dev:full": "concurrently \"go run ../cmd/viaduct serve-api\" \"vite\"",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "lint": "eslint src/",
+    "format": "prettier --check src/",
+    "test": "vitest run",
+    "e2e": "playwright test",
+    "e2e:serve": "go run ../tests/e2e/server -port 4173 -web-dir dist"
   },
   "dependencies": {
     "d3": "^7.9.0",
@@ -21,15 +26,29 @@
     "recharts": "^3.8.1"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.11.1",
+    "@eslint/js": "^9.39.4",
+    "@playwright/test": "^1.59.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
     "@types/d3": "^7.4.3",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
     "autoprefixer": "^10.4.20",
     "concurrently": "^9.0.1",
+    "eslint": "^9.39.4",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "globals": "^15.15.0",
+    "jsdom": "^26.1.0",
     "postcss": "^8.5.9",
+    "prettier": "^3.8.3",
     "tailwindcss": "^3.4.19",
     "typescript": "^5.9.3",
-    "vite": "^8.0.8"
+    "typescript-eslint": "^8.58.2",
+    "vite": "^8.0.8",
+    "vitest": "^4.1.4"
   }
 }

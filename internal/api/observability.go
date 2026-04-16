@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"sort"
 	"strconv"
@@ -225,15 +224,15 @@ func (s *Server) withObservability(next http.Handler) http.Handler {
 
 		duration := time.Since(startedAt)
 		done(r.Method, r.URL.Path, recorder.status, duration)
-		log.Printf(
-			"component=api request_id=%s method=%s path=%s status=%d duration_ms=%d tenant=%s auth=%s",
-			requestID,
-			r.Method,
-			r.URL.Path,
-			recorder.status,
-			duration.Milliseconds(),
-			scope.tenantID,
-			scope.authMethod,
+		packageLogger.Info(
+			"http request completed",
+			"request_id", requestID,
+			"method", r.Method,
+			"path", r.URL.Path,
+			"status", recorder.status,
+			"duration_ms", duration.Milliseconds(),
+			"tenant_id", scope.tenantID,
+			"auth_method", scope.authMethod,
 		)
 	})
 }
@@ -265,6 +264,39 @@ func TenantRateLimitMiddleware(limiter *tenantRateLimiter, next http.Handler) ht
 	})
 }
 
+// ClientRateLimitMiddleware enforces a stricter pre-auth rate limit keyed by client IP.
+func ClientRateLimitMiddleware(limiter *tenantRateLimiter, next http.Handler) http.Handler {
+	if limiter == nil {
+		return next
+	}
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		clientIP := strings.TrimSpace(r.Header.Get("X-Forwarded-For"))
+		if clientIP != "" {
+			clientIP = strings.TrimSpace(strings.Split(clientIP, ",")[0])
+		}
+		if clientIP == "" {
+			clientIP = strings.TrimSpace(r.Header.Get("X-Real-IP"))
+		}
+		if clientIP == "" {
+			clientIP = strings.TrimSpace(r.RemoteAddr)
+		}
+
+		allowed, retryAfter := limiter.allow(clientIP, time.Now().UTC(), 0)
+		if !allowed {
+			w.Header().Set("Retry-After", strconv.Itoa(int(retryAfter.Seconds())+1))
+			writeAPIError(w, r, http.StatusTooManyRequests, "rate_limit_exceeded", "authentication rate limit exceeded", apiErrorOptions{
+				Retryable: true,
+				Details: map[string]any{
+					"retry_after_seconds": int(retryAfter.Seconds()) + 1,
+				},
+			})
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 // RequestIDFromContext returns the request identifier attached by API observability middleware.
 func RequestIDFromContext(ctx context.Context) string {
 	if ctx == nil {
@@ -272,6 +304,18 @@ func RequestIDFromContext(ctx context.Context) string {
 	}
 	value, _ := ctx.Value(requestIDContextKey{}).(string)
 	return value
+}
+
+// ContextWithRequestID attaches a request identifier to a context for downstream correlation.
+func ContextWithRequestID(ctx context.Context, requestID string) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	requestID = strings.TrimSpace(requestID)
+	if requestID == "" {
+		return ctx
+	}
+	return context.WithValue(ctx, requestIDContextKey{}, requestID)
 }
 
 func requestScopeFromContext(ctx context.Context) *requestScope {
@@ -284,7 +328,7 @@ func requestScopeFromContext(ctx context.Context) *requestScope {
 
 func normalizeMetricsPath(path string) string {
 	switch {
-	case strings.HasPrefix(path, "/api/v1/migrations/"):
+	case strings.HasPrefix(path, "/api/v1/migrations/"), strings.HasPrefix(path, "/api/v2/migrations/"):
 		trimmed := strings.Trim(path, "/")
 		parts := strings.Split(trimmed, "/")
 		if len(parts) >= 5 {
@@ -293,9 +337,11 @@ func normalizeMetricsPath(path string) string {
 		if len(parts) >= 4 {
 			return "/" + strings.Join([]string{parts[0], parts[1], parts[2], ":id"}, "/")
 		}
-	case strings.HasPrefix(path, "/api/v1/snapshots/"):
-		return "/api/v1/snapshots/:id"
-	case strings.HasPrefix(path, "/api/v1/workspaces/"):
+	case strings.HasPrefix(path, "/api/v1/snapshots/"), strings.HasPrefix(path, "/api/v2/snapshots/"):
+		trimmed := strings.Trim(path, "/")
+		parts := strings.Split(trimmed, "/")
+		return "/" + strings.Join([]string{parts[0], parts[1], parts[2], ":id"}, "/")
+	case strings.HasPrefix(path, "/api/v1/workspaces/"), strings.HasPrefix(path, "/api/v2/workspaces/"):
 		trimmed := strings.Trim(path, "/")
 		parts := strings.Split(trimmed, "/")
 		if len(parts) >= 6 && parts[4] == "jobs" {
@@ -350,12 +396,37 @@ func (s *Server) renderOperationalMetrics(ctx context.Context) string {
 					fmt.Sprintf("viaduct_store_schema_version %d", diagnostics.SchemaVersion),
 				)
 			}
+			if diagnostics.DBPool != nil {
+				lines = append(lines,
+					"# HELP viaduct_store_db_pool_connections SQL connection pool connections by state.",
+					"# TYPE viaduct_store_db_pool_connections gauge",
+					fmt.Sprintf(`viaduct_store_db_pool_connections{state="max_open"} %d`, diagnostics.DBPool.MaxOpenConnections),
+					fmt.Sprintf(`viaduct_store_db_pool_connections{state="open"} %d`, diagnostics.DBPool.OpenConnections),
+					fmt.Sprintf(`viaduct_store_db_pool_connections{state="in_use"} %d`, diagnostics.DBPool.InUse),
+					fmt.Sprintf(`viaduct_store_db_pool_connections{state="idle"} %d`, diagnostics.DBPool.Idle),
+					"# HELP viaduct_store_db_pool_wait_total SQL connection pool wait events.",
+					"# TYPE viaduct_store_db_pool_wait_total counter",
+					fmt.Sprintf("viaduct_store_db_pool_wait_total %d", diagnostics.DBPool.WaitCount),
+					"# HELP viaduct_store_db_pool_wait_seconds_total Total time spent waiting for a SQL connection.",
+					"# TYPE viaduct_store_db_pool_wait_seconds_total counter",
+					fmt.Sprintf("viaduct_store_db_pool_wait_seconds_total %.6f", diagnostics.DBPool.WaitDuration.Seconds()),
+					"# HELP viaduct_store_db_pool_closures_total SQL connections closed by reason.",
+					"# TYPE viaduct_store_db_pool_closures_total counter",
+					fmt.Sprintf(`viaduct_store_db_pool_closures_total{reason="max_idle"} %d`, diagnostics.DBPool.MaxIdleClosed),
+					fmt.Sprintf(`viaduct_store_db_pool_closures_total{reason="max_idle_time"} %d`, diagnostics.DBPool.MaxIdleTimeClosed),
+					fmt.Sprintf(`viaduct_store_db_pool_closures_total{reason="max_lifetime"} %d`, diagnostics.DBPool.MaxLifetimeClosed),
+					"# HELP viaduct_store_db_timeout_seconds Configured SQL query timeout by operation type.",
+					"# TYPE viaduct_store_db_timeout_seconds gauge",
+					fmt.Sprintf(`viaduct_store_db_timeout_seconds{type="read"} %.3f`, diagnostics.DBPool.ReadTimeout.Seconds()),
+					fmt.Sprintf(`viaduct_store_db_timeout_seconds{type="write"} %.3f`, diagnostics.DBPool.WriteTimeout.Seconds()),
+				)
+			}
 		}
 	}
 
 	tenants, err := s.store.ListTenants(ctx)
 	if err != nil {
-		log.Printf("component=api category=metrics action=list-tenants outcome=failure message=%q", err.Error())
+		packageLogger.Warn("failed to list tenants while rendering metrics", "error", err.Error())
 		return strings.Join(lines, "\n") + "\n"
 	}
 
@@ -365,12 +436,12 @@ func (s *Server) renderOperationalMetrics(ctx context.Context) string {
 	for _, tenant := range tenants {
 		snapshots, err := s.store.ListSnapshots(store.ContextWithTenantID(ctx, tenant.ID), tenant.ID, "", 0)
 		if err != nil {
-			log.Printf("component=api category=metrics action=list-snapshots outcome=failure tenant=%s message=%q", tenant.ID, err.Error())
+			packageLogger.Warn("failed to list tenant snapshots while rendering metrics", "tenant_id", tenant.ID, "error", err.Error())
 			continue
 		}
 		migrations, err := s.store.ListMigrations(store.ContextWithTenantID(ctx, tenant.ID), tenant.ID, 0)
 		if err != nil {
-			log.Printf("component=api category=metrics action=list-migrations outcome=failure tenant=%s message=%q", tenant.ID, err.Error())
+			packageLogger.Warn("failed to list tenant migrations while rendering metrics", "tenant_id", tenant.ID, "error", err.Error())
 			continue
 		}
 

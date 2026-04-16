@@ -8,6 +8,11 @@ This directory contains cross-package test assets that do not fit cleanly inside
 - `certification/`: fixture-backed connector certification coverage for stable normalization behavior
 - `soak/`: tagged longer-running migration scaling tests used by `make soak-test`
 
+The dashboard test suites live in `web/`:
+- `npm --prefix web run test`: Vitest and React Testing Library coverage
+- `npm --prefix web run e2e`: Playwright browser coverage
+- `npm --prefix web run lint`: ESLint and accessibility lint checks
+
 ## Expectations
 
 - Default package tests should remain race-safe.

@@ -8,6 +8,8 @@ Viaduct is maintained as an open-source project with best-effort community suppo
 - Install and first run: [INSTALL.md](INSTALL.md), [QUICKSTART.md](QUICKSTART.md)
 - Full docs map: [docs/README.md](docs/README.md)
 - Local runtime health: `viaduct status --runtime`, `viaduct doctor`
+- Build metadata and diagnostics: `/api/v1/about`, `/api/v1/health`
+- Live API docs: `/api/v1/docs`
 - Troubleshooting: [docs/reference/troubleshooting.md](docs/reference/troubleshooting.md)
 - Support matrix: [docs/reference/support-matrix.md](docs/reference/support-matrix.md)
 
@@ -22,6 +24,7 @@ Viaduct is maintained as an open-source project with best-effort community suppo
 - `viaduct version` output or commit SHA
 - `request_id` from the UI or API when available
 - `migration_id`, `workspace_id`, `job_id`, or `snapshot_id` when relevant
+- relevant structured log lines when request logging is enabled
 - OS and architecture
 - Go and Node versions if you built from source
 - connector or platform involved
