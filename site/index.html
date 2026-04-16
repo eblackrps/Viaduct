@@ -8,7 +8,7 @@
       name="description"
       content="Open-source tooling to discover, plan, and execute migrations across VMware, Proxmox, Hyper-V, KVM, and Nutanix."
     />
-    <meta name="theme-color" content="#f2eee7" />
+    <meta name="theme-color" content="#0a0a0b" />
     <meta name="robots" content="index,follow" />
     <link rel="canonical" href="https://viaducthq.com/" />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
@@ -56,13 +56,14 @@
   </head>
   <body>
     <a class="skip-link" href="#content">Skip to content</a>
+
     <header class="site-header">
       <div class="shell header-row">
         <a class="wordmark" href="/">Viaduct</a>
         <nav class="site-nav" aria-label="Primary">
           <a href="https://github.com/eblackrps/Viaduct/tree/main/docs">Docs</a>
           <a href="https://github.com/eblackrps/Viaduct">GitHub</a>
-          <a href="https://github.com/eblackrps/Viaduct/blob/main/docs/releases/v2.1.0.md">v2.1.0</a>
+          <a class="release-badge" href="https://github.com/eblackrps/Viaduct/blob/main/docs/releases/v2.1.0.md">v2.1.0</a>
         </nav>
       </div>
     </header>
@@ -71,183 +72,205 @@
       <div class="shell">
         <section class="hero" aria-labelledby="hero-title">
           <div class="hero-copy">
-            <p class="eyebrow">Open source · Apache 2.0</p>
-            <h1 id="hero-title">Virtualization migration without the guesswork.</h1>
+            <p class="eyebrow"><span class="eyebrow-dot" aria-hidden="true"></span>Open source · Apache 2.0</p>
+            <h1 id="hero-title">The control plane for virtualization migration.</h1>
             <p class="lead">
-              Viaduct discovers mixed hypervisor estates, maps workload dependencies, and keeps migration planning and execution in one control plane.
+              Discover mixed hypervisor estates. Map every dependency. Plan and execute migrations - CLI, API, or dashboard.
             </p>
             <div class="hero-actions">
-              <a class="button button-primary" href="#get-started">Get started</a>
+              <a class="button button-primary" href="#get-started">Get Started</a>
               <a class="button button-secondary" href="https://github.com/eblackrps/Viaduct">View on GitHub</a>
             </div>
-            <p class="hero-note">Works with VMware, Proxmox, Hyper-V, KVM, Nutanix, and Veeam.</p>
           </div>
-          <aside class="brief-card" aria-label="Migration brief">
-            <p class="brief-kicker">Migration brief</p>
-            <ol class="brief-list">
-              <li class="brief-item">
-                <span class="brief-index">01</span>
-                <div>
-                  <p class="brief-title">Discovery</p>
-                  <p class="brief-copy">Inventory from VMware, Proxmox, Hyper-V, KVM, Nutanix, and Veeam.</p>
-                </div>
-              </li>
-              <li class="brief-item">
-                <span class="brief-index">02</span>
-                <div>
-                  <p class="brief-title">Dependencies</p>
-                  <p class="brief-copy">Network, storage, and backup relationships in one normalized model.</p>
-                </div>
-              </li>
-              <li class="brief-item">
-                <span class="brief-index">03</span>
-                <div>
-                  <p class="brief-title">Execution</p>
-                  <p class="brief-copy">Plan, approve, and run migrations from the CLI, API, or dashboard.</p>
-                </div>
-              </li>
-            </ol>
-            <div class="brief-command">
-              <span class="brief-title">Start</span>
-              <code>./bin/viaduct start</code>
+
+          <aside class="terminal-card" aria-label="Viaduct terminal output">
+            <div class="terminal-top">
+              <div class="terminal-dots" aria-hidden="true">
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
+              <p class="terminal-title">viaduct</p>
+            </div>
+            <div class="terminal-body">
+              <div class="terminal-block">
+                <p class="terminal-command"><span class="prompt">$</span> viaduct discover --all</p>
+                <p class="terminal-result">
+                  <span class="status-ok">✓</span>
+                  <span class="terminal-label">VMware vSphere</span>
+                  <span class="terminal-meta">48 VMs    3 clusters</span>
+                </p>
+                <p class="terminal-result">
+                  <span class="status-ok">✓</span>
+                  <span class="terminal-label">Proxmox VE</span>
+                  <span class="terminal-meta">12 VMs    2 nodes</span>
+                </p>
+                <p class="terminal-result">
+                  <span class="status-ok">✓</span>
+                  <span class="terminal-label">Hyper-V</span>
+                  <span class="terminal-meta">6 VMs    1 host</span>
+                </p>
+              </div>
+
+              <div class="terminal-block">
+                <p class="terminal-summary">66 workloads discovered across 3 platforms</p>
+              </div>
+
+              <div class="terminal-block">
+                <p class="terminal-command"><span class="prompt">$</span> viaduct plan --workspace prod-wave-1</p>
+                <p class="terminal-summary">Migration plan "prod-wave-1" ready - 24 workloads, 3 phases</p>
+                <p class="terminal-note">Run 'viaduct migrate --plan prod-wave-1 --dry-run' to simulate.</p>
+              </div>
             </div>
           </aside>
         </section>
 
-        <section class="section" aria-labelledby="what-it-does">
-          <div class="section-heading">
-            <p class="section-index">01</p>
-            <h2 id="what-it-does">What it does</h2>
-            <p class="section-intro">One inventory model, one dependency graph, one execution path.</p>
+        <section class="section" aria-labelledby="how-it-works-title">
+          <div class="section-head">
+            <p class="section-kicker"><span class="section-number">01</span> How it works</p>
+            <h2 id="how-it-works-title">Connect sources, resolve dependencies, execute with one state model.</h2>
+            <p class="section-intro">
+              Viaduct keeps discovery, dependency mapping, planning, and execution in the same control plane so operators do not have to hand off context between tools.
+            </p>
           </div>
-          <div class="feature-list">
-            <article class="feature-row">
-              <div class="feature-meta">
-                <span class="feature-number">01</span>
-                <h3>Discovery</h3>
+
+          <div class="flow-list">
+            <article class="flow-step">
+              <div class="flow-marker">01</div>
+              <div class="flow-content">
+                <h3>Connect</h3>
+                <p>
+                  Point Viaduct at your hypervisors. Connectors handle VMware, Proxmox, Hyper-V, KVM, Nutanix, and Veeam. Inventory normalizes into one model.
+                </p>
               </div>
-              <p>Reads inventory from every supported platform into one normalized model.</p>
             </article>
-            <article class="feature-row">
-              <div class="feature-meta">
-                <span class="feature-number">02</span>
-                <h3>Dependency mapping</h3>
+
+            <article class="flow-step">
+              <div class="flow-marker">02</div>
+              <div class="flow-content">
+                <h3>Assess</h3>
+                <p>
+                  Dependencies resolve automatically - network, storage, and backup relationships rendered as a graph. Know what moves together before anything moves.
+                </p>
               </div>
-              <p>Builds a graph of network, storage, and backup relationships so you know what has to move together.</p>
             </article>
-            <article class="feature-row">
-              <div class="feature-meta">
-                <span class="feature-number">03</span>
-                <h3>Controlled migration</h3>
+
+            <article class="flow-step">
+              <div class="flow-marker">03</div>
+              <div class="flow-content">
+                <h3>Migrate</h3>
+                <p>
+                  Build a plan, dry-run it, get approval, execute with rollback safety. Same state whether you use the CLI, API, or dashboard.
+                </p>
               </div>
-              <p>Plan, dry-run, approve, execute, and roll back from a CLI, API, or web dashboard that share the same state.</p>
             </article>
           </div>
         </section>
 
-        <section class="section" aria-labelledby="supported-platforms">
-          <div class="section-heading">
-            <p class="section-index">02</p>
-            <h2 id="supported-platforms">Supported platforms</h2>
-            <p class="section-intro">Connector coverage spans hypervisors, backup systems, and community extensions.</p>
+        <section class="section" aria-labelledby="operators-title">
+          <div class="section-head">
+            <p class="section-kicker"><span class="section-number">02</span> Built for operators</p>
+            <h2 id="operators-title">Infrastructure workflows with calm defaults and explicit control.</h2>
+            <p class="section-intro">
+              The surface area stays compact, but the important details stay visible: normalized inventory, approvals, reporting, shared state, and rollback posture.
+            </p>
           </div>
-          <div class="table-wrap">
-            <table class="platform-table">
-              <thead>
-                <tr>
-                  <th scope="col">Platform</th>
-                  <th scope="col">Method</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>VMware vSphere</td>
-                  <td>vCenter API</td>
-                </tr>
-                <tr>
-                  <td>Proxmox VE</td>
-                  <td>REST API</td>
-                </tr>
-                <tr>
-                  <td>Microsoft Hyper-V</td>
-                  <td>WinRM + PowerShell</td>
-                </tr>
-                <tr>
-                  <td>KVM / libvirt</td>
-                  <td>libvirt (optional live) or XML fixtures</td>
-                </tr>
-                <tr>
-                  <td>Nutanix AHV</td>
-                  <td>Prism Central v3</td>
-                </tr>
-                <tr>
-                  <td>Veeam B&amp;R</td>
-                  <td>Backup and restore-point correlation</td>
-                </tr>
-                <tr>
-                  <td>Community plugins</td>
-                  <td>gRPC plugin host</td>
-                </tr>
-              </tbody>
-            </table>
+
+          <div class="feature-grid">
+            <article class="feature-card">
+              <p class="card-number">01</p>
+              <h3>One model, every platform</h3>
+              <p>Normalized inventory from VMware, Proxmox, Hyper-V, KVM, Nutanix, and Veeam. No per-vendor mental models.</p>
+            </article>
+
+            <article class="feature-card">
+              <p class="card-number">02</p>
+              <h3>Full audit trail</h3>
+              <p>Every discovery, plan, approval, and execution logged. Export audit-ready reports when compliance asks.</p>
+            </article>
+
+            <article class="feature-card">
+              <p class="card-number">03</p>
+              <h3>Three interfaces, one state</h3>
+              <p>CLI for automation, API for integration, dashboard for visibility. All read and write the same data.</p>
+            </article>
+
+            <article class="feature-card">
+              <p class="card-number">04</p>
+              <h3>Rollback safety</h3>
+              <p>Dry-run simulations and approval gates before anything moves. Roll back if something goes wrong.</p>
+            </article>
           </div>
-          <p class="section-note">
-            See the <a class="inline-link" href="https://github.com/eblackrps/Viaduct/blob/main/docs/reference/support-matrix.md">support matrix</a> for version coverage and caveats.
+        </section>
+
+        <section class="section" aria-labelledby="platform-support-title">
+          <div class="section-head">
+            <p class="section-kicker"><span class="section-number">03</span> Platform support</p>
+            <h2 id="platform-support-title">Mixed estates in, normalized data out.</h2>
+            <p class="section-intro">
+              Connect hypervisors, backup systems, and community extensions without changing the operating model.
+            </p>
+          </div>
+
+          <div class="platform-grid">
+            <article class="platform-pill">
+              <h3>VMware vSphere</h3>
+              <p>vCenter API</p>
+            </article>
+            <article class="platform-pill">
+              <h3>Proxmox VE</h3>
+              <p>REST API</p>
+            </article>
+            <article class="platform-pill">
+              <h3>Microsoft Hyper-V</h3>
+              <p>WinRM</p>
+            </article>
+            <article class="platform-pill">
+              <h3>KVM / libvirt</h3>
+              <p>libvirt</p>
+            </article>
+            <article class="platform-pill">
+              <h3>Nutanix AHV</h3>
+              <p>Prism Central v3</p>
+            </article>
+            <article class="platform-pill">
+              <h3>Veeam B&amp;R</h3>
+              <p>Backup correlation</p>
+            </article>
+            <article class="platform-pill">
+              <h3>Community plugins</h3>
+              <p>gRPC</p>
+            </article>
+          </div>
+
+          <p class="section-link">
+            <a class="text-link" href="https://github.com/eblackrps/Viaduct/blob/main/docs/reference/support-matrix.md">View the full support matrix</a>
           </p>
         </section>
 
-        <section class="section" id="get-started" aria-labelledby="getting-started">
-          <div class="section-heading">
-            <p class="section-index">03</p>
-            <h2 id="getting-started">Getting started</h2>
+        <section class="section" id="get-started" aria-labelledby="get-started-title">
+          <div class="section-head">
+            <p class="section-kicker"><span class="section-number">04</span> Get started</p>
+            <h2 id="get-started-title">Clone, build, run.</h2>
             <p class="section-intro">
-              Clone the repo, build, and start the bundled lab runtime. The first run creates a config at <code>~/.viaduct/config.yaml</code> pointing at the included KVM fixtures.
+              First start creates a config at <code>~/.viaduct/config.yaml</code> pointing at the included KVM fixtures.
             </p>
           </div>
-          <div class="start-card">
-            <div class="start-steps">
-              <ol class="step-list">
-                <li>
-                  <span class="step-index-pill">1</span>
-                  <div>
-                    <strong>Clone the repository.</strong>
-                    <p>Pull the current source so the local lab, CLI, and web assets stay aligned.</p>
-                  </div>
-                </li>
-                <li>
-                  <span class="step-index-pill">2</span>
-                  <div>
-                    <strong>Build the CLI and web assets.</strong>
-                    <p>Compile the binary and bundle the dashboard before starting the local runtime.</p>
-                  </div>
-                </li>
-                <li>
-                  <span class="step-index-pill">3</span>
-                  <div>
-                    <strong>Start the bundled lab runtime.</strong>
-                    <p>Launch the first-run environment backed by the included KVM fixtures and dashboard assets.</p>
-                  </div>
-                </li>
-              </ol>
-            </div>
-            <div class="terminal-panel" aria-label="Quickstart terminal commands">
-              <div class="terminal-toolbar">
-                <div class="terminal-lights" aria-hidden="true">
-                  <span class="terminal-light terminal-light-red"></span>
-                  <span class="terminal-light terminal-light-amber"></span>
-                  <span class="terminal-light terminal-light-green"></span>
-                </div>
-                <p class="terminal-title">Local lab bootstrap</p>
+
+          <div class="setup-card">
+            <div class="terminal-top">
+              <div class="terminal-dots" aria-hidden="true">
+                <span></span>
+                <span></span>
+                <span></span>
               </div>
-              <pre class="command-block"><code><span class="command-line"><span class="command-prompt">$</span>git clone https://github.com/eblackrps/Viaduct</span>
-<span class="command-line"><span class="command-prompt">$</span>cd Viaduct</span>
-<span class="command-line"><span class="command-prompt">$</span>make build web-build</span>
-<span class="command-line"><span class="command-prompt">$</span>./bin/viaduct start</span></code></pre>
+              <p class="terminal-title">quickstart</p>
             </div>
+            <pre class="command-block"><code><span>git clone https://github.com/eblackrps/Viaduct</span><span>cd Viaduct</span><span>make build web-build</span><span>./bin/viaduct start</span><span class="command-comment"># -&gt; http://127.0.0.1:8080</span></code></pre>
           </div>
-          <p class="section-note">
-            Opens at <a class="inline-link" href="http://127.0.0.1:8080">http://127.0.0.1:8080</a>. Full install guide:
-            <a class="inline-link" href="https://github.com/eblackrps/Viaduct/blob/main/INSTALL.md">INSTALL.md</a>.
+
+          <p class="section-link">
+            <a class="text-link" href="https://github.com/eblackrps/Viaduct/blob/main/INSTALL.md">Read the full install guide in INSTALL.md</a>
           </p>
         </section>
       </div>
@@ -255,7 +278,7 @@
 
     <footer class="site-footer">
       <div class="shell footer-row">
-        <p>Viaduct — Apache 2.0</p>
+        <p>Viaduct · Apache 2.0</p>
         <nav class="footer-links" aria-label="Footer">
           <a href="https://github.com/eblackrps/Viaduct/tree/main/docs">Docs</a>
           <a href="https://github.com/eblackrps/Viaduct/blob/main/QUICKSTART.md">Quickstart</a>
