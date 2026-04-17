@@ -6,7 +6,7 @@ This matrix reflects what is implemented and what is currently validated in the 
 | Component | Expected Version | Notes |
 | --- | --- | --- |
 | Go | 1.24+ | CI and release docs align to the `go.mod` version. |
-| Node.js | 20.19+ | Required for dashboard development and local web builds. |
+| Node.js | 20.19+ locally / 20.20.x in CI-release | Dashboard development supports Node.js 20.19+, while CI and release packaging pin Node.js 20.20.x. |
 | `make` | Optional but recommended | Windows users can run the underlying commands directly if `make` is unavailable. |
 | `qemu-img` | Optional | Needed for live disk conversion outside mocked or fixture-backed tests. |
 

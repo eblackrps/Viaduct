@@ -4,6 +4,7 @@ This directory contains release notes and other release-facing narrative assets 
 
 ## Files
 
+- [v2.4.1 release notes](v2.4.1.md)
 - [v2.4.0 release notes](v2.4.0.md)
 - [v2.3.0 release notes](v2.3.0.md)
 - [v2.2.0 release notes](v2.2.0.md)
@@ -20,4 +21,4 @@ Keep these notes aligned with:
 - [Screenshot assets](../operations/demo/screenshots/README.md)
 - [RELEASE.md](../../RELEASE.md)
 
-The tag workflow in [`.github/workflows/release.yml`](../../.github/workflows/release.yml) uses the versioned note file that matches the tag (for example `docs/releases/v2.4.0.md`) as the source-controlled GitHub release body when it exists. Keep the matching changelog entry and site links in sync before tagging.
+The tag workflow in [`.github/workflows/release.yml`](../../.github/workflows/release.yml) uses the versioned note file that matches the tag (for example `docs/releases/v2.4.1.md`) as the source-controlled GitHub release body when it exists. Keep the matching changelog entry and site links in sync before tagging.

@@ -6,12 +6,26 @@ This changelog tracks published releases and the major implementation milestones
 
 ## [Unreleased]
 
-### Release Engineering
+## [2.4.1] - 2026-04-17
+
+### Upgrading From v2.4.0
+
+- no migration-spec, tenant-isolation, or published API-contract break is intended in this patch release
+- local release owners should expect `make release-gate` to include connector certification plus dashboard lint, format, unit-test, and build verification
+- the local packaging matrix now matches the shipped GitHub release assets across `linux/amd64`, `linux/arm64`, `darwin/arm64`, and `windows/amd64`
+- GitHub release notes and the public site’s latest-release surfaces now resolve from source-controlled release files rather than one-off release metadata
+
+### Release Engineering And Maintenance
 
 - aligned `make release-gate` with the repo’s public contract by adding connector certification coverage plus dashboard lint, format, unit-test, and build verification to the canonical local release-owner path
 - aligned `make package-release-matrix`, `scripts/package_release`, and `.github/workflows/release.yml` around the shipped artifact matrix: `linux/amd64`, `linux/arm64`, `darwin/arm64`, and `windows/amd64` tarballs plus `dist/SHA256SUMS`
 - made the tag workflow source-controlled and reproducible end to end by publishing GitHub releases from versioned files under `docs/releases/` and by tagging GHCR images with both `vX.Y.Z` and `X.Y.Z` alongside `latest`
+- refreshed the release toolchain surface with the `node:20.20-bookworm-slim` base image, current GitHub Actions dependencies, and the latest web-tooling maintenance updates already merged on `main`
+
+### Public Site And Docs
+
 - replaced the hardcoded public-site release badge with a dynamic latest-release badge and stable release-notes link so `site/` stays aligned with the current published release surface
+- aligned the README, release docs, install docs, support matrix, and demo collateral around the same verification path, packaging matrix, and `v2.4.1` release surface
 
 ## [2.4.0] - 2026-04-17
 
