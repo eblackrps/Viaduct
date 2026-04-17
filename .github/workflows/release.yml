@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Tag to publish, including the leading v (for example v2.4.1)"
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -23,9 +29,12 @@ jobs:
         id: release_meta
         shell: bash
         run: |
-          echo "PACKAGE_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
-          echo "RELEASE_NOTES_PATH=docs/releases/${GITHUB_REF_NAME}.md" >> "$GITHUB_ENV"
-          echo "package_version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          RELEASE_TAG="${{ inputs.release_tag || github.ref_name }}"
+          echo "RELEASE_TAG=${RELEASE_TAG}" >> "$GITHUB_ENV"
+          echo "PACKAGE_VERSION=${RELEASE_TAG#v}" >> "$GITHUB_ENV"
+          echo "RELEASE_NOTES_PATH=docs/releases/${RELEASE_TAG}.md" >> "$GITHUB_ENV"
+          echo "release_tag=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
+          echo "package_version=${RELEASE_TAG#v}" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-go@v6
         with:
@@ -38,7 +47,7 @@ jobs:
           cache-dependency-path: web/package-lock.json
 
       - name: Build Cross-Platform Release Bundles
-        run: make package-release-matrix VERSION="${GITHUB_REF_NAME}"
+        run: make package-release-matrix VERSION="${RELEASE_TAG}"
 
       - name: Extract Release Notes
         shell: bash
@@ -47,16 +56,16 @@ jobs:
             cp "${RELEASE_NOTES_PATH}" dist/release-notes.md
           else
             python - <<'PY'
-            import os
-            import re
-            from pathlib import Path
+import os
+import re
+from pathlib import Path
 
-            version = os.environ["PACKAGE_VERSION"]
-            changelog = Path("CHANGELOG.md").read_text(encoding="utf-8")
-            match = re.search(rf"## \[{re.escape(version)}\][^\n]*\n(.*?)(?=\n## \[|\Z)", changelog, re.S)
-            notes = match.group(1).strip() if match else "See CHANGELOG.md for release details."
-            Path("dist/release-notes.md").write_text(notes + "\n", encoding="utf-8")
-            PY
+version = os.environ["PACKAGE_VERSION"]
+changelog = Path("CHANGELOG.md").read_text(encoding="utf-8")
+match = re.search(rf"## \[{re.escape(version)}\][^\n]*\n(.*?)(?=\n## \[|\Z)", changelog, re.S)
+notes = match.group(1).strip() if match else "See CHANGELOG.md for release details."
+Path("dist/release-notes.md").write_text(notes + "\n", encoding="utf-8")
+PY
           fi
 
       - uses: docker/setup-buildx-action@v4
@@ -74,7 +83,7 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |
-            ${{ env.IMAGE_NAME }}:${{ github.ref_name }}
+            ${{ env.IMAGE_NAME }}:${{ steps.release_meta.outputs.release_tag }}
             ${{ env.IMAGE_NAME }}:${{ steps.release_meta.outputs.package_version }}
             ${{ env.IMAGE_NAME }}:latest
 
@@ -84,7 +93,7 @@ jobs:
       - name: Generate CycloneDX SBOM
         shell: bash
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${PACKAGE_VERSION}"
           syft dir:. -o cyclonedx-json="dist/viaduct_${VERSION}_sbom.cdx.json"
 
       - name: Install Cosign
@@ -100,7 +109,7 @@ jobs:
               --output-certificate "${artifact}.pem" \
               "${artifact}"
           done
-          cosign sign --yes "${IMAGE_NAME}:${GITHUB_REF_NAME}"
+          cosign sign --yes "${IMAGE_NAME}:${RELEASE_TAG}"
           cosign sign --yes "${IMAGE_NAME}:${PACKAGE_VERSION}"
 
       - name: Create GitHub Release
@@ -108,8 +117,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
-          gh release create "${GITHUB_REF_NAME}" \
-            --title "Viaduct ${GITHUB_REF_NAME}" \
+          gh release create "${RELEASE_TAG}" \
+            --title "Viaduct ${RELEASE_TAG}" \
             --latest \
             --notes-file dist/release-notes.md \
             dist/viaduct_*.tar.gz \
