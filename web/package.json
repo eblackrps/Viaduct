@@ -2,7 +2,7 @@
   "name": "viaduct-dashboard",
   "description": "React dashboard for Viaduct migration, lifecycle, and multi-tenant operations.",
   "private": true,
-  "version": "2.3.0",
+  "version": "2.4.0",
   "type": "module",
   "engines": {
     "node": ">=20.19.0"
