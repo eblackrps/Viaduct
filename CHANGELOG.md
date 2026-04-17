@@ -6,7 +6,14 @@ This changelog tracks published releases and the major implementation milestones
 
 ## [Unreleased]
 
-### v2.4.0
+## [2.4.0] - 2026-04-17
+
+### Upgrading From v2.3.0
+
+- dashboard runtime auth now keeps only the remembered session identifier in `localStorage`; tenant and service-account API keys stay in tab memory and clear on tab close
+- anonymous fallback now defaults to the viewer role unless `VIADUCT_ALLOW_ANONYMOUS_ADMIN=true` is explicitly set, so default-tenant bootstrap flows no longer inherit admin rights accidentally
+- auth routes now enforce a stricter per-IP limiter and the API server prunes expired auth sessions in the background based on the configured TTLs
+- operator health checks are now split between `/healthz` and `/readyz`, and Prometheus metrics are served behind admin authentication for packaged deployments
 
 #### Security And API Hardening
 

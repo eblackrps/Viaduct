@@ -28,6 +28,7 @@ func main() {
 }
 
 func validateManifestFile(path, hostVersion string) (*pluginhost.Manifest, error) {
+	// #nosec G304 -- the caller provides the manifest path explicitly for one-off validation of a local plugin bundle.
 	payload, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("read manifest %s: %w", path, err)

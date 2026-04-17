@@ -76,6 +76,7 @@ func (c *KVMConnector) Discover(ctx context.Context) (*models.DiscoveryResult, e
 
 	networkIndex := make(map[string]models.NetworkInfo)
 	for _, file := range files {
+		// #nosec G304 -- discovery reads the explicit XML export file paths collected from the configured source.
 		payload, err := os.ReadFile(file)
 		if err != nil {
 			return nil, fmt.Errorf("kvm: read XML file %s: %w", file, err)

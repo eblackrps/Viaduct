@@ -77,7 +77,7 @@ func ConvertDisk(ctx context.Context, req ConversionRequest) (*ConversionResult,
 		return nil, fmt.Errorf("convert disk: target format: %w", err)
 	}
 
-	if err := os.MkdirAll(filepath.Dir(req.TargetPath), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(req.TargetPath), 0o750); err != nil {
 		return nil, fmt.Errorf("convert disk: create target directory: %w", err)
 	}
 
@@ -92,6 +92,7 @@ func ConvertDisk(ctx context.Context, req ConversionRequest) (*ConversionResult,
 	}
 	args = append(args, req.SourcePath, req.TargetPath)
 
+	// #nosec G204 -- qemu-img is a fixed executable and arguments are structured from validated conversion inputs.
 	command := exec.CommandContext(ctx, "qemu-img", args...)
 	var stderr bytes.Buffer
 	command.Stderr = &stderr
@@ -141,6 +142,7 @@ func ValidateConversion(source, target string) error {
 	}
 
 	args := []string{"check", target}
+	// #nosec G204 -- qemu-img is a fixed executable and target is passed as an argument rather than through a shell.
 	command := exec.Command("qemu-img", args...)
 	var stderr bytes.Buffer
 	command.Stderr = &stderr
@@ -169,6 +171,7 @@ func qemuFormat(format DiskFormat) (string, error) {
 }
 
 func checksumFile(path string, callback func(percent int), startPercent, endPercent int) (string, error) {
+	// #nosec G304 -- checksuming reads the explicit source or target disk path selected for the conversion workflow.
 	file, err := os.Open(path)
 	if err != nil {
 		return "", fmt.Errorf("open %s: %w", path, err)

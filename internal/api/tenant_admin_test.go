@@ -41,7 +41,7 @@ func TestServer_HandleCurrentTenant_ServiceAccountResponseRedactsKeys_Expected(t
 	handler := TenantAuthMiddleware(stateStore, http.HandlerFunc(server.handleCurrentTenant))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/tenants/current", nil)
-	req.Header.Set(serviceAccountAPIKeyHeader, "sa-1-key")
+	req.Header.Set(serviceAccountCredentialHeader, "sa-1-key")
 	recorder := httptest.NewRecorder()
 
 	handler.ServeHTTP(recorder, req)
@@ -93,7 +93,7 @@ func TestServer_HandleServiceAccounts_CreateAndRotate_Expected(t *testing.T) {
 	}))
 
 	createRequest := httptest.NewRequest(http.MethodPost, "/api/v1/service-accounts", bytes.NewBufferString(`{"id":"sa-1","name":"Automation","role":"operator","permissions":["migration.manage","tenant.read"]}`))
-	createRequest.Header.Set(tenantAPIKeyHeader, "tenant-a-key")
+	createRequest.Header.Set(tenantCredentialHeader, "tenant-a-key")
 	createRecorder := httptest.NewRecorder()
 
 	handler.ServeHTTP(createRecorder, createRequest)
@@ -113,7 +113,7 @@ func TestServer_HandleServiceAccounts_CreateAndRotate_Expected(t *testing.T) {
 	}
 
 	listRequest := httptest.NewRequest(http.MethodGet, "/api/v1/service-accounts", nil)
-	listRequest.Header.Set(tenantAPIKeyHeader, "tenant-a-key")
+	listRequest.Header.Set(tenantCredentialHeader, "tenant-a-key")
 	listRecorder := httptest.NewRecorder()
 	handler.ServeHTTP(listRecorder, listRequest)
 	if listRecorder.Code != http.StatusOK {
@@ -124,7 +124,7 @@ func TestServer_HandleServiceAccounts_CreateAndRotate_Expected(t *testing.T) {
 	}
 
 	rotateRequest := httptest.NewRequest(http.MethodPost, "/api/v1/service-accounts/sa-1/rotate", bytes.NewBufferString(`{"api_key":"rotated-key"}`))
-	rotateRequest.Header.Set(tenantAPIKeyHeader, "tenant-a-key")
+	rotateRequest.Header.Set(tenantCredentialHeader, "tenant-a-key")
 	rotateRecorder := httptest.NewRecorder()
 
 	handler.ServeHTTP(rotateRecorder, rotateRequest)

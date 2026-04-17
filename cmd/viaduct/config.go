@@ -26,6 +26,7 @@ func loadAppConfig(path string) (*appConfig, error) {
 		return nil, fmt.Errorf("load config path: %w", err)
 	}
 
+	// #nosec G304 -- operators explicitly choose the config path when loading local or packaged Viaduct settings.
 	payload, err := os.ReadFile(expandedPath)
 	if err != nil {
 		if os.IsNotExist(err) {

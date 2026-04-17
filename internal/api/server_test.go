@@ -472,7 +472,7 @@ func TestServer_Handler_MetricsRouteRequiresAdmin_Expected(t *testing.T) {
 	}
 
 	authorizedRequest := httptest.NewRequest(http.MethodGet, "/metrics", nil)
-	authorizedRequest.Header.Set(adminAPIKeyHeader, "admin-key")
+	authorizedRequest.Header.Set(adminCredentialHeader, "admin-key")
 	authorizedRecorder := httptest.NewRecorder()
 	handler.ServeHTTP(authorizedRecorder, authorizedRequest)
 	if authorizedRecorder.Code != http.StatusOK {

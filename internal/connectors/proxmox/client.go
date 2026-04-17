@@ -39,6 +39,7 @@ type ProxmoxClient struct {
 func NewProxmoxClient(address string, insecure bool, requestID ...string) *ProxmoxClient {
 	baseURL := normalizeBaseURL(address)
 	transport := &http.Transport{
+		// #nosec G402 -- operators can explicitly opt into insecure TLS for lab and self-signed Proxmox endpoints.
 		TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS12, InsecureSkipVerify: insecure},
 	}
 	propagatedRequestID := ""

@@ -186,7 +186,7 @@ func (r *Replicator) StartInitialCopy(ctx context.Context) error {
 		return fmt.Errorf("start initial copy: stat source disk: %w", err)
 	}
 
-	if err := os.MkdirAll(filepath.Dir(r.state.Config.TargetDisk), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(r.state.Config.TargetDisk), 0o750); err != nil {
 		return fmt.Errorf("start initial copy: create target directory: %w", err)
 	}
 
@@ -196,7 +196,7 @@ func (r *Replicator) StartInitialCopy(ctx context.Context) error {
 	}
 	defer sourceFile.Close()
 
-	targetFile, err := os.OpenFile(r.state.Config.TargetDisk, os.O_CREATE|os.O_RDWR, 0o644)
+	targetFile, err := os.OpenFile(r.state.Config.TargetDisk, os.O_CREATE|os.O_RDWR, 0o600)
 	if err != nil {
 		return fmt.Errorf("start initial copy: open target disk: %w", err)
 	}
@@ -304,7 +304,7 @@ func (r *Replicator) runSync(ctx context.Context, phase string) (*SyncResult, er
 		return nil, fmt.Errorf("stat source disk: %w", err)
 	}
 
-	targetFile, err := os.OpenFile(r.state.Config.TargetDisk, os.O_CREATE|os.O_RDWR, 0o644)
+	targetFile, err := os.OpenFile(r.state.Config.TargetDisk, os.O_CREATE|os.O_RDWR, 0o600)
 	if err != nil {
 		return nil, fmt.Errorf("open target disk: %w", err)
 	}

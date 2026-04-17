@@ -100,6 +100,7 @@ type MigrationOptions struct {
 
 // ParseSpec loads, normalizes, and validates a migration spec from YAML.
 func ParseSpec(path string) (*MigrationSpec, error) {
+	// #nosec G304 -- operators provide the spec path explicitly when loading a migration document from disk.
 	payload, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("parse spec: read %s: %w", path, err)

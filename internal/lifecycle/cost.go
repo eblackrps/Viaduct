@@ -236,6 +236,7 @@ func (e *CostEngine) CalculateFleetCost(platform models.Platform, vms []models.V
 
 // LoadCostProfile loads a cost profile from YAML on disk.
 func LoadCostProfile(path string) (*CostProfile, error) {
+	// #nosec G304 -- cost profiles are loaded from an explicit operator-selected path or profile directory.
 	payload, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("load cost profile: read %s: %w", path, err)

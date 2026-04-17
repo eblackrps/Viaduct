@@ -91,11 +91,11 @@ func startForeground(cmd *cobra.Command, startContext localStartContext, openBro
 }
 
 func startDetached(cmd *cobra.Command, startContext localStartContext) error {
-	if err := os.MkdirAll(startContext.paths.RuntimeDir, 0o755); err != nil {
+	if err := os.MkdirAll(startContext.paths.RuntimeDir, 0o750); err != nil {
 		return fmt.Errorf("start: create runtime directory: %w", err)
 	}
 
-	logFile, err := os.OpenFile(startContext.paths.LogPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	logFile, err := os.OpenFile(startContext.paths.LogPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
 	if err != nil {
 		return fmt.Errorf("start: open runtime log: %w", err)
 	}
@@ -118,6 +118,7 @@ func startDetached(cmd *cobra.Command, startContext localStartContext) error {
 		args = append(args, "--web-dir", startContext.state.WebDir)
 	}
 
+	// #nosec G204 -- the child process re-executes the current trusted Viaduct binary with explicit arguments.
 	child := exec.Command(executable, args...)
 	child.Stdout = logFile
 	child.Stderr = logFile

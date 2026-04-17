@@ -12,9 +12,9 @@ import (
 )
 
 const (
-	tenantAPIKeyHeader         = "X-API-Key"
-	serviceAccountAPIKeyHeader = "X-Service-Account-Key"
-	adminAPIKeyHeader          = "X-Admin-Key"
+	tenantCredentialHeader         = "X-API-Key"             // #nosec G101 -- this is an HTTP header name, not an embedded credential.
+	serviceAccountCredentialHeader = "X-Service-Account-Key" // #nosec G101 -- this is an HTTP header name, not an embedded credential.
+	adminCredentialHeader          = "X-Admin-Key"
 )
 
 type tenantContextKey struct{}
@@ -51,8 +51,8 @@ func tenantAuthMiddleware(stateStore store.Store, sessions *authSessionManager, 
 			return
 		}
 
-		apiKey := strings.TrimSpace(r.Header.Get(tenantAPIKeyHeader))
-		serviceAccountKey := strings.TrimSpace(r.Header.Get(serviceAccountAPIKeyHeader))
+		apiKey := strings.TrimSpace(r.Header.Get(tenantCredentialHeader))
+		serviceAccountKey := strings.TrimSpace(r.Header.Get(serviceAccountCredentialHeader))
 		authMethod := ""
 		if apiKey == "" && serviceAccountKey == "" && sessions != nil {
 			if sessionRecord, ok := sessions.Lookup(readAuthSessionSecret(r)); ok {
@@ -232,7 +232,7 @@ func AdminAuthMiddleware(adminAPIKey string, next http.Handler) http.Handler {
 			writeAPIError(w, r, http.StatusServiceUnavailable, "internal_error", "admin API key is not configured", apiErrorOptions{Retryable: true})
 			return
 		}
-		if r.Header.Get(adminAPIKeyHeader) != adminAPIKey {
+		if r.Header.Get(adminCredentialHeader) != adminAPIKey {
 			writeAPIError(w, r, http.StatusUnauthorized, "invalid_credentials", "invalid admin API key", apiErrorOptions{})
 			return
 		}

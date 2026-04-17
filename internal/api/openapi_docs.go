@@ -60,6 +60,7 @@ func (s *Server) handleSwaggerJSON(w http.ResponseWriter, r *http.Request) {
 
 func loadSwaggerJSON() ([]byte, error) {
 	jsonPath := resolveOperatorPath(swaggerJSONPath)
+	// #nosec G304 -- operator docs are resolved from the packaged asset locations controlled by the binary layout.
 	if payload, err := os.ReadFile(jsonPath); err == nil {
 		return payload, nil
 	} else if !os.IsNotExist(err) {
@@ -67,6 +68,7 @@ func loadSwaggerJSON() ([]byte, error) {
 	}
 
 	yamlPath := resolveOperatorPath(openAPIReferencePath)
+	// #nosec G304 -- operator docs are resolved from the packaged asset locations controlled by the binary layout.
 	payload, err := os.ReadFile(yamlPath)
 	if err != nil {
 		return nil, fmt.Errorf("load OpenAPI reference %s: %w", yamlPath, err)
