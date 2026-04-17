@@ -4,6 +4,7 @@ import { ErrorState } from "../../components/primitives/ErrorState";
 import { LoadingState } from "../../components/primitives/LoadingState";
 import { PageHeader } from "../../components/primitives/PageHeader";
 import { SectionCard } from "../../components/primitives/SectionCard";
+import { StatCard } from "../../components/primitives/StatCard";
 import type { SnapshotMeta } from "../../types";
 import { useLifecycleSignals } from "../lifecycle/useLifecycleSignals";
 
@@ -49,38 +50,38 @@ export function DriftPage({
 				]}
 			/>
 
-			{showLoading && (
+			{showLoading ? (
 				<LoadingState
 					title="Loading drift results"
 					message="Resolving the latest saved snapshot and comparing it against current inventory to detect baseline movement."
 				/>
-			)}
+			) : null}
 
-			{showEmpty && (
+			{showEmpty ? (
 				<EmptyState
 					title="No baseline snapshot available"
 					message="Save a discovery snapshot before using the drift view so Viaduct has a baseline to compare against."
 				/>
-			)}
+			) : null}
 
-			{error && !showLoading && !report && latestSnapshot && (
+			{error && !showLoading && !report && latestSnapshot ? (
 				<ErrorState title="Drift comparison unavailable" message={error} />
-			)}
+			) : null}
 
-			{(report || latestSnapshot) && !showLoading && (
+			{(report || latestSnapshot) && !showLoading ? (
 				<>
 					<SectionCard
 						title="Baseline context"
 						description="Current baseline metadata and comparison scope."
 					>
-						<div className="grid gap-3 md:grid-cols-4">
-							<DriftContext
+						<div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+							<StatCard
 								label="Baseline"
 								value={
 									report?.baseline.id ?? latestSnapshot?.id ?? "Unavailable"
 								}
 							/>
-							<DriftContext
+							<StatCard
 								label="Current sample"
 								value={
 									report?.current.discovered_at
@@ -90,11 +91,11 @@ export function DriftPage({
 											: "Unavailable"
 								}
 							/>
-							<DriftContext
+							<StatCard
 								label="Modified VMs"
 								value={String(report?.modified_vms ?? 0)}
 							/>
-							<DriftContext
+							<StatCard
 								label="Policy drift"
 								value={String(report?.policy_drifts ?? 0)}
 							/>
@@ -110,18 +111,7 @@ export function DriftPage({
 						/>
 					)}
 				</>
-			)}
-		</div>
-	);
-}
-
-function DriftContext({ label, value }: { label: string; value: string }) {
-	return (
-		<div className="rounded-2xl bg-slate-50 px-4 py-4">
-			<p className="text-xs uppercase tracking-[0.18em] text-slate-500">
-				{label}
-			</p>
-			<p className="mt-2 font-semibold text-ink">{value}</p>
+			) : null}
 		</div>
 	);
 }

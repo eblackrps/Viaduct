@@ -1,4 +1,7 @@
 import type { MigrationMeta, Pagination } from "../types";
+import { PaginationControls } from "./primitives/PaginationControls";
+import { InlineNotice } from "./primitives/InlineNotice";
+import { SectionCard } from "./primitives/SectionCard";
 import { StatusBadge, type StatusTone } from "./primitives/StatusBadge";
 import {
 	describeMigrationPhase,
@@ -26,25 +29,18 @@ export function MigrationHistory({
 	onPageChange,
 }: MigrationHistoryProps) {
 	return (
-		<section className="panel p-5" aria-live="polite">
-			<h2 className="font-display text-2xl text-ink">Migration History</h2>
-			<p className="mt-1 text-sm text-slate-500">
-				Track completed, failed, and in-flight migrations from the shared state
-				store.
-			</p>
+		<SectionCard
+			title="Migration history"
+			description="Track completed, failed, and in-flight migrations from the shared state store."
+		>
+			{loading && migrations.length === 0 ? (
+				<InlineNotice message="Loading migration history…" tone="neutral" />
+			) : null}
+			{error && !loading ? (
+				<InlineNotice message={error} tone="danger" className="mt-4" />
+			) : null}
 
-			{loading && migrations.length === 0 && (
-				<p className="mt-5 text-sm text-slate-500">
-					Loading migration history…
-				</p>
-			)}
-			{error && !loading && (
-				<p className="mt-5 rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700">
-					{error}
-				</p>
-			)}
-
-			<div className="mt-5 space-y-3">
+			<div className={loading || error ? "mt-4 space-y-3" : "space-y-3"}>
 				{migrations.map((migration) => {
 					const status = getPersistedMigrationListPresentation(
 						getPersistedMigrationListStatus(migration.phase),
@@ -53,14 +49,16 @@ export function MigrationHistory({
 					return (
 						<article
 							key={migration.id}
-							className="rounded-2xl bg-slate-50 px-4 py-4 text-sm text-slate-600"
+							className="list-card text-sm text-slate-600"
 						>
-							<div className="flex items-center justify-between gap-3">
+							<div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
 								<div>
 									<p className="font-semibold text-ink">
 										{migration.spec_name}
 									</p>
-									<p className="text-slate-500">{migration.id}</p>
+									<p className="mt-1 break-all text-xs text-slate-500">
+										{migration.id}
+									</p>
 								</div>
 								<div className="flex flex-wrap gap-2">
 									<StatusBadge tone={status.tone}>{status.label}</StatusBadge>
@@ -69,52 +67,43 @@ export function MigrationHistory({
 									</StatusBadge>
 								</div>
 							</div>
-							<p className="mt-3 text-slate-500">
-								Started {new Date(migration.started_at).toLocaleString()}
-							</p>
-							<p className="mt-1 text-slate-500">
-								{migration.completed_at
-									? `Completed ${new Date(migration.completed_at).toLocaleString()}`
-									: `Updated ${new Date(migration.updated_at).toLocaleString()}`}
-							</p>
+							<div className="mt-4 grid gap-3 md:grid-cols-2">
+								<div className="metric-surface">
+									<p className="operator-kicker">Started</p>
+									<p className="mt-2 text-sm font-semibold text-ink">
+										{new Date(migration.started_at).toLocaleString()}
+									</p>
+								</div>
+								<div className="metric-surface">
+									<p className="operator-kicker">
+										{migration.completed_at ? "Completed" : "Updated"}
+									</p>
+									<p className="mt-2 text-sm font-semibold text-ink">
+										{new Date(
+											migration.completed_at ?? migration.updated_at,
+										).toLocaleString()}
+									</p>
+								</div>
+							</div>
 						</article>
 					);
 				})}
 
-				{!loading && migrations.length === 0 && !error && (
-					<p className="text-sm text-slate-500">{emptyMessage}</p>
-				)}
+				{!loading && migrations.length === 0 && !error ? (
+					<InlineNotice message={emptyMessage} tone="neutral" />
+				) : null}
 			</div>
 
-			{pagination && pagination.total_pages > 1 && onPageChange && (
-				<div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
-					<p>
-						Page {currentPage} of {pagination.total_pages} •{" "}
-						{pagination.total.toLocaleString()} migration(s)
-					</p>
-					<div className="flex flex-wrap items-center gap-2">
-						<button
-							type="button"
-							onClick={() => onPageChange(Math.max(1, currentPage - 1))}
-							disabled={currentPage <= 1}
-							className="operator-button-secondary px-3 py-2 disabled:cursor-not-allowed disabled:opacity-50"
-						>
-							Previous
-						</button>
-						<button
-							type="button"
-							onClick={() =>
-								onPageChange(Math.min(pagination.total_pages, currentPage + 1))
-							}
-							disabled={currentPage >= pagination.total_pages}
-							className="operator-button-secondary px-3 py-2 disabled:cursor-not-allowed disabled:opacity-50"
-						>
-							Next
-						</button>
-					</div>
-				</div>
-			)}
-		</section>
+			{pagination && pagination.total_pages > 1 && onPageChange ? (
+				<PaginationControls
+					currentPage={currentPage}
+					totalPages={pagination.total_pages}
+					totalItems={pagination.total}
+					itemLabel="migration(s)"
+					onPageChange={onPageChange}
+				/>
+			) : null}
+		</SectionCard>
 	);
 }
 

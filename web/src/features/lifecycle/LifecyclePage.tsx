@@ -3,6 +3,7 @@ import { CostComparison } from "../../components/CostComparison";
 import { RemediationPanel } from "../../components/RemediationPanel";
 import { EmptyState } from "../../components/primitives/EmptyState";
 import { ErrorState } from "../../components/primitives/ErrorState";
+import { InlineNotice } from "../../components/primitives/InlineNotice";
 import { LoadingState } from "../../components/primitives/LoadingState";
 import { PageHeader } from "../../components/primitives/PageHeader";
 import { SectionCard } from "../../components/primitives/SectionCard";
@@ -61,13 +62,13 @@ export function LifecyclePage({
 					<>
 						<a
 							href={getRouteHref("/policy")}
-							className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+							className="operator-button-secondary"
 						>
 							Open policy
 						</a>
 						<a
 							href={getRouteHref("/drift")}
-							className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+							className="operator-button-secondary"
 						>
 							Open drift
 						</a>
@@ -75,17 +76,15 @@ export function LifecyclePage({
 				}
 			/>
 
-			{(overviewLoading || loading) && !hasLifecycleData && (
+			{(overviewLoading || loading) && !hasLifecycleData ? (
 				<LoadingState
 					title="Loading lifecycle signals"
 					message="Collecting remediation guidance and platform cost comparisons for the current tenant baseline."
 				/>
-			)}
+			) : null}
 
-			{!overviewLoading &&
-				!loading &&
-				!hasLifecycleData &&
-				(lifecycleError ? (
+			{!overviewLoading && !loading && !hasLifecycleData ? (
+				lifecycleError ? (
 					<ErrorState
 						title="Lifecycle data unavailable"
 						message={lifecycleError}
@@ -95,29 +94,26 @@ export function LifecyclePage({
 						title="No lifecycle data available"
 						message="Lifecycle guidance will appear here when Viaduct has current cost profiles and remediation recommendations to evaluate."
 					/>
-				))}
+				)
+			) : null}
 
-			{hasLifecycleData && (
+			{hasLifecycleData ? (
 				<>
 					<SectionCard
 						title="Cross-domain handoff"
 						description="Lifecycle decisions stay connected to separate policy and drift views so operators can review enforcement and baseline change before acting."
 					>
 						<div className="grid gap-3 md:grid-cols-2">
-							<div className="rounded-2xl bg-slate-50 px-4 py-4">
-								<p className="font-semibold text-ink">Policy review</p>
-								<p className="mt-2 text-sm text-slate-500">
-									Use the dedicated Policy page to inspect rule-level violations
-									and enforcement posture on the current inventory.
-								</p>
-							</div>
-							<div className="rounded-2xl bg-slate-50 px-4 py-4">
-								<p className="font-semibold text-ink">Drift review</p>
-								<p className="mt-2 text-sm text-slate-500">
-									Use the Drift page to confirm baseline changes and unexpected
-									workload movement before scheduling execution.
-								</p>
-							</div>
+							<InlineNotice
+								title="Policy review"
+								message="Use the dedicated Policy page to inspect rule-level violations and enforcement posture on the current inventory."
+								tone="neutral"
+							/>
+							<InlineNotice
+								title="Drift review"
+								message="Use the Drift page to confirm baseline changes and unexpected workload movement before scheduling execution."
+								tone="neutral"
+							/>
 						</div>
 					</SectionCard>
 
@@ -128,14 +124,12 @@ export function LifecyclePage({
 						simulationLoading={simulationLoading}
 						error={recommendationError}
 					/>
-					{errors.costs && (
-						<p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700">
-							{errors.costs}
-						</p>
-					)}
+					{errors.costs ? (
+						<InlineNotice message={errors.costs} tone="danger" />
+					) : null}
 					<CostComparison comparisons={costs} />
 				</>
-			)}
+			) : null}
 		</div>
 	);
 }

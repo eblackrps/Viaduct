@@ -38,15 +38,15 @@ It is strongest when operators need:
 
 ## Screenshots
 
-The current repo ships with release-facing dashboard captures so evaluators can see the actual operator flow before they build anything.
+These are current seeded-product captures from the packaged operator shell. They reflect the `viaduct start` path, the runtime bootstrap flow, and the current workspace-first dashboard.
 
 <p align="center">
-  <img src="docs/operations/demo/screenshots/pilot-bootstrap.svg" alt="Viaduct dashboard bootstrap screen" width="48%" />
-  <img src="docs/operations/demo/screenshots/pilot-workspace-flow.svg" alt="Viaduct pilot workspace flow" width="48%" />
+  <img src="docs/operations/demo/screenshots/auth-bootstrap.png" alt="Viaduct dashboard runtime authentication bootstrap" width="48%" />
+  <img src="docs/operations/demo/screenshots/pilot-workspace.png" alt="Viaduct pilot workspace overview with operator workflow progression" width="48%" />
 </p>
 <p align="center">
-  <img src="examples/lab/screenshots/lab-workspace-flow.svg" alt="Viaduct local lab workspace flow" width="48%" />
-  <img src="examples/lab/screenshots/lab-report-export.svg" alt="Viaduct local lab report export" width="48%" />
+  <img src="docs/operations/demo/screenshots/inventory-assessment.png" alt="Viaduct inventory assessment with selected workload detail" width="48%" />
+  <img src="docs/operations/demo/screenshots/migration-ops.png" alt="Viaduct migration operations workspace with plan and execution posture" width="48%" />
 </p>
 
 ## Platform Coverage

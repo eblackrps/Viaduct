@@ -1,7 +1,9 @@
 import type { ReactNode } from "react";
 import { getRouteHref } from "../../app/navigation";
 import { EmptyState } from "../../components/primitives/EmptyState";
+import { InlineNotice } from "../../components/primitives/InlineNotice";
 import { SectionCard } from "../../components/primitives/SectionCard";
+import { StatCard } from "../../components/primitives/StatCard";
 import {
 	StatusBadge,
 	type StatusTone,
@@ -23,14 +25,20 @@ interface WorkloadDetailPanelProps {
 		policies?: string;
 		remediation?: string;
 	};
-	onPreparePlan: (row: InventoryAssessmentRow) => void;
+	onPrimaryAction: (row: InventoryAssessmentRow) => void | Promise<void>;
+	primaryActionLabel?: string;
+	primaryActionPendingLabel?: string;
+	primaryActionBusy?: boolean;
 }
 
 export function WorkloadDetailPanel({
 	row,
 	latestSnapshot,
 	assessmentErrors,
-	onPreparePlan,
+	onPrimaryAction,
+	primaryActionLabel = "Open migration plan",
+	primaryActionPendingLabel,
+	primaryActionBusy = false,
 }: WorkloadDetailPanelProps) {
 	if (!row) {
 		return (
@@ -40,7 +48,7 @@ export function WorkloadDetailPanel({
 			>
 				<EmptyState
 					title="No workload selected"
-					message="The right-hand panel will show overview, dependency, risk, and activity details for the currently focused workload."
+					message="This panel will show overview, dependency, risk, and activity details for the currently focused workload."
 				/>
 			</SectionCard>
 		);
@@ -56,14 +64,17 @@ export function WorkloadDetailPanel({
 				<>
 					<button
 						type="button"
-						onClick={() => onPreparePlan(row)}
-						className="rounded-full bg-ink px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
+						onClick={() => void onPrimaryAction(row)}
+						className="operator-button"
+						disabled={primaryActionBusy}
 					>
-						Open migration plan
+						{primaryActionBusy && primaryActionPendingLabel
+							? primaryActionPendingLabel
+							: primaryActionLabel}
 					</button>
 					<a
 						href={getRouteHref("/graph")}
-						className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+						className="operator-button-secondary"
 					>
 						Open graph
 					</a>
@@ -71,13 +82,15 @@ export function WorkloadDetailPanel({
 			}
 		>
 			<div className="space-y-5">
-				<div className="rounded-2xl bg-slate-50 px-4 py-4">
+				<div className="panel-muted px-4 py-4">
 					<div className="flex flex-wrap items-start justify-between gap-3">
 						<div>
-							<h3 className="font-display text-2xl text-ink">{vm.name}</h3>
-							<p className="mt-1 text-sm text-slate-500">
-								{vm.guest_os || "Guest OS unavailable"}{" "}
-								{vm.folder ? `• ${vm.folder}` : ""}
+							<h3 className="font-display text-[1.7rem] tracking-[-0.03em] text-ink">
+								{vm.name}
+							</h3>
+							<p className="mt-2 text-sm leading-6 text-slate-600">
+								{vm.guest_os || "Guest OS unavailable"}
+								{vm.folder ? ` • ${vm.folder}` : ""}
 							</p>
 						</div>
 						<div className="flex flex-wrap gap-2">
@@ -97,28 +110,31 @@ export function WorkloadDetailPanel({
 
 				<DetailSection title="Overview">
 					<div className="grid gap-3 md:grid-cols-2">
-						<Metric label="Host" value={vm.host || "Unavailable"} />
-						<Metric label="Cluster" value={vm.cluster || "Unavailable"} />
-						<Metric
+						<StatCard label="Host" value={vm.host || "Unavailable"} />
+						<StatCard label="Cluster" value={vm.cluster || "Unavailable"} />
+						<StatCard
 							label="Resource pool"
 							value={vm.resource_pool || "Unavailable"}
 						/>
-						<Metric
+						<StatCard
 							label="Source reference"
 							value={vm.source_ref || "Unavailable"}
 						/>
-						<Metric label="CPU" value={`${vm.cpu_count} vCPU`} />
-						<Metric label="Memory" value={`${formatMemory(vm.memory_mb)} GB`} />
-						<Metric
+						<StatCard label="CPU" value={`${vm.cpu_count} vCPU`} />
+						<StatCard
+							label="Memory"
+							value={`${formatMemory(vm.memory_mb)} GB`}
+						/>
+						<StatCard
 							label="Storage"
 							value={`${formatStorage(row.storageTotalMB)} GB across ${vm.disks.length} disk(s)`}
 						/>
-						<Metric
+						<StatCard
 							label="Networks"
 							value={`${vm.nics.length} NIC(s) • ${row.connectedNicCount} connected`}
 						/>
 					</div>
-					{Object.keys(vm.tags ?? {}).length > 0 && (
+					{Object.keys(vm.tags ?? {}).length > 0 ? (
 						<div className="mt-4 flex flex-wrap gap-2">
 							{Object.entries(vm.tags ?? {}).map(([key, value]) => (
 								<StatusBadge key={key} tone="neutral">
@@ -126,23 +142,23 @@ export function WorkloadDetailPanel({
 								</StatusBadge>
 							))}
 						</div>
-					)}
+					) : null}
 				</DetailSection>
 
 				<DetailSection title="Dependencies">
-					{assessmentErrors?.graph && (
-						<InlineNotice tone="warning" message={assessmentErrors.graph} />
-					)}
+					{assessmentErrors?.graph ? (
+						<InlineNotice message={assessmentErrors.graph} tone="warning" />
+					) : null}
 					<div className="grid gap-3 md:grid-cols-3">
-						<Metric
+						<StatCard
 							label="Networks"
 							value={String(row.dependencies.networks.length)}
 						/>
-						<Metric
+						<StatCard
 							label="Datastores"
 							value={String(row.dependencies.datastores.length)}
 						/>
-						<Metric
+						<StatCard
 							label="Backup jobs"
 							value={String(row.dependencies.backups.length)}
 						/>
@@ -179,9 +195,9 @@ export function WorkloadDetailPanel({
 				</DetailSection>
 
 				<DetailSection title="Risks">
-					{(assessmentErrors?.policies ||
-						assessmentErrors?.remediation ||
-						row.assessmentIncomplete) && (
+					{assessmentErrors?.policies ||
+					assessmentErrors?.remediation ||
+					row.assessmentIncomplete ? (
 						<InlineNotice
 							tone="warning"
 							message={
@@ -192,42 +208,39 @@ export function WorkloadDetailPanel({
 									: `Risk posture is partial while ${row.missingSources.join(", ")} signals are unavailable.`
 							}
 						/>
-					)}
+					) : null}
 					<div className="grid gap-3 md:grid-cols-2">
-						<Metric label="Risk score" value={String(row.riskScore)} />
-						<Metric
+						<StatCard label="Risk score" value={String(row.riskScore)} />
+						<StatCard
 							label="Policy violations"
 							value={String(row.policyViolations.length)}
 						/>
-						<Metric
+						<StatCard
 							label="Recommendations"
 							value={String(row.recommendations.length)}
 						/>
-						<Metric label="Snapshots" value={String(row.snapshotCount)} />
+						<StatCard label="Snapshots" value={String(row.snapshotCount)} />
 					</div>
 					{row.riskReasons.length > 0 ? (
 						<div className="mt-4 space-y-2">
 							{row.riskReasons.map((reason) => (
-								<div
-									key={reason}
-									className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-900"
-								>
-									{reason}
-								</div>
+								<InlineNotice key={reason} message={reason} tone="warning" />
 							))}
 						</div>
 					) : (
-						<InlineNotice
-							tone="success"
-							message="No immediate operator risk signals are currently derived for this workload."
-						/>
+						<div className="mt-4">
+							<InlineNotice
+								tone="success"
+								message="No immediate operator risk signals are currently derived for this workload."
+							/>
+						</div>
 					)}
-					{row.policyViolations.length > 0 && (
+					{row.policyViolations.length > 0 ? (
 						<div className="mt-4 space-y-2">
 							{row.policyViolations.slice(0, 4).map((violation) => (
 								<div
 									key={`${violation.policy.name}:${violation.rule.field}:${violation.vm.id || violation.vm.name}`}
-									className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-700"
+									className="metric-surface text-sm text-slate-700"
 								>
 									<p className="font-semibold text-ink">
 										{violation.policy.name}
@@ -236,21 +249,21 @@ export function WorkloadDetailPanel({
 										{violation.rule.field} {violation.rule.operator}{" "}
 										{String(violation.rule.value)}
 									</p>
-									{violation.remediation && (
-										<p className="mt-2 text-slate-600">
+									{violation.remediation ? (
+										<p className="mt-2 leading-6 text-slate-600">
 											{violation.remediation}
 										</p>
-									)}
+									) : null}
 								</div>
 							))}
 						</div>
-					)}
-					{row.recommendations.length > 0 && (
+					) : null}
+					{row.recommendations.length > 0 ? (
 						<div className="mt-4 space-y-2">
 							{row.recommendations.slice(0, 4).map((recommendation) => (
 								<div
 									key={`${recommendation.type}:${recommendation.summary}`}
-									className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-700"
+									className="metric-surface text-sm text-slate-700"
 								>
 									<div className="flex items-center justify-between gap-3">
 										<p className="font-semibold text-ink">
@@ -260,25 +273,27 @@ export function WorkloadDetailPanel({
 											{recommendation.type}
 										</StatusBadge>
 									</div>
-									<p className="mt-2 text-slate-500">{recommendation.action}</p>
+									<p className="mt-2 leading-6 text-slate-500">
+										{recommendation.action}
+									</p>
 								</div>
 							))}
 						</div>
-					)}
+					) : null}
 				</DetailSection>
 
 				<DetailSection title="Activity">
 					<div className="grid gap-3 md:grid-cols-2">
-						<Metric label="Created" value={formatTimestamp(row.createdAt)} />
-						<Metric
+						<StatCard label="Created" value={formatTimestamp(row.createdAt)} />
+						<StatCard
 							label="Last discovered"
 							value={`${formatTimestamp(row.discoveredAt)} (${formatRelativeTime(row.discoveredAt)})`}
 						/>
-						<Metric
+						<StatCard
 							label="Last observed activity"
 							value={`${formatTimestamp(row.lastActivityAt)} (${formatRelativeTime(row.lastActivityAt)})`}
 						/>
-						<Metric
+						<StatCard
 							label="Inventory baseline"
 							value={
 								latestSnapshot
@@ -292,7 +307,7 @@ export function WorkloadDetailPanel({
 							{vm.snapshots.slice(0, 4).map((snapshot) => (
 								<div
 									key={snapshot.id || snapshot.name}
-									className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-700"
+									className="metric-surface text-sm text-slate-700"
 								>
 									<div className="flex items-center justify-between gap-3">
 										<p className="font-semibold text-ink">{snapshot.name}</p>
@@ -300,7 +315,7 @@ export function WorkloadDetailPanel({
 											{formatTimestamp(snapshot.created_at)}
 										</StatusBadge>
 									</div>
-									<p className="mt-2 text-slate-500">
+									<p className="mt-2 leading-6 text-slate-500">
 										{snapshot.description ||
 											"No snapshot description provided."}
 									</p>
@@ -308,10 +323,12 @@ export function WorkloadDetailPanel({
 							))}
 						</div>
 					) : (
-						<InlineNotice
-							tone="neutral"
-							message="Viaduct does not currently expose a VM-scoped activity or audit feed in this screen, so activity is limited to inventory timestamps and snapshot metadata."
-						/>
+						<div className="mt-4">
+							<InlineNotice
+								tone="neutral"
+								message="Viaduct does not currently expose a VM-scoped activity or audit feed in this screen, so activity is limited to inventory timestamps and snapshot metadata."
+							/>
+						</div>
 					)}
 				</DetailSection>
 			</div>
@@ -327,23 +344,10 @@ function DetailSection({
 	children: ReactNode;
 }) {
 	return (
-		<section className="rounded-2xl border border-slate-200/80 bg-white px-4 py-4">
-			<h3 className="text-xs uppercase tracking-[0.18em] text-slate-500">
-				{title}
-			</h3>
+		<section className="panel-subtle px-4 py-4">
+			<h3 className="operator-kicker">{title}</h3>
 			<div className="mt-3">{children}</div>
 		</section>
-	);
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-	return (
-		<div className="rounded-2xl bg-slate-50 px-4 py-3">
-			<p className="text-xs uppercase tracking-[0.18em] text-slate-500">
-				{label}
-			</p>
-			<p className="mt-2 text-sm font-semibold text-ink">{value}</p>
-		</div>
 	);
 }
 
@@ -358,9 +362,7 @@ function RelationGroup({
 }) {
 	return (
 		<div>
-			<p className="text-xs uppercase tracking-[0.18em] text-slate-500">
-				{title}
-			</p>
+			<p className="operator-kicker">{title}</p>
 			<div className="mt-2 flex flex-wrap gap-2">
 				{labels.length > 0 ? (
 					labels.map((label) => (
@@ -373,25 +375,6 @@ function RelationGroup({
 				)}
 			</div>
 		</div>
-	);
-}
-
-function InlineNotice({
-	tone,
-	message,
-}: {
-	tone: StatusTone;
-	message: string;
-}) {
-	const classes =
-		tone === "success"
-			? "bg-emerald-50 text-emerald-800"
-			: tone === "warning"
-				? "bg-amber-50 text-amber-900"
-				: "bg-slate-50 text-slate-600";
-
-	return (
-		<p className={`rounded-2xl px-4 py-3 text-sm ${classes}`}>{message}</p>
 	);
 }
 

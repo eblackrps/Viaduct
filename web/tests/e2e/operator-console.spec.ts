@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { login } from "./auth";
+import { login, navigateTo } from "./auth";
 
 test("authenticates with the seeded service-account flow", async ({ page }) => {
 	await login(page);
@@ -20,7 +20,7 @@ test("loads the operational dashboard from the seeded API", async ({
 }) => {
 	await login(page);
 
-	await page.getByRole("link", { name: "Overview" }).click();
+	await navigateTo(page, "Overview");
 
 	await expect(
 		page.getByRole("heading", { name: "Operational dashboard" }),
@@ -30,12 +30,38 @@ test("loads the operational dashboard from the seeded API", async ({
 	await expect(page.getByText("1 platforms observed")).toBeVisible();
 });
 
+test("supports keyboard dismissal and focus restoration for collapsed navigation", async ({
+	page,
+}) => {
+	await login(page);
+
+	const openNavigationButton = page.getByRole("button", {
+		name: "Open navigation",
+	});
+	await expect(openNavigationButton).toHaveAttribute("aria-expanded", "false");
+	await openNavigationButton.click();
+
+	const navigationDrawer = page.getByRole("dialog", {
+		name: "Primary navigation",
+	});
+	await expect(navigationDrawer).toBeVisible();
+	await expect(openNavigationButton).toHaveAttribute("aria-expanded", "true");
+	await expect(
+		page.getByRole("button", { name: "Close navigation" }),
+	).toBeFocused();
+
+	await page.keyboard.press("Escape");
+
+	await expect(navigationDrawer).toBeHidden();
+	await expect(openNavigationButton).toBeFocused();
+});
+
 test("renders seeded inventory rows in the workload table", async ({
 	page,
 }) => {
 	await login(page);
 
-	await page.getByRole("link", { name: "Inventory" }).click();
+	await navigateTo(page, "Inventory");
 	await expect(
 		page.getByText("Assessment current", { exact: true }),
 	).toBeVisible();
@@ -59,12 +85,28 @@ test("renders seeded inventory rows in the workload table", async ({
 	await expect(inventoryPlanButton).toBeDisabled();
 });
 
+test("reveals workload detail from the mobile inventory card flow", async ({
+	page,
+}) => {
+	await page.setViewportSize({ width: 390, height: 844 });
+	await login(page);
+
+	await navigateTo(page, "Inventory");
+	const detailHeading = page.getByRole("heading", { name: "Workload detail" });
+	await expect(detailHeading).not.toBeInViewport();
+	await page.getByRole("button", { name: "Inspect workload" }).first().click();
+	await expect(detailHeading).toBeInViewport();
+	await expect(
+		page.getByRole("button", { name: "Open migration plan" }).last(),
+	).toBeVisible();
+});
+
 test("creates a migration plan from the real offline KVM fixtures", async ({
 	page,
 }) => {
 	await login(page);
 
-	await page.getByRole("link", { name: "Inventory" }).click();
+	await navigateTo(page, "Inventory");
 	await expect(
 		page.getByText("Assessment current", { exact: true }),
 	).toBeVisible();
@@ -118,6 +160,24 @@ test("creates a migration plan from the real offline KVM fixtures", async ({
 	await expect(
 		savedPlanSection.getByText(/dashboard-migration|migration-/).first(),
 	).toBeVisible();
+});
+
+	test("saves a focused workload from the workspace detail panel", async ({
+	page,
+}) => {
+	await login(page);
+
+	await page.getByRole("row", { name: /ubuntu-web-01/i }).click();
+	const detailSaveButton = page
+		.getByRole("button", {
+			name: "Save selection",
+		})
+		.last();
+
+	await detailSaveButton.click();
+	await expect(
+		page.getByRole("checkbox", { name: "Select ubuntu-web-01" }),
+	).toBeChecked();
 });
 
 test("shows the workspace error state when the workspace list fails", async ({

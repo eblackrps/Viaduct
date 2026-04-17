@@ -1,4 +1,7 @@
 import type { DiscoveryResult } from "../types";
+import { InlineNotice } from "./primitives/InlineNotice";
+import { SectionCard } from "./primitives/SectionCard";
+import { StatCard } from "./primitives/StatCard";
 
 interface PlatformSummaryProps {
 	inventory: DiscoveryResult | null;
@@ -24,7 +27,7 @@ export function PlatformSummary({ inventory }: PlatformSummaryProps) {
 			accumulator[vm.platform] = item;
 			return accumulator;
 		}, {}),
-	);
+	).sort((left, right) => right.count - left.count);
 	const chartSummary =
 		rows.length === 0
 			? "Bar chart showing no discovered platforms."
@@ -35,47 +38,44 @@ export function PlatformSummary({ inventory }: PlatformSummaryProps) {
 	);
 
 	return (
-		<section className="grid gap-5 xl:grid-cols-[1.3fr_1fr]">
-			<div className="panel min-w-0 p-5">
-				<h2 className="font-display text-2xl text-ink">Platform Totals</h2>
-				<p className="mt-1 text-sm text-slate-500">
-					A quick capacity snapshot across the discovered estate.
-				</p>
+		<section className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
+			<SectionCard
+				title="Platform totals"
+				description="A quick capacity snapshot across the discovered estate."
+			>
+				{rows.length === 0 ? (
+					<InlineNotice
+						message="No discovered platforms are available yet."
+						tone="neutral"
+					/>
+				) : (
+					<div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+						{rows.map((row) => (
+							<StatCard
+								key={row.platform}
+								label={row.platform}
+								value={row.count}
+								detail={`${row.cpu} vCPU • ${formatMemory(row.memory)} GB memory`}
+								emphasis="large"
+							/>
+						))}
+					</div>
+				)}
+			</SectionCard>
 
-				<div className="mt-5 grid gap-4 md:grid-cols-3">
-					{rows.map((row) => (
-						<article key={row.platform} className="rounded-2xl bg-slate-50 p-4">
-							<p className="text-xs uppercase tracking-[0.22em] text-slate-500">
-								{row.platform}
-							</p>
-							<p className="mt-3 font-display text-3xl text-ink">{row.count}</p>
-							<p className="mt-1 text-sm text-slate-500">
-								{row.cpu} vCPU / {row.memory.toLocaleString()} MB
-							</p>
-						</article>
-					))}
-				</div>
-			</div>
-
-			<div className="panel min-w-0 h-[320px] p-5">
-				<h2 className="font-display text-2xl text-ink">Hypervisor Spread</h2>
-				<p className="mt-1 text-sm text-slate-500">
-					Compare VM counts side by side before planning a migration wave.
-				</p>
-				<div
-					className="mt-5 h-[220px] space-y-3 overflow-y-auto"
-					aria-label={chartSummary}
-				>
+			<SectionCard
+				title="Hypervisor spread"
+				description="Compare VM counts side by side before planning a migration wave."
+			>
+				<div className="space-y-3" aria-label={chartSummary}>
 					{rows.length === 0 ? (
-						<p className="rounded-2xl border border-dashed border-slate-300 px-4 py-6 text-sm text-slate-500">
-							No platform totals are available yet.
-						</p>
+						<InlineNotice
+							message="No platform totals are available yet."
+							tone="neutral"
+						/>
 					) : (
 						rows.map((row) => (
-							<article
-								key={row.platform}
-								className="rounded-2xl bg-slate-50 px-4 py-3"
-							>
+							<article key={row.platform} className="metric-surface">
 								<div className="flex items-center justify-between gap-3">
 									<p className="font-semibold text-ink">{row.platform}</p>
 									<p className="text-sm text-slate-600">
@@ -84,10 +84,10 @@ export function PlatformSummary({ inventory }: PlatformSummaryProps) {
 								</div>
 								<div
 									aria-hidden="true"
-									className="mt-3 h-2.5 rounded-full bg-slate-200"
+									className="mt-3 h-2.5 overflow-hidden rounded-full bg-slate-200"
 								>
 									<div
-										className="h-full rounded-full bg-ink"
+										className="h-full rounded-full bg-gradient-to-r from-steel to-ink"
 										style={{
 											width:
 												maxCount === 0
@@ -97,13 +97,17 @@ export function PlatformSummary({ inventory }: PlatformSummaryProps) {
 									/>
 								</div>
 								<p className="mt-2 text-xs text-slate-500">
-									{row.cpu} vCPU / {row.memory.toLocaleString()} MB
+									{row.cpu} vCPU • {formatMemory(row.memory)} GB memory
 								</p>
 							</article>
 						))
 					)}
 				</div>
-			</div>
+			</SectionCard>
 		</section>
 	);
+}
+
+function formatMemory(memoryMB: number): string {
+	return (memoryMB / 1024).toFixed(memoryMB >= 10240 ? 0 : 1);
 }

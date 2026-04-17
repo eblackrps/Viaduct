@@ -1,4 +1,4 @@
-import { KeyRound, LogOut, RefreshCcw } from "lucide-react";
+import { Clock3, KeyRound, LogOut, RefreshCcw } from "lucide-react";
 import { navigationGroups, type AppRoutePath } from "../../app/navigation";
 import { StatusBadge } from "../primitives/StatusBadge";
 
@@ -25,58 +25,79 @@ export function TopBar({
 	onSignOut,
 }: TopBarProps) {
 	const currentItem = navigationGroups
-		.flatMap((g) => g.items)
+		.flatMap((group) => group.items)
 		.find((item) => item.path === currentPath);
+	const currentGroup = navigationGroups.find((group) =>
+		group.items.some((item) => item.path === currentPath),
+	);
 
 	return (
-		<div className="panel p-4">
-			<div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-				<div className="min-w-0 space-y-1">
+		<div className="panel px-5 py-4 lg:px-6">
+			<div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+				<div className="min-w-0 space-y-3">
 					<div className="flex flex-wrap items-center gap-2">
-						<StatusBadge tone="accent">Operator console</StatusBadge>
-						<StatusBadge tone="neutral">
-							{tenantId ?? "default tenant"}
+						<StatusBadge tone="accent">
+							{tenantId ? `Tenant ${tenantId}` : "Default tenant"}
 						</StatusBadge>
-						{authSummary && (
-							<StatusBadge tone="info">{authSummary.modeLabel}</StatusBadge>
-						)}
+						{currentGroup ? (
+							<StatusBadge tone="neutral">{currentGroup.label}</StatusBadge>
+						) : null}
+						{currentItem ? (
+							<StatusBadge tone="info">{currentItem.label}</StatusBadge>
+						) : null}
 					</div>
-					<p className="text-base font-semibold text-ink">
-						{currentItem?.title ?? "Operator Console"}
-					</p>
-					<p className="text-xs text-slate-500 leading-5 max-w-xl">
-						{currentItem?.description ??
-							"Operate Viaduct from a shared, tenant-scoped control plane."}
-					</p>
-					{lastDiscoveryAt && (
-						<p className="text-xs text-slate-500">
-							Last discovery: {new Date(lastDiscoveryAt).toLocaleString()}
-						</p>
-					)}
+
+					<div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-slate-600">
+						<div>
+							<p className="operator-kicker">Current surface</p>
+							<p className="mt-1 font-semibold text-ink">
+								{currentItem?.title ?? "Operator console"}
+							</p>
+						</div>
+						{lastDiscoveryAt ? (
+							<div className="flex items-center gap-2">
+								<Clock3 className="h-4 w-4 text-slate-400" />
+								<span>
+									Last discovery{" "}
+									{new Date(lastDiscoveryAt).toLocaleString(undefined, {
+										dateStyle: "medium",
+										timeStyle: "short",
+									})}
+								</span>
+							</div>
+						) : null}
+					</div>
 				</div>
 
-				<div className="flex flex-wrap items-center gap-2 sm:shrink-0">
-					{authSummary && (
-						<div className="panel-muted inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-600">
+				<div className="flex flex-wrap items-center gap-2 lg:justify-end">
+					{authSummary ? (
+						<div className="panel-muted inline-flex items-center gap-2 px-3.5 py-2.5 text-xs font-semibold text-slate-600">
 							<KeyRound className="h-3.5 w-3.5 text-slate-400" />
-							{authSummary.persistenceLabel}
+							<div>
+								<p className="text-[0.72rem] text-slate-500">
+									{authSummary.modeLabel}
+								</p>
+								<p className="mt-0.5 text-slate-700">
+									{authSummary.persistenceLabel}
+								</p>
+							</div>
 						</div>
-					)}
-					{onSignOut && (
+					) : null}
+					{onSignOut ? (
 						<button
 							type="button"
 							onClick={onSignOut}
-							className="operator-button-secondary text-xs px-3 py-2"
+							className="operator-button-secondary px-3.5 py-2.5 text-xs"
 						>
 							<LogOut className="h-3.5 w-3.5" />
 							Sign out
 						</button>
-					)}
+					) : null}
 					<button
 						type="button"
 						onClick={() => void onRefresh()}
 						disabled={refreshing}
-						className="operator-button-secondary text-xs px-3 py-2"
+						className="operator-button-secondary px-3.5 py-2.5 text-xs"
 					>
 						<RefreshCcw
 							className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`}

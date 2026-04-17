@@ -11,6 +11,7 @@ import { DiscoverySnapshotsPanel } from "../../components/DiscoverySnapshotsPane
 import { MigrationHistory } from "../../components/MigrationHistory";
 import { EmptyState } from "../../components/primitives/EmptyState";
 import { ErrorState } from "../../components/primitives/ErrorState";
+import { InlineNotice } from "../../components/primitives/InlineNotice";
 import { LoadingState } from "../../components/primitives/LoadingState";
 import { PageHeader } from "../../components/primitives/PageHeader";
 import { SectionCard } from "../../components/primitives/SectionCard";
@@ -88,19 +89,19 @@ export function ReportsPage({
 				]}
 			/>
 
-			{showLoading && (
+			{showLoading ? (
 				<LoadingState
 					title="Loading reports surface"
 					message="Retrieving migration history and saved discovery baselines for the reporting and audit view."
 				/>
-			)}
+			) : null}
 
-			{showEmpty && (
+			{showEmpty ? (
 				<EmptyState
 					title="No reports available yet"
 					message="Once Viaduct records migrations or discovery snapshots, they will appear here alongside export links."
 				/>
-			)}
+			) : null}
 
 			<SectionCard
 				title="Operator API exports"
@@ -143,37 +144,41 @@ export function ReportsPage({
 						onClick={() => void handleExport("audit", "json")}
 					/>
 				</div>
-				<p className="mt-4 text-sm text-slate-500">
-					Downloads are performed through the dashboard client so configured
-					tenant or service-account credentials are applied consistently.
-				</p>
-				{exportError && (
-					<div className="mt-4 rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700">
-						<p>{exportError.message}</p>
-						{exportError.technicalDetails.length > 0 && (
-							<div className="mt-3 rounded-2xl bg-white/70 px-4 py-3 text-xs text-rose-800">
-								{exportError.technicalDetails.map((detail, index) => (
-									<p
-										key={`${detail}-${index}`}
-										className={index === 0 ? undefined : "mt-1"}
-									>
-										{detail}
-									</p>
-								))}
-							</div>
-						)}
+				<div className="mt-4">
+					<InlineNotice
+						message="Downloads are performed through the dashboard client so configured tenant or service-account credentials are applied consistently."
+						tone="info"
+					/>
+				</div>
+				{exportError ? (
+					<div className="mt-4">
+						<InlineNotice
+							title={exportError.message}
+							message={
+								exportError.technicalDetails.length > 0 ? (
+									<div className="space-y-1 text-xs">
+										{exportError.technicalDetails.map((detail, index) => (
+											<p key={`${detail}-${index}`}>{detail}</p>
+										))}
+									</div>
+								) : (
+									""
+								)
+							}
+							tone="danger"
+						/>
 					</div>
-				)}
+				) : null}
 			</SectionCard>
 
 			{hasErrors &&
-				migrations.length === 0 &&
-				snapshots.length === 0 &&
-				!loading && (
-					<ErrorState title="Reports surface unavailable" message={hasErrors} />
-				)}
+			migrations.length === 0 &&
+			snapshots.length === 0 &&
+			!loading ? (
+				<ErrorState title="Reports surface unavailable" message={hasErrors} />
+			) : null}
 
-			{(migrations.length > 0 || snapshots.length > 0) && (
+			{migrations.length > 0 || snapshots.length > 0 ? (
 				<section className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
 					<MigrationHistory
 						migrations={migrations}
@@ -192,7 +197,7 @@ export function ReportsPage({
 						onPageChange={onSnapshotsPageChange}
 					/>
 				</section>
-			)}
+			) : null}
 		</div>
 	);
 }
@@ -211,7 +216,7 @@ function ExportButton({
 			type="button"
 			onClick={onClick}
 			disabled={loading}
-			className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+			className="operator-button-secondary"
 		>
 			{loading ? "Exporting…" : label}
 		</button>

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import * as d3 from "d3";
 import { Search } from "lucide-react";
 import { getGraph } from "../api";
+import { InlineNotice } from "./primitives/InlineNotice";
 import { StatusBadge } from "./primitives/StatusBadge";
 import type {
 	DependencyGraph as DependencyGraphModel,
@@ -345,10 +346,10 @@ export function DependencyGraph({
 					</div>
 
 					<div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_auto_auto]">
-						<label className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-500">
-							<Search className="h-4 w-4" />
+						<label className="flex items-center gap-3 rounded-[18px] border border-slate-200/80 bg-white px-4 py-3 text-sm text-slate-500 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
+							<Search className="h-4 w-4 text-slate-400" />
 							<input
-								className="w-full border-none bg-transparent outline-none"
+								className="w-full border-none bg-transparent text-ink outline-none"
 								placeholder="Search workloads, networks, datastores, or backup jobs"
 								aria-label="Search dependency graph nodes"
 								value={filters.search}
@@ -361,7 +362,7 @@ export function DependencyGraph({
 							/>
 						</label>
 						<select
-							className="rounded-full border border-slate-200 px-4 py-2 text-sm text-slate-700"
+							className="operator-select min-w-[12rem]"
 							aria-label="Filter dependency graph by platform"
 							value={filters.platform}
 							onChange={(event) =>
@@ -382,7 +383,7 @@ export function DependencyGraph({
 							{Object.entries(filters.nodeTypes).map(([key, enabled]) => (
 								<label
 									key={key}
-									className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600"
+									className="inline-flex items-center gap-2 rounded-full border border-slate-200/80 bg-white px-3 py-2 text-sm text-slate-600 shadow-[0_8px_18px_rgba(15,23,42,0.04)]"
 								>
 									<input
 										type="checkbox"
@@ -404,29 +405,31 @@ export function DependencyGraph({
 					</div>
 				</div>
 
-				{error && (
-					<p className="mt-4 rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700">
-						{error}
-					</p>
-				)}
+				{error ? (
+					<InlineNotice message={error} tone="danger" className="mt-4" />
+				) : null}
 
 				{loading ? (
-					<div className="mt-5 rounded-2xl border border-dashed border-slate-300 px-4 py-6 text-sm text-slate-500">
-						Loading dependency graph...
-					</div>
+					<InlineNotice
+						message="Loading dependency graph..."
+						tone="neutral"
+						className="mt-5"
+					/>
 				) : visibleGraph.nodes.length === 0 ? (
-					<div className="mt-5 rounded-2xl border border-dashed border-slate-300 px-4 py-6 text-sm text-slate-500">
-						No dependency nodes match the current filters.
-					</div>
+					<InlineNotice
+						message="No dependency nodes match the current filters."
+						tone="neutral"
+						className="mt-5"
+					/>
 				) : (
 					<div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_260px]">
 						<svg
 							ref={svgRef}
-							className="h-[560px] w-full rounded-2xl bg-slate-50"
+							className="h-[560px] w-full rounded-[24px] border border-slate-200/80 bg-slate-50/90"
 							role="img"
 							aria-label={graphSummaryLabel}
 						/>
-						<div className="space-y-3 rounded-2xl bg-slate-50 p-4">
+						<div className="space-y-3 rounded-[24px] border border-slate-200/80 bg-slate-50/90 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]">
 							<p className="font-semibold text-ink">Most connected workloads</p>
 							<p className="text-sm text-slate-500">
 								Use the graph plus this list to focus on workloads with the most
@@ -438,7 +441,7 @@ export function DependencyGraph({
 										key={node.id}
 										type="button"
 										onClick={() => setSelectedNodeId(node.id)}
-										className={`w-full rounded-2xl px-3 py-3 text-left text-sm transition ${
+										className={`w-full rounded-[20px] px-3 py-3 text-left text-sm transition ${
 											selectedNodeId === node.id
 												? "bg-white text-ink shadow-sm"
 												: "bg-white/70 text-slate-700 hover:bg-white"
@@ -463,22 +466,27 @@ export function DependencyGraph({
 
 			<div className="panel p-5">
 				<h2 className="font-display text-2xl text-ink">Dependency detail</h2>
-				{loading && (
-					<p className="mt-3 text-sm text-slate-500">
-						Loading dependency metadata...
-					</p>
-				)}
-				{!loading && visibleGraph.nodes.length === 0 && (
-					<p className="mt-3 text-sm text-slate-500">
-						No nodes are available to inspect.
-					</p>
-				)}
-				{!loading && visibleGraph.nodes.length > 0 && !selectedNode && (
-					<p className="mt-3 text-sm text-slate-500">
-						Select a node in the graph or the workload index to inspect direct
-						relationships and metadata.
-					</p>
-				)}
+				{loading ? (
+					<InlineNotice
+						message="Loading dependency metadata..."
+						tone="neutral"
+						className="mt-4"
+					/>
+				) : null}
+				{!loading && visibleGraph.nodes.length === 0 ? (
+					<InlineNotice
+						message="No nodes are available to inspect."
+						tone="neutral"
+						className="mt-4"
+					/>
+				) : null}
+				{!loading && visibleGraph.nodes.length > 0 && !selectedNode ? (
+					<InlineNotice
+						message="Select a node in the graph or the workload index to inspect direct relationships and metadata."
+						tone="neutral"
+						className="mt-4"
+					/>
+				) : null}
 				{selectedNode && (
 					<div className="mt-4 space-y-4 text-sm text-slate-600">
 						<div className="rounded-2xl bg-slate-50 px-4 py-4">

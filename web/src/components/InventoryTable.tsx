@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import { useEffect, useRef } from "react";
 import { ArrowDownUp, Search } from "lucide-react";
-import { StatusBadge, type StatusTone } from "./primitives/StatusBadge";
 import type { Pagination, Platform } from "../types";
 import {
 	formatRelativeTime,
@@ -11,6 +10,10 @@ import {
 	type InventoryRiskState,
 	type InventorySortKey,
 } from "../features/inventory/inventoryModel";
+import { InlineNotice } from "./primitives/InlineNotice";
+import { PaginationControls } from "./primitives/PaginationControls";
+import { SectionCard } from "./primitives/SectionCard";
+import { StatusBadge, type StatusTone } from "./primitives/StatusBadge";
 
 interface InventoryTableProps {
 	rows: InventoryAssessmentRow[];
@@ -81,67 +84,51 @@ export function InventoryTable({
 	}, [allVisibleSelected, someVisibleSelected]);
 
 	return (
-		<section className="panel overflow-hidden p-5" aria-live="polite">
-			<div className="flex flex-col gap-4">
-				<div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-					<div>
-						<div className="flex flex-wrap gap-2">
-							<StatusBadge tone="accent">Operational inventory</StatusBadge>
-							<StatusBadge tone="info">{filteredCount} visible</StatusBadge>
-							<StatusBadge tone="neutral">{selectedCount} selected</StatusBadge>
-						</div>
-						<h2 className="mt-3 font-display text-2xl text-ink">
-							Workload assessment table
-						</h2>
-						<p className="mt-2 text-sm leading-6 text-slate-600">
-							{filteredCount.toLocaleString()} of {totalCount.toLocaleString()}{" "}
-							workload(s) shown. {selectedCount.toLocaleString()} selected for
-							planning handoff.
-						</p>
+		<SectionCard
+			title="Workload assessment table"
+			description={`${filteredCount.toLocaleString()} of ${totalCount.toLocaleString()} workload(s) shown. ${selectedCount.toLocaleString()} selected for planning handoff.`}
+			actions={
+				<div className="flex flex-wrap items-center gap-2">
+					<div className="operator-toggle">
+						<button
+							type="button"
+							onClick={() => onFiltersChange({ scope: "all" })}
+							aria-pressed={filters.scope === "all"}
+							className={`operator-toggle-button ${filters.scope === "all" ? "operator-toggle-button-active" : ""}`}
+						>
+							All workloads
+						</button>
+						<button
+							type="button"
+							onClick={() => onFiltersChange({ scope: "selected" })}
+							aria-pressed={filters.scope === "selected"}
+							className={`operator-toggle-button ${filters.scope === "selected" ? "operator-toggle-button-active" : ""}`}
+							disabled={selectedCount === 0}
+						>
+							Selected only
+						</button>
 					</div>
-
-					<div className="flex flex-wrap items-center gap-2">
-						<div className="operator-toggle">
-							<button
-								type="button"
-								onClick={() => onFiltersChange({ scope: "all" })}
-								className={`operator-toggle-button ${filters.scope === "all" ? "operator-toggle-button-active" : ""}`}
-							>
-								All workloads
-							</button>
-							<button
-								type="button"
-								onClick={() => onFiltersChange({ scope: "selected" })}
-								className={`operator-toggle-button ${filters.scope === "selected" ? "operator-toggle-button-active" : ""}`}
-								disabled={selectedCount === 0}
-							>
-								Selected only
-							</button>
-						</div>
-
-						{hasActiveFilters && (
-							<button
-								type="button"
-								onClick={onResetFilters}
-								className="operator-button-secondary px-3 py-2"
-							>
-								Clear filters
-							</button>
-						)}
-
-						{actions && (
-							<div className="flex flex-wrap items-center gap-2">{actions}</div>
-						)}
-					</div>
+					{hasActiveFilters ? (
+						<button
+							type="button"
+							onClick={onResetFilters}
+							className="operator-button-secondary px-3.5 py-2"
+						>
+							Clear filters
+						</button>
+					) : null}
+					{actions}
 				</div>
-
-				<div className="grid gap-3 xl:grid-cols-[minmax(0,1.2fr)_repeat(4,minmax(150px,1fr))]">
+			}
+		>
+			<div className="space-y-5" aria-live="polite">
+				<div className="grid gap-3 xl:grid-cols-[minmax(0,1.2fr)_repeat(4,minmax(160px,1fr))]">
 					<label className="metric-surface">
 						<span className="operator-kicker">Search</span>
-						<span className="mt-2 flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-500">
-							<Search className="h-4 w-4" />
+						<span className="mt-2 flex items-center gap-3 rounded-[18px] border border-slate-200/80 bg-white px-4 py-3 text-sm text-slate-500 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
+							<Search className="h-4 w-4 text-slate-400" />
 							<input
-								className="w-full border-none bg-transparent outline-none"
+								className="w-full border-none bg-transparent text-ink outline-none"
 								placeholder="Search workloads, assets, tags, or policy signals"
 								value={filters.search}
 								onChange={(event) =>
@@ -214,195 +201,155 @@ export function InventoryTable({
 					/>
 				</div>
 
-				{selectedCount > 0 && (
-					<div className="metric-surface flex flex-wrap items-center gap-2 text-sm text-slate-600">
+				<div className="grid gap-3 lg:hidden sm:grid-cols-[minmax(0,1fr)_auto]">
+					<FilterSelect
+						label="Sort by"
+						value={sortKey}
+						onChange={(value) => {
+							if (value !== sortKey) {
+								onSortChange(value as InventorySortKey);
+							}
+						}}
+						options={[
+							{ label: "Risk", value: "risk" },
+							{ label: "Readiness", value: "readiness" },
+							{ label: "Recency", value: "recency" },
+							{ label: "Dependencies", value: "dependencies" },
+							{ label: "CPU", value: "cpu" },
+							{ label: "Platform", value: "platform" },
+							{ label: "Workload name", value: "name" },
+						]}
+					/>
+					<div className="metric-surface sm:self-end">
+						<span className="operator-kicker">Direction</span>
+						<button
+							type="button"
+							onClick={() => onSortChange(sortKey)}
+							aria-label={`Sort direction is ${sortDirection === "asc" ? "ascending" : "descending"}. Activate to reverse it.`}
+							aria-pressed={sortDirection === "desc"}
+							className="operator-button-secondary mt-2 w-full justify-center px-3.5 py-3 sm:min-w-[138px]"
+						>
+							{sortDirection === "asc" ? "Ascending" : "Descending"}
+						</button>
+					</div>
+				</div>
+
+				{selectedCount > 0 ? (
+					<div className="panel-muted flex flex-wrap items-center gap-2 px-4 py-3 text-sm text-slate-600">
 						<StatusBadge tone="accent">{selectedCount} selected</StatusBadge>
 						<button
 							type="button"
 							onClick={onToggleSelectAllVisible}
-							className="operator-button-secondary px-3 py-2"
+							className="operator-button-secondary px-3.5 py-2"
 						>
 							{allVisibleSelected ? "Unselect visible" : "Select visible"}
 						</button>
 						<button
 							type="button"
 							onClick={onClearSelection}
-							className="operator-button-secondary px-3 py-2"
+							className="operator-button-secondary px-3.5 py-2"
 						>
 							Clear selection
 						</button>
 					</div>
-				)}
-			</div>
+				) : null}
 
-			{error && (
-				<p className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-900">
-					{error}
-				</p>
-			)}
-			{refreshing && rows.length > 0 && (
-				<p className="mt-4 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
-					Refreshing dependency and lifecycle assessment signals for the visible
-					workloads.
-				</p>
-			)}
+				{error ? <InlineNotice message={error} tone="warning" /> : null}
+				{refreshing && rows.length > 0 ? (
+					<InlineNotice
+						message="Refreshing dependency and lifecycle assessment signals for the visible workloads."
+						tone="neutral"
+					/>
+				) : null}
 
-			{loading && rows.length === 0 ? (
-				<div className="mt-5 rounded-2xl border border-dashed border-slate-300 px-4 py-6 text-sm text-slate-500">
-					Loading workload inventory and assessment signals...
-				</div>
-			) : rows.length === 0 ? (
-				<div className="mt-5 rounded-2xl border border-dashed border-slate-300 px-4 py-6 text-sm text-slate-500">
-					{filters.scope === "selected"
-						? "No selected workloads match the current search or filters."
-						: "No workloads match the current search or filters."}
-				</div>
-			) : (
-				<div className="mt-5 overflow-x-auto">
-					<table className="min-w-full border-separate border-spacing-y-2 text-left">
-						<thead>
-							<tr className="text-xs uppercase tracking-[0.22em] text-slate-500">
-								<th className="px-3 py-2">
-									<input
-										ref={masterCheckboxRef}
-										type="checkbox"
-										checked={allVisibleSelected}
-										onChange={() => onToggleSelectAllVisible()}
-										aria-label="Select visible workloads"
-									/>
-								</th>
-								<SortableHeader
-									label="Workload"
-									sortKey="name"
-									activeSortKey={sortKey}
-									sortDirection={sortDirection}
-									onSortChange={onSortChange}
-								/>
-								<SortableHeader
-									label="Placement"
-									sortKey="platform"
-									activeSortKey={sortKey}
-									sortDirection={sortDirection}
-									onSortChange={onSortChange}
-								/>
-								<SortableHeader
-									label="Resource profile"
-									sortKey="cpu"
-									activeSortKey={sortKey}
-									sortDirection={sortDirection}
-									onSortChange={onSortChange}
-								/>
-								<SortableHeader
-									label="Readiness"
-									sortKey="readiness"
-									activeSortKey={sortKey}
-									sortDirection={sortDirection}
-									onSortChange={onSortChange}
-								/>
-								<SortableHeader
-									label="Risk"
-									sortKey="risk"
-									activeSortKey={sortKey}
-									sortDirection={sortDirection}
-									onSortChange={onSortChange}
-								/>
-								<SortableHeader
-									label="Dependencies"
-									sortKey="dependencies"
-									activeSortKey={sortKey}
-									sortDirection={sortDirection}
-									onSortChange={onSortChange}
-								/>
-								<SortableHeader
-									label="Recency"
-									sortKey="recency"
-									activeSortKey={sortKey}
-									sortDirection={sortDirection}
-									onSortChange={onSortChange}
-								/>
-							</tr>
-						</thead>
-						<tbody>
+				{loading && rows.length === 0 ? (
+					<InlineNotice
+						message="Loading workload inventory and assessment signals…"
+						tone="neutral"
+					/>
+				) : rows.length === 0 ? (
+					<InlineNotice
+						message={
+							filters.scope === "selected"
+								? "No selected workloads match the current search or filters."
+								: "No workloads match the current search or filters."
+						}
+						tone="neutral"
+					/>
+				) : (
+					<>
+						<div className="space-y-3 lg:hidden">
 							{rows.map((row) => {
 								const selected = selectedIdSet.has(row.id);
 								const active = activeWorkloadId === row.id;
+								const summary = getInventoryRowSummary(row);
 
 								return (
-									<tr
+									<article
 										key={row.id}
-										className={`cursor-pointer rounded-2xl border text-sm text-slate-700 transition ${
+										className={`list-card p-4 ${
 											active
-												? "border-sky-200 bg-sky-50 ring-1 ring-sky-200"
-												: "border-transparent bg-slate-50/80 hover:border-slate-200 hover:bg-slate-100"
+												? "border-sky-200 bg-sky-50/80 shadow-[0_20px_34px_rgba(14,116,144,0.1)]"
+												: "bg-white/90"
 										}`}
-										onClick={() => onFocusWorkload(row.id)}
 									>
-										<td className="rounded-l-2xl px-3 py-3">
-											<input
-												type="checkbox"
-												checked={selected}
-												readOnly
-												onClick={(event) => {
-													event.stopPropagation();
-													onToggleSelection(row.id);
-												}}
-												aria-label={`Select ${row.vm.name}`}
+										<div className="flex items-start gap-3">
+											<SelectionCheckbox
+												selected={selected}
+												label={`Select ${row.vm.name}`}
+												onToggle={() => onToggleSelection(row.id)}
+												className="mt-1"
 											/>
-										</td>
-										<td className="px-3 py-3">
-											<div className="space-y-1">
-												<p className="font-semibold text-ink">{row.vm.name}</p>
-												<p className="text-xs text-slate-600">
-													{row.vm.guest_os || "Guest OS unavailable"}
-													{row.vm.folder ? ` • ${row.vm.folder}` : ""}
-												</p>
-											</div>
-										</td>
-										<td className="px-3 py-3">
-											<div className="space-y-2">
-												<div className="flex flex-wrap gap-2">
-													<StatusBadge tone={platformTone(row.vm.platform)}>
-														{row.vm.platform}
-													</StatusBadge>
-													<StatusBadge tone={powerTone(row.vm.power_state)}>
-														{row.vm.power_state}
-													</StatusBadge>
+											<div className="min-w-0 flex-1 space-y-4">
+												<div className="flex flex-wrap items-start justify-between gap-3">
+													<div className="min-w-0 flex-1">
+														<button
+															type="button"
+															onClick={() => onFocusWorkload(row.id)}
+															className="text-left"
+														>
+															<WorkloadIdentity row={row} />
+														</button>
+													</div>
+													<div className="flex flex-wrap justify-end gap-2">
+														<StatusBadge tone={platformTone(row.vm.platform)}>
+															{row.vm.platform}
+														</StatusBadge>
+														<StatusBadge tone={powerTone(row.vm.power_state)}>
+															{row.vm.power_state}
+														</StatusBadge>
+														{selected ? (
+															<StatusBadge tone="accent">selected</StatusBadge>
+														) : null}
+													</div>
 												</div>
-												<p className="text-xs text-slate-600">
-													{row.vm.host || "Unknown host"}{" "}
-													{row.vm.cluster ? `• ${row.vm.cluster}` : ""}
-												</p>
-											</div>
-										</td>
-										<td className="px-3 py-3">
-											<div className="space-y-1 text-xs text-slate-600">
-												<p className="font-semibold text-ink">
-													{row.vm.cpu_count} vCPU •{" "}
-													{formatMemory(row.vm.memory_mb)} GB
-												</p>
-												<p>
-													{formatStorage(row.storageTotalMB)} GB storage •{" "}
-													{row.vm.nics.length} NIC(s)
-												</p>
-											</div>
-										</td>
-										<td className="px-3 py-3">
-											<div className="space-y-2">
+
+												<div className="grid gap-3 sm:grid-cols-2">
+													<MobileDataPoint
+														label="Placement"
+														value={summary.placement}
+													/>
+													<MobileDataPoint
+														label="Resource profile"
+														value={summary.resource}
+														detail={summary.resourceDetail}
+													/>
+													<MobileDataPoint
+														label="Dependencies"
+														value={summary.dependencies}
+														detail={summary.dependenciesDetail}
+													/>
+													<MobileDataPoint
+														label="Recency"
+														value={summary.recency}
+														detail={summary.recencyDetail}
+													/>
+												</div>
+
 												<div className="flex flex-wrap gap-2">
 													<StatusBadge tone={readinessTone(row.readiness)}>
 														{row.readiness}
 													</StatusBadge>
-												</div>
-												<p className="text-xs text-slate-600">
-													{row.assessmentIncomplete
-														? `Partial signals: ${row.missingSources.join(", ")}`
-														: `${row.policyViolations.length} policy • ${row.recommendations.length} recommendation(s)`}
-												</p>
-											</div>
-										</td>
-										<td className="px-3 py-3">
-											<div className="space-y-2">
-												<div className="flex flex-wrap gap-2">
 													<StatusBadge tone={riskTone(row.risk)}>
 														{row.risk} risk
 													</StatusBadge>
@@ -410,65 +357,312 @@ export function InventoryTable({
 														<StatusBadge tone="neutral">partial</StatusBadge>
 													) : null}
 												</div>
-												<p className="text-xs text-slate-600">
-													Score {row.riskScore} •{" "}
-													{row.riskReasons[0] ?? "No immediate derived issues"}
+
+												<p className="text-sm leading-6 text-slate-600">
+													{summary.assessment}
 												</p>
+
+												<div className="flex flex-wrap gap-2">
+													<button
+														type="button"
+														onClick={() => onFocusWorkload(row.id)}
+														className="operator-button-secondary px-3.5 py-2"
+													>
+														Inspect workload
+													</button>
+													<button
+														type="button"
+														onClick={() => onToggleSelection(row.id)}
+														className="operator-button-secondary px-3.5 py-2"
+													>
+														{selected
+															? "Remove from selection"
+															: "Select workload"}
+													</button>
+												</div>
 											</div>
-										</td>
-										<td className="px-3 py-3">
-											<div className="space-y-1 text-xs text-slate-600">
-												<p>Networks: {row.dependencies.networks.length}</p>
-												<p>Storage: {row.dependencies.datastores.length}</p>
-												<p>Backups: {row.dependencies.backups.length}</p>
-											</div>
-										</td>
-										<td className="rounded-r-2xl px-3 py-3">
-											<div className="space-y-1 text-xs text-slate-600">
-												<p className="font-semibold text-ink">
-													{formatRelativeTime(row.discoveredAt)}
-												</p>
-												<p>{row.snapshotCount} snapshot(s)</p>
-											</div>
-										</td>
-									</tr>
+										</div>
+									</article>
 								);
 							})}
-						</tbody>
-					</table>
-				</div>
-			)}
+						</div>
 
-			{pagination && pagination.total_pages > 1 && onPageChange && (
-				<div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
-					<p>
-						Page {currentPage} of {pagination.total_pages} •{" "}
-						{pagination.total.toLocaleString()} workload(s)
-					</p>
-					<div className="flex flex-wrap items-center gap-2">
-						<button
-							type="button"
-							onClick={() => onPageChange(Math.max(1, currentPage - 1))}
-							disabled={currentPage <= 1}
-							className="operator-button-secondary px-3 py-2 disabled:cursor-not-allowed disabled:opacity-50"
-						>
-							Previous
-						</button>
-						<button
-							type="button"
-							onClick={() =>
-								onPageChange(Math.min(pagination.total_pages, currentPage + 1))
-							}
-							disabled={currentPage >= pagination.total_pages}
-							className="operator-button-secondary px-3 py-2 disabled:cursor-not-allowed disabled:opacity-50"
-						>
-							Next
-						</button>
-					</div>
-				</div>
-			)}
-		</section>
+						<div className="hidden overflow-hidden rounded-[26px] border border-slate-200/80 bg-white/80 shadow-[0_12px_28px_rgba(15,23,42,0.05)] lg:block">
+							<div className="overflow-x-auto">
+								<table className="min-w-full table-fixed border-collapse text-left text-sm">
+									<thead className="bg-slate-50/95 text-xs uppercase tracking-[0.2em] text-slate-500 backdrop-blur">
+										<tr>
+											<th className="w-12 px-4 py-4">
+												<input
+													ref={masterCheckboxRef}
+													type="checkbox"
+													checked={allVisibleSelected}
+													onChange={() => onToggleSelectAllVisible()}
+													aria-label="Select visible workloads"
+												/>
+											</th>
+											<SortableHeader
+												label="Workload"
+												sortKey="name"
+												activeSortKey={sortKey}
+												sortDirection={sortDirection}
+												onSortChange={onSortChange}
+												className="w-[18rem]"
+											/>
+											<SortableHeader
+												label="Placement"
+												sortKey="platform"
+												activeSortKey={sortKey}
+												sortDirection={sortDirection}
+												onSortChange={onSortChange}
+												className="w-[14rem]"
+											/>
+											<SortableHeader
+												label="Resource profile"
+												sortKey="cpu"
+												activeSortKey={sortKey}
+												sortDirection={sortDirection}
+												onSortChange={onSortChange}
+												className="w-[12rem]"
+											/>
+											<SortableHeader
+												label="Readiness"
+												sortKey="readiness"
+												activeSortKey={sortKey}
+												sortDirection={sortDirection}
+												onSortChange={onSortChange}
+												className="w-[12rem]"
+											/>
+											<SortableHeader
+												label="Risk"
+												sortKey="risk"
+												activeSortKey={sortKey}
+												sortDirection={sortDirection}
+												onSortChange={onSortChange}
+												className="w-[12rem]"
+											/>
+											<SortableHeader
+												label="Dependencies"
+												sortKey="dependencies"
+												activeSortKey={sortKey}
+												sortDirection={sortDirection}
+												onSortChange={onSortChange}
+												className="w-[10rem]"
+											/>
+											<SortableHeader
+												label="Recency"
+												sortKey="recency"
+												activeSortKey={sortKey}
+												sortDirection={sortDirection}
+												onSortChange={onSortChange}
+												className="w-[10rem]"
+											/>
+										</tr>
+									</thead>
+									<tbody className="divide-y divide-slate-200/80">
+										{rows.map((row) => {
+											const selected = selectedIdSet.has(row.id);
+											const active = activeWorkloadId === row.id;
+											const summary = getInventoryRowSummary(row);
+
+											return (
+												<tr
+													key={row.id}
+													className={`cursor-pointer align-top transition ${
+														active
+															? "bg-sky-50/80"
+															: "bg-white/60 hover:bg-slate-50/90"
+													}`}
+													onClick={() => onFocusWorkload(row.id)}
+												>
+													<td className="px-4 py-4">
+														<SelectionCheckbox
+															selected={selected}
+															label={`Select ${row.vm.name}`}
+															onToggle={() => onToggleSelection(row.id)}
+														/>
+													</td>
+													<td className="px-4 py-4">
+														<WorkloadIdentity row={row} compact />
+													</td>
+													<td className="px-4 py-4">
+														<div className="space-y-2">
+															<div className="flex flex-wrap gap-2">
+																<StatusBadge
+																	tone={platformTone(row.vm.platform)}
+																>
+																	{row.vm.platform}
+																</StatusBadge>
+																<StatusBadge
+																	tone={powerTone(row.vm.power_state)}
+																>
+																	{row.vm.power_state}
+																</StatusBadge>
+															</div>
+															<p className="text-xs leading-5 text-slate-600">
+																{summary.placement}
+															</p>
+														</div>
+													</td>
+													<td className="px-4 py-4">
+														<div className="space-y-1 text-xs leading-5 text-slate-600">
+															<p className="font-semibold text-ink">
+																{summary.resource}
+															</p>
+															<p>{summary.resourceDetail}</p>
+														</div>
+													</td>
+													<td className="px-4 py-4">
+														<div className="space-y-2">
+															<StatusBadge tone={readinessTone(row.readiness)}>
+																{row.readiness}
+															</StatusBadge>
+															<p className="text-xs leading-5 text-slate-600">
+																{summary.assessment}
+															</p>
+														</div>
+													</td>
+													<td className="px-4 py-4">
+														<div className="space-y-2">
+															<div className="flex flex-wrap gap-2">
+																<StatusBadge tone={riskTone(row.risk)}>
+																	{row.risk} risk
+																</StatusBadge>
+																{row.assessmentIncomplete ? (
+																	<StatusBadge tone="neutral">
+																		partial
+																	</StatusBadge>
+																) : null}
+															</div>
+															<p className="text-xs leading-5 text-slate-600">
+																{summary.risk}
+															</p>
+														</div>
+													</td>
+													<td className="px-4 py-4">
+														<div className="space-y-1 text-xs leading-5 text-slate-600">
+															<p>{summary.dependencies}</p>
+															<p>{summary.dependenciesDetail}</p>
+														</div>
+													</td>
+													<td className="px-4 py-4">
+														<div className="space-y-1 text-xs leading-5 text-slate-600">
+															<p className="font-semibold text-ink">
+																{summary.recency}
+															</p>
+															<p>{summary.recencyDetail}</p>
+														</div>
+													</td>
+												</tr>
+											);
+										})}
+									</tbody>
+								</table>
+							</div>
+						</div>
+					</>
+				)}
+
+				{pagination && pagination.total_pages > 1 && onPageChange ? (
+					<PaginationControls
+						currentPage={currentPage}
+						totalPages={pagination.total_pages}
+						totalItems={pagination.total}
+						itemLabel="workload(s)"
+						onPageChange={onPageChange}
+					/>
+				) : null}
+			</div>
+		</SectionCard>
 	);
+}
+
+function SelectionCheckbox({
+	selected,
+	label,
+	onToggle,
+	className,
+}: {
+	selected: boolean;
+	label: string;
+	onToggle: () => void;
+	className?: string;
+}) {
+	return (
+		<input
+			type="checkbox"
+			checked={selected}
+			onClick={(event) => event.stopPropagation()}
+			onChange={onToggle}
+			aria-label={label}
+			className={className}
+		/>
+	);
+}
+
+function WorkloadIdentity({
+	row,
+	compact = false,
+}: {
+	row: InventoryAssessmentRow;
+	compact?: boolean;
+}) {
+	return (
+		<div className="space-y-1">
+			<p
+				className={`${compact ? "text-sm" : "text-base"} font-semibold text-ink`}
+			>
+				{row.vm.name}
+			</p>
+			<p className="text-xs leading-5 text-slate-600">
+				{getWorkloadIdentityDetail(row)}
+			</p>
+		</div>
+	);
+}
+
+function MobileDataPoint({
+	label,
+	value,
+	detail,
+}: {
+	label: string;
+	value: string;
+	detail?: string;
+}) {
+	return (
+		<div className="metric-surface gap-1 px-4 py-3">
+			<span className="operator-kicker">{label}</span>
+			<p className="mt-1 text-sm font-semibold text-ink">{value}</p>
+			{detail ? (
+				<p className="text-xs leading-5 text-slate-600">{detail}</p>
+			) : null}
+		</div>
+	);
+}
+
+function getInventoryRowSummary(row: InventoryAssessmentRow) {
+	return {
+		placement: `${row.vm.host || "Unknown host"}${
+			row.vm.cluster ? ` • ${row.vm.cluster}` : ""
+		}`,
+		resource: `${row.vm.cpu_count} vCPU • ${formatMemory(row.vm.memory_mb)} GB`,
+		resourceDetail: `${formatStorage(row.storageTotalMB)} GB storage • ${row.vm.nics.length} NIC(s)`,
+		dependencies: `${row.dependencies.networks.length} network • ${row.dependencies.datastores.length} storage`,
+		dependenciesDetail: `${row.dependencies.backups.length} backup relationship(s)`,
+		assessment: row.assessmentIncomplete
+			? `Partial signals: ${row.missingSources.join(", ")}`
+			: `${row.policyViolations.length} policy issue(s) and ${row.recommendations.length} recommendation(s) derived for this workload.`,
+		risk: `Score ${row.riskScore} • ${row.riskReasons[0] ?? "No immediate derived issues"}`,
+		recency: formatRelativeTime(row.discoveredAt),
+		recencyDetail: `${row.snapshotCount} snapshot(s)`,
+	};
+}
+
+function getWorkloadIdentityDetail(row: InventoryAssessmentRow) {
+	return [row.vm.guest_os || "Guest OS unavailable", row.vm.folder]
+		.filter(Boolean)
+		.join(" • ");
 }
 
 function FilterSelect({
@@ -506,12 +700,14 @@ function SortableHeader({
 	activeSortKey,
 	sortDirection,
 	onSortChange,
+	className,
 }: {
 	label: string;
 	sortKey: InventorySortKey;
 	activeSortKey: InventorySortKey;
 	sortDirection: "asc" | "desc";
 	onSortChange: (key: InventorySortKey) => void;
+	className?: string;
 }) {
 	const active = activeSortKey === sortKey;
 	const ariaSort = !active
@@ -521,15 +717,15 @@ function SortableHeader({
 			: "descending";
 
 	return (
-		<th className="px-3 py-2" aria-sort={ariaSort}>
+		<th className={`px-4 py-4 ${className ?? ""}`} aria-sort={ariaSort}>
 			<button
 				type="button"
-				className="flex items-center gap-2"
+				className={`flex items-center gap-2 transition ${active ? "text-ink" : "text-slate-500 hover:text-ink"}`}
 				onClick={() => onSortChange(sortKey)}
 			>
 				{label}
 				<ArrowDownUp
-					className={`h-3.5 w-3.5 ${active ? "text-ink" : ""} ${active && sortDirection === "desc" ? "rotate-180" : ""}`}
+					className={`h-3.5 w-3.5 transition ${active && sortDirection === "desc" ? "rotate-180" : ""}`}
 				/>
 			</button>
 		</th>

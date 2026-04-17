@@ -1,11 +1,14 @@
+import { useRef } from "react";
 import { getRouteHref } from "../../app/navigation";
 import { InventoryTable } from "../../components/InventoryTable";
 import { PlatformSummary } from "../../components/PlatformSummary";
 import { EmptyState } from "../../components/primitives/EmptyState";
 import { ErrorState } from "../../components/primitives/ErrorState";
+import { InlineNotice } from "../../components/primitives/InlineNotice";
 import { LoadingState } from "../../components/primitives/LoadingState";
 import { PageHeader } from "../../components/primitives/PageHeader";
 import { SectionCard } from "../../components/primitives/SectionCard";
+import { StatCard } from "../../components/primitives/StatCard";
 import { StatusBadge } from "../../components/primitives/StatusBadge";
 import type {
 	DiscoveryResult,
@@ -15,6 +18,7 @@ import type {
 } from "../../types";
 import { saveInventoryPlanningDraft } from "./inventoryPlanningDraft";
 import { formatTimestamp, type InventoryAssessmentRow } from "./inventoryModel";
+import { revealWorkloadDetailPanel } from "./revealWorkloadDetailPanel";
 import { useInventoryAssessment } from "./useInventoryAssessment";
 import { getPlatformScopeLabel } from "./workloadIdentity";
 import { useInventoryWorkspace } from "./useInventoryWorkspace";
@@ -49,6 +53,7 @@ export function InventoryPage({
 		refreshToken,
 	});
 	const workspace = useInventoryWorkspace(assessment.rows);
+	const detailPanelRef = useRef<HTMLDivElement | null>(null);
 	const planningBlockedReason = getPlanningBlockedReason(
 		workspace.selectedRows,
 	);
@@ -79,6 +84,11 @@ export function InventoryPage({
 			workloads: rowsToPlan.map((row) => row.vm),
 		});
 		window.location.hash = getRouteHref("/migrations");
+	}
+
+	function handleFocusWorkload(id: string) {
+		workspace.setActiveWorkloadId(id);
+		revealWorkloadDetailPanel(detailPanelRef.current);
 	}
 
 	return (
@@ -116,65 +126,65 @@ export function InventoryPage({
 				actions={
 					<a
 						href={getRouteHref("/graph")}
-						className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+						className="operator-button-secondary"
 					>
 						Open dependency graph
 					</a>
 				}
 			/>
 
-			{loading && !inventory && (
+			{loading && !inventory ? (
 				<LoadingState
 					title="Loading inventory"
 					message="Retrieving normalized workload inventory, dependency context, and operator assessment signals from the Viaduct API."
 				/>
-			)}
+			) : null}
 
-			{!loading && error && !inventory && (
+			{!loading && error && !inventory ? (
 				<ErrorState title="Inventory unavailable" message={error} />
-			)}
+			) : null}
 
-			{!loading && !error && !inventory && (
+			{!loading && !error && !inventory ? (
 				<EmptyState
 					title="No inventory returned"
 					message="Run discovery or connect a source platform so Viaduct can populate the workload inventory surface."
 				/>
-			)}
+			) : null}
 
-			{inventory && (
+			{inventory ? (
 				<>
-					<SectionCard
-						title="Operational posture"
-						description="Current estate shape and the derived operator assessment across the active tenant inventory."
-					>
-						<div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-							<MetricCard
-								label="Ready"
-								value={String(workspace.summary.ready)}
-								tone="success"
-							/>
-							<MetricCard
-								label="Needs review"
-								value={String(workspace.summary.needsReview)}
-								tone="warning"
-							/>
-							<MetricCard
-								label="Blocked"
-								value={String(workspace.summary.blocked)}
-								tone="danger"
-							/>
-							<MetricCard
-								label="High risk"
-								value={String(workspace.summary.highRisk)}
-								tone="warning"
-							/>
-							<MetricCard
-								label="Selected"
-								value={String(workspace.summary.selected)}
-								tone="accent"
-							/>
-						</div>
-					</SectionCard>
+					<section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+						<StatCard
+							label="Ready"
+							value={workspace.summary.ready}
+							badge={{ label: "Ready", tone: "success" }}
+							emphasis="large"
+						/>
+						<StatCard
+							label="Needs review"
+							value={workspace.summary.needsReview}
+							badge={{ label: "Review", tone: "warning" }}
+							emphasis="large"
+						/>
+						<StatCard
+							label="Blocked"
+							value={workspace.summary.blocked}
+							badge={{ label: "Blocked", tone: "danger" }}
+							emphasis="large"
+						/>
+						<StatCard
+							label="High risk"
+							value={workspace.summary.highRisk}
+							badge={{ label: "Risk", tone: "warning" }}
+							emphasis="large"
+						/>
+						<StatCard
+							label="Selected"
+							value={workspace.summary.selected}
+							badge={{ label: "Selected", tone: "accent" }}
+							emphasis="large"
+						/>
+					</section>
 
 					<section className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
 						<SectionCard
@@ -182,7 +192,7 @@ export function InventoryPage({
 							description="Current inventory source and the latest baseline Viaduct is assessing."
 						>
 							<div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-								<ContextCell
+								<StatCard
 									label="Source"
 									value={
 										inventory.source?.trim()
@@ -190,7 +200,7 @@ export function InventoryPage({
 											: "Mixed latest snapshots"
 									}
 								/>
-								<ContextCell
+								<StatCard
 									label="Platform scope"
 									value={
 										inventory.platform?.trim()
@@ -198,7 +208,7 @@ export function InventoryPage({
 											: "Mixed platform inventory"
 									}
 								/>
-								<ContextCell
+								<StatCard
 									label="Latest baseline"
 									value={
 										latestSnapshot
@@ -206,23 +216,18 @@ export function InventoryPage({
 											: "No saved snapshot"
 									}
 								/>
-								<ContextCell
+								<StatCard
 									label="Inventory errors"
 									value={String(inventory.errors?.length ?? 0)}
 								/>
 							</div>
-							{inventory.errors && inventory.errors.length > 0 && (
+							{inventory.errors && inventory.errors.length > 0 ? (
 								<div className="mt-4 space-y-2">
 									{inventory.errors.map((item) => (
-										<p
-											key={item}
-											className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-900"
-										>
-											{item}
-										</p>
+										<InlineNotice key={item} message={item} tone="warning" />
 									))}
 								</div>
-							)}
+							) : null}
 						</SectionCard>
 
 						<SectionCard
@@ -230,29 +235,17 @@ export function InventoryPage({
 							description="Normalized infrastructure context shipped with the current inventory contract."
 						>
 							<div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-								<ContextCell
-									label="Hosts"
-									value={String(assetCoverage.hosts)}
-								/>
-								<ContextCell
-									label="Clusters"
-									value={String(assetCoverage.clusters)}
-								/>
-								<ContextCell
-									label="Networks"
-									value={String(assetCoverage.networks)}
-								/>
-								<ContextCell
-									label="Datastores"
-									value={String(assetCoverage.datastores)}
-								/>
-								<ContextCell
+								<StatCard label="Hosts" value={assetCoverage.hosts} />
+								<StatCard label="Clusters" value={assetCoverage.clusters} />
+								<StatCard label="Networks" value={assetCoverage.networks} />
+								<StatCard label="Datastores" value={assetCoverage.datastores} />
+								<StatCard
 									label="Resource pools"
-									value={String(assetCoverage.resourcePools)}
+									value={assetCoverage.resourcePools}
 								/>
-								<ContextCell
+								<StatCard
 									label="Snapshot quota free"
-									value={String(summary?.snapshot_quota_free ?? 0)}
+									value={summary?.snapshot_quota_free ?? 0}
 								/>
 							</div>
 						</SectionCard>
@@ -293,27 +286,31 @@ export function InventoryPage({
 								</StatusBadge>
 							)}
 						</div>
-						{assessment.loading && (
-							<p className="mt-4 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
-								Refreshing dependency and lifecycle assessment signals for the
-								current workload baseline.
-							</p>
-						)}
-						<p className="mt-4 text-sm text-slate-500">
-							Readiness in this view is derived from current inventory, policy
-							violations, remediation guidance, and graph relationships. Viaduct
-							does not yet expose a VM-scoped preflight or activity endpoint for
-							a cleaner per-workload readiness contract.
-						</p>
-						{assessment.error && (
-							<p className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-900">
-								Inventory data loaded, but some assessment signals are partial:{" "}
-								{assessment.error}
-							</p>
-						)}
+						{assessment.loading ? (
+							<div className="mt-4">
+								<InlineNotice
+									message="Refreshing dependency and lifecycle assessment signals for the current workload baseline."
+									tone="neutral"
+								/>
+							</div>
+						) : null}
+						<div className="mt-4">
+							<InlineNotice
+								message="Readiness in this view is derived from current inventory, policy violations, remediation guidance, and graph relationships. Viaduct does not yet expose a VM-scoped preflight or activity endpoint for a cleaner per-workload readiness contract."
+								tone="info"
+							/>
+						</div>
+						{assessment.error ? (
+							<div className="mt-4">
+								<InlineNotice
+									message={`Inventory data loaded, but some assessment signals are partial: ${assessment.error}`}
+									tone="warning"
+								/>
+							</div>
+						) : null}
 					</SectionCard>
 
-					<section className="grid gap-5 xl:grid-cols-[1.55fr_0.95fr]">
+					<section className="grid gap-5 min-[1800px]:grid-cols-[minmax(0,1.2fr)_minmax(360px,0.8fr)]">
 						<InventoryTable
 							rows={workspace.filteredRows}
 							totalCount={inventoryPagination?.total ?? assessment.rows.length}
@@ -335,7 +332,7 @@ export function InventoryPage({
 							onToggleSelectAllVisible={workspace.toggleSelectAllVisible}
 							onClearSelection={workspace.clearSelection}
 							onResetFilters={workspace.resetFilters}
-							onFocusWorkload={workspace.setActiveWorkloadId}
+							onFocusWorkload={handleFocusWorkload}
 							pagination={inventoryPagination}
 							currentPage={inventoryPage}
 							onPageChange={onInventoryPageChange}
@@ -348,9 +345,9 @@ export function InventoryPage({
 									>
 										{workspace.visibleSelectedCount} visible selected
 									</StatusBadge>
-									{selectionScope && (
+									{selectionScope ? (
 										<StatusBadge tone="neutral">{selectionScope}</StatusBadge>
-									)}
+									) : null}
 									<button
 										type="button"
 										onClick={() => handlePreparePlan(workspace.selectedRows)}
@@ -358,7 +355,7 @@ export function InventoryPage({
 											workspace.selectedRows.length === 0 ||
 											Boolean(planningBlockedReason)
 										}
-										className="rounded-full bg-ink px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+										className="operator-button"
 									>
 										Open migration plan
 									</button>
@@ -366,55 +363,29 @@ export function InventoryPage({
 							}
 						/>
 
-						<WorkloadDetailPanel
-							row={workspace.activeRow}
-							latestSnapshot={latestSnapshot}
-							assessmentErrors={assessment.errors}
-							onPreparePlan={(row) => handlePreparePlan([row])}
-						/>
+						<div
+							ref={detailPanelRef}
+							tabIndex={-1}
+							className="scroll-mt-6 outline-none"
+						>
+							<WorkloadDetailPanel
+								row={workspace.activeRow}
+								latestSnapshot={latestSnapshot}
+								assessmentErrors={assessment.errors}
+								onPrimaryAction={(row) => handlePreparePlan([row])}
+							/>
+						</div>
 					</section>
 
 					{(planningBlockedReason || planningNote) &&
-						workspace.selectedRows.length > 0 && (
-							<p className="rounded-2xl bg-sky-50 px-4 py-3 text-sm text-sky-900">
-								{planningBlockedReason ?? planningNote}
-							</p>
-						)}
+					workspace.selectedRows.length > 0 ? (
+						<InlineNotice
+							message={planningBlockedReason ?? planningNote}
+							tone={planningBlockedReason ? "warning" : "info"}
+						/>
+					) : null}
 				</>
-			)}
-		</div>
-	);
-}
-
-function MetricCard({
-	label,
-	value,
-	tone,
-}: {
-	label: string;
-	value: string;
-	tone: "neutral" | "info" | "success" | "warning" | "danger" | "accent";
-}) {
-	return (
-		<div className="rounded-2xl bg-slate-50 px-4 py-4">
-			<div className="flex items-center justify-between gap-3">
-				<p className="text-xs uppercase tracking-[0.18em] text-slate-500">
-					{label}
-				</p>
-				<StatusBadge tone={tone}>{label}</StatusBadge>
-			</div>
-			<p className="mt-3 font-display text-3xl text-ink">{value}</p>
-		</div>
-	);
-}
-
-function ContextCell({ label, value }: { label: string; value: string }) {
-	return (
-		<div className="rounded-2xl bg-slate-50 px-4 py-4">
-			<p className="text-xs uppercase tracking-[0.18em] text-slate-500">
-				{label}
-			</p>
-			<p className="mt-2 font-semibold text-ink">{value}</p>
+			) : null}
 		</div>
 	);
 }

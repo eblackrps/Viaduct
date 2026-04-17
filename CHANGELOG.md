@@ -8,6 +8,26 @@ This changelog tracks published releases and the major implementation milestones
 
 No unreleased changes yet.
 
+## [2.3.0] - 2026-04-16
+
+### Dashboard And Operator Experience
+
+- rebuilt the dashboard visual system around calmer typography, standardized surfaces, clearer hierarchy, and reusable primitives for page headers, cards, notices, stats, and pagination
+- refreshed the major operator screens, including the auth bootstrap, pilot workspace flow, inventory assessment, migration workflow, lifecycle views, policy surfaces, drift views, reports, and settings
+- improved dense operational layouts so inventory and workspace review stay readable on laptop, desktop, tablet, and mobile breakpoints without depending on awkward overflow behavior
+
+### Accessibility And Interaction Quality
+
+- replaced the collapsed navigation slide-over with a keyboard-safe drawer that supports focus trapping, Escape dismissal, focus restoration, and explicit expanded-state signaling
+- corrected the workspace workload-detail action so it now truthfully saves selection state instead of advertising a migration-plan action it did not perform
+- added stronger toggle semantics, cleaner checkbox behavior, and explicit detail-panel reveal behavior when workloads are inspected on stacked layouts
+
+### Release Surfaces And Collateral
+
+- removed runtime dashboard font CDN dependencies so packaged and offline dashboard assets remain self-contained
+- refreshed the public README, release notes, screenshot galleries, and demo collateral with current seeded-product captures instead of stale illustrative SVGs
+- aligned the public site release badge, dashboard package metadata, and release docs around the `v2.3.0` release surface
+
 ## [2.2.0] - 2026-04-16
 
 ### Fixed

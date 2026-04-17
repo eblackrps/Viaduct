@@ -2,7 +2,9 @@ import { Play, RefreshCcw } from "lucide-react";
 import { getRouteHref } from "../../app/navigation";
 import { MigrationProgress } from "../../components/MigrationProgress";
 import { EmptyState } from "../../components/primitives/EmptyState";
+import { InlineNotice } from "../../components/primitives/InlineNotice";
 import { SectionCard } from "../../components/primitives/SectionCard";
+import { StatCard } from "../../components/primitives/StatCard";
 import {
 	StatusBadge,
 	type StatusTone,
@@ -40,26 +42,28 @@ export function MigrationScopeStage({ workspace }: StageProps) {
 							{workspace.importedDraft.workloads.length} workload(s)
 						</StatusBadge>
 					</div>
-					<p className="mt-4 rounded-2xl bg-sky-50 px-4 py-3 text-sm text-sky-950">
-						This draft is local session state only. Save a migration plan to
-						create a real backend migration record.
-					</p>
+					<div className="mt-4">
+						<InlineNotice
+							tone="info"
+							message="This draft is local session state only. Save a migration plan to create a real backend migration record."
+						/>
+					</div>
 					{workspace.draftNotice && (
-						<p className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-900">
-							{workspace.draftNotice}
-						</p>
+						<div className="mt-4">
+							<InlineNotice tone="warning" message={workspace.draftNotice} />
+						</div>
 					)}
 					<div className="mt-4 flex flex-wrap gap-2">
 						<a
 							href={getRouteHref("/inventory")}
-							className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+							className="operator-button-secondary"
 						>
 							Review inventory
 						</a>
 						<button
 							type="button"
 							onClick={workspace.clearImportedSelection}
-							className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+							className="operator-button-secondary"
 						>
 							Clear imported selection
 						</button>
@@ -76,7 +80,7 @@ export function MigrationScopeStage({ workspace }: StageProps) {
 						<label className="space-y-2 text-sm">
 							<span className="font-semibold text-ink">Migration name</span>
 							<input
-								className="w-full rounded-2xl border border-slate-200 px-4 py-3"
+								className="operator-input"
 								value={workspace.migrationName}
 								onChange={(event) =>
 									workspace.setMigrationName(event.target.value)
@@ -93,7 +97,7 @@ export function MigrationScopeStage({ workspace }: StageProps) {
 						<label className="space-y-2 text-sm md:col-span-2">
 							<span className="font-semibold text-ink">Source address</span>
 							<input
-								className="w-full rounded-2xl border border-slate-200 px-4 py-3"
+								className="operator-input"
 								value={workspace.sourceAddress}
 								onChange={(event) =>
 									workspace.setSourceAddress(event.target.value)
@@ -105,7 +109,7 @@ export function MigrationScopeStage({ workspace }: StageProps) {
 					<div className="mt-5 flex flex-wrap gap-3">
 						<button
 							type="button"
-							className="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-3 text-sm font-semibold text-white disabled:bg-slate-300"
+							className="operator-button"
 							onClick={workspace.loadInventory}
 							disabled={workspace.loading}
 						>
@@ -120,15 +124,16 @@ export function MigrationScopeStage({ workspace }: StageProps) {
 								: "No inventory loaded"}
 						</StatusBadge>
 					</div>
-					<p className="mt-5 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
-						Inventory loading does not auto-select every workload. Start from
-						inventory for an explicit handoff, or pick the exact scope here
-						before validation.
-					</p>
-					<p className="mt-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
-						The source address is still required because preflight and execution
-						build real connector instances from the spec.
-					</p>
+					<div className="mt-5 space-y-3">
+						<InlineNotice
+							tone="neutral"
+							message="Inventory loading does not auto-select every workload. Start from inventory for an explicit handoff, or pick the exact scope here before validation."
+						/>
+						<InlineNotice
+							tone="neutral"
+							message="The source address is still required because preflight and execution build real connector instances from the spec."
+						/>
+					</div>
 				</SectionCard>
 
 				<SectionCard
@@ -144,7 +149,7 @@ export function MigrationScopeStage({ workspace }: StageProps) {
 						<div className="space-y-4">
 							<div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
 								<input
-									className="rounded-2xl border border-slate-200 px-4 py-3 text-sm md:w-72"
+									className="operator-input md:w-72"
 									placeholder="Filter workloads"
 									value={workspace.selectionSearch}
 									onChange={(event) =>
@@ -163,7 +168,7 @@ export function MigrationScopeStage({ workspace }: StageProps) {
 									</StatusBadge>
 									<button
 										type="button"
-										className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+										className="operator-button-secondary"
 										onClick={() =>
 											workspace.setSelectedWorkloadKeys(
 												workspace.filteredWorkloads.map((vm) =>
@@ -177,7 +182,7 @@ export function MigrationScopeStage({ workspace }: StageProps) {
 									</button>
 									<button
 										type="button"
-										className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+										className="operator-button-secondary"
 										onClick={() => workspace.setSelectedWorkloadKeys([])}
 										disabled={workspace.selectedWorkloads.length === 0}
 									>
@@ -201,7 +206,7 @@ export function MigrationScopeStage({ workspace }: StageProps) {
 										return (
 											<label
 												key={key}
-												className={`flex items-start gap-3 rounded-2xl border px-4 py-4 text-sm transition ${selected ? "border-sky-200 bg-sky-50" : "border-slate-200 bg-white hover:bg-slate-50"}`}
+												className={`flex items-start gap-3 rounded-[22px] border px-4 py-4 text-sm transition ${selected ? "border-sky-200 bg-sky-50/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]" : "border-slate-200/80 bg-white/85 hover:bg-slate-50/90"}`}
 											>
 												<input
 													type="checkbox"
@@ -257,7 +262,7 @@ export function MigrationPrepareStage({ workspace }: StageProps) {
 						<label className="space-y-2 text-sm">
 							<span className="font-semibold text-ink">Target address</span>
 							<input
-								className="w-full rounded-2xl border border-slate-200 px-4 py-3"
+								className="operator-input"
 								value={workspace.targetAddress}
 								onChange={(event) =>
 									workspace.setTargetAddress(event.target.value)
@@ -268,7 +273,7 @@ export function MigrationPrepareStage({ workspace }: StageProps) {
 						<label className="space-y-2 text-sm">
 							<span className="font-semibold text-ink">Default host</span>
 							<input
-								className="w-full rounded-2xl border border-slate-200 px-4 py-3"
+								className="operator-input"
 								value={workspace.defaultHost}
 								onChange={(event) =>
 									workspace.setDefaultHost(event.target.value)
@@ -278,7 +283,7 @@ export function MigrationPrepareStage({ workspace }: StageProps) {
 						<label className="space-y-2 text-sm">
 							<span className="font-semibold text-ink">Default storage</span>
 							<input
-								className="w-full rounded-2xl border border-slate-200 px-4 py-3"
+								className="operator-input"
 								value={workspace.defaultStorage}
 								onChange={(event) =>
 									workspace.setDefaultStorage(event.target.value)
@@ -296,7 +301,7 @@ export function MigrationPrepareStage({ workspace }: StageProps) {
 						<label className="space-y-2 text-sm">
 							<span className="font-semibold text-ink">Parallel workers</span>
 							<input
-								className="w-full rounded-2xl border border-slate-200 px-4 py-3"
+								className="operator-input"
 								type="number"
 								min={1}
 								value={workspace.parallelism}
@@ -308,7 +313,7 @@ export function MigrationPrepareStage({ workspace }: StageProps) {
 						<label className="space-y-2 text-sm">
 							<span className="font-semibold text-ink">Wave size</span>
 							<input
-								className="w-full rounded-2xl border border-slate-200 px-4 py-3"
+								className="operator-input"
 								type="number"
 								min={1}
 								value={workspace.waveSize}
@@ -320,7 +325,7 @@ export function MigrationPrepareStage({ workspace }: StageProps) {
 						<label className="space-y-2 text-sm">
 							<span className="font-semibold text-ink">Window opens</span>
 							<input
-								className="w-full rounded-2xl border border-slate-200 px-4 py-3"
+								className="operator-input"
 								type="datetime-local"
 								value={workspace.scheduledStart}
 								onChange={(event) =>
@@ -340,7 +345,7 @@ export function MigrationPrepareStage({ workspace }: StageProps) {
 							/>
 						</label>
 					</div>
-					<div className="mt-5 space-y-3 rounded-2xl bg-slate-50 px-4 py-4">
+					<div className="mt-5 space-y-3 rounded-[22px] border border-slate-200/80 bg-slate-50/88 px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
 						<label className="flex items-center gap-3 text-sm font-semibold text-ink">
 							<input
 								type="checkbox"
@@ -389,7 +394,7 @@ export function MigrationPrepareStage({ workspace }: StageProps) {
 						{workspace.approvalRequired && (
 							<div className="grid gap-4 md:grid-cols-2">
 								<input
-									className="rounded-2xl border border-slate-200 px-4 py-3"
+									className="operator-input"
 									value={workspace.approvedBy}
 									onChange={(event) => {
 										workspace.setApprovedBy(event.target.value);
@@ -404,7 +409,7 @@ export function MigrationPrepareStage({ workspace }: StageProps) {
 									placeholder="Approved by"
 								/>
 								<input
-									className="rounded-2xl border border-slate-200 px-4 py-3"
+									className="operator-input"
 									value={workspace.approvalTicket}
 									onChange={(event) =>
 										workspace.setApprovalTicket(event.target.value)
@@ -422,9 +427,10 @@ export function MigrationPrepareStage({ workspace }: StageProps) {
 				description="Map discovered source networks to target-side names."
 			>
 				{workspace.sourceNetworks.length === 0 ? (
-					<p className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
-						No source networks are currently in scope.
-					</p>
+					<InlineNotice
+						message="No source networks are currently in scope."
+						tone="neutral"
+					/>
 				) : (
 					<div className="space-y-3">
 						{workspace.sourceNetworks.map((network) => (
@@ -434,7 +440,7 @@ export function MigrationPrepareStage({ workspace }: StageProps) {
 							>
 								<span className="font-semibold text-ink">{network}</span>
 								<input
-									className="rounded-2xl border border-slate-200 px-4 py-3"
+									className="operator-input"
 									value={workspace.networkMap[network] ?? ""}
 									onChange={(event) =>
 										workspace.setNetworkMap((current) => ({
@@ -447,11 +453,10 @@ export function MigrationPrepareStage({ workspace }: StageProps) {
 							</label>
 						))}
 						{unmappedNetworkCount > 0 && (
-							<p className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-900">
-								{unmappedNetworkCount} source network(s) do not have an explicit
-								target mapping yet. Preflight will verify whether the target
-								environment can still resolve them.
-							</p>
+							<InlineNotice
+								tone="warning"
+								message={`${unmappedNetworkCount} source network(s) do not have an explicit target mapping yet. Preflight will verify whether the target environment can still resolve them.`}
+							/>
 						)}
 					</div>
 				)}
@@ -520,22 +525,25 @@ export function MigrationValidateStage({ workspace }: StageProps) {
 						{hasUnmappedNetworks ? "Mappings need review" : "Mappings reviewed"}
 					</StatusBadge>
 				</div>
-				{workspace.validationError && (
-					<p className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-900">
-						{workspace.validationError}
-					</p>
-				)}
-				{workspace.preflightStale && (
-					<p className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-900">
-						Preflight results reflect an older draft. Run validation again
-						before relying on readiness.
-					</p>
-				)}
-				<p className="mt-4 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
-					Workloads are matched back into the saved plan by exact-name regex
-					selectors derived from the current scope. That avoids accidental
-					wildcard matching when VM names contain glob characters.
-				</p>
+				{workspace.validationError ? (
+					<div className="mt-4">
+						<InlineNotice tone="warning" message={workspace.validationError} />
+					</div>
+				) : null}
+				{workspace.preflightStale ? (
+					<div className="mt-4">
+						<InlineNotice
+							tone="warning"
+							message="Preflight results reflect an older draft. Run validation again before relying on readiness."
+						/>
+					</div>
+				) : null}
+				<div className="mt-4">
+					<InlineNotice
+						tone="neutral"
+						message="Workloads are matched back into the saved plan by exact-name regex selectors derived from the current scope. That avoids accidental wildcard matching when VM names contain glob characters."
+					/>
+				</div>
 			</SectionCard>
 
 			<SectionCard
@@ -545,7 +553,7 @@ export function MigrationValidateStage({ workspace }: StageProps) {
 					<div className="flex flex-wrap gap-2">
 						<button
 							type="button"
-							className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:bg-slate-100"
+							className="operator-button-secondary"
 							onClick={workspace.handlePreflight}
 							disabled={workspace.loading}
 						>
@@ -553,7 +561,7 @@ export function MigrationValidateStage({ workspace }: StageProps) {
 						</button>
 						<button
 							type="button"
-							className="rounded-full bg-ink px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:bg-slate-300"
+							className="operator-button"
 							onClick={workspace.handleSavePlan}
 							disabled={
 								Boolean(workspace.validationError) ||
@@ -574,7 +582,7 @@ export function MigrationValidateStage({ workspace }: StageProps) {
 					</div>
 				}
 			>
-				<div className="rounded-2xl bg-slate-50 px-4 py-4">
+				<div className="panel-muted px-4 py-4">
 					<div className="flex flex-wrap gap-2">
 						<StatusBadge tone={workspace.workflowPresentation.tone}>
 							{workspace.workflowPresentation.label}
@@ -603,10 +611,11 @@ export function MigrationValidateStage({ workspace }: StageProps) {
 						<PreflightResults checks={workspace.preflight.checks} />
 					</div>
 				) : (
-					<p className="mt-5 rounded-2xl border border-dashed border-slate-300 px-4 py-5 text-sm text-slate-600">
-						No preflight results yet. Validation is what turns this draft into a
-						clear operational readiness statement.
-					</p>
+					<InlineNotice
+						message="No preflight results yet. Validation is what turns this draft into a clear operational readiness statement."
+						tone="neutral"
+						className="mt-5"
+					/>
 				)}
 			</SectionCard>
 
@@ -651,7 +660,7 @@ export function MigrationExecuteStage({ workspace }: StageProps) {
 					<div className="flex flex-wrap gap-2">
 						<button
 							type="button"
-							className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:bg-slate-100"
+							className="operator-button-secondary"
 							onClick={() => void workspace.refreshSavedState()}
 							disabled={workspace.loading || workspace.refreshingState}
 						>
@@ -662,7 +671,7 @@ export function MigrationExecuteStage({ workspace }: StageProps) {
 						</button>
 						<button
 							type="button"
-							className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:bg-slate-100"
+							className="operator-button-secondary"
 							onClick={() => void workspace.handlePreflight()}
 							disabled={workspace.loading}
 						>
@@ -672,7 +681,7 @@ export function MigrationExecuteStage({ workspace }: StageProps) {
 						{workspace.migrationState.phase === "plan" && (
 							<button
 								type="button"
-								className="inline-flex items-center gap-2 rounded-full bg-ink px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:bg-slate-300"
+								className="operator-button"
 								onClick={workspace.handleExecute}
 								disabled={
 									workspace.loading || workspace.executionBlockers.length > 0
@@ -686,7 +695,7 @@ export function MigrationExecuteStage({ workspace }: StageProps) {
 							<>
 								<button
 									type="button"
-									className="rounded-full bg-ink px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:bg-slate-300"
+									className="operator-button"
 									onClick={workspace.handleResume}
 									disabled={
 										workspace.loading || workspace.executionBlockers.length > 0
@@ -696,7 +705,7 @@ export function MigrationExecuteStage({ workspace }: StageProps) {
 								</button>
 								<button
 									type="button"
-									className="rounded-full bg-rose-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:bg-slate-300"
+									className="operator-button-danger"
 									onClick={workspace.handleRollback}
 									disabled={workspace.loading}
 								>
@@ -747,43 +756,25 @@ export function MigrationExecuteStage({ workspace }: StageProps) {
 				{workspace.executionBlockers.length > 0 && (
 					<div className="mt-4 space-y-2">
 						{workspace.executionBlockers.map((item) => (
-							<p
-								key={item}
-								className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-900"
-							>
-								{item}
-							</p>
+							<InlineNotice key={item} tone="warning" message={item} />
 						))}
 					</div>
 				)}
 				{workspace.executionAdvisories.length > 0 && (
 					<div className="mt-4 space-y-2">
 						{workspace.executionAdvisories.map((item) => (
-							<p
-								key={item}
-								className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-700"
-							>
-								{item}
-							</p>
+							<InlineNotice key={item} tone="neutral" message={item} />
 						))}
 					</div>
 				)}
 				{workspace.rollbackResult && (
 					<div className="mt-4 space-y-2">
-						<p className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-700">
-							Rollback removed {workspace.rollbackResult.target_vms_removed}{" "}
-							target workload(s), cleaned up{" "}
-							{workspace.rollbackResult.files_cleaned_up} file artifact(s), and
-							restored {workspace.rollbackResult.source_vms_restored} source
-							workload(s).
-						</p>
+						<InlineNotice
+							tone="neutral"
+							message={`Rollback removed ${workspace.rollbackResult.target_vms_removed} target workload(s), cleaned up ${workspace.rollbackResult.files_cleaned_up} file artifact(s), and restored ${workspace.rollbackResult.source_vms_restored} source workload(s).`}
+						/>
 						{(workspace.rollbackResult.errors ?? []).map((item) => (
-							<p
-								key={item}
-								className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-900"
-							>
-								{item}
-							</p>
+							<InlineNotice key={item} tone="warning" message={item} />
 						))}
 					</div>
 				)}
@@ -805,7 +796,7 @@ function PlatformSelect({
 }) {
 	return (
 		<select
-			className="w-full rounded-2xl border border-slate-200 px-4 py-3"
+			className="operator-select"
 			value={value}
 			onChange={(event) => onChange(event.target.value as Platform)}
 		>
@@ -830,25 +821,15 @@ export function MigrationMetric({
 	detail: string;
 }) {
 	return (
-		<div className="rounded-2xl bg-slate-50 px-4 py-4">
-			<div className="flex items-center justify-between gap-3">
-				<p className="text-xs uppercase tracking-[0.18em] text-slate-500">
-					{label}
-				</p>
-				<StatusBadge tone={tone}>{value}</StatusBadge>
-			</div>
-			<p className="mt-3 text-sm text-slate-600">{detail}</p>
-		</div>
+		<StatCard
+			label={label}
+			value={value}
+			detail={detail}
+			badge={{ label: value, tone }}
+		/>
 	);
 }
 
 function SimpleCell({ label, value }: { label: string; value: string }) {
-	return (
-		<div className="rounded-2xl bg-slate-50 px-4 py-4">
-			<p className="text-xs uppercase tracking-[0.18em] text-slate-500">
-				{label}
-			</p>
-			<p className="mt-2 text-sm font-semibold text-ink">{value}</p>
-		</div>
-	);
+	return <StatCard label={label} value={value} />;
 }

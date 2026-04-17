@@ -4,9 +4,11 @@ import { DiscoverySnapshotsPanel } from "../../components/DiscoverySnapshotsPane
 import { MigrationHistory } from "../../components/MigrationHistory";
 import { MigrationWizard } from "../../components/MigrationWizard";
 import { ErrorState } from "../../components/primitives/ErrorState";
+import { InlineNotice } from "../../components/primitives/InlineNotice";
 import { LoadingState } from "../../components/primitives/LoadingState";
 import { PageHeader } from "../../components/primitives/PageHeader";
 import { SectionCard } from "../../components/primitives/SectionCard";
+import { StatCard } from "../../components/primitives/StatCard";
 import { StatusBadge } from "../../components/primitives/StatusBadge";
 import type {
 	DiscoveryResult,
@@ -147,13 +149,13 @@ export function MigrationsPage({
 					<>
 						<a
 							href={getRouteHref("/inventory")}
-							className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+							className="operator-button-secondary"
 						>
 							Review inventory
 						</a>
 						<a
 							href={getRouteHref("/reports")}
-							className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+							className="operator-button-secondary"
 						>
 							Open reports
 						</a>
@@ -170,7 +172,7 @@ export function MigrationsPage({
 							<button
 								type="button"
 								onClick={handleClearPlanningDraft}
-								className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+								className="operator-button-secondary"
 							>
 								Clear draft
 							</button>
@@ -195,82 +197,79 @@ export function MigrationsPage({
 							</div>
 
 							<div className="grid gap-3 md:grid-cols-4">
-								<PostureMetric
+								<StatCard
 									label="Ready"
 									value={planningSummary.ready}
-									tone="success"
+									badge={{ label: "Ready", tone: "success" }}
+									emphasis="large"
 								/>
-								<PostureMetric
+								<StatCard
 									label="Needs review"
 									value={planningSummary.needsReview}
-									tone="warning"
+									badge={{ label: "Review", tone: "warning" }}
+									emphasis="large"
 								/>
-								<PostureMetric
+								<StatCard
 									label="Blocked"
 									value={planningSummary.blocked}
-									tone="danger"
+									badge={{ label: "Blocked", tone: "danger" }}
+									emphasis="large"
 								/>
-								<PostureMetric
+								<StatCard
 									label="High risk"
 									value={planningSummary.highRisk}
-									tone="warning"
+									badge={{ label: "Risk", tone: "warning" }}
+									emphasis="large"
 								/>
 							</div>
 
 							<div className="grid gap-3 md:grid-cols-3">
-								<ContextCell
+								<StatCard
 									label="Network relationships"
-									value={`${dependencySummary.networks}`}
+									value={dependencySummary.networks}
 								/>
-								<ContextCell
+								<StatCard
 									label="Storage relationships"
-									value={`${dependencySummary.datastores}`}
+									value={dependencySummary.datastores}
 								/>
-								<ContextCell
+								<StatCard
 									label="Backup relationships"
-									value={`${dependencySummary.backups}`}
+									value={dependencySummary.backups}
 								/>
 							</div>
 
-							<p className="rounded-2xl bg-sky-50 px-4 py-3 text-sm text-sky-950">
-								The workload list came from the inventory route. Viaduct still
-								requires source and target endpoint details plus a saved plan
-								state before execution can start.
-							</p>
+							<InlineNotice
+								message="The workload list came from the inventory route. Viaduct still requires source and target endpoint details plus a saved plan state before execution can start."
+								tone="info"
+							/>
 
-							{assessment.loading && (
-								<p className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
-									Refreshing dependency and lifecycle signals for the imported
-									workloads.
-								</p>
-							)}
+							{assessment.loading ? (
+								<InlineNotice
+									message="Refreshing dependency and lifecycle signals for the imported workloads."
+									tone="neutral"
+								/>
+							) : null}
 
-							{assessment.error && (
-								<p className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-900">
-									Imported workloads are visible, but some readiness context is
-									partial: {assessment.error}
-								</p>
-							)}
+							{assessment.error ? (
+								<InlineNotice
+									message={`Imported workloads are visible, but some readiness context is partial: ${assessment.error}`}
+									tone="warning"
+								/>
+							) : null}
 
-							{unmatchedDraftCount > 0 && (
-								<p className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-900">
-									{unmatchedDraftCount} imported workload(s) were not matched
-									back to the current inventory assessment. The draft is still
-									available, but risk and dependency context may be incomplete
-									until the latest inventory lines up again.
-								</p>
-							)}
+							{unmatchedDraftCount > 0 ? (
+								<InlineNotice
+									message={`${unmatchedDraftCount} imported workload(s) were not matched back to the current inventory assessment. The draft is still available, but risk and dependency context may be incomplete until the latest inventory lines up again.`}
+									tone="warning"
+								/>
+							) : null}
 						</div>
 					) : (
-						<div className="rounded-2xl border border-dashed border-slate-300 px-5 py-6 text-sm text-slate-600">
-							<p className="font-semibold text-ink">
-								No inventory draft is active.
-							</p>
-							<p className="mt-2">
-								Start from the inventory route when you want a selected workload
-								set to carry directly into migration planning.
-							</p>
-						</div>
+						<InlineNotice
+							title="No inventory draft is active"
+							message="Start from the inventory route when you want a selected workload set to carry directly into migration planning."
+							tone="neutral"
+						/>
 					)}
 				</SectionCard>
 
@@ -279,26 +278,13 @@ export function MigrationsPage({
 					description="Live migration activity from the persisted store. Saved plans stay in plan phase until you explicitly execute them."
 				>
 					<div className="grid gap-3 md:grid-cols-2">
-						<PostureMetric
-							label="Saved plans"
-							value={queueCounts.planned}
-							tone="neutral"
-						/>
-						<PostureMetric
-							label="Running"
-							value={queueCounts.running}
-							tone="accent"
-						/>
-						<PostureMetric
+						<StatCard label="Saved plans" value={queueCounts.planned} />
+						<StatCard label="Running" value={queueCounts.running} />
+						<StatCard
 							label="Pending approvals"
 							value={summary?.pending_approvals ?? 0}
-							tone="warning"
 						/>
-						<PostureMetric
-							label="Failed"
-							value={queueCounts.failed}
-							tone={queueCounts.failed > 0 ? "danger" : "neutral"}
-						/>
+						<StatCard label="Failed" value={queueCounts.failed} />
 					</div>
 
 					<div className="mt-5 space-y-3">
@@ -310,7 +296,7 @@ export function MigrationsPage({
 							return (
 								<article
 									key={migration.id}
-									className="rounded-2xl bg-slate-50 px-4 py-4 text-sm text-slate-600"
+									className="list-card text-sm text-slate-600"
 								>
 									<div className="flex flex-wrap items-center justify-between gap-3">
 										<div>
@@ -337,11 +323,12 @@ export function MigrationsPage({
 							);
 						})}
 
-						{migrations.length === 0 && !loading && !migrationError && (
-							<p className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
-								No persisted migration runs have been recorded yet.
-							</p>
-						)}
+						{migrations.length === 0 && !loading && !migrationError ? (
+							<InlineNotice
+								message="No persisted migration runs have been recorded yet."
+								tone="neutral"
+							/>
+						) : null}
 					</div>
 				</SectionCard>
 			</section>
@@ -365,15 +352,12 @@ export function MigrationsPage({
 						const status = getWorkflowStatusPresentation(statusKey);
 
 						return (
-							<div
+							<StatCard
 								key={statusKey}
-								className="rounded-2xl bg-slate-50 px-4 py-4"
-							>
-								<StatusBadge tone={status.tone}>{status.label}</StatusBadge>
-								<p className="mt-3 text-sm text-slate-600">
-									{status.description}
-								</p>
-							</div>
+								label={status.label}
+								value={status.description}
+								badge={{ label: status.label, tone: status.tone }}
+							/>
 						);
 					})}
 				</div>
@@ -386,24 +370,24 @@ export function MigrationsPage({
 			/>
 
 			{loading &&
-				migrations.length === 0 &&
-				snapshots.length === 0 &&
-				!planningDraft && (
-					<LoadingState
-						title="Loading migration operations"
-						message="Retrieving migration history and saved discovery baselines so operators can validate the current runbook context."
-					/>
-				)}
+			migrations.length === 0 &&
+			snapshots.length === 0 &&
+			!planningDraft ? (
+				<LoadingState
+					title="Loading migration operations"
+					message="Retrieving migration history and saved discovery baselines so operators can validate the current runbook context."
+				/>
+			) : null}
 
 			{historyError &&
-				migrations.length === 0 &&
-				snapshots.length === 0 &&
-				!loading && (
-					<ErrorState
-						title="Migration history unavailable"
-						message={historyError}
-					/>
-				)}
+			migrations.length === 0 &&
+			snapshots.length === 0 &&
+			!loading ? (
+				<ErrorState
+					title="Migration history unavailable"
+					message={historyError}
+				/>
+			) : null}
 
 			<section className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
 				<MigrationHistory
@@ -428,39 +412,6 @@ export function MigrationsPage({
 					onPageChange={onSnapshotsPageChange}
 				/>
 			</section>
-		</div>
-	);
-}
-
-function PostureMetric({
-	label,
-	value,
-	tone,
-}: {
-	label: string;
-	value: number;
-	tone: "neutral" | "info" | "success" | "warning" | "danger" | "accent";
-}) {
-	return (
-		<div className="rounded-2xl bg-slate-50 px-4 py-4">
-			<div className="flex items-center justify-between gap-3">
-				<p className="text-xs uppercase tracking-[0.18em] text-slate-500">
-					{label}
-				</p>
-				<StatusBadge tone={tone}>{label}</StatusBadge>
-			</div>
-			<p className="mt-3 font-display text-3xl text-ink">{value}</p>
-		</div>
-	);
-}
-
-function ContextCell({ label, value }: { label: string; value: string }) {
-	return (
-		<div className="rounded-2xl bg-slate-50 px-4 py-4">
-			<p className="text-xs uppercase tracking-[0.18em] text-slate-500">
-				{label}
-			</p>
-			<p className="mt-2 text-sm font-semibold text-ink">{value}</p>
 		</div>
 	);
 }

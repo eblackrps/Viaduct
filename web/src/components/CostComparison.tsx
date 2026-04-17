@@ -1,4 +1,8 @@
 import type { PlatformComparison } from "../types";
+import { InlineNotice } from "./primitives/InlineNotice";
+import { SectionCard } from "./primitives/SectionCard";
+import { StatCard } from "./primitives/StatCard";
+import { StatusBadge } from "./primitives/StatusBadge";
 
 interface CostComparisonProps {
 	comparisons: PlatformComparison[];
@@ -6,68 +10,58 @@ interface CostComparisonProps {
 
 export function CostComparison({ comparisons }: CostComparisonProps) {
 	return (
-		<section className="panel p-5">
-			<div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-				<div>
-					<p className="font-display text-2xl text-ink">Cost Modeling</p>
-					<p className="text-sm text-slate-500">
-						Compare each workload across the available platform pricing
-						profiles.
-					</p>
-				</div>
-				<p className="text-sm font-semibold text-slate-500">
-					{comparisons.length} workloads compared
-				</p>
-			</div>
-
-			<div className="mt-5 space-y-3">
+		<SectionCard
+			title="Cost modeling"
+			description="Compare each workload across the available platform pricing profiles."
+			actions={
+				<StatusBadge tone="neutral">
+					{comparisons.length} workload{comparisons.length === 1 ? "" : "s"}{" "}
+					compared
+				</StatusBadge>
+			}
+		>
+			<div className="space-y-3">
 				{comparisons.map((comparison) => (
 					<article
 						key={comparison.vm.id || comparison.vm.name}
-						className="rounded-2xl bg-slate-50 p-4"
+						className="list-card"
 					>
-						<div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+						<div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
 							<div>
 								<p className="font-semibold text-ink">{comparison.vm.name}</p>
-								<p className="text-sm text-slate-500">
-									Current: {comparison.vm.platform} · Cheapest:{" "}
+								<p className="mt-1 text-sm text-slate-500">
+									Current {comparison.vm.platform} • Cheapest{" "}
 									{comparison.cheapest_platform}
 								</p>
 							</div>
-							<div className="rounded-full bg-emerald-100 px-4 py-2 text-sm font-semibold text-emerald-700">
+							<StatusBadge tone="success">
 								Save ${comparison.monthly_savings.toFixed(2)}/mo
-							</div>
+							</StatusBadge>
 						</div>
 
 						<div className="mt-4 grid gap-3 md:grid-cols-3">
 							{Object.entries(comparison.cost_by_platform).map(
 								([platform, cost]) => (
-									<div
+									<StatCard
 										key={platform}
-										className="rounded-2xl border border-slate-200 bg-white px-4 py-3"
-									>
-										<p className="text-xs uppercase tracking-[0.22em] text-slate-500">
-											{platform}
-										</p>
-										<p className="mt-2 font-display text-2xl text-ink">
-											${cost.monthly_total.toFixed(2)}
-										</p>
-										<p className="text-sm text-slate-500">
-											${cost.annual_total.toFixed(2)} annual
-										</p>
-									</div>
+										label={platform}
+										value={`$${cost.monthly_total.toFixed(2)}`}
+										detail={`$${cost.annual_total.toFixed(2)} annual`}
+										emphasis="large"
+									/>
 								),
 							)}
 						</div>
 					</article>
 				))}
 
-				{comparisons.length === 0 && (
-					<p className="rounded-2xl border border-dashed border-slate-300 px-4 py-6 text-sm text-slate-500">
-						No cost comparisons are available yet.
-					</p>
-				)}
+				{comparisons.length === 0 ? (
+					<InlineNotice
+						message="No cost comparisons are available yet."
+						tone="neutral"
+					/>
+				) : null}
 			</div>
-		</section>
+		</SectionCard>
 	);
 }

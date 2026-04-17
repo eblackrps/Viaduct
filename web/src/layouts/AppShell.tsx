@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Menu } from "lucide-react";
 import { navigationGroups, type AppRoutePath } from "../app/navigation";
-import { SidebarNav } from "../components/navigation/SidebarNav";
 import { MobileSidebarDrawer } from "../components/navigation/MobileSidebarDrawer";
+import { SidebarNav } from "../components/navigation/SidebarNav";
 import { TopBar } from "../components/navigation/TopBar";
 import { ErrorBanner } from "../components/primitives/ErrorBanner";
 
@@ -34,41 +34,106 @@ export function AppShell({
 	children,
 }: AppShellProps) {
 	const [mobileNavOpen, setMobileNavOpen] = useState(false);
+	const [restoreNavFocus, setRestoreNavFocus] = useState(false);
+	const navigationDrawerID = useId();
+	const mobileNavButtonRef = useRef<HTMLButtonElement | null>(null);
+	const shellContentRef = useRef<HTMLDivElement | null>(null);
+
+	useEffect(() => {
+		const shellContent = shellContentRef.current;
+		if (!shellContent) {
+			return;
+		}
+
+		if (mobileNavOpen) {
+			shellContent.setAttribute("inert", "");
+			return () => {
+				shellContent.removeAttribute("inert");
+			};
+		}
+
+		shellContent.removeAttribute("inert");
+	}, [mobileNavOpen]);
+
+	useEffect(() => {
+		if (mobileNavOpen || !restoreNavFocus) {
+			return;
+		}
+
+		mobileNavButtonRef.current?.focus();
+		setRestoreNavFocus(false);
+	}, [mobileNavOpen, restoreNavFocus]);
+
+	function closeMobileNav() {
+		setRestoreNavFocus(true);
+		setMobileNavOpen(false);
+	}
 
 	return (
 		<div className="min-h-screen bg-transparent px-4 py-4 md:px-6 md:py-6">
-			<div className="mx-auto grid max-w-[1600px] gap-6 xl:grid-cols-[280px_1fr]">
-				{/* Desktop sidebar */}
-				<aside className="hidden xl:block">
-					<div className="panel p-4 space-y-4">
-						{/* Brand */}
-						<div className="rounded-xl bg-gradient-to-br from-ink via-steel to-slate-900 px-5 py-4 text-white">
-							<p className="operator-kicker !text-slate-300">
-								Operator console
-							</p>
-							<p className="mt-2 font-display text-2xl">Viaduct</p>
-							<p className="mt-2 text-xs leading-5 text-slate-300">
-								Discover, plan, and execute migrations from one tenant-scoped
-								control plane.
-							</p>
+			<div
+				ref={shellContentRef}
+				className="mx-auto grid max-w-[1600px] gap-6 2xl:grid-cols-[304px_minmax(0,1fr)]"
+			>
+				<aside className="hidden 2xl:block">
+					<div className="sticky top-6 space-y-4">
+						<div className="panel px-4 py-4">
+							<div className="rounded-[26px] bg-gradient-to-br from-ink via-steel to-slate-900 px-5 py-5 text-white shadow-[0_20px_38px_rgba(15,23,42,0.24)]">
+								<p className="operator-kicker !text-slate-300">
+									Operator console
+								</p>
+								<p className="mt-3 font-display text-[2rem] leading-none tracking-[-0.04em]">
+									Viaduct
+								</p>
+								<p className="mt-3 text-sm leading-6 text-slate-200">
+									Workspace-first migration operations with tenant-scoped
+									discovery, planning, execution, and governance in one place.
+								</p>
+								<div className="mt-5 flex flex-wrap gap-2">
+									<span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold text-white/90">
+										Workspace-first
+									</span>
+									<span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold text-white/90">
+										Tenant-scoped
+									</span>
+								</div>
+							</div>
+
+							<div className="mt-4">
+								<SidebarNav
+									groups={navigationGroups}
+									currentPath={currentPath}
+								/>
+							</div>
 						</div>
 
-						<SidebarNav groups={navigationGroups} currentPath={currentPath} />
+						<div className="panel-muted px-4 py-4 text-sm text-slate-600">
+							<p className="operator-kicker">Operator Flow</p>
+							<p className="mt-2 font-semibold text-ink">
+								Intake, discover, inspect, simulate, plan, execute, report.
+							</p>
+							<p className="mt-2 leading-6">
+								The dashboard keeps operator evidence attached to the same
+								workspace instead of scattering it across disconnected screens.
+							</p>
+						</div>
 					</div>
 				</aside>
 
-				<main className="min-w-0 space-y-5">
-					{/* Mobile hamburger + TopBar row */}
+				<main className="min-w-0 space-y-6">
 					<div className="flex items-start gap-3">
 						<button
+							ref={mobileNavButtonRef}
 							type="button"
 							aria-label="Open navigation"
+							aria-controls={navigationDrawerID}
+							aria-expanded={mobileNavOpen}
 							onClick={() => setMobileNavOpen(true)}
-							className="xl:hidden mt-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+							className="operator-button-secondary 2xl:hidden h-11 w-11 shrink-0 rounded-full px-0"
 						>
 							<Menu className="h-4 w-4" />
 						</button>
-						<div className="flex-1 min-w-0">
+						<div className="min-w-0 flex-1">
 							<TopBar
 								currentPath={currentPath}
 								tenantId={tenantId}
@@ -83,13 +148,14 @@ export function AppShell({
 
 					{error && <ErrorBanner message={error} />}
 
-					<div className="space-y-5">{children}</div>
+					<div className="space-y-6">{children}</div>
 				</main>
 			</div>
 
 			<MobileSidebarDrawer
+				drawerID={navigationDrawerID}
 				open={mobileNavOpen}
-				onClose={() => setMobileNavOpen(false)}
+				onClose={closeMobileNav}
 				currentPath={currentPath}
 			/>
 		</div>
