@@ -1,3 +1,8 @@
+/**
+ * Runtime dashboard auth persists only a short-lived session identifier in Web Storage.
+ * Residual risk: an operator-provided API key still lives in module memory for the active
+ * tab until the page reloads, the tab closes, or sign-out clears the session.
+ */
 export type DashboardAuthMode = "tenant" | "service-account" | "none";
 export type DashboardAuthSource = "runtime" | "environment" | "none";
 export type DashboardAuthPersistence =
@@ -24,6 +29,7 @@ const localStorageKey = "viaduct.dashboardAuth.remembered";
 const environmentTenantKey = import.meta.env.VITE_VIADUCT_API_KEY?.trim() ?? "";
 const environmentServiceAccountKey =
 	import.meta.env.VITE_VIADUCT_SERVICE_ACCOUNT_KEY?.trim() ?? "";
+let runtimeAPIKey = "";
 
 export function getDashboardAuthSession(): DashboardAuthSession {
 	const runtime = readRuntimeAuth();
@@ -64,13 +70,14 @@ export function getDashboardAuthPersistence(): DashboardAuthPersistence {
 
 export function setDashboardAuthSession(
 	mode: Exclude<DashboardAuthMode, "none">,
-	options?: { remember?: boolean; sessionID?: string },
+	options?: { remember?: boolean; sessionID?: string; apiKey?: string },
 ) {
 	const sessionID = options?.sessionID?.trim() ?? "";
 	if (sessionID === "") {
 		clearDashboardAuthSession();
 		return;
 	}
+	runtimeAPIKey = options?.apiKey?.trim() ?? "";
 	if (typeof window === "undefined") {
 		return;
 	}
@@ -91,6 +98,7 @@ export function setDashboardAuthSession(
 }
 
 export function clearDashboardAuthSession() {
+	runtimeAPIKey = "";
 	if (typeof window === "undefined") {
 		return;
 	}
@@ -111,7 +119,7 @@ function readRuntimeAuth(): DashboardAuthSession {
 	if (runtime) {
 		return {
 			...runtime.session,
-			apiKey: "",
+			apiKey: runtimeAPIKey,
 			source: "runtime",
 		};
 	}
@@ -130,19 +138,22 @@ function readStoredRuntimeAuth(): {
 	const sources: Array<{
 		raw: string | null;
 		persistence: Exclude<DashboardAuthPersistence, "environment" | "none">;
+		storageKey: string;
 	}> = [
 		{
 			raw: window.sessionStorage.getItem(sessionStorageKey),
 			persistence: "session",
+			storageKey: sessionStorageKey,
 		},
 		{
 			raw: window.localStorage.getItem(localStorageKey),
 			persistence: "local",
+			storageKey: localStorageKey,
 		},
 	];
 
 	for (const candidate of sources) {
-		const parsed = parseRuntimeSession(candidate.raw);
+		const parsed = parseRuntimeSession(candidate.raw, candidate.storageKey);
 		if (!parsed) {
 			continue;
 		}
@@ -155,7 +166,10 @@ function readStoredRuntimeAuth(): {
 	return null;
 }
 
-function parseRuntimeSession(raw: string | null): DashboardAuthSession | null {
+function parseRuntimeSession(
+	raw: string | null,
+	storageKey: string,
+): DashboardAuthSession | null {
 	if (!raw) {
 		return null;
 	}
@@ -170,7 +184,10 @@ function parseRuntimeSession(raw: string | null): DashboardAuthSession | null {
 			typeof parsed.session_id === "string" ? parsed.session_id.trim() : "";
 		if (mode === "none" || sessionID === "") {
 			console.warn(
-				"failed to parse dashboard auth session, clearing stored data",
+				"invalid dashboard auth session payload, clearing stored data",
+				{
+					storageKey,
+				},
 			);
 			clearDashboardAuthSession();
 			return null;
@@ -184,7 +201,10 @@ function parseRuntimeSession(raw: string | null): DashboardAuthSession | null {
 	} catch (error) {
 		console.warn(
 			"failed to parse dashboard auth session, clearing stored data",
-			error,
+			{
+				error,
+				storageKey,
+			},
 		);
 		clearDashboardAuthSession();
 		return null;

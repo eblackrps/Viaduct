@@ -688,6 +688,7 @@ export interface WorkspaceJob {
 	message?: string;
 	error?: string;
 	retryable?: boolean;
+	truncated?: boolean;
 	input_json?: {
 		type?: WorkspaceJobType;
 		requested_by?: string;

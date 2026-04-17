@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+	createRequestController,
 	getInventory,
 	getSnapshots,
 	getTenantSummary,
@@ -67,14 +68,17 @@ export function useOperatorOverview(): OperatorOverviewState {
 	const [error, setError] = useState<string | null>(null);
 	const hasLoadedRef = useRef(false);
 	const requestSequenceRef = useRef(0);
-	const refreshControllerRef = useRef<AbortController | null>(null);
+	const refreshControllerRef = useRef<ReturnType<
+		typeof createRequestController
+	> | null>(null);
 	const mountedRef = useRef(true);
 
 	const refresh = useCallback(async () => {
-		refreshControllerRef.current?.abort();
+		refreshControllerRef.current?.cancel();
+		refreshControllerRef.current?.cleanup();
 
-		const controller = new AbortController();
-		refreshControllerRef.current = controller;
+		const requestController = createRequestController();
+		refreshControllerRef.current = requestController;
 		const requestSequence = requestSequenceRef.current + 1;
 		requestSequenceRef.current = requestSequence;
 		const initialLoad = !hasLoadedRef.current;
@@ -87,23 +91,23 @@ export function useOperatorOverview(): OperatorOverviewState {
 					getInventory(undefined, {
 						page: inventoryPage,
 						perPage: 50,
-						signal: controller.signal,
+						signal: requestController.signal,
 					}),
 					getSnapshots({
 						page: snapshotsPage,
 						perPage: 50,
-						signal: controller.signal,
+						signal: requestController.signal,
 					}),
 					listMigrations({
 						page: migrationsPage,
 						perPage: 50,
-						signal: controller.signal,
+						signal: requestController.signal,
 					}),
-					getTenantSummary({ signal: controller.signal }),
+					getTenantSummary({ signal: requestController.signal }),
 				]);
 
 			if (
-				controller.signal.aborted ||
+				requestController.signal.aborted ||
 				!mountedRef.current ||
 				requestSequence !== requestSequenceRef.current
 			) {
@@ -176,25 +180,28 @@ export function useOperatorOverview(): OperatorOverviewState {
 			if (
 				mountedRef.current &&
 				requestSequence === requestSequenceRef.current &&
-				refreshControllerRef.current === controller
+				refreshControllerRef.current === requestController
 			) {
 				setLoading(false);
 				setRefreshing(false);
 			}
+			requestController.cleanup();
 		}
 	}, [inventoryPage, migrationsPage, snapshotsPage]);
 
 	useEffect(() => {
 		void refresh();
 		return () => {
-			refreshControllerRef.current?.abort();
+			refreshControllerRef.current?.cancel();
+			refreshControllerRef.current?.cleanup();
 		};
 	}, [refresh]);
 
 	useEffect(() => {
 		return () => {
 			mountedRef.current = false;
-			refreshControllerRef.current?.abort();
+			refreshControllerRef.current?.cancel();
+			refreshControllerRef.current?.cleanup();
 		};
 	}, []);
 

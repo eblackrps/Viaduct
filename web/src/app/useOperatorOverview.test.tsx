@@ -9,6 +9,16 @@ const apiMocks = vi.hoisted(() => ({
 }));
 
 vi.mock("../api", () => ({
+	createRequestController: () => {
+		const controller = new AbortController();
+		return {
+			controller,
+			signal: controller.signal,
+			cancel: () => controller.abort(),
+			cleanup: () => undefined,
+			timedOut: () => false,
+		};
+	},
 	getInventory: apiMocks.getInventory,
 	getSnapshots: apiMocks.getSnapshots,
 	listMigrations: apiMocks.listMigrations,
@@ -111,5 +121,33 @@ describe("useOperatorOverview", () => {
 			expect(options.perPage).toBe(50);
 			expect(options.signal).toBeInstanceOf(AbortSignal);
 		});
+	});
+
+	it("aborts the active refresh when the hook unmounts", async () => {
+		let capturedSignal: AbortSignal | undefined;
+		apiMocks.getInventory.mockImplementation(
+			(_platform?: string, options?: { signal?: AbortSignal }) => {
+				capturedSignal = options?.signal;
+				return Promise.resolve({
+					inventory: { vms: [] },
+					pagination: { total: 0, page: 1, per_page: 50, total_pages: 0 },
+				});
+			},
+		);
+		apiMocks.getSnapshots.mockImplementation(
+			() =>
+				new Promise(() => {
+					// Keep the refresh in flight so the unmount path can cancel it.
+				}),
+		);
+
+		const { unmount } = renderHook(() => useOperatorOverview());
+
+		await waitFor(() => expect(capturedSignal).toBeInstanceOf(AbortSignal));
+		expect(capturedSignal?.aborted).toBe(false);
+
+		unmount();
+
+		expect(capturedSignal?.aborted).toBe(true);
 	});
 });
