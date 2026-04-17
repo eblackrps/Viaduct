@@ -79,6 +79,13 @@ func tenantAuthMiddleware(stateStore store.Store, sessions *authSessionManager, 
 					if allowAnonymousAdmin {
 						role = models.TenantRoleAdmin
 					}
+					packageLogger.Warn(
+						"AUDIT default tenant fallback granted",
+						"request_id", responseRequestID(nil, r),
+						"tenant_id", tenant.ID,
+						"role", role,
+						"allow_anonymous_admin", allowAnonymousAdmin,
+					)
 					principal = AuthenticatedPrincipal{
 						Tenant:     tenant,
 						Role:       role,
@@ -97,6 +104,25 @@ func tenantAuthMiddleware(stateStore store.Store, sessions *authSessionManager, 
 		}
 		if authMethod != "" {
 			principal.AuthMethod = authMethod
+		}
+		credentialTenantIDs := lookupCredentialTenantIDs(tenants, apiKey, serviceAccountKey)
+		if mismatch := tenantAuthMismatch(store.TenantIDFromContext(r.Context()), principal.Tenant.ID, credentialTenantIDs); mismatch {
+			packageLogger.Warn(
+				"tenant auth mismatch rejected",
+				"request_id", responseRequestID(nil, r),
+				"context_tenant_id", strings.TrimSpace(store.TenantIDFromContext(r.Context())),
+				"principal_tenant_id", principal.Tenant.ID,
+				"credential_tenant_ids", keysFromSet(credentialTenantIDs),
+				"auth_method", firstNonEmpty(principal.AuthMethod, authMethod),
+			)
+			writeAPIError(w, r, http.StatusForbidden, "tenant_mismatch", "tenant credentials do not match the active tenant context", apiErrorOptions{
+				Details: map[string]any{
+					"context_tenant_id":     strings.TrimSpace(store.TenantIDFromContext(r.Context())),
+					"principal_tenant_id":   principal.Tenant.ID,
+					"credential_tenant_ids": keysFromSet(credentialTenantIDs),
+				},
+			})
+			return
 		}
 
 		ctx := withPrincipal(r.Context(), principal)
@@ -228,6 +254,42 @@ func authenticateTenantPrincipal(tenants []models.Tenant, tenantAPIKey, serviceA
 		}
 	}
 	return AuthenticatedPrincipal{}, false
+}
+
+func lookupCredentialTenantIDs(tenants []models.Tenant, tenantAPIKey, serviceAccountKey string) map[string]struct{} {
+	tenantIDs := make(map[string]struct{})
+	addMatches := func(apiKey string) {
+		if principal, ok := findTenantPrincipalByAPIKey(tenants, apiKey); ok {
+			tenantIDs[principal.Tenant.ID] = struct{}{}
+		}
+		if principal, ok := findServiceAccountPrincipalByAPIKey(tenants, apiKey); ok {
+			tenantIDs[principal.Tenant.ID] = struct{}{}
+		}
+	}
+	addMatches(tenantAPIKey)
+	addMatches(serviceAccountKey)
+	return tenantIDs
+}
+
+func tenantAuthMismatch(contextTenantID, principalTenantID string, credentialTenantIDs map[string]struct{}) bool {
+	contextTenantID = strings.TrimSpace(contextTenantID)
+	principalTenantID = strings.TrimSpace(principalTenantID)
+	if contextTenantID == store.DefaultTenantID && principalTenantID != "" && principalTenantID != store.DefaultTenantID {
+		contextTenantID = ""
+	}
+
+	if contextTenantID != "" && principalTenantID != "" && contextTenantID != principalTenantID {
+		return true
+	}
+	for tenantID := range credentialTenantIDs {
+		if principalTenantID != "" && tenantID != "" && tenantID != principalTenantID {
+			return true
+		}
+		if contextTenantID != "" && tenantID != "" && tenantID != contextTenantID {
+			return true
+		}
+	}
+	return false
 }
 
 func defaultTenantFallback(tenants []models.Tenant) (models.Tenant, bool) {

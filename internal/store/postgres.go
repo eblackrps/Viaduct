@@ -364,13 +364,18 @@ func (s *PostgresStore) ListSnapshotsPage(ctx context.Context, tenantID string, 
 	ctx, cancel := s.readContext(ctx)
 	defer cancel()
 
+	page, perPage, err := normalizePageRequest(page, perPage)
+	if err != nil {
+		return nil, 0, fmt.Errorf("postgres store: list snapshots: %w", err)
+	}
+
 	tenantID = normalizeTenantID(tenantID)
 
 	query := `FROM snapshots WHERE tenant_id = $1`
 	args := []interface{}{tenantID}
 
 	if platform != "" {
-		query += ` AND platform = $2`
+		query += fmt.Sprintf(` AND platform = $%d`, len(args)+1)
 		args = append(args, string(platform))
 	}
 
@@ -380,9 +385,8 @@ func (s *PostgresStore) ListSnapshotsPage(ctx context.Context, tenantID string, 
 	}
 
 	selectQuery := `SELECT id, tenant_id, source, platform, vm_count, discovered_at ` + query + ` ORDER BY discovered_at DESC`
-	if perPage > 0 {
-		selectQuery += fmt.Sprintf(` LIMIT %d OFFSET %d`, perPage, pageOffset(page, perPage))
-	}
+	args = append(args, perPage, pageOffset(page, perPage))
+	selectQuery += fmt.Sprintf(` LIMIT $%d OFFSET $%d`, len(args)-1, len(args))
 
 	rows, err := s.db.QueryContext(ctx, selectQuery, args...)
 	if err != nil {
@@ -553,6 +557,11 @@ func (s *PostgresStore) ListMigrationsPage(ctx context.Context, tenantID string,
 	ctx, cancel := s.readContext(ctx)
 	defer cancel()
 
+	page, perPage, err := normalizePageRequest(page, perPage)
+	if err != nil {
+		return nil, 0, fmt.Errorf("postgres store: list migrations: %w", err)
+	}
+
 	tenantID = normalizeTenantID(tenantID)
 
 	baseQuery := `FROM migrations WHERE tenant_id = $1`
@@ -562,12 +571,10 @@ func (s *PostgresStore) ListMigrationsPage(ctx context.Context, tenantID string,
 		return nil, 0, fmt.Errorf("postgres store: count migrations: %w", err)
 	}
 
-	query := `SELECT id, tenant_id, spec_name, phase, started_at, updated_at, completed_at ` + baseQuery + ` ORDER BY updated_at DESC`
-	if perPage > 0 {
-		query += fmt.Sprintf(` LIMIT %d OFFSET %d`, perPage, pageOffset(page, perPage))
-	}
+	args := []interface{}{tenantID, perPage, pageOffset(page, perPage)}
+	query := `SELECT id, tenant_id, spec_name, phase, started_at, updated_at, completed_at ` + baseQuery + ` ORDER BY updated_at DESC LIMIT $2 OFFSET $3`
 
-	rows, err := s.db.QueryContext(ctx, query, tenantID)
+	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("postgres store: list migrations: %w", err)
 	}
@@ -1237,13 +1244,13 @@ func (s *PostgresStore) SaveWorkspaceJob(ctx context.Context, tenantID string, j
 	if _, err := s.ensureTenant(ctx, tenantID); err != nil {
 		return fmt.Errorf("postgres store: save workspace job: %w", err)
 	}
-	if _, err := s.GetWorkspace(ctx, tenantID, job.WorkspaceID); err != nil {
-		return fmt.Errorf("postgres store: save workspace job: %w", err)
-	}
-	if existing, err := s.GetWorkspaceJob(ctx, tenantID, job.WorkspaceID, job.ID); err == nil {
+	existing, existingErr := s.GetWorkspaceJob(ctx, tenantID, job.WorkspaceID, job.ID)
+	if existingErr == nil {
 		if job.RequestedAt.IsZero() {
 			job.RequestedAt = existing.RequestedAt
 		}
+	} else if _, err := s.GetWorkspace(ctx, tenantID, job.WorkspaceID); err != nil {
+		return fmt.Errorf("postgres store: save workspace job: %w", err)
 	}
 
 	job = normalizeWorkspaceJob(tenantID, job)
@@ -1458,6 +1465,24 @@ func pageOffset(page, perPage int) int {
 		return 0
 	}
 	return (page - 1) * perPage
+}
+
+func normalizePageRequest(page, perPage int) (int, int, error) {
+	switch {
+	case page < 0:
+		return 0, 0, fmt.Errorf("page must be greater than or equal to zero")
+	case page == 0:
+		page = 1
+	}
+
+	switch {
+	case perPage <= 0:
+		perPage = 50
+	case perPage > 200:
+		perPage = 200
+	}
+
+	return page, perPage, nil
 }
 
 func pageCapacity(total, perPage int) int {

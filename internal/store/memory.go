@@ -795,8 +795,11 @@ func (s *MemoryStore) SaveWorkspaceJob(ctx context.Context, tenantID string, job
 	if _, err := s.ensureTenantLocked(tenantID); err != nil {
 		return fmt.Errorf("memory store: save workspace job: %w", err)
 	}
-	if _, ok := s.workspaces[tenantWorkspaceKey(tenantID, job.WorkspaceID)]; !ok {
-		return fmt.Errorf("memory store: save workspace job: workspace %s not found", job.WorkspaceID)
+	if _, ok := s.workspaceJobs[tenantWorkspaceJobKey(tenantID, job.WorkspaceID, job.ID)]; !ok {
+		// New jobs require an active workspace, but existing jobs may still need terminal updates.
+		if _, ok := s.workspaces[tenantWorkspaceKey(tenantID, job.WorkspaceID)]; !ok {
+			return fmt.Errorf("memory store: save workspace job: workspace %s not found", job.WorkspaceID)
+		}
 	}
 
 	cloned, err := cloneWorkspaceJob(job)
