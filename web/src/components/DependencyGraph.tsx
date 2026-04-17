@@ -405,7 +405,9 @@ export function DependencyGraph({
 					</div>
 				</div>
 
-				{error ? <InlineNotice message={error} tone="danger" className="mt-4" /> : null}
+				{error ? (
+					<InlineNotice message={error} tone="danger" className="mt-4" />
+				) : null}
 
 				{loading ? (
 					<InlineNotice

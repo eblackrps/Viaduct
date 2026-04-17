@@ -121,7 +121,10 @@ export function WorkloadDetailPanel({
 							value={vm.source_ref || "Unavailable"}
 						/>
 						<StatCard label="CPU" value={`${vm.cpu_count} vCPU`} />
-						<StatCard label="Memory" value={`${formatMemory(vm.memory_mb)} GB`} />
+						<StatCard
+							label="Memory"
+							value={`${formatMemory(vm.memory_mb)} GB`}
+						/>
 						<StatCard
 							label="Storage"
 							value={`${formatStorage(row.storageTotalMB)} GB across ${vm.disks.length} disk(s)`}

@@ -224,11 +224,7 @@ export function InventoryPage({
 							{inventory.errors && inventory.errors.length > 0 ? (
 								<div className="mt-4 space-y-2">
 									{inventory.errors.map((item) => (
-										<InlineNotice
-											key={item}
-											message={item}
-											tone="warning"
-										/>
+										<InlineNotice key={item} message={item} tone="warning" />
 									))}
 								</div>
 							) : null}
@@ -275,7 +271,8 @@ export function InventoryPage({
 							<StatusBadge
 								tone={assessment.sources.remediation ? "success" : "warning"}
 							>
-								Remediation {assessment.sources.remediation ? "ready" : "partial"}
+								Remediation{" "}
+								{assessment.sources.remediation ? "ready" : "partial"}
 							</StatusBadge>
 							{assessment.topSignals.length > 0 ? (
 								assessment.topSignals.map((signal) => (

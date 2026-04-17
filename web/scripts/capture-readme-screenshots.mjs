@@ -100,7 +100,9 @@ async function main() {
 
 async function captureAuthBootstrap(page, targetPath) {
 	await page.goto("/");
-	await page.getByRole("heading", { name: "Connect the Viaduct dashboard" }).waitFor();
+	await page
+		.getByRole("heading", { name: "Connect the Viaduct dashboard" })
+		.waitFor();
 	await page.screenshot({ path: targetPath, fullPage: false });
 }
 
@@ -120,7 +122,9 @@ async function captureWorkspace(page, targetPath) {
 
 async function captureInventory(page, targetPath) {
 	await page.goto("/#/inventory");
-	await page.getByRole("heading", { name: "Fleet inventory and assessment" }).waitFor();
+	await page
+		.getByRole("heading", { name: "Fleet inventory and assessment" })
+		.waitFor();
 	await page.getByRole("row", { name: /ubuntu-web-01/i }).click();
 	await page
 		.getByRole("heading", { name: "Workload assessment table" })
@@ -154,7 +158,9 @@ async function waitForHealth() {
 		await delay(1000);
 	}
 
-	throw new Error("Timed out waiting for the screenshot fixture server to start.");
+	throw new Error(
+		"Timed out waiting for the screenshot fixture server to start.",
+	);
 }
 
 async function stopProcessTree(pid) {

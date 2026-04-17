@@ -69,22 +69,20 @@ export function SettingsPage({
 				/>
 			) : null}
 
-			{showEmpty
-				? settingsError
-					? (
-							<ErrorState
-								title="Workspace settings unavailable"
-								message={settingsError}
-								technicalDetails={settingsErrorDetails}
-							/>
-						)
-					: (
-							<EmptyState
-								title="No runtime context available"
-								message="The dashboard could not load either build metadata or the current tenant context from the operator API."
-							/>
-						)
-				: null}
+			{showEmpty ? (
+				settingsError ? (
+					<ErrorState
+						title="Workspace settings unavailable"
+						message={settingsError}
+						technicalDetails={settingsErrorDetails}
+					/>
+				) : (
+					<EmptyState
+						title="No runtime context available"
+						message="The dashboard could not load either build metadata or the current tenant context from the operator API."
+					/>
+				)
+			) : null}
 
 			<section className="grid gap-5 xl:grid-cols-2">
 				<SectionCard
@@ -143,23 +141,36 @@ export function SettingsPage({
 						<div className="grid gap-3 md:grid-cols-2">
 							<StatCard
 								label="Tenant name"
-								value={currentTenant?.name ?? summary?.tenant_id ?? "Unavailable"}
+								value={
+									currentTenant?.name ?? summary?.tenant_id ?? "Unavailable"
+								}
 							/>
-							<StatCard label="Role" value={currentTenant?.role ?? "Unavailable"} />
+							<StatCard
+								label="Role"
+								value={currentTenant?.role ?? "Unavailable"}
+							/>
 							<StatCard
 								label="Auth method"
 								value={currentTenant?.auth_method ?? "Unavailable"}
 							/>
 							<StatCard
 								label="Service account"
-								value={currentTenant?.service_account_name ?? "Tenant credential"}
+								value={
+									currentTenant?.service_account_name ?? "Tenant credential"
+								}
 							/>
 							<StatCard
 								label="Service accounts"
 								value={String(currentTenant?.service_account_count ?? 0)}
 							/>
-							<StatCard label="Workloads" value={String(summary?.workload_count ?? 0)} />
-							<StatCard label="Snapshots" value={String(summary?.snapshot_count ?? 0)} />
+							<StatCard
+								label="Workloads"
+								value={String(summary?.workload_count ?? 0)}
+							/>
+							<StatCard
+								label="Snapshots"
+								value={String(summary?.snapshot_count ?? 0)}
+							/>
 							<StatCard
 								label="Active migrations"
 								value={String(summary?.active_migrations ?? 0)}

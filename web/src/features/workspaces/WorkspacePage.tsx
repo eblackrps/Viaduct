@@ -1775,13 +1775,7 @@ function Metric({
 	value: string;
 	tone?: StatusTone;
 }) {
-	return (
-		<StatCard
-			label={label}
-			value={value}
-			badge={{ label, tone }}
-		/>
-	);
+	return <StatCard label={label} value={value} badge={{ label, tone }} />;
 }
 
 function ArtifactBlock({

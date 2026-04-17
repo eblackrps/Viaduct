@@ -294,7 +294,10 @@ export function MigrationsPage({
 							);
 
 							return (
-								<article key={migration.id} className="list-card text-sm text-slate-600">
+								<article
+									key={migration.id}
+									className="list-card text-sm text-slate-600"
+								>
 									<div className="flex flex-wrap items-center justify-between gap-3">
 										<div>
 											<p className="font-semibold text-ink">
@@ -312,8 +315,9 @@ export function MigrationsPage({
 										</div>
 									</div>
 									<p className="mt-3 text-slate-500">
-										Started {new Date(migration.started_at).toLocaleString()} and
-										updated {new Date(migration.updated_at).toLocaleString()}.
+										Started {new Date(migration.started_at).toLocaleString()}{" "}
+										and updated{" "}
+										{new Date(migration.updated_at).toLocaleString()}.
 									</p>
 								</article>
 							);

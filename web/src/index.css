@@ -10,18 +10,9 @@
 			rgba(229, 107, 31, 0.14),
 			transparent 28%
 		),
-		radial-gradient(
-			circle at 88% 0,
-			rgba(31, 78, 121, 0.16),
-			transparent 24%
-		),
+		radial-gradient(circle at 88% 0, rgba(31, 78, 121, 0.16), transparent 24%),
 		linear-gradient(180deg, #fbf8f2 0%, #f3eee4 38%, #eee8de 100%);
-	font-family:
-		"Aptos",
-		"Segoe UI",
-		"Helvetica Neue",
-		Arial,
-		sans-serif;
+	font-family: "Aptos", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
 	color-scheme: light;
 }
 

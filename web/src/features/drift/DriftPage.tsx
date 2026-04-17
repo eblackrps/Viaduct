@@ -77,7 +77,9 @@ export function DriftPage({
 						<div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
 							<StatCard
 								label="Baseline"
-								value={report?.baseline.id ?? latestSnapshot?.id ?? "Unavailable"}
+								value={
+									report?.baseline.id ?? latestSnapshot?.id ?? "Unavailable"
+								}
 							/>
 							<StatCard
 								label="Current sample"

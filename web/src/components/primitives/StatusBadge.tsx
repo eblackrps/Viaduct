@@ -52,7 +52,10 @@ export function StatusBadge({
 
 	return (
 		<span className={classes}>
-			<span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${dotClasses[tone]}`} />
+			<span
+				aria-hidden="true"
+				className={`h-1.5 w-1.5 rounded-full ${dotClasses[tone]}`}
+			/>
 			<span>{children}</span>
 		</span>
 	);

@@ -167,7 +167,8 @@ export function MigrationProgress({
 							<div>
 								<p className="font-semibold text-ink">{workload.vm.name}</p>
 								<p className="mt-1 text-sm text-slate-500">
-									{workload.vm.platform} → {workload.target_vm_id || "pending target VM"}
+									{workload.vm.platform} →{" "}
+									{workload.target_vm_id || "pending target VM"}
 								</p>
 							</div>
 							<StatusBadge tone={phaseTone(workload.phase)}>

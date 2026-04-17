@@ -60,10 +60,16 @@ export function LifecyclePage({
 				]}
 				actions={
 					<>
-						<a href={getRouteHref("/policy")} className="operator-button-secondary">
+						<a
+							href={getRouteHref("/policy")}
+							className="operator-button-secondary"
+						>
 							Open policy
 						</a>
-						<a href={getRouteHref("/drift")} className="operator-button-secondary">
+						<a
+							href={getRouteHref("/drift")}
+							className="operator-button-secondary"
+						>
 							Open drift
 						</a>
 					</>
@@ -77,16 +83,19 @@ export function LifecyclePage({
 				/>
 			) : null}
 
-			{!overviewLoading && !loading && !hasLifecycleData
-				? lifecycleError
-					? <ErrorState title="Lifecycle data unavailable" message={lifecycleError} />
-					: (
-							<EmptyState
-								title="No lifecycle data available"
-								message="Lifecycle guidance will appear here when Viaduct has current cost profiles and remediation recommendations to evaluate."
-							/>
-						)
-				: null}
+			{!overviewLoading && !loading && !hasLifecycleData ? (
+				lifecycleError ? (
+					<ErrorState
+						title="Lifecycle data unavailable"
+						message={lifecycleError}
+					/>
+				) : (
+					<EmptyState
+						title="No lifecycle data available"
+						message="Lifecycle guidance will appear here when Viaduct has current cost profiles and remediation recommendations to evaluate."
+					/>
+				)
+			) : null}
 
 			{hasLifecycleData ? (
 				<>

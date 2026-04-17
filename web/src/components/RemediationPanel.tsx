@@ -61,7 +61,11 @@ export function RemediationPanel({
 
 				{simulation ? (
 					<div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-						<StatCard label="Moved" value={simulation.moved_vms} emphasis="large" />
+						<StatCard
+							label="Moved"
+							value={simulation.moved_vms}
+							emphasis="large"
+						/>
 						<StatCard
 							label="Current"
 							value={`$${simulation.current_monthly_cost.toFixed(2)}`}
@@ -84,7 +88,9 @@ export function RemediationPanel({
 					</div>
 				) : null}
 
-				{error ? <InlineNotice message={error} tone="danger" className="mt-4" /> : null}
+				{error ? (
+					<InlineNotice message={error} tone="danger" className="mt-4" />
+				) : null}
 			</div>
 
 			<div className="mt-5 space-y-3">
@@ -119,8 +125,8 @@ export function RemediationPanel({
 						recommendation.monthly_savings > 0 ? (
 							<div className="mt-4">
 								<StatusBadge tone="success">
-									Estimated savings $
-									{recommendation.monthly_savings.toFixed(2)}/mo
+									Estimated savings ${recommendation.monthly_savings.toFixed(2)}
+									/mo
 								</StatusBadge>
 							</div>
 						) : null}

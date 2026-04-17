@@ -100,7 +100,10 @@ export function AppShell({
 							</div>
 
 							<div className="mt-4">
-								<SidebarNav groups={navigationGroups} currentPath={currentPath} />
+								<SidebarNav
+									groups={navigationGroups}
+									currentPath={currentPath}
+								/>
 							</div>
 						</div>
 

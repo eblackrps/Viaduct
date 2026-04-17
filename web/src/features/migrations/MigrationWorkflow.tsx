@@ -150,7 +150,9 @@ export function MigrationWorkflow({
 					</div>
 				) : null}
 
-				{workspace.stage === 0 ? <MigrationScopeStage workspace={workspace} /> : null}
+				{workspace.stage === 0 ? (
+					<MigrationScopeStage workspace={workspace} />
+				) : null}
 				{workspace.stage === 1 ? (
 					<MigrationPrepareStage workspace={workspace} />
 				) : null}

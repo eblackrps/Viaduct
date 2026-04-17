@@ -44,16 +44,16 @@ export function PolicyPage({ refreshToken }: PolicyPageProps) {
 				/>
 			) : null}
 
-			{!loading && !report
-				? error
-					? <ErrorState title="Policy evaluation unavailable" message={error} />
-					: (
-							<EmptyState
-								title="No policy report available"
-								message="The policy engine has not returned an evaluation result for the current tenant yet."
-							/>
-						)
-				: null}
+			{!loading && !report ? (
+				error ? (
+					<ErrorState title="Policy evaluation unavailable" message={error} />
+				) : (
+					<EmptyState
+						title="No policy report available"
+						message="The policy engine has not returned an evaluation result for the current tenant yet."
+					/>
+				)
+			) : null}
 
 			{report ? (
 				<>

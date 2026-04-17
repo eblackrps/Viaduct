@@ -375,7 +375,9 @@ export function InventoryTable({
 														onClick={() => onToggleSelection(row.id)}
 														className="operator-button-secondary px-3.5 py-2"
 													>
-														{selected ? "Remove from selection" : "Select workload"}
+														{selected
+															? "Remove from selection"
+															: "Select workload"}
 													</button>
 												</div>
 											</div>
@@ -486,10 +488,14 @@ export function InventoryTable({
 													<td className="px-4 py-4">
 														<div className="space-y-2">
 															<div className="flex flex-wrap gap-2">
-																<StatusBadge tone={platformTone(row.vm.platform)}>
+																<StatusBadge
+																	tone={platformTone(row.vm.platform)}
+																>
 																	{row.vm.platform}
 																</StatusBadge>
-																<StatusBadge tone={powerTone(row.vm.power_state)}>
+																<StatusBadge
+																	tone={powerTone(row.vm.power_state)}
+																>
 																	{row.vm.power_state}
 																</StatusBadge>
 															</div>
@@ -500,7 +506,9 @@ export function InventoryTable({
 													</td>
 													<td className="px-4 py-4">
 														<div className="space-y-1 text-xs leading-5 text-slate-600">
-															<p className="font-semibold text-ink">{summary.resource}</p>
+															<p className="font-semibold text-ink">
+																{summary.resource}
+															</p>
 															<p>{summary.resourceDetail}</p>
 														</div>
 													</td>
@@ -521,7 +529,9 @@ export function InventoryTable({
 																	{row.risk} risk
 																</StatusBadge>
 																{row.assessmentIncomplete ? (
-																	<StatusBadge tone="neutral">partial</StatusBadge>
+																	<StatusBadge tone="neutral">
+																		partial
+																	</StatusBadge>
 																) : null}
 															</div>
 															<p className="text-xs leading-5 text-slate-600">
@@ -537,7 +547,9 @@ export function InventoryTable({
 													</td>
 													<td className="px-4 py-4">
 														<div className="space-y-1 text-xs leading-5 text-slate-600">
-															<p className="font-semibold text-ink">{summary.recency}</p>
+															<p className="font-semibold text-ink">
+																{summary.recency}
+															</p>
 															<p>{summary.recencyDetail}</p>
 														</div>
 													</td>
@@ -597,7 +609,9 @@ function WorkloadIdentity({
 }) {
 	return (
 		<div className="space-y-1">
-			<p className={`${compact ? "text-sm" : "text-base"} font-semibold text-ink`}>
+			<p
+				className={`${compact ? "text-sm" : "text-base"} font-semibold text-ink`}
+			>
 				{row.vm.name}
 			</p>
 			<p className="text-xs leading-5 text-slate-600">
@@ -620,7 +634,9 @@ function MobileDataPoint({
 		<div className="metric-surface gap-1 px-4 py-3">
 			<span className="operator-kicker">{label}</span>
 			<p className="mt-1 text-sm font-semibold text-ink">{value}</p>
-			{detail ? <p className="text-xs leading-5 text-slate-600">{detail}</p> : null}
+			{detail ? (
+				<p className="text-xs leading-5 text-slate-600">{detail}</p>
+			) : null}
 		</div>
 	);
 }

@@ -15,7 +15,8 @@ export function CostComparison({ comparisons }: CostComparisonProps) {
 			description="Compare each workload across the available platform pricing profiles."
 			actions={
 				<StatusBadge tone="neutral">
-					{comparisons.length} workload{comparisons.length === 1 ? "" : "s"} compared
+					{comparisons.length} workload{comparisons.length === 1 ? "" : "s"}{" "}
+					compared
 				</StatusBadge>
 			}
 		>

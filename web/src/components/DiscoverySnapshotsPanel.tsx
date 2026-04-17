@@ -37,7 +37,10 @@ export function DiscoverySnapshotsPanel({
 
 			<div className={loading || error ? "mt-4 space-y-3" : "space-y-3"}>
 				{snapshots.map((snapshot) => (
-					<article key={snapshot.id} className="list-card text-sm text-slate-600">
+					<article
+						key={snapshot.id}
+						className="list-card text-sm text-slate-600"
+					>
 						<div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
 							<div>
 								<p className="font-semibold text-ink">{snapshot.source}</p>
