@@ -29,7 +29,23 @@ jobs:
         id: release_meta
         shell: bash
         run: |
-          RELEASE_TAG="${{ inputs.release_tag || github.ref_name }}"
+          RELEASE_TAG="${GITHUB_REF_NAME}"
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            RELEASE_TAG="$(python - <<'PY'
+import json
+import os
+
+with open(os.environ["GITHUB_EVENT_PATH"], encoding="utf-8") as event_file:
+    event = json.load(event_file)
+
+print(event.get("inputs", {}).get("release_tag", ""), end="")
+PY
+)"
+          fi
+          if [[ -z "${RELEASE_TAG}" ]]; then
+            echo "release tag is required" >&2
+            exit 1
+          fi
           echo "RELEASE_TAG=${RELEASE_TAG}" >> "$GITHUB_ENV"
           echo "PACKAGE_VERSION=${RELEASE_TAG#v}" >> "$GITHUB_ENV"
           echo "RELEASE_NOTES_PATH=docs/releases/${RELEASE_TAG}.md" >> "$GITHUB_ENV"
