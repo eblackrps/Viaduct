@@ -101,11 +101,12 @@ jobs:
         run: |
           set -euo pipefail
           for artifact in dist/*.tar.gz dist/SHA256SUMS dist/*.cdx.json; do
+            bundle="${artifact}.sigstore.json"
             cosign sign-blob --yes \
-              --new-bundle-format=false \
-              --output-signature "${artifact}.sig" \
-              --output-certificate "${artifact}.pem" \
+              --bundle "${bundle}" \
               "${artifact}"
+            ARTIFACT_PATH="${artifact}" BUNDLE_PATH="${bundle}" python -c "import json, os, textwrap; from pathlib import Path; bundle = Path(os.environ['BUNDLE_PATH']); data = json.loads(bundle.read_text(encoding='utf-8')); Path(os.environ['ARTIFACT_PATH'] + '.sig').write_text(data['messageSignature']['signature'] + '\\n', encoding='utf-8'); cert = data['verificationMaterial']['certificate']['rawBytes']; pem = '-----BEGIN CERTIFICATE-----\\n' + '\\n'.join(textwrap.wrap(cert, 64)) + '\\n-----END CERTIFICATE-----\\n'; Path(os.environ['ARTIFACT_PATH'] + '.pem').write_text(pem, encoding='utf-8')"
+            rm -f "${bundle}"
           done
           cosign sign --yes "${IMAGE_NAME}:${RELEASE_TAG}"
           cosign sign --yes "${IMAGE_NAME}:${PACKAGE_VERSION}"
