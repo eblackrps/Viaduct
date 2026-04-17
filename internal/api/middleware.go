@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	tenantCredentialHeader         = "X-API-Key"
-	serviceAccountCredentialHeader = "X-Service-Account-Key"
+	tenantCredentialHeader         = "X-API-Key"             // #nosec G101 -- this is an HTTP header name, not an embedded credential.
+	serviceAccountCredentialHeader = "X-Service-Account-Key" // #nosec G101 -- this is an HTTP header name, not an embedded credential.
 	adminCredentialHeader          = "X-Admin-Key"
 )
 
