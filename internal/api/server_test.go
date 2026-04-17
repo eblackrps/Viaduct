@@ -458,6 +458,62 @@ func TestServer_Handler_OpenAPIDocsRedirectAndJSON_Expected(t *testing.T) {
 	}
 }
 
+func TestServer_Handler_MetricsRouteRequiresAdmin_Expected(t *testing.T) {
+	t.Setenv("VIADUCT_ADMIN_KEY", "admin-key")
+	server := mustNewServer(t, store.NewMemoryStore())
+	handler := server.Handler()
+
+	unauthorizedRequest := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	unauthorizedRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(unauthorizedRecorder, unauthorizedRequest)
+	if unauthorizedRecorder.Code != http.StatusUnauthorized {
+		t.Fatalf("unauthorized status = %d, want %d: %s", unauthorizedRecorder.Code, http.StatusUnauthorized, unauthorizedRecorder.Body.String())
+	}
+
+	authorizedRequest := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	authorizedRequest.Header.Set(adminAPIKeyHeader, "admin-key")
+	authorizedRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(authorizedRecorder, authorizedRequest)
+	if authorizedRecorder.Code != http.StatusOK {
+		t.Fatalf("authorized status = %d, want %d: %s", authorizedRecorder.Code, http.StatusOK, authorizedRecorder.Body.String())
+	}
+	if body := authorizedRecorder.Body.String(); !strings.Contains(body, "viaduct_http_requests_total") {
+		t.Fatalf("metrics response missing expected counter: %s", body)
+	}
+}
+
+func TestServer_HandleHealthzAndReadyz_ReturnsExpectedStatus_Expected(t *testing.T) {
+	t.Parallel()
+
+	server := mustNewServer(t, store.NewMemoryStore())
+	handler := server.Handler()
+
+	healthRequest := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	healthRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(healthRecorder, healthRequest)
+	if healthRecorder.Code != http.StatusOK {
+		t.Fatalf("healthz status = %d, want %d: %s", healthRecorder.Code, http.StatusOK, healthRecorder.Body.String())
+	}
+
+	readinessRequest := httptest.NewRequest(http.MethodGet, "/readyz", nil)
+	readinessRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(readinessRecorder, readinessRequest)
+	if readinessRecorder.Code != http.StatusOK {
+		t.Fatalf("readyz status = %d, want %d: %s", readinessRecorder.Code, http.StatusOK, readinessRecorder.Body.String())
+	}
+
+	var readiness readinessResponse
+	if err := json.Unmarshal(readinessRecorder.Body.Bytes(), &readiness); err != nil {
+		t.Fatalf("Unmarshal(readiness) error = %v", err)
+	}
+	if readiness.Status != "ready" {
+		t.Fatalf("readiness.Status = %q, want ready", readiness.Status)
+	}
+	if !readiness.PoliciesLoaded {
+		t.Fatal("PoliciesLoaded = false, want true")
+	}
+}
+
 func TestServer_Handler_AuthSessionRouteRateLimited_Expected(t *testing.T) {
 	t.Parallel()
 
@@ -484,6 +540,37 @@ func TestServer_Handler_AuthSessionRouteRateLimited_Expected(t *testing.T) {
 		handler.ServeHTTP(recorder, request)
 		if recorder.Code != expectedStatus {
 			t.Fatalf("request %d status = %d, want %d: %s", index, recorder.Code, expectedStatus, recorder.Body.String())
+		}
+	}
+}
+
+func TestServer_Handler_TenantRoutesUseClientLimiter_NotAuthLimiter(t *testing.T) {
+	t.Parallel()
+
+	stateStore := store.NewMemoryStore()
+	if err := stateStore.CreateTenant(context.Background(), models.Tenant{
+		ID:     "tenant-a",
+		Name:   "Tenant A",
+		APIKey: "tenant-a-key",
+		Active: true,
+	}); err != nil {
+		t.Fatalf("CreateTenant() error = %v", err)
+	}
+
+	server := mustNewServer(t, stateStore)
+	server.clientRateLimiter = newTenantRateLimiter(5, time.Minute)
+	server.authRateLimiter = newTenantRateLimiter(1, time.Minute)
+	handler := server.Handler()
+
+	for index := 0; index < 2; index++ {
+		request := httptest.NewRequest(http.MethodGet, "/api/v1/tenants/current", nil)
+		request.RemoteAddr = "203.0.113.10:41000"
+		request.Header.Set("X-API-Key", "tenant-a-key")
+		recorder := httptest.NewRecorder()
+
+		handler.ServeHTTP(recorder, request)
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("request %d status = %d, want %d: %s", index, recorder.Code, http.StatusOK, recorder.Body.String())
 		}
 	}
 }

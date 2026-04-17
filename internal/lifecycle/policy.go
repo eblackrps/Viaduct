@@ -126,6 +126,14 @@ func NewPolicyEngine(costEngine *CostEngine) *PolicyEngine {
 	}
 }
 
+// PolicyCount returns the number of loaded lifecycle policies.
+func (e *PolicyEngine) PolicyCount() int {
+	if e == nil {
+		return 0
+	}
+	return len(e.policies)
+}
+
 // LoadPolicies loads policies from a YAML file or every YAML file in a directory.
 func (e *PolicyEngine) LoadPolicies(path string) error {
 	if e == nil {

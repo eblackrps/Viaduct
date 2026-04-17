@@ -82,14 +82,18 @@ func (m *apiMetrics) startRequest() func(string, string, int, time.Duration) {
 		return func(string, string, int, time.Duration) {}
 	}
 
-	m.mu.Lock()
-	m.inFlight++
-	m.mu.Unlock()
+	func() {
+		m.mu.Lock()
+		defer m.mu.Unlock()
+		m.inFlight++
+	}()
 
 	return func(method, path string, status int, duration time.Duration) {
-		m.mu.Lock()
-		m.inFlight--
-		m.mu.Unlock()
+		func() {
+			m.mu.Lock()
+			defer m.mu.Unlock()
+			m.inFlight--
+		}()
 		m.record(method, path, status, duration)
 	}
 }
