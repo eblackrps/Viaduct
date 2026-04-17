@@ -28,7 +28,7 @@ jobs:
         run: npm ci
 
       - name: Run Frontend Lint
-        run: npm run lint
+        run: npm run lint -- --max-warnings=0
 
       - name: Run Frontend Format Check
         run: npm run format
@@ -91,6 +91,21 @@ jobs:
         with:
           version: v2.11.4
           args: --timeout=5m
+
+      - name: Install Gosec
+        run: go install github.com/securego/gosec/v2/cmd/gosec@v2.22.9
+
+      - name: Run Gosec
+        run: "$(go env GOPATH)/bin/gosec" ./...
+
+      - name: Run Trivy Filesystem Scan
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true
 
       - name: Regenerate OpenAPI JSON
         run: go run ./scripts/openapi_generate

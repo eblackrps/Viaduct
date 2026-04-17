@@ -1,0 +1,145 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+  id-token: write
+  packages: write
+
+env:
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/viaduct
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "20.19.0"
+          cache: "npm"
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install Web Dependencies
+        run: npm ci
+        working-directory: web
+
+      - name: Build Web Bundle
+        run: npm run build
+        working-directory: web
+
+      - name: Build Cross-Platform Release Bundles
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          COMMIT="${GITHUB_SHA::7}"
+          DATE="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+          mkdir -p dist
+
+          while IFS=/ read -r GOOS GOARCH; do
+            STAGE_DIR="dist/viaduct_${VERSION}_${GOOS}_${GOARCH}"
+            BINARY_NAME="viaduct"
+            if [[ "${GOOS}" == "windows" ]]; then
+              BINARY_NAME="viaduct.exe"
+            fi
+
+            mkdir -p "${STAGE_DIR}"
+            CGO_ENABLED=0 GOOS="${GOOS}" GOARCH="${GOARCH}" go build \
+              -ldflags "-X main.version=${GITHUB_REF_NAME} -X main.commit=${COMMIT} -X main.date=${DATE}" \
+              -o "${STAGE_DIR}/${BINARY_NAME}" \
+              ./cmd/viaduct
+
+            cp -R web/dist "${STAGE_DIR}/web"
+            cp -R configs docs examples "${STAGE_DIR}/"
+
+            tar -C dist -czf "dist/viaduct_${VERSION}_${GOOS}_${GOARCH}.tar.gz" "$(basename "${STAGE_DIR}")"
+            rm -rf "${STAGE_DIR}"
+          done <<'TARGETS'
+          linux/amd64
+          linux/arm64
+          darwin/arm64
+          windows/amd64
+          TARGETS
+
+          sha256sum dist/viaduct_${VERSION}_*.tar.gz > dist/SHA256SUMS
+
+      - name: Extract Release Notes
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          version = os.environ["GITHUB_REF_NAME"].removeprefix("v")
+          changelog = Path("CHANGELOG.md").read_text(encoding="utf-8")
+          match = re.search(rf"## \[{re.escape(version)}\][^\n]*\n(.*?)(?=\n## \[|\Z)", changelog, re.S)
+          notes = match.group(1).strip() if match else "See CHANGELOG.md for release details."
+          Path("dist/release-notes.md").write_text(notes + "\n", encoding="utf-8")
+          PY
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build And Push Docker Image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            ${{ env.IMAGE_NAME }}:${{ github.ref_name }}
+            ${{ env.IMAGE_NAME }}:latest
+
+      - name: Install Syft
+        uses: anchore/sbom-action/download-syft@v0.20.6
+
+      - name: Generate CycloneDX SBOM
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          syft dir:. -o cyclonedx-json="dist/viaduct_${VERSION}_sbom.cdx.json"
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3.8.2
+
+      - name: Sign Release Artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          for artifact in dist/*.tar.gz dist/SHA256SUMS dist/*.cdx.json; do
+            cosign sign-blob --yes \
+              --output-signature "${artifact}.sig" \
+              --output-certificate "${artifact}.pem" \
+              "${artifact}"
+          done
+          cosign sign --yes "${IMAGE_NAME}:${GITHUB_REF_NAME}"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "${GITHUB_REF_NAME}" \
+            --notes-file dist/release-notes.md \
+            dist/viaduct_*.tar.gz \
+            dist/SHA256SUMS \
+            dist/*.cdx.json \
+            dist/*.sig \
+            dist/*.pem
