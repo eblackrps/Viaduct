@@ -1,4 +1,4 @@
-FROM node:20.19-bookworm-slim AS web-build
+FROM node:20.20-bookworm-slim AS web-build
 WORKDIR /src/web
 COPY web/package.json web/package-lock.json ./
 RUN npm ci
