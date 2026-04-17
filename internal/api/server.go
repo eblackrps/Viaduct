@@ -338,14 +338,12 @@ func (s *Server) Start(ctx context.Context) error {
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 	go func() {
-		select {
-		case <-ctx.Done():
-			s.cancelBackgroundTasks()
-			shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
-			defer cancel()
-			if err := server.Shutdown(shutdownCtx); err != nil && !errors.Is(err, http.ErrServerClosed) {
-				packageLogger.Warn("api server shutdown returned an error", "error", err.Error())
-			}
+		<-ctx.Done()
+		s.cancelBackgroundTasks()
+		shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		defer cancel()
+		if err := server.Shutdown(shutdownCtx); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			packageLogger.Warn("api server shutdown returned an error", "error", err.Error())
 		}
 	}()
 	if s.authSessions != nil {
