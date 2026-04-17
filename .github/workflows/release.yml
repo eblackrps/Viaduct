@@ -31,16 +31,7 @@ jobs:
         run: |
           RELEASE_TAG="${GITHUB_REF_NAME}"
           if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
-            RELEASE_TAG="$(python - <<'PY'
-import json
-import os
-
-with open(os.environ["GITHUB_EVENT_PATH"], encoding="utf-8") as event_file:
-    event = json.load(event_file)
-
-print(event.get("inputs", {}).get("release_tag", ""), end="")
-PY
-)"
+            RELEASE_TAG="$(python -c "import json, os; print(json.load(open(os.environ['GITHUB_EVENT_PATH'], encoding='utf-8')).get('inputs', {}).get('release_tag', ''), end='')")"
           fi
           if [[ -z "${RELEASE_TAG}" ]]; then
             echo "release tag is required" >&2
@@ -71,17 +62,7 @@ PY
           if [[ -f "${RELEASE_NOTES_PATH}" ]]; then
             cp "${RELEASE_NOTES_PATH}" dist/release-notes.md
           else
-            python - <<'PY'
-import os
-import re
-from pathlib import Path
-
-version = os.environ["PACKAGE_VERSION"]
-changelog = Path("CHANGELOG.md").read_text(encoding="utf-8")
-match = re.search(rf"## \[{re.escape(version)}\][^\n]*\n(.*?)(?=\n## \[|\Z)", changelog, re.S)
-notes = match.group(1).strip() if match else "See CHANGELOG.md for release details."
-Path("dist/release-notes.md").write_text(notes + "\n", encoding="utf-8")
-PY
+            python -c "import os, re; from pathlib import Path; version = os.environ['PACKAGE_VERSION']; changelog = Path('CHANGELOG.md').read_text(encoding='utf-8'); match = re.search(rf'## \\[{re.escape(version)}\\][^\\n]*\\n(.*?)(?=\\n## \\[|\\Z)', changelog, re.S); notes = match.group(1).strip() if match else 'See CHANGELOG.md for release details.'; Path('dist/release-notes.md').write_text(notes + '\\n', encoding='utf-8')"
           fi
 
       - uses: docker/setup-buildx-action@v4
