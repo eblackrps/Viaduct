@@ -8,6 +8,9 @@ module.exports = {
         accent: "#e56b1f",
         steel: "#1f4e79",
         moss: "#2e6f40",
+        brand: {
+          400: "#4f7faa",
+        },
       },
       fontFamily: {
         display: [

@@ -129,7 +129,7 @@ export function AppShell({
 							aria-controls={navigationDrawerID}
 							aria-expanded={mobileNavOpen}
 							onClick={() => setMobileNavOpen(true)}
-							className="operator-button-secondary 2xl:hidden h-11 w-11 shrink-0 rounded-full px-0"
+							className="operator-button-secondary h-11 w-11 shrink-0 rounded-full px-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 focus-visible:ring-offset-paper 2xl:hidden"
 						>
 							<Menu className="h-4 w-4" />
 						</button>
@@ -146,7 +146,9 @@ export function AppShell({
 						</div>
 					</div>
 
-					{error && <ErrorBanner message={error} />}
+					<div aria-live="polite" aria-atomic="false">
+						{error ? <ErrorBanner message={error} /> : null}
+					</div>
 
 					<div className="space-y-6">{children}</div>
 				</main>

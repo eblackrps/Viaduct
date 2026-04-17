@@ -31,7 +31,7 @@ export function SidebarNav({
 									href={getRouteHref(item.path)}
 									aria-current={active ? "page" : undefined}
 									onClick={onNavigate}
-									className={`group block rounded-[22px] border px-3.5 py-3.5 transition duration-200 ${
+									className={`group block rounded-[22px] border px-3.5 py-3.5 transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 focus-visible:ring-offset-paper ${
 										active
 											? "border-ink bg-ink text-white shadow-[0_18px_30px_rgba(15,23,42,0.22)]"
 											: "border-transparent bg-transparent text-slate-700 hover:border-slate-200/80 hover:bg-white/70"

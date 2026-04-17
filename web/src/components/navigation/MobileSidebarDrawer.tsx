@@ -1,7 +1,8 @@
-import { useEffect, useId, useRef } from "react";
+import { useId, useRef } from "react";
 import { X } from "lucide-react";
 import { navigationGroups, type AppRoutePath } from "../../app/navigation";
 import { SidebarNav } from "./SidebarNav";
+import { useFocusTrap } from "./useFocusTrap";
 
 interface MobileSidebarDrawerProps {
 	drawerID: string;
@@ -18,61 +19,7 @@ export function MobileSidebarDrawer({
 }: MobileSidebarDrawerProps) {
 	const drawerRef = useRef<HTMLElement | null>(null);
 	const titleID = useId();
-
-	useEffect(() => {
-		if (!open) {
-			return;
-		}
-
-		const previousOverflow = document.body.style.overflow;
-		document.body.style.overflow = "hidden";
-		const focusable = getFocusableElements(drawerRef.current);
-		focusable[0]?.focus();
-
-		function handleKeyDown(event: KeyboardEvent) {
-			if (!drawerRef.current) {
-				return;
-			}
-
-			if (event.key === "Escape") {
-				event.preventDefault();
-				onClose();
-				return;
-			}
-
-			if (event.key !== "Tab") {
-				return;
-			}
-
-			const items = getFocusableElements(drawerRef.current);
-			if (items.length === 0) {
-				event.preventDefault();
-				return;
-			}
-
-			const first = items[0];
-			const last = items[items.length - 1];
-			const activeElement = document.activeElement;
-
-			if (event.shiftKey && activeElement === first) {
-				event.preventDefault();
-				last.focus();
-				return;
-			}
-
-			if (!event.shiftKey && activeElement === last) {
-				event.preventDefault();
-				first.focus();
-			}
-		}
-
-		document.addEventListener("keydown", handleKeyDown);
-
-		return () => {
-			document.body.style.overflow = previousOverflow;
-			document.removeEventListener("keydown", handleKeyDown);
-		};
-	}, [onClose, open]);
+	useFocusTrap(drawerRef, open, onClose);
 
 	if (!open) {
 		return null;
@@ -112,7 +59,7 @@ export function MobileSidebarDrawer({
 								type="button"
 								aria-label="Close navigation"
 								onClick={onClose}
-								className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white transition hover:bg-white/15"
+								className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white transition hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 focus-visible:ring-offset-ink"
 							>
 								<X className="h-4 w-4" />
 							</button>
@@ -133,16 +80,4 @@ export function MobileSidebarDrawer({
 			</aside>
 		</>
 	);
-}
-
-function getFocusableElements(element: HTMLElement | null) {
-	if (!element) {
-		return [];
-	}
-
-	return Array.from(
-		element.querySelectorAll<HTMLElement>(
-			'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
-		),
-	).filter((candidate) => !candidate.hasAttribute("disabled"));
 }

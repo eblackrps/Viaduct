@@ -122,6 +122,7 @@ export function WorkspacePage() {
 	);
 	const [showCreateForm, setShowCreateForm] = useState(false);
 	const [creating, setCreating] = useState(false);
+	const [workspaceFilter, setWorkspaceFilter] = useState("");
 	const [createForm, setCreateForm] =
 		useState<CreateFormState>(defaultCreateForm);
 	const [noteDraft, setNoteDraft] = useState("");
@@ -134,6 +135,30 @@ export function WorkspacePage() {
 	const [actionLoading, setActionLoading] = useState<string | null>(null);
 	const selectedWorkspaceIDRef = useRef<string | null>(null);
 	const detailPanelRef = useRef<HTMLDivElement | null>(null);
+	const hasWorkspaceFilter = workspaceFilter.trim() !== "";
+	const filteredWorkspaces = useMemo(() => {
+		const query = workspaceFilter.trim().toLowerCase();
+		if (query === "") {
+			return state.workspaces;
+		}
+		return state.workspaces.filter((workspace) => {
+			const searchableValues = [
+				workspace.name,
+				workspace.description,
+				workspace.status,
+				...(workspace.source_connections ?? []).flatMap((source) => [
+					source.name,
+					source.platform,
+					source.address,
+				]),
+			];
+			return searchableValues.some((value) =>
+				String(value ?? "")
+					.toLowerCase()
+					.includes(query),
+			);
+		});
+	}, [state.workspaces, workspaceFilter]);
 
 	const refreshWorkspaces = useCallback(
 		async (preferredWorkspaceID?: string) => {
@@ -236,6 +261,21 @@ export function WorkspacePage() {
 	useEffect(() => {
 		selectedWorkspaceIDRef.current = selectedWorkspaceID;
 	}, [selectedWorkspaceID]);
+
+	useEffect(() => {
+		if (filteredWorkspaces.length === 0) {
+			return;
+		}
+		if (
+			selectedWorkspaceID &&
+			filteredWorkspaces.some(
+				(workspace) => workspace.id === selectedWorkspaceID,
+			)
+		) {
+			return;
+		}
+		setSelectedWorkspaceID(filteredWorkspaces[0]?.id ?? null);
+	}, [filteredWorkspaces, selectedWorkspaceID]);
 
 	useEffect(() => {
 		void refreshWorkspaces();
@@ -669,6 +709,14 @@ export function WorkspacePage() {
 				description="Guide operators through intake, discovery, inspection, simulation, plan review, and report export from one persisted workspace record."
 				badges={[
 					{ label: `${state.workspaces.length} workspace(s)`, tone: "neutral" },
+					...(hasWorkspaceFilter
+						? [
+								{
+									label: `${filteredWorkspaces.length} matching filter`,
+									tone: "info" as const,
+								},
+							]
+						: []),
 					{
 						label: state.selectedWorkspace?.status ?? "draft",
 						tone: workspaceStatusTone(state.selectedWorkspace?.status),
@@ -677,18 +725,61 @@ export function WorkspacePage() {
 				]}
 				actions={
 					<>
-						<select
-							value={selectedWorkspaceID ?? ""}
-							onChange={(event) => setSelectedWorkspaceID(event.target.value)}
-							aria-label="Select workspace"
-							className="operator-select min-w-[16rem]"
-						>
-							{state.workspaces.map((workspace) => (
-								<option key={workspace.id} value={workspace.id}>
-									{workspace.name}
-								</option>
-							))}
-						</select>
+						<div className="min-w-[18rem] space-y-2">
+							<label
+								htmlFor="workspace-filter"
+								className="operator-kicker px-1"
+							>
+								Filter workspaces
+							</label>
+							<input
+								id="workspace-filter"
+								type="search"
+								value={workspaceFilter}
+								onChange={(event) => setWorkspaceFilter(event.target.value)}
+								placeholder="Filter by name, status, source, or address"
+								className="operator-input"
+							/>
+							{filteredWorkspaces.length > 0 ? (
+								<select
+									value={
+										filteredWorkspaces.some(
+											(workspace) => workspace.id === selectedWorkspaceID,
+										)
+											? (selectedWorkspaceID ?? "")
+											: (filteredWorkspaces[0]?.id ?? "")
+									}
+									onChange={(event) =>
+										setSelectedWorkspaceID(event.target.value)
+									}
+									aria-label="Select workspace"
+									className="operator-select"
+								>
+									{filteredWorkspaces.map((workspace) => (
+										<option key={workspace.id} value={workspace.id}>
+											{workspace.name}
+										</option>
+									))}
+								</select>
+							) : hasWorkspaceFilter ? (
+								<div className="panel-muted px-4 py-4 text-sm text-slate-600">
+									<p className="font-semibold text-ink">
+										No workspaces match this filter
+									</p>
+									<p className="mt-2 leading-6">
+										Try a different name, source, or status to narrow the
+										workspace list.
+									</p>
+									<button
+										type="button"
+										onClick={() => setWorkspaceFilter("")}
+										className="operator-button-secondary mt-3 px-3.5 py-2"
+									>
+										Clear filters
+									</button>
+								</div>
+							) : null}
+						</div>
 						<button
 							type="button"
 							onClick={() => setShowCreateForm((current) => !current)}
