@@ -207,9 +207,8 @@ func (e *PolicyEngine) EvaluateWithWaivers(inventory *models.DiscoveryResult, wa
 				if passed {
 					continue
 				}
-				if waiver, waived := matchingWaiver(policy, vm, waivers, report.EvaluatedAt); waived {
+				if _, waived := matchingWaiver(policy, vm, waivers, report.EvaluatedAt); waived {
 					report.WaivedViolations++
-					_ = waiver
 					continue
 				}
 

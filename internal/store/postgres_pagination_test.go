@@ -79,10 +79,14 @@ func TestPostgresStore_ListSnapshotsPage_FilterUsesPlaceholders_Expected(t *test
 	stateStore := &PostgresStore{db: db}
 	filter := models.Platform(`' OR 1=1 --`)
 
-	mock.ExpectQuery(regexp.QuoteMeta(`SELECT COUNT(*) FROM snapshots WHERE tenant_id = $1 AND platform = $2`)).
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT COUNT(*) FROM snapshots WHERE tenant_id = $1 AND ($2 = '' OR platform = $2)`)).
 		WithArgs(DefaultTenantID, string(filter)).
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(0))
-	mock.ExpectQuery(regexp.QuoteMeta(`SELECT id, tenant_id, source, platform, vm_count, discovered_at FROM snapshots WHERE tenant_id = $1 AND platform = $2 ORDER BY discovered_at DESC LIMIT $3 OFFSET $4`)).
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT id, tenant_id, source, platform, vm_count, discovered_at
+		 FROM snapshots
+		 WHERE tenant_id = $1 AND ($2 = '' OR platform = $2)
+		 ORDER BY discovered_at DESC
+		 LIMIT $3 OFFSET $4`)).
 		WithArgs(DefaultTenantID, string(filter), 50, 0).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "tenant_id", "source", "platform", "vm_count", "discovered_at"}))
 

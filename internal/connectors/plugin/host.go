@@ -306,6 +306,7 @@ func (h *PluginHost) LoadPlugin(path string) error {
 	defer h.mu.Unlock()
 	platformKey := strings.ToLower(strings.TrimSpace(process.platform))
 	if platformKey == "" {
+		// The plugin cannot be used without a platform; cleanup is best effort because we are already failing load.
 		_ = closePluginProcess(process)
 		return fmt.Errorf("load plugin: plugin platform is empty")
 	}
@@ -449,6 +450,7 @@ func (h *PluginHost) startPlugin(path string) (*PluginProcess, error) {
 
 	process, err := h.connectPlugin(command, pluginAddress, path, manifest)
 	if err != nil {
+		// The child process may already be exiting; terminate and reap it on a best-effort basis before returning.
 		_ = command.Process.Kill()
 		_, _ = command.Process.Wait()
 		return nil, err
@@ -473,24 +475,29 @@ func (h *PluginHost) connectPlugin(command *exec.Cmd, address, path string, mani
 	client := newConnectorPluginClient(connection)
 	health, err := client.Health(ctx, &HealthRequest{})
 	if err != nil {
+		// Connection teardown is best effort during plugin handshake failures.
 		_ = connection.Close()
 		return nil, fmt.Errorf("load plugin: health check: %w", err)
 	}
 	if !strings.EqualFold(health.Status, "ok") && !strings.EqualFold(health.Status, "healthy") {
+		// Connection teardown is best effort during plugin handshake failures.
 		_ = connection.Close()
 		return nil, fmt.Errorf("load plugin: unhealthy plugin status %q", health.Status)
 	}
 
 	platformResponse, err := client.Platform(ctx, &PlatformRequest{})
 	if err != nil {
+		// Connection teardown is best effort during plugin handshake failures.
 		_ = connection.Close()
 		return nil, fmt.Errorf("load plugin: platform lookup: %w", err)
 	}
 	if manifest != nil && !strings.EqualFold(strings.TrimSpace(manifest.Platform), strings.TrimSpace(platformResponse.Platform)) {
+		// Connection teardown is best effort during plugin handshake failures.
 		_ = connection.Close()
 		return nil, fmt.Errorf("load plugin: manifest platform %q does not match plugin platform %q", manifest.Platform, platformResponse.Platform)
 	}
 	if err := manifestSupportsHost(manifest, h.hostVersion); err != nil {
+		// Connection teardown is best effort during plugin handshake failures.
 		_ = connection.Close()
 		return nil, fmt.Errorf("load plugin: %w", err)
 	}

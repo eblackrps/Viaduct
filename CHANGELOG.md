@@ -11,7 +11,7 @@ This changelog tracks published releases and the major implementation milestones
 #### Security And API Hardening
 
 - parameterized snapshot list filtering in `internal/store/postgres.go`, clamped paginated store queries, and added SQL-injection regression coverage in `internal/store/postgres_pagination_test.go`
-- tightened tenant auth invariants in `internal/api/middleware.go` so principal, credential, and explicitly scoped tenant context mismatches are rejected with correlated warnings instead of silently drifting across tenants
+- downgraded anonymous default-tenant fallback to viewer unless `VIADUCT_ALLOW_ANONYMOUS_ADMIN=true`, tightened tenant auth invariants in `internal/api/middleware.go`, and added a stricter auth-route limiter so principal, credential, and explicitly scoped tenant context mismatches are rejected with correlated warnings instead of silently drifting across tenants
 - moved migration background execution in `internal/api/server.go` onto derived server-lifetime contexts, added panic recovery with structured logs, and started shutdown handling before listener startup so cancellation and server teardown stay bounded
 - stopped swallowing workspace-job persistence failures in `internal/api/workspaces.go`, always record failed terminal state with `output_json.error`, and cap persisted job output to 1 MiB with an explicit `truncated` signal
 - added an auth-session sweeper in `internal/api/auth_session.go` so expired dashboard sessions are pruned in the background and stop cleanly with API shutdown

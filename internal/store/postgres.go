@@ -181,6 +181,7 @@ func NewPostgresStore(ctx context.Context, dsn string) (*PostgresStore, error) {
 	pingCtx, cancel := withTimeout(ctx, settings.WriteTimeout)
 	defer cancel()
 	if err := db.PingContext(pingCtx); err != nil {
+		// Close is best effort while unwinding a failed store initialization.
 		_ = db.Close()
 		return nil, fmt.Errorf("postgres store: ping database: %w", err)
 	}
@@ -188,12 +189,14 @@ func NewPostgresStore(ctx context.Context, dsn string) (*PostgresStore, error) {
 	migrationCtx, migrationCancel := withTimeout(ctx, settings.WriteTimeout)
 	defer migrationCancel()
 	if _, err := db.ExecContext(migrationCtx, createStoreSchemaSQL); err != nil {
+		// Close is best effort while unwinding a failed store initialization.
 		_ = db.Close()
 		return nil, fmt.Errorf("postgres store: run migrations: %w", err)
 	}
 	recordCtx, recordCancel := withTimeout(ctx, settings.WriteTimeout)
 	defer recordCancel()
 	if err := recordStoreSchemaHistory(recordCtx, db); err != nil {
+		// Close is best effort while unwinding a failed store initialization.
 		_ = db.Close()
 		return nil, fmt.Errorf("postgres store: record schema history: %w", err)
 	}
@@ -370,25 +373,30 @@ func (s *PostgresStore) ListSnapshotsPage(ctx context.Context, tenantID string, 
 	}
 
 	tenantID = normalizeTenantID(tenantID)
-
-	query := `FROM snapshots WHERE tenant_id = $1`
-	args := []interface{}{tenantID}
-
-	if platform != "" {
-		query += fmt.Sprintf(` AND platform = $%d`, len(args)+1)
-		args = append(args, string(platform))
-	}
+	platformName := string(platform)
 
 	var total int
-	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) `+query, args...).Scan(&total); err != nil {
+	if err := s.db.QueryRowContext(
+		ctx,
+		`SELECT COUNT(*) FROM snapshots WHERE tenant_id = $1 AND ($2 = '' OR platform = $2)`,
+		tenantID,
+		platformName,
+	).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("postgres store: count snapshots: %w", err)
 	}
 
-	selectQuery := `SELECT id, tenant_id, source, platform, vm_count, discovered_at ` + query + ` ORDER BY discovered_at DESC`
-	args = append(args, perPage, pageOffset(page, perPage))
-	selectQuery += fmt.Sprintf(` LIMIT $%d OFFSET $%d`, len(args)-1, len(args))
-
-	rows, err := s.db.QueryContext(ctx, selectQuery, args...)
+	rows, err := s.db.QueryContext(
+		ctx,
+		`SELECT id, tenant_id, source, platform, vm_count, discovered_at
+		 FROM snapshots
+		 WHERE tenant_id = $1 AND ($2 = '' OR platform = $2)
+		 ORDER BY discovered_at DESC
+		 LIMIT $3 OFFSET $4`,
+		tenantID,
+		platformName,
+		perPage,
+		pageOffset(page, perPage),
+	)
 	if err != nil {
 		return nil, 0, fmt.Errorf("postgres store: list snapshots: %w", err)
 	}
@@ -564,17 +572,22 @@ func (s *PostgresStore) ListMigrationsPage(ctx context.Context, tenantID string,
 
 	tenantID = normalizeTenantID(tenantID)
 
-	baseQuery := `FROM migrations WHERE tenant_id = $1`
-
 	var total int
-	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) `+baseQuery, tenantID).Scan(&total); err != nil {
+	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM migrations WHERE tenant_id = $1`, tenantID).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("postgres store: count migrations: %w", err)
 	}
 
-	args := []interface{}{tenantID, perPage, pageOffset(page, perPage)}
-	query := `SELECT id, tenant_id, spec_name, phase, started_at, updated_at, completed_at ` + baseQuery + ` ORDER BY updated_at DESC LIMIT $2 OFFSET $3`
-
-	rows, err := s.db.QueryContext(ctx, query, args...)
+	rows, err := s.db.QueryContext(
+		ctx,
+		`SELECT id, tenant_id, spec_name, phase, started_at, updated_at, completed_at
+		 FROM migrations
+		 WHERE tenant_id = $1
+		 ORDER BY updated_at DESC
+		 LIMIT $2 OFFSET $3`,
+		tenantID,
+		perPage,
+		pageOffset(page, perPage),
+	)
 	if err != nil {
 		return nil, 0, fmt.Errorf("postgres store: list migrations: %w", err)
 	}
@@ -850,6 +863,7 @@ func (s *PostgresStore) DeleteTenant(ctx context.Context, tenantID string) error
 		return fmt.Errorf("postgres store: delete tenant %s: begin transaction: %w", tenantID, err)
 	}
 	defer func() {
+		// Rollback is best effort after commit or terminal transaction failure.
 		_ = tx.Rollback()
 	}()
 
@@ -1203,6 +1217,7 @@ func (s *PostgresStore) DeleteWorkspace(ctx context.Context, tenantID, workspace
 		return fmt.Errorf("postgres store: delete workspace %s: begin transaction: %w", workspaceID, err)
 	}
 	defer func() {
+		// Rollback is best effort after commit or terminal transaction failure.
 		_ = tx.Rollback()
 	}()
 

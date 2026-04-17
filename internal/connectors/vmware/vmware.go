@@ -80,6 +80,7 @@ func (c *VMwareConnector) Discover(ctx context.Context) (*models.DiscoveryResult
 		return nil, fmt.Errorf("vmware: create VM container view: %w", err)
 	}
 	defer func() {
+		// Inventory-view teardown is best effort after discovery.
 		_ = containerView.Destroy(ctx)
 	}()
 

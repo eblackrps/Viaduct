@@ -203,7 +203,9 @@ func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/plain; version=0.0.4")
 	metrics := s.metrics.render() + s.renderOperationalMetrics(r.Context())
-	_, _ = w.Write([]byte(metrics))
+	if _, err := w.Write([]byte(metrics)); err != nil {
+		packageLogger.Warn("failed to write metrics response", "request_id", RequestIDFromContext(r.Context()), "error", err.Error())
+	}
 }
 
 func (s *Server) withObservability(next http.Handler) http.Handler {

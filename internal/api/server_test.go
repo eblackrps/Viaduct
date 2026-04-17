@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -951,5 +952,80 @@ func TestServer_HandlePreflight_InvalidSpecReturnsFieldErrors_Expected(t *testin
 	}
 	if len(response.Error.FieldErrors) == 0 {
 		t.Fatalf("expected field errors, got %#v", response.Error)
+	}
+}
+
+func TestServer_BackgroundTaskContext_ServerLifetimeAndMetadata_Expected(t *testing.T) {
+	t.Parallel()
+
+	server := mustNewServer(t, store.NewMemoryStore())
+	parentCtx, parentCancel := context.WithCancel(
+		ContextWithRequestID(
+			store.ContextWithTenantID(context.Background(), "tenant-background"),
+			"req-background",
+		),
+	)
+	defer parentCancel()
+
+	ctx, cancel := server.backgroundTaskContext(parentCtx, "", "")
+	defer cancel()
+
+	parentCancel()
+	select {
+	case <-ctx.Done():
+		t.Fatal("background task context canceled with parent request")
+	default:
+	}
+	if got := store.TenantIDFromContext(ctx); got != "tenant-background" {
+		t.Fatalf("TenantIDFromContext() = %q, want tenant-background", got)
+	}
+	if got := RequestIDFromContext(ctx); got != "req-background" {
+		t.Fatalf("RequestIDFromContext() = %q, want req-background", got)
+	}
+
+	server.cancelBackgroundTasks()
+	select {
+	case <-ctx.Done():
+	case <-time.After(time.Second):
+		t.Fatal("background task context not canceled by server shutdown")
+	}
+}
+
+func TestServer_RunMigrationAsync_RecoversPanicsAndLogs_Expected(t *testing.T) {
+	t.Parallel()
+
+	server := mustNewServer(t, store.NewMemoryStore())
+	var logBuffer bytes.Buffer
+	server.logger = slog.New(slog.NewJSONHandler(&logBuffer, &slog.HandlerOptions{Level: slog.LevelInfo}))
+
+	server.runMigrationAsync(
+		ContextWithRequestID(store.ContextWithTenantID(context.Background(), "tenant-panic"), "req-panic"),
+		"",
+		"",
+		"execute",
+		"migration-panic",
+		func(ctx context.Context) error {
+			if got := store.TenantIDFromContext(ctx); got != "tenant-panic" {
+				t.Fatalf("TenantIDFromContext() = %q, want tenant-panic", got)
+			}
+			if got := RequestIDFromContext(ctx); got != "req-panic" {
+				t.Fatalf("RequestIDFromContext() = %q, want req-panic", got)
+			}
+			panic("boom")
+		},
+	)
+
+	logOutput := logBuffer.String()
+	for _, fragment := range []string{
+		`"msg":"migration background task panicked"`,
+		`"action":"execute"`,
+		`"migration_id":"migration-panic"`,
+		`"tenant_id":"tenant-panic"`,
+		`"request_id":"req-panic"`,
+		`"panic":"boom"`,
+	} {
+		if !strings.Contains(logOutput, fragment) {
+			t.Fatalf("log output missing %s: %s", fragment, logOutput)
+		}
 	}
 }

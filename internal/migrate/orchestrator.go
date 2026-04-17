@@ -360,11 +360,13 @@ func (o *Orchestrator) discoverInventories(ctx context.Context) (*models.Discove
 	if err := o.sourceConnector.Connect(ctx); err != nil {
 		return nil, nil, fmt.Errorf("connect source: %w", err)
 	}
+	// Connector shutdown is best effort while unwinding orchestration setup.
 	defer func() { _ = o.sourceConnector.Close() }()
 
 	if err := o.targetConnector.Connect(ctx); err != nil {
 		return nil, nil, fmt.Errorf("connect target: %w", err)
 	}
+	// Connector shutdown is best effort while unwinding orchestration setup.
 	defer func() { _ = o.targetConnector.Close() }()
 
 	sourceResult, err := o.sourceConnector.Discover(ctx)
@@ -550,6 +552,7 @@ func (o *Orchestrator) failState(ctx context.Context, state *MigrationState, pha
 		state.Errors = append(state.Errors, err.Error())
 	}
 	markCheckpointFailed(state, phase, err)
+	// Preserve the original migration error even if persisting the failed checkpoint also breaks.
 	_ = persistMigrationState(ctx, o.store, state)
 	o.emit(phase, "", "migration failed", 100)
 	return state, err

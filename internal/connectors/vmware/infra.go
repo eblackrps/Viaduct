@@ -21,6 +21,7 @@ func discoverNetworks(ctx context.Context, client *govmomi.Client) ([]models.Net
 		return nil, fmt.Errorf("vmware: create standard network view: %w", err)
 	}
 	defer func() {
+		// Inventory-view teardown is best effort after discovery.
 		_ = standardView.Destroy(ctx)
 	}()
 
@@ -45,6 +46,7 @@ func discoverNetworks(ctx context.Context, client *govmomi.Client) ([]models.Net
 		return nil, fmt.Errorf("vmware: create distributed network view: %w", err)
 	}
 	defer func() {
+		// Inventory-view teardown is best effort after discovery.
 		_ = distributedView.Destroy(ctx)
 	}()
 
@@ -81,6 +83,7 @@ func discoverDatastores(ctx context.Context, client *govmomi.Client) ([]models.D
 		return nil, fmt.Errorf("vmware: create datastore view: %w", err)
 	}
 	defer func() {
+		// Inventory-view teardown is best effort after discovery.
 		_ = containerView.Destroy(ctx)
 	}()
 
@@ -118,6 +121,7 @@ func discoverHosts(ctx context.Context, client *govmomi.Client) ([]models.HostIn
 		return nil, fmt.Errorf("vmware: create host view: %w", err)
 	}
 	defer func() {
+		// Inventory-view teardown is best effort after discovery.
 		_ = containerView.Destroy(ctx)
 	}()
 
@@ -151,6 +155,7 @@ func discoverClusters(ctx context.Context, client *govmomi.Client) ([]models.Clu
 		return nil, fmt.Errorf("vmware: create cluster view: %w", err)
 	}
 	defer func() {
+		// Inventory-view teardown is best effort after discovery.
 		_ = containerView.Destroy(ctx)
 	}()
 
@@ -204,6 +209,7 @@ func discoverResourcePools(ctx context.Context, client *govmomi.Client) ([]model
 		return nil, fmt.Errorf("vmware: create resource pool view: %w", err)
 	}
 	defer func() {
+		// Inventory-view teardown is best effort after discovery.
 		_ = containerView.Destroy(ctx)
 	}()
 

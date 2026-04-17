@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/url"
@@ -132,6 +133,9 @@ type Server struct {
 	connectorCircuits     *connectorCircuitRegistry
 	apiCSP                string
 	dashboardCSP          string
+	backgroundTaskCtx     context.Context
+	backgroundTaskCancel  context.CancelFunc
+	logger                *slog.Logger
 
 	mu    sync.RWMutex
 	specs map[string]*migratepkg.MigrationSpec
@@ -191,6 +195,8 @@ func NewServer(engine *discovery.Engine, stateStore store.Store, port int, catal
 		)
 	}
 
+	backgroundTaskCtx, backgroundTaskCancel := context.WithCancel(context.Background())
+
 	return &Server{
 		engine:                engine,
 		store:                 stateStore,
@@ -218,6 +224,9 @@ func NewServer(engine *discovery.Engine, stateStore store.Store, port int, catal
 			"VIADUCT_DASHBOARD_CSP",
 			"default-src 'self'; base-uri 'none'; connect-src 'self'; font-src 'self' data:; form-action 'self'; frame-ancestors 'none'; img-src 'self' data:; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'",
 		),
+		backgroundTaskCtx:    backgroundTaskCtx,
+		backgroundTaskCancel: backgroundTaskCancel,
+		logger:               packageLogger,
 		resolveConfig: func(platform models.Platform, address, credentialRef string) connectors.Config {
 			resolvedAddress := address
 			if platform == models.PlatformKVM {
@@ -299,6 +308,20 @@ func (s *Server) SetConnectorConfigResolver(resolver func(platform models.Platfo
 	s.resolveConfig = resolver
 }
 
+func (s *Server) backgroundLogger() *slog.Logger {
+	if s != nil && s.logger != nil {
+		return s.logger
+	}
+	return packageLogger
+}
+
+func (s *Server) cancelBackgroundTasks() {
+	if s == nil || s.backgroundTaskCancel == nil {
+		return
+	}
+	s.backgroundTaskCancel()
+}
+
 // Start runs the HTTP server until the context is canceled.
 func (s *Server) Start(ctx context.Context) error {
 	if s == nil {
@@ -317,6 +340,7 @@ func (s *Server) Start(ctx context.Context) error {
 	go func() {
 		select {
 		case <-ctx.Done():
+			s.cancelBackgroundTasks()
 			shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 			defer cancel()
 			if err := server.Shutdown(shutdownCtx); err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -1310,10 +1334,13 @@ func (s *Server) lookupSpec(tenantID, migrationID string) (*migratepkg.Migration
 func (s *Server) runMigrationAsync(parentCtx context.Context, tenantID, requestID, action, migrationID string, execute func(context.Context) error) {
 	ctx, cancel := s.backgroundTaskContext(parentCtx, tenantID, requestID)
 	defer cancel()
+	logger := s.backgroundLogger()
+	tenantID = store.TenantIDFromContext(ctx)
+	requestID = RequestIDFromContext(ctx)
 
 	defer func() {
 		if recovered := recover(); recovered != nil {
-			packageLogger.Error(
+			logger.Error(
 				"migration background task panicked",
 				"action", action,
 				"migration_id", migrationID,
@@ -1326,7 +1353,7 @@ func (s *Server) runMigrationAsync(parentCtx context.Context, tenantID, requestI
 	}()
 
 	if err := execute(ctx); err != nil {
-		packageLogger.Error(
+		logger.Error(
 			"migration background task failed",
 			"action", action,
 			"migration_id", migrationID,
@@ -1338,11 +1365,19 @@ func (s *Server) runMigrationAsync(parentCtx context.Context, tenantID, requestI
 }
 
 func (s *Server) backgroundTaskContext(parentCtx context.Context, tenantID, requestID string) (context.Context, context.CancelFunc) {
-	if parentCtx == nil {
-		parentCtx = context.Background()
+	if parentCtx != nil {
+		if strings.TrimSpace(tenantID) == "" {
+			tenantID = store.TenantIDFromContext(parentCtx)
+		}
+		if strings.TrimSpace(requestID) == "" {
+			requestID = RequestIDFromContext(parentCtx)
+		}
 	}
 
-	baseCtx := context.WithoutCancel(parentCtx)
+	baseCtx := context.Background()
+	if s != nil && s.backgroundTaskCtx != nil {
+		baseCtx = s.backgroundTaskCtx
+	}
 	ctx, cancel := context.WithCancel(baseCtx)
 	if s != nil && s.backgroundTaskTimeout > 0 {
 		cancel()
