@@ -1,4 +1,4 @@
-FROM node:20-bookworm-slim AS web-build
+FROM node:20.19-bookworm-slim AS web-build
 WORKDIR /src/web
 COPY web/package.json web/package-lock.json ./
 RUN npm ci
@@ -27,7 +27,7 @@ COPY examples /opt/viaduct/examples
 
 ENV HOME=/home/viaduct
 EXPOSE 8080
-HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 CMD ["/usr/bin/curl", "-fsS", "http://127.0.0.1:8080/api/v1/health"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 CMD ["/usr/bin/curl", "-fsS", "http://127.0.0.1:8080/readyz"]
 USER viaduct
 
 ENTRYPOINT ["viaduct"]
