@@ -4,6 +4,7 @@ import { ErrorState } from "../../components/primitives/ErrorState";
 import { LoadingState } from "../../components/primitives/LoadingState";
 import { PageHeader } from "../../components/primitives/PageHeader";
 import { SectionCard } from "../../components/primitives/SectionCard";
+import { StatCard } from "../../components/primitives/StatCard";
 import { useLifecycleSignals } from "../lifecycle/useLifecycleSignals";
 
 interface PolicyPageProps {
@@ -36,44 +37,35 @@ export function PolicyPage({ refreshToken }: PolicyPageProps) {
 				]}
 			/>
 
-			{loading && !report && (
+			{loading && !report ? (
 				<LoadingState
 					title="Loading policy results"
 					message="Evaluating lifecycle policies and loading the latest compliance posture for the current tenant."
 				/>
-			)}
+			) : null}
 
-			{!loading &&
-				!report &&
-				(error ? (
-					<ErrorState title="Policy evaluation unavailable" message={error} />
-				) : (
-					<EmptyState
-						title="No policy report available"
-						message="The policy engine has not returned an evaluation result for the current tenant yet."
-					/>
-				))}
+			{!loading && !report
+				? error
+					? <ErrorState title="Policy evaluation unavailable" message={error} />
+					: (
+							<EmptyState
+								title="No policy report available"
+								message="The policy engine has not returned an evaluation result for the current tenant yet."
+							/>
+						)
+				: null}
 
-			{report && (
+			{report ? (
 				<>
 					<SectionCard
 						title="Evaluation context"
 						description="High-level policy execution metadata for the current report."
 					>
-						<div className="grid gap-3 md:grid-cols-4">
-							<PolicyContext
-								label="Policies"
-								value={String(report.policies.length)}
-							/>
-							<PolicyContext
-								label="Violations"
-								value={String(report.violations.length)}
-							/>
-							<PolicyContext
-								label="Waived"
-								value={String(report.waived_violations)}
-							/>
-							<PolicyContext
+						<div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+							<StatCard label="Policies" value={report.policies.length} />
+							<StatCard label="Violations" value={report.violations.length} />
+							<StatCard label="Waived" value={report.waived_violations} />
+							<StatCard
 								label="Evaluated"
 								value={new Date(report.evaluated_at).toLocaleString()}
 							/>
@@ -81,18 +73,7 @@ export function PolicyPage({ refreshToken }: PolicyPageProps) {
 					</SectionCard>
 					<PolicyDashboard report={report} />
 				</>
-			)}
-		</div>
-	);
-}
-
-function PolicyContext({ label, value }: { label: string; value: string }) {
-	return (
-		<div className="rounded-2xl bg-slate-50 px-4 py-4">
-			<p className="text-xs uppercase tracking-[0.18em] text-slate-500">
-				{label}
-			</p>
-			<p className="mt-2 font-semibold text-ink">{value}</p>
+			) : null}
 		</div>
 	);
 }

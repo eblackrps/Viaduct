@@ -45,7 +45,7 @@ When you are finished evaluating the flow, you can delete the workspace from the
 
 ## Visual Reference
 
-Local lab screenshots are in [screenshots/README.md](screenshots/README.md). The broader workspace-first demo assets also live in [../../docs/operations/demo/screenshots/README.md](../../docs/operations/demo/screenshots/README.md).
+Current local-lab screenshots are in [screenshots/README.md](screenshots/README.md). The broader workspace-first demo gallery used by the root README also lives in [../../docs/operations/demo/screenshots/README.md](../../docs/operations/demo/screenshots/README.md).
 
 ## CLI Corroboration
 

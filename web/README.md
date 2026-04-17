@@ -28,6 +28,7 @@ npm run lint
 npm run format
 npm run test
 npm run e2e
+npm run screenshots:readme
 ```
 
 ## Build
@@ -62,6 +63,8 @@ The dashboard also supports runtime authentication bootstrap. When no environmen
 - opens the bootstrap screen so the operator can provide a service-account or tenant key at runtime
 
 The runtime bootstrap path now keeps the actual API credential in a server-backed session and `httpOnly` cookie. The browser stores only an opaque session marker. Non-persistent sessions use session storage for that marker, and the remember option persists only the marker in local storage on trusted workstations.
+
+Current README and release-facing dashboard screenshots can be regenerated with `npm run screenshots:readme`. That script builds the dashboard, boots the seeded Playwright fixture server, and captures the checked-in PNG assets used by the root README and demo collateral.
 
 ## Notes
 

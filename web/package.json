@@ -2,7 +2,7 @@
   "name": "viaduct-dashboard",
   "description": "React dashboard for Viaduct migration, lifecycle, and multi-tenant operations.",
   "private": true,
-  "version": "2.2.0",
+  "version": "2.3.0",
   "type": "module",
   "engines": {
     "node": ">=20.19.0"
@@ -16,7 +16,8 @@
     "format": "prettier --check src/",
     "test": "vitest run",
     "e2e": "playwright test",
-    "e2e:serve": "go run ../tests/e2e/server -port 4173 -web-dir dist"
+    "e2e:serve": "go run ../tests/e2e/server -port 4173 -web-dir dist",
+    "screenshots:readme": "npm run build && node scripts/capture-readme-screenshots.mjs"
   },
   "dependencies": {
     "d3": "^7.9.0",

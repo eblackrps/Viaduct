@@ -1,4 +1,5 @@
 import { ArrowRight } from "lucide-react";
+import { InlineNotice } from "../../components/primitives/InlineNotice";
 import { SectionCard } from "../../components/primitives/SectionCard";
 import type { InventoryPlanningDraft } from "../inventory/inventoryPlanningDraft";
 import {
@@ -116,51 +117,54 @@ export function MigrationWorkflow({
 				</div>
 			</SectionCard>
 
-			<div className="panel p-5">
-				<div className="flex flex-wrap gap-3">
+			<SectionCard
+				title="Execution flow"
+				description="Move left to right from scope definition into saved execution state."
+			>
+				<div className="grid gap-3 xl:grid-cols-4">
 					{stages.map(([label, description], index) => (
 						<button
 							key={label}
 							type="button"
 							onClick={() => workspace.setStage(index)}
-							className={`min-w-[170px] rounded-2xl border px-4 py-4 text-left transition ${
+							className={`rounded-[24px] border px-4 py-4 text-left transition duration-200 ${
 								workspace.stage === index
-									? "border-ink bg-ink text-white"
+									? "border-ink bg-ink text-white shadow-[0_18px_30px_rgba(15,23,42,0.22)]"
 									: index < workspace.stage
-										? "border-sky-200 bg-sky-50 text-sky-950"
-										: "border-slate-200 bg-white text-slate-700"
+										? "border-sky-200/90 bg-sky-50/90 text-sky-950"
+										: "border-slate-200/80 bg-slate-50/85 text-slate-700 hover:bg-white/85"
 							}`}
 						>
-							<p className="text-xs uppercase tracking-[0.18em] opacity-70">
-								{index + 1}
+							<p className="operator-kicker !text-inherit opacity-70">
+								Step {index + 1}
 							</p>
-							<p className="mt-2 font-semibold">{label}</p>
-							<p className="mt-2 text-sm opacity-80">{description}</p>
+							<p className="mt-3 font-semibold">{label}</p>
+							<p className="mt-2 text-sm leading-6 opacity-80">{description}</p>
 						</button>
 					))}
 				</div>
 
-				{workspace.error && (
-					<p className="mt-5 rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700">
-						{workspace.error}
-					</p>
-				)}
+				{workspace.error ? (
+					<div className="mt-5">
+						<InlineNotice message={workspace.error} tone="danger" />
+					</div>
+				) : null}
 
-				{workspace.stage === 0 && <MigrationScopeStage workspace={workspace} />}
-				{workspace.stage === 1 && (
+				{workspace.stage === 0 ? <MigrationScopeStage workspace={workspace} /> : null}
+				{workspace.stage === 1 ? (
 					<MigrationPrepareStage workspace={workspace} />
-				)}
-				{workspace.stage === 2 && (
+				) : null}
+				{workspace.stage === 2 ? (
 					<MigrationValidateStage workspace={workspace} />
-				)}
-				{workspace.stage === 3 && (
+				) : null}
+				{workspace.stage === 3 ? (
 					<MigrationExecuteStage workspace={workspace} />
-				)}
+				) : null}
 
 				<div className="mt-6 flex flex-wrap items-center justify-between gap-3">
 					<button
 						type="button"
-						className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:bg-slate-100"
+						className="operator-button-secondary"
 						onClick={() =>
 							workspace.setStage((current) => Math.max(0, current - 1))
 						}
@@ -168,10 +172,10 @@ export function MigrationWorkflow({
 					>
 						Back
 					</button>
-					{workspace.stage < stages.length - 1 && (
+					{workspace.stage < stages.length - 1 ? (
 						<button
 							type="button"
-							className="inline-flex items-center gap-2 rounded-full bg-ink px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:bg-slate-300"
+							className="operator-button"
 							onClick={() =>
 								workspace.setStage((current) =>
 									Math.min(stages.length - 1, current + 1),
@@ -186,9 +190,9 @@ export function MigrationWorkflow({
 							Continue
 							<ArrowRight className="h-4 w-4" />
 						</button>
-					)}
+					) : null}
 				</div>
-			</div>
+			</SectionCard>
 		</section>
 	);
 }

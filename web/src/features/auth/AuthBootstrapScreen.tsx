@@ -60,250 +60,246 @@ export function AuthBootstrapScreen({ auth }: AuthBootstrapScreenProps) {
 
 	return (
 		<main className="min-h-screen bg-transparent px-4 py-4 md:px-6 md:py-6">
-			<div className="mx-auto max-w-6xl space-y-6">
-				<div className="panel overflow-hidden p-6 lg:p-7">
-					<PageHeader
-						eyebrow="Operator Bootstrap"
-						title="Connect the Viaduct dashboard"
-						description="Use a scoped service-account key for day-to-day operator work. Use a tenant key only when you are bootstrapping tenant access or handling a break-glass administrative task."
-						badges={[
-							{
-								label: auth.about
-									? `${auth.about.name} ${auth.about.version}`
-									: "Build metadata pending",
-								tone: "neutral",
-							},
-							{ label: "Session storage is the default", tone: "info" },
-							{ label: "Runtime authentication", tone: "accent" },
-						]}
+			<div className="mx-auto max-w-[1520px] space-y-6">
+				<PageHeader
+					eyebrow="Operator Bootstrap"
+					title="Connect the Viaduct dashboard"
+					description="Start with a scoped service-account session for day-to-day operator work. Use a tenant key only for tenant bootstrap or break-glass administrative recovery."
+					badges={[
+						{
+							label: auth.about
+								? `${auth.about.name} ${auth.about.version}`
+								: "Build metadata pending",
+							tone: "neutral",
+						},
+						{ label: "Session storage is the default", tone: "info" },
+						{ label: "Runtime authentication", tone: "accent" },
+					]}
+				/>
+
+				{auth.status === "checking" ? (
+					<LoadingState
+						title="Validating dashboard credentials"
+						message="The dashboard is confirming the provided service-account or tenant key against the current Viaduct API."
 					/>
+				) : null}
 
-					{auth.status === "checking" && (
-						<div className="mt-6">
-							<LoadingState
-								title="Validating dashboard credentials"
-								message="The dashboard is confirming the provided service-account or tenant key against the current Viaduct API."
-							/>
-						</div>
-					)}
+				{auth.status === "error" && auth.error ? (
+					<ErrorState
+						title="Authentication failed"
+						message={auth.error.message}
+						technicalDetails={auth.error.technicalDetails}
+						actions={errorActions}
+					/>
+				) : null}
 
-					{auth.status === "error" && auth.error && (
-						<div className="mt-6">
-							<ErrorState
-								title="Authentication failed"
-								message={auth.error.message}
-								technicalDetails={auth.error.technicalDetails}
-								actions={errorActions}
-							/>
-						</div>
-					)}
+				<section className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.95fr)]">
+					<SectionCard
+						eyebrow="Authentication"
+						title="Runtime credential bootstrap"
+						description="The dashboard accepts runtime credentials so operators can rotate or replace access without rebuilding the frontend."
+					>
+						<form className="space-y-5" onSubmit={handleSubmit}>
+							<div className="operator-toggle">
+								<button
+									type="button"
+									onClick={() => setMode("service-account")}
+									aria-pressed={mode === "service-account"}
+									className={`operator-toggle-button ${mode === "service-account" ? "operator-toggle-button-active" : ""}`}
+								>
+									Service account
+								</button>
+								<button
+									type="button"
+									onClick={() => setMode("tenant")}
+									aria-pressed={mode === "tenant"}
+									className={`operator-toggle-button ${mode === "tenant" ? "operator-toggle-button-active" : ""}`}
+								>
+									Tenant key
+								</button>
+							</div>
 
-					<section className="mt-6 grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
-						<SectionCard
-							eyebrow="Authentication"
-							title="Runtime credential bootstrap"
-							description="The dashboard accepts runtime credentials so operators do not need to rebuild the frontend to rotate or replace keys."
-						>
-							<form className="space-y-4" onSubmit={handleSubmit}>
-								<div className="operator-toggle">
-									<button
-										type="button"
-										onClick={() => setMode("service-account")}
-										className={`operator-toggle-button ${mode === "service-account" ? "operator-toggle-button-active" : ""}`}
-									>
-										Service account
-									</button>
-									<button
-										type="button"
-										onClick={() => setMode("tenant")}
-										className={`operator-toggle-button ${mode === "tenant" ? "operator-toggle-button-active" : ""}`}
-									>
-										Tenant key
-									</button>
-								</div>
-
-								<div className="grid gap-4 md:grid-cols-2">
-									<div className="md:col-span-2">
-										<label className="block">
-											<span className="operator-kicker">
-												{mode === "service-account"
-													? "Service-account key"
-													: "Tenant key"}
-											</span>
-											<input
-												type="password"
-												value={apiKey}
-												onChange={(event) => setAPIKey(event.target.value)}
-												className="operator-input mt-2"
-												placeholder={
-													mode === "service-account"
-														? "Paste the operator service-account key"
-														: "Paste the tenant bootstrap key"
-												}
-											/>
-										</label>
-										<p className="mt-2 text-sm text-slate-600">
+							<div className="grid gap-4 md:grid-cols-2">
+								<div className="md:col-span-2">
+									<label className="block">
+										<span className="operator-kicker">
 											{mode === "service-account"
-												? "Preferred for the guided workspace flow, background jobs, and exported reports."
-												: "Use only when you need tenant bootstrap access or administrative recovery."}
-										</p>
-									</div>
-
-									<label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50/90 px-4 py-4 text-sm text-slate-700 md:col-span-2">
-										<input
-											type="checkbox"
-											checked={remember}
-											onChange={(event) => setRemember(event.target.checked)}
-											className="mt-0.5 h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
-										/>
-										<span>
-											<span className="block font-semibold text-ink">
-												Remember this browser
-											</span>
-											<span className="mt-1 block text-slate-600">
-												Persist only a non-sensitive session marker in this
-												browser while the authenticated API session stays in an
-												httpOnly cookie. Leave this off for shared devices,
-												temporary sessions, or validation labs.
-											</span>
+												? "Service-account key"
+												: "Tenant key"}
 										</span>
+										<input
+											type="password"
+											value={apiKey}
+											onChange={(event) => setAPIKey(event.target.value)}
+											className="operator-input mt-2"
+											placeholder={
+												mode === "service-account"
+													? "Paste the operator service-account key"
+													: "Paste the tenant bootstrap key"
+											}
+										/>
 									</label>
+									<p className="mt-3 text-sm leading-6 text-slate-600">
+										{mode === "service-account"
+											? "Preferred for the guided workspace flow, background jobs, and exported reports."
+											: "Use only when you need tenant bootstrap access or administrative recovery."}
+									</p>
 								</div>
 
-								<div className="flex flex-wrap gap-2">
+								<label className="metric-surface flex items-start gap-3 text-sm text-slate-700 md:col-span-2">
+									<input
+										type="checkbox"
+										checked={remember}
+										onChange={(event) => setRemember(event.target.checked)}
+										className="mt-1 h-4 w-4 rounded border-slate-300"
+									/>
+									<span>
+										<span className="block font-semibold text-ink">
+											Remember this browser
+										</span>
+										<span className="mt-1.5 block leading-6 text-slate-600">
+											Persist only a non-sensitive session marker in this
+											browser while the authenticated API session stays in an
+											httpOnly cookie. Leave this off for shared devices,
+											temporary sessions, or validation labs.
+										</span>
+									</span>
+								</label>
+							</div>
+
+							<div className="flex flex-wrap gap-2">
+								<button
+									type="submit"
+									disabled={submitting || apiKey.trim() === ""}
+									className="operator-button"
+								>
+									{submitting ? "Connecting..." : "Connect dashboard"}
+								</button>
+								{runtimeKeyPresent ? (
 									<button
-										type="submit"
-										disabled={submitting || apiKey.trim() === ""}
-										className="operator-button"
+										type="button"
+										onClick={() => auth.signOut()}
+										className="operator-button-secondary"
 									>
-										{submitting ? "Connecting..." : "Connect dashboard"}
+										Forget browser session
 									</button>
-									{runtimeKeyPresent ? (
-										<button
-											type="button"
-											onClick={() => auth.signOut()}
-											className="operator-button-secondary"
-										>
-											Forget browser session
-										</button>
-									) : null}
-								</div>
-							</form>
+								) : null}
+							</div>
+						</form>
+					</SectionCard>
+
+					<div className="space-y-6">
+						<SectionCard
+							eyebrow="Recommended flow"
+							title="What operators do next"
+							description="The dashboard is optimized for the workspace-first path, not a disconnected collection of demo pages."
+						>
+							<div className="space-y-3">
+								{[
+									{
+										step: "01",
+										title: "Create a workspace",
+										body: "Capture the source connection, credential reference, and target assumptions in one persisted record.",
+									},
+									{
+										step: "02",
+										title: "Run discovery and inspect",
+										body: "Persist snapshots, review workloads, and inspect dependency context before planning.",
+									},
+									{
+										step: "03",
+										title: "Simulate, plan, and export",
+										body: "Keep readiness results, saved plans, notes, and exported reports attached to the same workspace.",
+									},
+								].map((item) => (
+									<div
+										key={item.step}
+										className="metric-surface flex items-start gap-3"
+									>
+										<span className="inline-flex h-11 w-11 items-center justify-center rounded-[18px] bg-ink text-sm font-semibold text-white shadow-[0_10px_20px_rgba(15,23,42,0.18)]">
+											{item.step}
+										</span>
+										<div>
+											<p className="text-sm font-semibold text-ink">
+												{item.title}
+											</p>
+											<p className="mt-1 text-sm leading-6 text-slate-600">
+												{item.body}
+											</p>
+										</div>
+									</div>
+								))}
+							</div>
 						</SectionCard>
 
-						<div className="space-y-5">
-							<SectionCard
-								eyebrow="Recommended flow"
-								title="What operators do next"
-								description="The dashboard is optimized for the workspace-first flow, not a disconnected collection of demo pages."
-							>
-								<div className="space-y-3">
-									{[
-										{
-											step: "01",
-											title: "Create a workspace",
-											body: "Capture the source connection, credential reference, and target assumptions in one persisted record.",
-										},
-										{
-											step: "02",
-											title: "Run discovery and inspect",
-											body: "Persist snapshots, review workloads, and inspect dependency context before planning.",
-										},
-										{
-											step: "03",
-											title: "Simulate, plan, and export",
-											body: "Keep readiness results, saved plans, notes, and exported reports attached to the same workspace.",
-										},
-									].map((item) => (
-										<div
-											key={item.step}
-											className="metric-surface flex items-start gap-3"
-										>
-											<span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-ink text-sm font-semibold text-white">
-												{item.step}
-											</span>
-											<div>
-												<p className="text-sm font-semibold text-ink">
-													{item.title}
-												</p>
-												<p className="mt-1 text-sm leading-6 text-slate-600">
-													{item.body}
-												</p>
-											</div>
-										</div>
-									))}
-								</div>
-							</SectionCard>
-
-							<SectionCard
-								eyebrow="Credential handling"
-								title="Storage and recovery"
-								description="Keep credential behavior explicit so operators know when a browser session can be trusted and when it should be cleared."
-							>
-								<div className="grid gap-3">
-									<StorageRow
-										label="Current source"
-										value={describeCurrentSource(
-											storedSession.mode,
-											storedSession.source,
-										)}
-									/>
-									<StorageRow
-										label="Persistence"
-										value={describePersistence(persistence)}
-									/>
-									<StorageRow
-										label="Recommended default"
-										value="Session-only browser storage"
-									/>
-								</div>
-							</SectionCard>
-
-							<SectionCard
-								eyebrow="Current API context"
-								title="Operator visibility"
-								description="Build metadata and tenant identity are shown here as soon as the API responds."
-							>
-								<div className="flex flex-wrap gap-2">
-									{auth.currentTenant ? (
-										<>
-											<StatusBadge tone="success">
-												{auth.currentTenant.name}
-											</StatusBadge>
-											<StatusBadge tone="info">
-												{auth.currentTenant.role}
-											</StatusBadge>
-											<StatusBadge tone="neutral">
-												{auth.currentTenant.auth_method}
-											</StatusBadge>
-										</>
-									) : (
-										<StatusBadge tone="neutral">
-											Tenant context will appear after validation
-										</StatusBadge>
+						<SectionCard
+							eyebrow="Credential handling"
+							title="Storage and recovery"
+							description="Keep credential behavior explicit so operators know when a browser session can be trusted and when it should be cleared."
+						>
+							<div className="grid gap-3">
+								<StorageRow
+									label="Current source"
+									value={describeCurrentSource(
+										storedSession.mode,
+										storedSession.source,
 									)}
-								</div>
-								<div className="mt-4 rounded-xl border border-slate-200 bg-slate-50/90 px-4 py-4 text-sm text-slate-600">
-									<div className="flex items-start gap-3">
-										<div className="rounded-2xl bg-white p-2 text-slate-600">
-											<ShieldCheck className="h-4 w-4" />
-										</div>
-										<div>
-											<p className="font-semibold text-ink">
-												Tenant-scoped operator access
-											</p>
-											<p className="mt-1 leading-6">
-												The dashboard uses the same tenant-scoped API and
-												persisted backend model as the CLI and packaged operator
-												surfaces.
-											</p>
-										</div>
+								/>
+								<StorageRow
+									label="Persistence"
+									value={describePersistence(persistence)}
+								/>
+								<StorageRow
+									label="Recommended default"
+									value="Session-only browser storage"
+								/>
+							</div>
+						</SectionCard>
+
+						<SectionCard
+							eyebrow="Current API context"
+							title="Operator visibility"
+							description="Build metadata and tenant identity appear here as soon as the API responds."
+						>
+							<div className="flex flex-wrap gap-2">
+								{auth.currentTenant ? (
+									<>
+										<StatusBadge tone="success">
+											{auth.currentTenant.name}
+										</StatusBadge>
+										<StatusBadge tone="info">
+											{auth.currentTenant.role}
+										</StatusBadge>
+										<StatusBadge tone="neutral">
+											{auth.currentTenant.auth_method}
+										</StatusBadge>
+									</>
+								) : (
+									<StatusBadge tone="neutral">
+										Tenant context will appear after validation
+									</StatusBadge>
+								)}
+							</div>
+							<div className="mt-5 metric-surface text-sm text-slate-600">
+								<div className="flex items-start gap-3">
+									<div className="state-icon h-10 w-10 rounded-[16px] bg-white text-slate-600">
+										<ShieldCheck className="h-4 w-4" />
+									</div>
+									<div>
+										<p className="font-semibold text-ink">
+											Tenant-scoped operator access
+										</p>
+										<p className="mt-1 leading-6">
+											The dashboard uses the same tenant-scoped API and
+											persisted backend model as the CLI and packaged operator
+											surfaces.
+										</p>
 									</div>
 								</div>
-							</SectionCard>
-						</div>
-					</section>
-				</div>
+							</div>
+						</SectionCard>
+					</div>
+				</section>
 			</div>
 		</main>
 	);
@@ -313,7 +309,7 @@ function StorageRow({ label, value }: { label: string; value: string }) {
 	return (
 		<div className="metric-surface">
 			<p className="operator-kicker">{label}</p>
-			<p className="mt-2 text-sm font-semibold text-ink">{value}</p>
+			<p className="mt-2 text-sm font-semibold leading-6 text-ink">{value}</p>
 		</div>
 	);
 }

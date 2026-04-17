@@ -10,8 +10,21 @@ module.exports = {
         moss: "#2e6f40",
       },
       fontFamily: {
-        display: ["'Space Grotesk'", "sans-serif"],
-        body: ["'IBM Plex Sans'", "sans-serif"],
+        display: [
+          "'Aptos Display'",
+          "'Aptos'",
+          "'Segoe UI'",
+          "'Helvetica Neue'",
+          "Arial",
+          "sans-serif",
+        ],
+        body: [
+          "'Aptos'",
+          "'Segoe UI'",
+          "'Helvetica Neue'",
+          "Arial",
+          "sans-serif",
+        ],
       },
       boxShadow: {
         panel: "0 18px 40px rgba(15, 23, 42, 0.12)",

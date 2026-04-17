@@ -13,6 +13,7 @@ This document describes the current packaging and release process for Viaduct.
 - `cd web && npm run lint`: enforce dashboard lint and accessibility rules
 - `cd web && npm run test`: run dashboard unit tests
 - `cd web && npm run e2e`: run dashboard end-to-end coverage
+- `cd web && npm run screenshots:readme`: regenerate the README and demo screenshot assets from the seeded fixture runtime
 
 On Windows, `make release-gate` still builds `bin/viaduct.exe`, but it validates the CLI smoke commands through a LocalAppData-staged `go run ./cmd/viaduct` helper because some operator workstations enforce Application Control policies that block freshly built unsigned binaries from direct execution or from `%TEMP%`. The Windows test helpers stage race and coverage artifacts under repo-local cache directories so the canonical gate remains reproducible on locked-down workstations.
 
@@ -23,7 +24,7 @@ On Windows, `make release-gate` still builds `bin/viaduct.exe`, but it validates
 4. Verify `release-manifest.json`, `dependency-manifest.json`, and `SHA256SUMS.txt`.
 5. Smoke-test the packaged binary with `viaduct version`, `viaduct --help`, `viaduct doctor`, and the canonical local start flow (`viaduct start --config <installed-config> --detach --open-browser=false`) against the bundled dashboard assets when they are present.
 6. Confirm install docs, quickstarts, upgrade docs, rollback docs, deployment examples, and the pilot workspace guide still match the artifact layout and current auth behavior.
-7. Confirm the root README screenshot embeds, release notes entry, changelog entry, and the `site/` release badge all point at the same release.
+7. Refresh the checked-in README and demo screenshots, then confirm the root README embeds, release notes entry, changelog entry, and the `site/` release badge all point at the same release.
 8. Verify the plugin manifest check, OpenAPI contract check, and runtime Swagger UI (`/api/v1/docs`) remain aligned.
 9. Confirm there are no open release PRs left hanging if the release is being published directly from `main`.
 10. Tag and publish only after the verification and smoke checks are clean, and attach the generated release bundles plus checksums to the GitHub release.

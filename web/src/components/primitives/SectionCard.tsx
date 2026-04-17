@@ -21,9 +21,11 @@ export function SectionCard({
 	bodyClassName,
 	titleAs = "h2",
 }: SectionCardProps) {
-	const wrapperClassName = ["panel p-5", className].filter(Boolean).join(" ");
+	const wrapperClassName = ["panel px-5 py-5 lg:px-6 lg:py-6", className]
+		.filter(Boolean)
+		.join(" ");
 	const contentClassName = [
-		title || description || actions ? "mt-5" : "",
+		title || description || actions ? "mt-6" : "",
 		bodyClassName,
 	]
 		.filter(Boolean)
@@ -33,22 +35,22 @@ export function SectionCard({
 	return (
 		<section className={wrapperClassName}>
 			{(title || description || actions) && (
-				<div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-					<div>
+				<div className="relative flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+					<div className="min-w-0 max-w-4xl">
 						{eyebrow && <p className="operator-kicker">{eyebrow}</p>}
 						{title && (
-							<TitleTag className="font-display text-2xl text-ink">
+							<TitleTag className="mt-2 font-display text-[1.55rem] leading-tight tracking-[-0.03em] text-ink lg:text-[1.75rem]">
 								{title}
 							</TitleTag>
 						)}
 						{description && (
-							<p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+							<p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600">
 								{description}
 							</p>
 						)}
 					</div>
 					{actions && (
-						<div className="flex flex-wrap items-center gap-2 md:justify-end">
+						<div className="flex max-w-xl flex-wrap items-center gap-2 xl:justify-end">
 							{actions}
 						</div>
 					)}

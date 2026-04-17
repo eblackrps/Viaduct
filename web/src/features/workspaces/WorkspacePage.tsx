@@ -23,9 +23,11 @@ import { DependencyGraph } from "../../components/DependencyGraph";
 import { InventoryTable } from "../../components/InventoryTable";
 import { EmptyState } from "../../components/primitives/EmptyState";
 import { ErrorState } from "../../components/primitives/ErrorState";
+import { InlineNotice } from "../../components/primitives/InlineNotice";
 import { LoadingState } from "../../components/primitives/LoadingState";
 import { PageHeader } from "../../components/primitives/PageHeader";
 import { SectionCard } from "../../components/primitives/SectionCard";
+import { StatCard } from "../../components/primitives/StatCard";
 import {
 	StatusBadge,
 	type StatusTone,
@@ -41,7 +43,11 @@ import type {
 	WorkspaceNote,
 	WorkspaceSnapshot,
 } from "../../types";
-import { buildInventoryAssessmentRows } from "../inventory/inventoryModel";
+import {
+	buildInventoryAssessmentRows,
+	type InventoryAssessmentRow,
+} from "../inventory/inventoryModel";
+import { revealWorkloadDetailPanel } from "../inventory/revealWorkloadDetailPanel";
 import { WorkloadDetailPanel } from "../inventory/WorkloadDetailPanel";
 import { useInventoryWorkspace } from "../inventory/useInventoryWorkspace";
 
@@ -127,6 +133,7 @@ export function WorkspacePage() {
 	});
 	const [actionLoading, setActionLoading] = useState<string | null>(null);
 	const selectedWorkspaceIDRef = useRef<string | null>(null);
+	const detailPanelRef = useRef<HTMLDivElement | null>(null);
 
 	const refreshWorkspaces = useCallback(
 		async (preferredWorkspaceID?: string) => {
@@ -560,6 +567,19 @@ export function WorkspacePage() {
 		} finally {
 			setActionLoading(null);
 		}
+	}
+
+	function handleFocusWorkload(id: string) {
+		inventoryWorkspace.setActiveWorkloadId(id);
+		revealWorkloadDetailPanel(detailPanelRef.current);
+	}
+
+	function handleSaveSelection(row: InventoryAssessmentRow) {
+		inventoryWorkspace.replaceSelection([row.id]);
+		void handleWorkspaceUpdate(
+			{ selected_workload_ids: [row.id] },
+			"selection",
+		);
 	}
 
 	if (state.loading) {
@@ -1285,7 +1305,7 @@ export function WorkspacePage() {
 					message="Run discovery for this workspace to persist a snapshot baseline before inspection, simulation, or plan generation."
 				/>
 			) : (
-				<section className="grid gap-5 xl:grid-cols-[1.35fr_0.85fr]">
+				<section className="grid gap-5 min-[1800px]:grid-cols-[minmax(0,1.2fr)_minmax(360px,0.8fr)]">
 					<InventoryTable
 						rows={inventoryWorkspace.filteredRows}
 						totalCount={rows.length}
@@ -1322,15 +1342,22 @@ export function WorkspacePage() {
 						onToggleSelectAllVisible={inventoryWorkspace.toggleSelectAllVisible}
 						onClearSelection={inventoryWorkspace.clearSelection}
 						onResetFilters={inventoryWorkspace.resetFilters}
-						onFocusWorkload={inventoryWorkspace.setActiveWorkloadId}
+						onFocusWorkload={handleFocusWorkload}
 					/>
-					<WorkloadDetailPanel
-						row={inventoryWorkspace.activeRow}
-						latestSnapshot={latestSnapshot}
-						onPreparePlan={(row) =>
-							inventoryWorkspace.replaceSelection([row.id])
-						}
-					/>
+					<div
+						ref={detailPanelRef}
+						tabIndex={-1}
+						className="scroll-mt-6 outline-none"
+					>
+						<WorkloadDetailPanel
+							row={inventoryWorkspace.activeRow}
+							latestSnapshot={latestSnapshot}
+							onPrimaryAction={handleSaveSelection}
+							primaryActionLabel="Save selection"
+							primaryActionPendingLabel="Saving selection..."
+							primaryActionBusy={actionLoading === "selection"}
+						/>
+					</div>
 				</section>
 			)}
 
@@ -1692,7 +1719,7 @@ function WorkspaceCheckbox({
 				type="checkbox"
 				checked={checked}
 				onChange={(event) => onChange(event.target.checked)}
-				className="mt-0.5 h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+				className="mt-1 h-4 w-4 rounded border-slate-300"
 			/>
 			<span>
 				<span className="block text-sm font-semibold text-ink">{label}</span>
@@ -1714,11 +1741,11 @@ function WorkflowStepCard({
 }) {
 	return (
 		<div
-			className={`rounded-xl border px-4 py-4 ${workflowStepClasses(step.status)}`}
+			className={`rounded-[24px] border px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)] ${workflowStepClasses(step.status)}`}
 		>
 			<div className="flex items-start gap-3">
 				<span
-					className={`inline-flex h-10 w-10 items-center justify-center rounded-2xl text-sm font-semibold ${workflowIndexClasses(step.status)}`}
+					className={`inline-flex h-11 w-11 items-center justify-center rounded-[18px] text-sm font-semibold shadow-[0_10px_20px_rgba(15,23,42,0.12)] ${workflowIndexClasses(step.status)}`}
 				>
 					{String(index).padStart(2, "0")}
 				</span>
@@ -1749,13 +1776,11 @@ function Metric({
 	tone?: StatusTone;
 }) {
 	return (
-		<div className="metric-surface">
-			<p className="operator-kicker">{label}</p>
-			<p className="mt-3 text-lg font-semibold text-ink">{value}</p>
-			<div className="mt-3">
-				<StatusBadge tone={tone}>{label}</StatusBadge>
-			</div>
-		</div>
+		<StatCard
+			label={label}
+			value={value}
+			badge={{ label, tone }}
+		/>
 	);
 }
 
@@ -1779,9 +1804,7 @@ function ArtifactBlock({
 				{hasChildren ? (
 					children
 				) : (
-					<div className="metric-surface text-sm text-slate-600">
-						{emptyMessage}
-					</div>
+					<InlineNotice message={emptyMessage} tone="neutral" />
 				)}
 			</div>
 		</div>
@@ -1805,9 +1828,7 @@ function IssueList({
 			</div>
 			<div className="mt-3 space-y-2">
 				{items.map((item) => (
-					<div key={item} className="metric-surface text-sm text-slate-700">
-						{item}
-					</div>
+					<InlineNotice key={item} message={item} tone={tone} />
 				))}
 			</div>
 		</div>
@@ -1815,12 +1836,7 @@ function IssueList({
 }
 
 function HistoryRow({ label, value }: { label: string; value: string }) {
-	return (
-		<div className="metric-surface">
-			<p className="operator-kicker">{label}</p>
-			<p className="mt-2 break-all text-sm font-semibold text-ink">{value}</p>
-		</div>
-	);
+	return <StatCard label={label} value={value} />;
 }
 
 function buildWorkflowSteps(

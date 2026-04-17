@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { RefreshCcw } from "lucide-react";
 import type { MigrationPhase, MigrationState } from "../types";
+import { InlineNotice } from "./primitives/InlineNotice";
+import { SectionCard } from "./primitives/SectionCard";
+import { StatCard } from "./primitives/StatCard";
+import { StatusBadge } from "./primitives/StatusBadge";
 
 interface MigrationProgressProps {
 	state: MigrationState | null;
@@ -65,114 +69,116 @@ export function MigrationProgress({
 
 	if (!state) {
 		return (
-			<div className="rounded-2xl border border-dashed border-slate-300 px-4 py-8 text-sm text-slate-500">
-				Start a migration to see per-VM progress.
-			</div>
+			<InlineNotice
+				message="Start a migration to see per-workload execution progress."
+				tone="neutral"
+			/>
 		);
 	}
 
 	return (
 		<section className="space-y-5">
-			<div className="panel p-5">
-				<div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-					<div>
-						<p className="font-display text-2xl text-ink">Migration Progress</p>
-						<p className="mt-1 text-sm text-slate-500">
-							Phase:{" "}
-							<span className="font-semibold text-ink">{state.phase}</span> ·
-							Duration: {elapsedLabel}
-						</p>
-						{state.pending_approval && (
-							<p className="mt-2 text-sm font-semibold text-amber-700">
-								Execution is waiting on approval.
-							</p>
-						)}
-					</div>
-					{state.phase === "failed" && onRollback && (
+			<SectionCard
+				title="Migration progress"
+				description="Track the current phase, checkpoint status, and workload-by-workload execution detail."
+				actions={
+					state.phase === "failed" && onRollback ? (
 						<button
 							type="button"
-							className="inline-flex items-center gap-2 rounded-full bg-rose-600 px-4 py-2 text-sm font-semibold text-white"
+							className="operator-button-danger"
 							onClick={onRollback}
 						>
 							<RefreshCcw className="h-4 w-4" />
 							Rollback
 						</button>
-					)}
+					) : undefined
+				}
+			>
+				<div className="grid gap-3 md:grid-cols-3">
+					<StatCard label="Phase" value={state.phase} />
+					<StatCard label="Duration" value={elapsedLabel} />
+					<StatCard
+						label="Pending approval"
+						value={state.pending_approval ? "Yes" : "No"}
+						badge={{
+							label: state.pending_approval ? "Blocked" : "Clear",
+							tone: state.pending_approval ? "warning" : "success",
+						}}
+					/>
 				</div>
 
-				<div className="mt-5 h-3 overflow-hidden rounded-full bg-slate-200">
+				<div className="mt-5 overflow-hidden rounded-full bg-slate-200">
 					<div
-						className="h-full rounded-full bg-accent transition-all"
+						className="h-3 rounded-full bg-gradient-to-r from-accent via-steel to-ink transition-all"
 						style={{ width: `${percentage}%` }}
 					/>
 				</div>
 				<p className="mt-2 text-sm text-slate-500">{percentage}% complete</p>
 
-				{state.errors && state.errors.length > 0 && (
-					<div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+				{state.errors && state.errors.length > 0 ? (
+					<div className="mt-4 space-y-2">
 						{state.errors.map((error, index) => (
-							<p key={`${state.id}-error-${index}`}>{error}</p>
+							<InlineNotice
+								key={`${state.id}-error-${index}`}
+								message={error}
+								tone="danger"
+							/>
 						))}
 					</div>
-				)}
+				) : null}
 
-				{state.checkpoints && state.checkpoints.length > 0 && (
+				{state.checkpoints && state.checkpoints.length > 0 ? (
 					<div className="mt-4 grid gap-3 md:grid-cols-3">
 						{state.checkpoints.map((checkpoint) => (
-							<div
+							<StatCard
 								key={checkpoint.phase}
-								className="rounded-2xl bg-slate-50 px-4 py-3 text-sm"
-							>
-								<div className="flex items-center justify-between gap-2">
-									<p className="font-semibold text-ink">{checkpoint.phase}</p>
-									<span
-										className={`rounded-full px-3 py-1 text-xs font-semibold ${checkpointClass(checkpoint.status)}`}
-									>
-										{checkpoint.status}
-									</span>
-								</div>
-								{checkpoint.message && (
-									<p className="mt-2 text-slate-500">{checkpoint.message}</p>
-								)}
-							</div>
+								label={checkpoint.phase}
+								value={checkpoint.status}
+								detail={checkpoint.message}
+								badge={{
+									label: checkpoint.status,
+									tone: checkpointTone(checkpoint.status),
+								}}
+							/>
 						))}
 					</div>
-				)}
+				) : null}
 
-				{state.plan && state.plan.waves.length > 0 && (
-					<div className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">
-						<p className="font-semibold text-ink">Runbook</p>
-						<p className="mt-1">
-							Planned across {state.plan.waves.length} wave(s) with batch size{" "}
-							{state.plan.wave_strategy.size ?? state.plan.waves.length}.
-						</p>
+				{state.plan && state.plan.waves.length > 0 ? (
+					<div className="mt-4">
+						<InlineNotice
+							tone="info"
+							message={`Planned across ${state.plan.waves.length} wave(s) with batch size ${
+								state.plan.wave_strategy.size ?? state.plan.waves.length
+							}.`}
+							title="Runbook"
+						/>
 					</div>
-				)}
-			</div>
+				) : null}
+			</SectionCard>
 
 			<div className="space-y-3">
 				{state.workloads.map((workload) => (
 					<article
 						key={workload.vm.id || workload.vm.name}
-						className="panel p-4"
+						className="list-card"
 					>
-						<div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+						<div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
 							<div>
 								<p className="font-semibold text-ink">{workload.vm.name}</p>
-								<p className="text-sm text-slate-500">
-									{workload.vm.platform} →{" "}
-									{workload.target_vm_id || "pending target VM"}
+								<p className="mt-1 text-sm text-slate-500">
+									{workload.vm.platform} → {workload.target_vm_id || "pending target VM"}
 								</p>
 							</div>
-							<span
-								className={`rounded-full px-3 py-1 text-xs font-semibold ${phaseClass(workload.phase)}`}
-							>
+							<StatusBadge tone={phaseTone(workload.phase)}>
 								{workload.phase}
-							</span>
+							</StatusBadge>
 						</div>
-						{workload.error && (
-							<p className="mt-3 text-sm text-rose-700">{workload.error}</p>
-						)}
+						{workload.error ? (
+							<div className="mt-4">
+								<InlineNotice message={workload.error} tone="danger" />
+							</div>
+						) : null}
 					</article>
 				))}
 			</div>
@@ -180,42 +186,40 @@ export function MigrationProgress({
 	);
 }
 
-function phaseClass(phase: MigrationPhase) {
+function phaseTone(
+	phase: MigrationPhase,
+): "neutral" | "info" | "success" | "warning" | "danger" | "accent" {
 	switch (phase) {
 		case "plan":
-			return "bg-sky-100 text-sky-700";
+			return "info";
 		case "export":
-			return "bg-amber-100 text-amber-700";
 		case "convert":
-			return "bg-orange-100 text-orange-700";
 		case "import":
-			return "bg-violet-100 text-violet-700";
 		case "configure":
-			return "bg-teal-100 text-teal-700";
+			return "accent";
 		case "verify":
-			return "bg-emerald-100 text-emerald-700";
 		case "complete":
-			return "bg-emerald-100 text-emerald-700";
+			return "success";
 		case "failed":
-			return "bg-rose-100 text-rose-700";
+			return "danger";
 		case "rolled_back":
-			return "bg-slate-200 text-slate-700";
+			return "neutral";
 		default:
-			return "bg-slate-100 text-slate-700";
+			return "neutral";
 	}
 }
 
-function checkpointClass(
+function checkpointTone(
 	status: "pending" | "running" | "completed" | "failed",
-) {
+): "neutral" | "info" | "success" | "warning" | "danger" | "accent" {
 	switch (status) {
 		case "running":
-			return "bg-sky-100 text-sky-700";
+			return "info";
 		case "completed":
-			return "bg-emerald-100 text-emerald-700";
+			return "success";
 		case "failed":
-			return "bg-rose-100 text-rose-700";
+			return "danger";
 		default:
-			return "bg-slate-100 text-slate-700";
+			return "neutral";
 	}
 }

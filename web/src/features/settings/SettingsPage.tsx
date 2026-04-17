@@ -1,9 +1,11 @@
 import { hasApiKeyConfigured, type ErrorDisplay } from "../../api";
 import { EmptyState } from "../../components/primitives/EmptyState";
 import { ErrorState } from "../../components/primitives/ErrorState";
+import { InlineNotice } from "../../components/primitives/InlineNotice";
 import { LoadingState } from "../../components/primitives/LoadingState";
 import { PageHeader } from "../../components/primitives/PageHeader";
 import { SectionCard } from "../../components/primitives/SectionCard";
+import { StatCard } from "../../components/primitives/StatCard";
 import { StatusBadge } from "../../components/primitives/StatusBadge";
 import type { TenantSummary } from "../../types";
 import { useSettingsData } from "./useSettingsData";
@@ -60,26 +62,29 @@ export function SettingsPage({
 				]}
 			/>
 
-			{loading && !about && !currentTenant && (
+			{loading && !about && !currentTenant ? (
 				<LoadingState
 					title="Loading workspace settings"
 					message="Retrieving operator build metadata and the effective tenant context from the Viaduct API."
 				/>
-			)}
+			) : null}
 
-			{showEmpty &&
-				(settingsError ? (
-					<ErrorState
-						title="Workspace settings unavailable"
-						message={settingsError}
-						technicalDetails={settingsErrorDetails}
-					/>
-				) : (
-					<EmptyState
-						title="No runtime context available"
-						message="The dashboard could not load either build metadata or the current tenant context from the operator API."
-					/>
-				))}
+			{showEmpty
+				? settingsError
+					? (
+							<ErrorState
+								title="Workspace settings unavailable"
+								message={settingsError}
+								technicalDetails={settingsErrorDetails}
+							/>
+						)
+					: (
+							<EmptyState
+								title="No runtime context available"
+								message="The dashboard could not load either build metadata or the current tenant context from the operator API."
+							/>
+						)
+				: null}
 
 			<section className="grid gap-5 xl:grid-cols-2">
 				<SectionCard
@@ -89,17 +94,18 @@ export function SettingsPage({
 					{errors.about ? (
 						<InlineError error={errors.about} />
 					) : (
-						<div className="space-y-4">
-							<SettingRow
+						<div className="grid gap-3 md:grid-cols-2">
+							<StatCard
 								label="API base"
-								value="/api/v1 via Vite proxy in development or packaged backend in release builds"
+								value="/api/v1"
+								detail="Uses the Vite proxy in development or the packaged backend in release builds."
 							/>
-							<SettingRow label="Authentication" value={authSourceLabel} />
-							<SettingRow
+							<StatCard label="Authentication" value={authSourceLabel} />
+							<StatCard
 								label="Credential persistence"
 								value={authPersistenceLabel}
 							/>
-							<SettingRow
+							<StatCard
 								label="Version"
 								value={
 									about
@@ -107,15 +113,15 @@ export function SettingsPage({
 										: "Unavailable"
 								}
 							/>
-							<SettingRow
+							<StatCard
 								label="Build commit"
 								value={about?.commit || "Unavailable"}
 							/>
-							<SettingRow
+							<StatCard
 								label="Plugin protocol"
 								value={about?.plugin_protocol || "Unavailable"}
 							/>
-							<SettingRow
+							<StatCard
 								label="Store backend"
 								value={
 									about
@@ -135,43 +141,30 @@ export function SettingsPage({
 						<InlineError error={errors.currentTenant} />
 					) : (
 						<div className="grid gap-3 md:grid-cols-2">
-							<ContextStat
+							<StatCard
 								label="Tenant name"
-								value={
-									currentTenant?.name ?? summary?.tenant_id ?? "Unavailable"
-								}
+								value={currentTenant?.name ?? summary?.tenant_id ?? "Unavailable"}
 							/>
-							<ContextStat
-								label="Role"
-								value={currentTenant?.role ?? "Unavailable"}
-							/>
-							<ContextStat
+							<StatCard label="Role" value={currentTenant?.role ?? "Unavailable"} />
+							<StatCard
 								label="Auth method"
 								value={currentTenant?.auth_method ?? "Unavailable"}
 							/>
-							<ContextStat
+							<StatCard
 								label="Service account"
-								value={
-									currentTenant?.service_account_name ?? "Tenant credential"
-								}
+								value={currentTenant?.service_account_name ?? "Tenant credential"}
 							/>
-							<ContextStat
+							<StatCard
 								label="Service accounts"
 								value={String(currentTenant?.service_account_count ?? 0)}
 							/>
-							<ContextStat
-								label="Workloads"
-								value={String(summary?.workload_count ?? 0)}
-							/>
-							<ContextStat
-								label="Snapshots"
-								value={String(summary?.snapshot_count ?? 0)}
-							/>
-							<ContextStat
+							<StatCard label="Workloads" value={String(summary?.workload_count ?? 0)} />
+							<StatCard label="Snapshots" value={String(summary?.snapshot_count ?? 0)} />
+							<StatCard
 								label="Active migrations"
 								value={String(summary?.active_migrations ?? 0)}
 							/>
-							<ContextStat
+							<StatCard
 								label="Pending approvals"
 								value={String(summary?.pending_approvals ?? 0)}
 							/>
@@ -184,13 +177,13 @@ export function SettingsPage({
 					description="Session-scoped browser storage is the default operator path. Remembered keys should be limited to trusted workstations."
 				>
 					<div className="grid gap-3 md:grid-cols-2">
-						<ContextStat label="Credential source" value={authSourceLabel} />
-						<ContextStat label="Persistence" value={authPersistenceLabel} />
-						<ContextStat
+						<StatCard label="Credential source" value={authSourceLabel} />
+						<StatCard label="Persistence" value={authPersistenceLabel} />
+						<StatCard
 							label="Recommended default"
 							value="Session-scoped browser storage"
 						/>
-						<ContextStat
+						<StatCard
 							label="Shared-workstation guidance"
 							value="Forget remembered keys after the session ends"
 						/>
@@ -206,11 +199,12 @@ export function SettingsPage({
 							</button>
 						</div>
 					) : (
-						<p className="mt-4 text-sm text-slate-600">
-							No browser-managed runtime key is active right now. If the
-							dashboard is using an environment-provided key, rotate it through
-							the deployment environment instead.
-						</p>
+						<div className="mt-4">
+							<InlineNotice
+								message="No browser-managed runtime key is active right now. If the dashboard is using an environment-provided key, rotate it through the deployment environment instead."
+								tone="neutral"
+							/>
+						</div>
 					)}
 				</SectionCard>
 
@@ -227,32 +221,32 @@ export function SettingsPage({
 										{permission}
 									</StatusBadge>
 								))}
-								{currentTenant.permissions.length === 0 && (
+								{currentTenant.permissions.length === 0 ? (
 									<StatusBadge tone="neutral">
 										No permissions reported
 									</StatusBadge>
-								)}
+								) : null}
 							</div>
 							<div className="mt-4 grid gap-3 md:grid-cols-3">
-								<ContextStat
+								<StatCard
 									label="Requests/min"
 									value={String(currentTenant.quotas?.requests_per_minute ?? 0)}
 								/>
-								<ContextStat
+								<StatCard
 									label="Max snapshots"
 									value={String(currentTenant.quotas?.max_snapshots ?? 0)}
 								/>
-								<ContextStat
+								<StatCard
 									label="Max migrations"
 									value={String(currentTenant.quotas?.max_migrations ?? 0)}
 								/>
 							</div>
 						</>
 					) : (
-						<p className="text-sm text-slate-500">
-							Tenant permissions and quotas appear here when the current tenant
-							endpoint is available.
-						</p>
+						<InlineNotice
+							message="Tenant permissions and quotas appear here when the current tenant endpoint is available."
+							tone="neutral"
+						/>
 					)}
 				</SectionCard>
 
@@ -270,59 +264,38 @@ export function SettingsPage({
 								{platform}: {platformCounts[platform] ?? 0}
 							</StatusBadge>
 						))}
-						{supportedPlatforms.length === 0 && (
+						{supportedPlatforms.length === 0 ? (
 							<StatusBadge tone="neutral">No platforms reported</StatusBadge>
-						)}
+						) : null}
 					</div>
-					<p className="mt-4 text-sm text-slate-500">
-						Build metadata is sourced from `/api/v1/about`, while tenant role,
-						auth method, and effective permissions come from
-						`/api/v1/tenants/current`.
-					</p>
+					<div className="mt-4">
+						<InlineNotice
+							message="Build metadata is sourced from `/api/v1/about`, while tenant role, auth method, and effective permissions come from `/api/v1/tenants/current`."
+							tone="info"
+						/>
+					</div>
 				</SectionCard>
 			</section>
 		</div>
 	);
 }
 
-function SettingRow({ label, value }: { label: string; value: string }) {
-	return (
-		<div className="rounded-2xl bg-slate-50 px-4 py-4">
-			<p className="text-xs uppercase tracking-[0.18em] text-slate-500">
-				{label}
-			</p>
-			<p className="mt-2 text-sm font-semibold text-ink">{value}</p>
-		</div>
-	);
-}
-
-function ContextStat({ label, value }: { label: string; value: string }) {
-	return (
-		<div className="rounded-2xl bg-slate-50 px-4 py-4">
-			<p className="text-xs uppercase tracking-[0.18em] text-slate-500">
-				{label}
-			</p>
-			<p className="mt-2 font-semibold text-ink">{value}</p>
-		</div>
-	);
-}
-
 function InlineError({ error }: { error: ErrorDisplay }) {
 	return (
-		<div className="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700">
-			<p>{error.message}</p>
-			{error.technicalDetails.length > 0 && (
-				<div className="mt-3 rounded-2xl bg-white/70 px-4 py-3 text-xs text-rose-800">
-					{error.technicalDetails.map((detail, index) => (
-						<p
-							key={`${detail}-${index}`}
-							className={index === 0 ? undefined : "mt-1"}
-						>
-							{detail}
-						</p>
-					))}
-				</div>
-			)}
-		</div>
+		<InlineNotice
+			tone="danger"
+			title={error.message}
+			message={
+				error.technicalDetails.length > 0 ? (
+					<div className="space-y-1 text-xs">
+						{error.technicalDetails.map((detail, index) => (
+							<p key={`${detail}-${index}`}>{detail}</p>
+						))}
+					</div>
+				) : (
+					""
+				)
+			}
+		/>
 	);
 }
