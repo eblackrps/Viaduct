@@ -35,7 +35,16 @@ make package-release-matrix
 
 This creates:
 - `dist/viaduct_<version>_<goos>_<goarch>/`
-- `dist/viaduct_<version>_<goos>_<goarch>.zip`
+- `dist/viaduct_<version>_<goos>_<goarch>.tar.gz`
+- `dist/SHA256SUMS`
+
+The canonical packaging matrix is:
+- `linux/amd64`
+- `linux/arm64`
+- `darwin/arm64`
+- `windows/amd64`
+
+Git tags keep the leading `v`, but bundle names use the numeric release label. For example, `v2.4.0` publishes `dist/viaduct_2.4.0_linux_amd64.tar.gz`.
 
 Each bundle includes:
 - the Viaduct CLI binary

@@ -13,7 +13,9 @@ RUN_BIN = $(GO_RUN) -Ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT
 WEB_INSTALL = cd web && npm ci
 COVERPROFILE_ARG = "-coverprofile=coverage.out"
 COVERFUNC_ARG = "-func=coverage.out"
-GO_BUILD_LINUX = powershell -NoProfile -Command "$$env:CGO_ENABLED='0'; $$env:GOOS='linux'; $$env:GOARCH='amd64'; go build -ldflags '-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DATE)' -o '$(LINUX_BINARY)' ./cmd/viaduct"
+GO_BUILD_LINUX_AMD64 = powershell -NoProfile -Command "$$env:CGO_ENABLED='0'; $$env:GOOS='linux'; $$env:GOARCH='amd64'; go build -ldflags '-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DATE)' -o '$(LINUX_AMD64_BINARY)' ./cmd/viaduct"
+GO_BUILD_LINUX_ARM64 = powershell -NoProfile -Command "$$env:CGO_ENABLED='0'; $$env:GOOS='linux'; $$env:GOARCH='arm64'; go build -ldflags '-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DATE)' -o '$(LINUX_ARM64_BINARY)' ./cmd/viaduct"
+GO_BUILD_DARWIN_ARM64 = powershell -NoProfile -Command "$$env:CGO_ENABLED='0'; $$env:GOOS='darwin'; $$env:GOARCH='arm64'; go build -ldflags '-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DATE)' -o '$(DARWIN_ARM64_BINARY)' ./cmd/viaduct"
 GO_BUILD_WINDOWS = powershell -NoProfile -Command "$$env:CGO_ENABLED='0'; $$env:GOOS='windows'; $$env:GOARCH='amd64'; go build -ldflags '-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DATE)' -o '$(WINDOWS_BINARY)' ./cmd/viaduct"
 GO_TEST_RACE = powershell -NoProfile -ExecutionPolicy Bypass -File scripts/go_test_race_windows.ps1 ./... -v -race
 GO_TEST_RACE_COUNT = powershell -NoProfile -ExecutionPolicy Bypass -File scripts/go_test_race_windows.ps1 ./... -v -race -count=1
@@ -33,7 +35,9 @@ GO_RUN = go run
 WEB_INSTALL = cd web && npm ci
 COVERPROFILE_ARG = -coverprofile=coverage.out
 COVERFUNC_ARG = -func=coverage.out
-GO_BUILD_LINUX = CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DATE)" -o $(LINUX_BINARY) ./cmd/viaduct
+GO_BUILD_LINUX_AMD64 = CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DATE)" -o $(LINUX_AMD64_BINARY) ./cmd/viaduct
+GO_BUILD_LINUX_ARM64 = CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DATE)" -o $(LINUX_ARM64_BINARY) ./cmd/viaduct
+GO_BUILD_DARWIN_ARM64 = CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DATE)" -o $(DARWIN_ARM64_BINARY) ./cmd/viaduct
 GO_BUILD_WINDOWS = CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DATE)" -o $(WINDOWS_BINARY) ./cmd/viaduct
 GO_TEST_RACE = go test ./... -v -race
 GO_TEST_RACE_COUNT = go test ./... -v -race -count=1
@@ -42,10 +46,13 @@ endif
 
 COVER_MIN ?= 50.0
 PLUGIN_MANIFEST ?= examples/plugin-example/plugin.json
-LINUX_BINARY = bin/viaduct-linux-amd64
+PACKAGE_VERSION ?= $(patsubst v%,%,$(VERSION))
+LINUX_AMD64_BINARY = bin/viaduct-linux-amd64
+LINUX_ARM64_BINARY = bin/viaduct-linux-arm64
+DARWIN_ARM64_BINARY = bin/viaduct-darwin-arm64
 WINDOWS_BINARY = bin/viaduct.exe
 
-.PHONY: all build build-linux build-windows test lint proto docker dashboard serve web-build package-release package-release-linux package-release-windows package-release-matrix certification-test soak-test plugin-check openapi-generate contract-check release-gate clean
+.PHONY: all build build-linux build-linux-amd64 build-linux-arm64 build-darwin-arm64 build-windows test lint proto docker dashboard serve web-build web-verify package-release package-release-host-bundle package-release-linux package-release-linux-amd64 package-release-linux-amd64-bundle package-release-linux-arm64 package-release-linux-arm64-bundle package-release-darwin-arm64 package-release-darwin-arm64-bundle package-release-windows package-release-windows-bundle package-release-matrix certification-test soak-test plugin-check openapi-generate contract-check release-gate clean
 
 all: lint test build
 
@@ -54,8 +61,19 @@ build:
 	go build -ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DATE)" -o $(BIN_TARGET) ./cmd/viaduct
 
 build-linux:
+	$(MAKE) build-linux-amd64
+
+build-linux-amd64:
 	$(MKDIR_BIN)
-	$(GO_BUILD_LINUX)
+	$(GO_BUILD_LINUX_AMD64)
+
+build-linux-arm64:
+	$(MKDIR_BIN)
+	$(GO_BUILD_LINUX_ARM64)
+
+build-darwin-arm64:
+	$(MKDIR_BIN)
+	$(GO_BUILD_DARWIN_ARM64)
 
 build-windows:
 	$(MKDIR_BIN)
@@ -84,30 +102,71 @@ web-build:
 	$(WEB_INSTALL)
 	cd web && npm run build
 
+web-verify:
+	$(WEB_INSTALL)
+	cd web && npm run lint -- --max-warnings=0
+	cd web && npm run format
+	cd web && npm run test -- --run
+	cd web && npm run build
+
 package-release:
 	$(RM_DIST)
 	$(MKDIR_DIST)
-	$(MAKE) build
 	$(MAKE) web-build
-	$(GO_RUN) ./scripts/package_release -workspace . -version $(VERSION) -commit $(COMMIT) -date $(DATE) -binary $(BIN_TARGET) -web-dir web/dist -output-dir dist
+	$(MAKE) package-release-host-bundle
+
+package-release-host-bundle:
+	$(MKDIR_DIST)
+	$(MAKE) build
+	$(GO_RUN) ./scripts/package_release -workspace . -version $(PACKAGE_VERSION) -commit $(COMMIT) -date $(DATE) -binary $(BIN_TARGET) -web-dir web/dist -output-dir dist
 
 package-release-linux:
-	$(MKDIR_DIST)
-	$(MAKE) build-linux
+	$(MAKE) package-release-linux-amd64
+
+package-release-linux-amd64:
 	$(MAKE) web-build
-	$(GO_RUN) ./scripts/package_release -workspace . -version $(VERSION) -commit $(COMMIT) -date $(DATE) -binary $(LINUX_BINARY) -web-dir web/dist -output-dir dist -bundle-goos linux -bundle-goarch amd64
+	$(MAKE) package-release-linux-amd64-bundle
+
+package-release-linux-amd64-bundle:
+	$(MKDIR_DIST)
+	$(MAKE) build-linux-amd64
+	$(GO_RUN) ./scripts/package_release -workspace . -version $(PACKAGE_VERSION) -commit $(COMMIT) -date $(DATE) -binary $(LINUX_AMD64_BINARY) -web-dir web/dist -output-dir dist -bundle-goos linux -bundle-goarch amd64
+
+package-release-linux-arm64:
+	$(MAKE) web-build
+	$(MAKE) package-release-linux-arm64-bundle
+
+package-release-linux-arm64-bundle:
+	$(MKDIR_DIST)
+	$(MAKE) build-linux-arm64
+	$(GO_RUN) ./scripts/package_release -workspace . -version $(PACKAGE_VERSION) -commit $(COMMIT) -date $(DATE) -binary $(LINUX_ARM64_BINARY) -web-dir web/dist -output-dir dist -bundle-goos linux -bundle-goarch arm64
+
+package-release-darwin-arm64:
+	$(MAKE) web-build
+	$(MAKE) package-release-darwin-arm64-bundle
+
+package-release-darwin-arm64-bundle:
+	$(MKDIR_DIST)
+	$(MAKE) build-darwin-arm64
+	$(GO_RUN) ./scripts/package_release -workspace . -version $(PACKAGE_VERSION) -commit $(COMMIT) -date $(DATE) -binary $(DARWIN_ARM64_BINARY) -web-dir web/dist -output-dir dist -bundle-goos darwin -bundle-goarch arm64
 
 package-release-windows:
+	$(MAKE) web-build
+	$(MAKE) package-release-windows-bundle
+
+package-release-windows-bundle:
 	$(MKDIR_DIST)
 	$(MAKE) build-windows
-	$(MAKE) web-build
-	$(GO_RUN) ./scripts/package_release -workspace . -version $(VERSION) -commit $(COMMIT) -date $(DATE) -binary $(WINDOWS_BINARY) -web-dir web/dist -output-dir dist -bundle-goos windows -bundle-goarch amd64
+	$(GO_RUN) ./scripts/package_release -workspace . -version $(PACKAGE_VERSION) -commit $(COMMIT) -date $(DATE) -binary $(WINDOWS_BINARY) -web-dir web/dist -output-dir dist -bundle-goos windows -bundle-goarch amd64
 
 package-release-matrix:
 	$(RM_DIST)
 	$(MKDIR_DIST)
-	$(MAKE) package-release-windows
-	$(MAKE) package-release-linux
+	$(MAKE) web-build
+	$(MAKE) package-release-linux-amd64-bundle
+	$(MAKE) package-release-linux-arm64-bundle
+	$(MAKE) package-release-darwin-arm64-bundle
+	$(MAKE) package-release-windows-bundle
 
 certification-test:
 	go test ./tests/certification/... -v
@@ -133,6 +192,7 @@ release-gate:
 	go vet ./...
 	golangci-lint run ./...
 	$(GO_TEST_RACE_COUNT)
+	$(MAKE) certification-test
 	$(MAKE) soak-test
 	$(MAKE) plugin-check
 	$(MAKE) contract-check
@@ -145,7 +205,7 @@ release-gate:
 	$(RUN_BIN) stop --help
 	$(RUN_BIN) plan --help
 	$(RUN_BIN) migrate --help
-	$(MAKE) web-build
+	$(MAKE) web-verify
 	$(GO_TEST_COVER)
 	go tool cover $(COVERFUNC_ARG)
 	$(GO_RUN) ./scripts/coverage_gate.go coverage.out $(COVER_MIN)

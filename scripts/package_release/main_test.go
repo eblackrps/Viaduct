@@ -100,8 +100,11 @@ func TestPackageRelease_CreatesBundleAndArchive(t *testing.T) {
 		t.Fatalf("unexpected example module marker contents: %q", string(exampleModuleMarker))
 	}
 
-	if _, err := os.Stat(filepath.Join(workspace, "dist", packageName+".zip")); err != nil {
+	if _, err := os.Stat(filepath.Join(workspace, "dist", packageName+".tar.gz")); err != nil {
 		t.Fatalf("archive missing: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(workspace, "dist", "SHA256SUMS")); err != nil {
+		t.Fatalf("dist checksums missing: %v", err)
 	}
 }
 

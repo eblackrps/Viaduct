@@ -3,6 +3,7 @@ module github.com/eblackrps/viaduct
 go 1.24.13
 
 require (
+	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/google/uuid v1.6.0
 	github.com/lib/pq v1.12.3
 	github.com/masterzen/winrm v0.0.0-20250927112105-5f8e6c707321
@@ -17,7 +18,6 @@ require (
 require (
 	github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358 // indirect
 	github.com/ChrisTrenkamp/goxpath v0.0.0-20210404020558-97928f7e12b6 // indirect
-	github.com/DATA-DOG/go-sqlmock v1.5.2 // indirect
 	github.com/KyleBanks/depth v1.2.1 // indirect
 	github.com/bodgit/ntlmssp v0.0.0-20240506230425-31973bb52d9b // indirect
 	github.com/bodgit/windows v1.0.1 // indirect

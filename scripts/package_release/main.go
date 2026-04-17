@@ -1,8 +1,9 @@
 package main
 
 import (
-	"archive/zip"
+	"archive/tar"
 	"bytes"
+	"compress/gzip"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -194,12 +195,15 @@ func packageRelease(options releaseOptions) error {
 		return fmt.Errorf("package release: write checksums: %w", err)
 	}
 
-	archivePath := bundleDir + ".zip"
+	archivePath := bundleDir + ".tar.gz"
 	if err := os.RemoveAll(archivePath); err != nil {
 		return fmt.Errorf("package release: reset archive: %w", err)
 	}
-	if err := zipDir(bundleDir, archivePath); err != nil {
+	if err := tarGzDir(bundleDir, archivePath); err != nil {
 		return fmt.Errorf("package release: create archive: %w", err)
+	}
+	if err := writeArchiveChecksums(outputDir); err != nil {
+		return fmt.Errorf("package release: write dist checksums: %w", err)
 	}
 
 	return nil
@@ -516,7 +520,26 @@ func checksumFile(path string) (string, error) {
 	return hex.EncodeToString(hasher.Sum(nil)), nil
 }
 
-func zipDir(sourceDir, archivePath string) error {
+func writeArchiveChecksums(outputDir string) error {
+	archivePaths, err := filepath.Glob(filepath.Join(outputDir, "viaduct_*.tar.gz"))
+	if err != nil {
+		return fmt.Errorf("collect archives: %w", err)
+	}
+
+	sort.Strings(archivePaths)
+	lines := make([]string, 0, len(archivePaths))
+	for _, archivePath := range archivePaths {
+		sum, err := checksumFile(archivePath)
+		if err != nil {
+			return fmt.Errorf("checksum %s: %w", archivePath, err)
+		}
+		lines = append(lines, fmt.Sprintf("%s  %s", sum, filepath.Base(archivePath)))
+	}
+
+	return os.WriteFile(filepath.Join(outputDir, "SHA256SUMS"), []byte(strings.Join(lines, "\n")+"\n"), 0o600)
+}
+
+func tarGzDir(sourceDir, archivePath string) error {
 	// #nosec G304 -- release packaging writes the archive to the generated output path for the current bundle.
 	archiveFile, err := os.OpenFile(archivePath, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0o600)
 	if err != nil {
@@ -524,8 +547,11 @@ func zipDir(sourceDir, archivePath string) error {
 	}
 	defer archiveFile.Close()
 
-	writer := zip.NewWriter(archiveFile)
-	defer writer.Close()
+	gzipWriter := gzip.NewWriter(archiveFile)
+	defer gzipWriter.Close()
+
+	tarWriter := tar.NewWriter(gzipWriter)
+	defer tarWriter.Close()
 
 	baseName := filepath.Base(sourceDir)
 	return filepath.WalkDir(sourceDir, func(path string, entry fs.DirEntry, err error) error {
@@ -545,15 +571,12 @@ func zipDir(sourceDir, archivePath string) error {
 		if err != nil {
 			return err
 		}
-		header, err := zip.FileInfoHeader(info)
+		header, err := tar.FileInfoHeader(info, "")
 		if err != nil {
 			return err
 		}
 		header.Name = filepath.ToSlash(filepath.Join(baseName, relative))
-		header.Method = zip.Deflate
-
-		target, err := writer.CreateHeader(header)
-		if err != nil {
+		if err := tarWriter.WriteHeader(header); err != nil {
 			return err
 		}
 
@@ -564,7 +587,7 @@ func zipDir(sourceDir, archivePath string) error {
 		}
 		defer source.Close()
 
-		_, err = io.Copy(target, source)
+		_, err = io.Copy(tarWriter, source)
 		return err
 	})
 }

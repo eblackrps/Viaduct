@@ -110,7 +110,7 @@ Use these entrypoints next:
 
 ## Verification
 
-`make release-gate` is the canonical verification path. It keeps backend checks, web build validation, coverage enforcement, packaging, and the lab-oriented smoke flow aligned in one command.
+`make release-gate` is the canonical local release-owner verification path. It runs backend build, vet, lint, race coverage, certification fixtures, soak coverage, plugin and OpenAPI contract checks, CLI smoke coverage, dashboard lint/format/unit/build verification, coverage enforcement, and the cross-platform package matrix in one command. CI adds Playwright end-to-end coverage plus `gosec` and `trivy` on top of the same source-controlled release path.
 
 Other high-signal commands:
 
@@ -121,6 +121,8 @@ make soak-test
 make contract-check
 make package-release-matrix
 ```
+
+`make package-release-matrix` produces the same tagged artifact matrix that `.github/workflows/release.yml` publishes: `linux/amd64`, `linux/arm64`, `darwin/arm64`, and `windows/amd64` tarballs plus `dist/SHA256SUMS`.
 
 ## Documentation
 
