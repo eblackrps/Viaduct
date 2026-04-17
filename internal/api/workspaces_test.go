@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -14,6 +15,36 @@ import (
 	"github.com/eblackrps/viaduct/internal/models"
 	"github.com/eblackrps/viaduct/internal/store"
 )
+
+type workspaceJobProbeStore struct {
+	store.Store
+
+	getWorkspaceErr    error
+	getWorkspaceJobErr error
+	saveFailures       map[models.WorkspaceJobStatus]int
+}
+
+func (s *workspaceJobProbeStore) GetWorkspace(ctx context.Context, tenantID, workspaceID string) (*models.PilotWorkspace, error) {
+	if s.getWorkspaceErr != nil {
+		return nil, s.getWorkspaceErr
+	}
+	return s.Store.GetWorkspace(ctx, tenantID, workspaceID)
+}
+
+func (s *workspaceJobProbeStore) GetWorkspaceJob(ctx context.Context, tenantID, workspaceID, jobID string) (*models.WorkspaceJob, error) {
+	if s.getWorkspaceJobErr != nil {
+		return nil, s.getWorkspaceJobErr
+	}
+	return s.Store.GetWorkspaceJob(ctx, tenantID, workspaceID, jobID)
+}
+
+func (s *workspaceJobProbeStore) SaveWorkspaceJob(ctx context.Context, tenantID string, job models.WorkspaceJob) error {
+	if remaining := s.saveFailures[job.Status]; remaining > 0 {
+		s.saveFailures[job.Status] = remaining - 1
+		return errors.New("injected workspace job save failure")
+	}
+	return s.Store.SaveWorkspaceJob(ctx, tenantID, job)
+}
 
 func TestServer_HandleWorkspaces_CreateUpdateAndList_Expected(t *testing.T) {
 	t.Parallel()
@@ -411,4 +442,130 @@ func TestServer_RecoverWorkspaceJobs_RerunsQueuedDiscoveryJob_Expected(t *testin
 	}
 
 	t.Fatal("recovered workspace job did not complete before timeout")
+}
+
+func TestServer_RunWorkspaceJob_GetWorkspaceFailureMarksFailed_Expected(t *testing.T) {
+	t.Parallel()
+
+	baseStore := store.NewMemoryStore()
+	probeStore := &workspaceJobProbeStore{
+		Store:           baseStore,
+		getWorkspaceErr: errors.New("workspace load failed"),
+	}
+	server := mustNewServer(t, probeStore)
+	ctx := store.ContextWithTenantID(context.Background(), store.DefaultTenantID)
+
+	if err := baseStore.CreateWorkspace(ctx, store.DefaultTenantID, models.PilotWorkspace{
+		ID:     "workspace-failure",
+		Name:   "Failure Workspace",
+		Status: models.PilotWorkspaceStatusDraft,
+	}); err != nil {
+		t.Fatalf("CreateWorkspace() error = %v", err)
+	}
+	if err := baseStore.SaveWorkspaceJob(ctx, store.DefaultTenantID, models.WorkspaceJob{
+		ID:            "job-failure",
+		TenantID:      store.DefaultTenantID,
+		WorkspaceID:   "workspace-failure",
+		Type:          models.WorkspaceJobTypeGraph,
+		Status:        models.WorkspaceJobStatusQueued,
+		RequestedAt:   time.Now().UTC(),
+		UpdatedAt:     time.Now().UTC(),
+		CorrelationID: "req-workspace-failure",
+		InputJSON:     json.RawMessage(`{"type":"graph"}`),
+	}); err != nil {
+		t.Fatalf("SaveWorkspaceJob() error = %v", err)
+	}
+
+	server.runWorkspaceJob(store.DefaultTenantID, "workspace-failure", "job-failure")
+
+	job, err := baseStore.GetWorkspaceJob(ctx, store.DefaultTenantID, "workspace-failure", "job-failure")
+	if err != nil {
+		t.Fatalf("GetWorkspaceJob() error = %v", err)
+	}
+	if job.Status != models.WorkspaceJobStatusFailed {
+		t.Fatalf("job.Status = %s, want failed", job.Status)
+	}
+	if !strings.Contains(job.Error, "workspace load failed") {
+		t.Fatalf("job.Error = %q, want wrapped workspace failure", job.Error)
+	}
+	if !strings.Contains(string(job.OutputJSON), `"error":"load workspace workspace-failure: workspace load failed"`) {
+		t.Fatalf("job.OutputJSON = %s, want persisted error payload", job.OutputJSON)
+	}
+}
+
+func TestServer_RunWorkspaceJob_SaveResultFailureMarksFailed_Expected(t *testing.T) {
+	t.Parallel()
+
+	baseStore := store.NewMemoryStore()
+	probeStore := &workspaceJobProbeStore{
+		Store:        baseStore,
+		saveFailures: map[models.WorkspaceJobStatus]int{models.WorkspaceJobStatusSucceeded: 1},
+	}
+	server := mustNewServer(t, probeStore)
+	ctx := store.ContextWithTenantID(context.Background(), store.DefaultTenantID)
+
+	if err := baseStore.CreateWorkspace(ctx, store.DefaultTenantID, models.PilotWorkspace{
+		ID:     "workspace-save-failure",
+		Name:   "Save Failure Workspace",
+		Status: models.PilotWorkspaceStatusDraft,
+	}); err != nil {
+		t.Fatalf("CreateWorkspace() error = %v", err)
+	}
+	if err := baseStore.SaveWorkspaceJob(ctx, store.DefaultTenantID, models.WorkspaceJob{
+		ID:            "job-save-failure",
+		TenantID:      store.DefaultTenantID,
+		WorkspaceID:   "workspace-save-failure",
+		Type:          models.WorkspaceJobTypeGraph,
+		Status:        models.WorkspaceJobStatusQueued,
+		RequestedAt:   time.Now().UTC(),
+		UpdatedAt:     time.Now().UTC(),
+		CorrelationID: "req-save-failure",
+		InputJSON:     json.RawMessage(`{"type":"graph"}`),
+	}); err != nil {
+		t.Fatalf("SaveWorkspaceJob() error = %v", err)
+	}
+
+	server.runWorkspaceJob(store.DefaultTenantID, "workspace-save-failure", "job-save-failure")
+
+	job, err := baseStore.GetWorkspaceJob(ctx, store.DefaultTenantID, "workspace-save-failure", "job-save-failure")
+	if err != nil {
+		t.Fatalf("GetWorkspaceJob() error = %v", err)
+	}
+	if job.Status != models.WorkspaceJobStatusFailed {
+		t.Fatalf("job.Status = %s, want failed", job.Status)
+	}
+	if !job.Retryable {
+		t.Fatalf("job.Retryable = %t, want true", job.Retryable)
+	}
+	if !strings.Contains(job.Error, "persist workspace job job-save-failure result") {
+		t.Fatalf("job.Error = %q, want save-result context", job.Error)
+	}
+	if !strings.Contains(string(job.OutputJSON), `"error":"persist workspace job job-save-failure result: injected workspace job save failure"`) {
+		t.Fatalf("job.OutputJSON = %s, want save failure error payload", job.OutputJSON)
+	}
+}
+
+func TestCapWorkspaceJobOutput_TruncatesLargePayload_Expected(t *testing.T) {
+	t.Parallel()
+
+	payload, err := json.Marshal(map[string]string{
+		"data": strings.Repeat("x", workspaceJobOutputMaxBytes),
+	})
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+
+	capped, truncated, err := capWorkspaceJobOutput(payload)
+	if err != nil {
+		t.Fatalf("capWorkspaceJobOutput() error = %v", err)
+	}
+	if !truncated {
+		t.Fatal("truncated = false, want true")
+	}
+	if len(capped) > workspaceJobOutputMaxBytes {
+		t.Fatalf("len(capped) = %d, want <= %d", len(capped), workspaceJobOutputMaxBytes)
+	}
+	if !strings.Contains(string(capped), "truncated by viaduct") {
+		t.Fatalf("capped payload missing truncate marker: %s", capped)
+	}
 }

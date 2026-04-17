@@ -82,14 +82,18 @@ func (m *apiMetrics) startRequest() func(string, string, int, time.Duration) {
 		return func(string, string, int, time.Duration) {}
 	}
 
-	m.mu.Lock()
-	m.inFlight++
-	m.mu.Unlock()
+	func() {
+		m.mu.Lock()
+		defer m.mu.Unlock()
+		m.inFlight++
+	}()
 
 	return func(method, path string, status int, duration time.Duration) {
-		m.mu.Lock()
-		m.inFlight--
-		m.mu.Unlock()
+		func() {
+			m.mu.Lock()
+			defer m.mu.Unlock()
+			m.inFlight--
+		}()
 		m.record(method, path, status, duration)
 	}
 }
@@ -199,7 +203,9 @@ func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/plain; version=0.0.4")
 	metrics := s.metrics.render() + s.renderOperationalMetrics(r.Context())
-	_, _ = w.Write([]byte(metrics))
+	if _, err := w.Write([]byte(metrics)); err != nil {
+		packageLogger.Warn("failed to write metrics response", "request_id", RequestIDFromContext(r.Context()), "error", err.Error())
+	}
 }
 
 func (s *Server) withObservability(next http.Handler) http.Handler {

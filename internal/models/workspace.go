@@ -337,6 +337,8 @@ type WorkspaceJob struct {
 	Error string `json:"error,omitempty" yaml:"error,omitempty"`
 	// Retryable reports whether the failure is safe to retry.
 	Retryable bool `json:"retryable,omitempty" yaml:"retryable,omitempty"`
+	// Truncated reports whether OutputJSON was truncated before persistence.
+	Truncated bool `json:"truncated,omitempty" yaml:"truncated,omitempty"`
 	// InputJSON contains the serialized job request payload.
 	InputJSON json.RawMessage `json:"input_json,omitempty" yaml:"input_json,omitempty"`
 	// OutputJSON contains the serialized job result payload.

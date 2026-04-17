@@ -65,6 +65,13 @@ type workspaceReportDocument struct {
 	ExportedAt time.Time             `json:"exported_at"`
 }
 
+const (
+	workspaceJobOutputMaxBytes       = 1 << 20
+	workspaceJobOutputPreviewBytes   = 768 * 1024
+	workspaceJobOutputTruncateMarker = "\n...[truncated by viaduct]"
+	workspaceReportChunkSize         = 32 * 1024
+)
+
 func (s *Server) handleWorkspaces(w http.ResponseWriter, r *http.Request) {
 	tenantID := store.TenantIDFromContext(r.Context())
 
@@ -457,14 +464,19 @@ func (s *Server) handleWorkspaceReportExport(w http.ResponseWriter, r *http.Requ
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", fileName))
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write(payload)
+		if err := writeChunkedResponse(r.Context(), w, payload); err != nil && !errors.Is(err, context.Canceled) {
+			packageLogger.Warn("failed to stream workspace report", "format", format, "request_id", responseRequestID(nil, r), "error", err.Error())
+		}
 		return
 	}
 
+	payload := []byte(renderWorkspaceReportMarkdown(document))
 	w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", fileName))
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte(renderWorkspaceReportMarkdown(document)))
+	if err := writeChunkedResponse(r.Context(), w, payload); err != nil && !errors.Is(err, context.Canceled) {
+		packageLogger.Warn("failed to stream workspace report", "format", format, "request_id", responseRequestID(nil, r), "error", err.Error())
+	}
 }
 
 func (s *Server) runWorkspaceJob(tenantID, workspaceID, jobID string) {
@@ -472,11 +484,18 @@ func (s *Server) runWorkspaceJob(tenantID, workspaceID, jobID string) {
 
 	job, err := s.store.GetWorkspaceJob(storeCtx, tenantID, workspaceID, jobID)
 	if err != nil {
+		failure := fmt.Errorf("load workspace job %s: %w", jobID, err)
+		placeholder := workspaceJobFailurePlaceholder(tenantID, workspaceID, jobID)
+		if persistErr := s.recordWorkspaceJobFailure(storeCtx, tenantID, placeholder, false, failure); persistErr != nil {
+			return
+		}
 		return
 	}
 	workspace, err := s.store.GetWorkspace(storeCtx, tenantID, workspaceID)
 	if err != nil {
-		_ = s.failWorkspaceJob(storeCtx, tenantID, *job, false, err)
+		if persistErr := s.recordWorkspaceJobFailure(storeCtx, tenantID, *job, false, fmt.Errorf("load workspace %s: %w", workspaceID, err)); persistErr != nil {
+			return
+		}
 		return
 	}
 
@@ -485,12 +504,19 @@ func (s *Server) runWorkspaceJob(tenantID, workspaceID, jobID string) {
 	job.UpdatedAt = job.StartedAt
 	job.Message = workspaceJobRunningMessage(job.Type)
 	if err := s.store.SaveWorkspaceJob(storeCtx, tenantID, *job); err != nil {
+		failure := fmt.Errorf("mark workspace job %s running: %w", job.ID, err)
+		packageLogger.Error("failed to persist workspace job state", "request_id", job.CorrelationID, "job_id", job.ID, "workspace_id", workspaceID, "error", err.Error())
+		if persistErr := s.recordWorkspaceJobFailure(storeCtx, tenantID, *job, true, failure); persistErr != nil {
+			return
+		}
 		return
 	}
 
 	request, err := decodeWorkspaceJobRequest(job.InputJSON)
 	if err != nil {
-		_ = s.failWorkspaceJob(storeCtx, tenantID, *job, false, err)
+		if persistErr := s.recordWorkspaceJobFailure(storeCtx, tenantID, *job, false, err); persistErr != nil {
+			return
+		}
 		return
 	}
 
@@ -498,9 +524,9 @@ func (s *Server) runWorkspaceJob(tenantID, workspaceID, jobID string) {
 		output  json.RawMessage
 		message string
 	)
-	execCtx := storeCtx
-	cancel := func() {}
+	execCtx, cancel := context.WithCancel(storeCtx)
 	if s != nil && s.workspaceJobTimeout > 0 {
+		cancel()
 		execCtx, cancel = context.WithTimeout(storeCtx, s.workspaceJobTimeout)
 	}
 	execCtx = contextWithConnectorRequestID(execCtx, job.CorrelationID)
@@ -519,16 +545,34 @@ func (s *Server) runWorkspaceJob(tenantID, workspaceID, jobID string) {
 	}
 
 	if err != nil {
-		_ = s.failWorkspaceJob(storeCtx, tenantID, *job, isRetryableWorkspaceJobError(err), err)
+		if persistErr := s.recordWorkspaceJobFailure(storeCtx, tenantID, *job, isRetryableWorkspaceJobError(err), err); persistErr != nil {
+			return
+		}
+		return
+	}
+	output, truncated, err := capWorkspaceJobOutput(output)
+	if err != nil {
+		if persistErr := s.recordWorkspaceJobFailure(storeCtx, tenantID, *job, false, err); persistErr != nil {
+			return
+		}
 		return
 	}
 
 	job.Status = models.WorkspaceJobStatusSucceeded
 	job.Message = message
+	job.Error = ""
+	job.Retryable = false
+	job.Truncated = truncated
 	job.OutputJSON = output
 	job.UpdatedAt = time.Now().UTC()
 	job.CompletedAt = job.UpdatedAt
-	_ = s.store.SaveWorkspaceJob(storeCtx, tenantID, *job)
+	if err := s.store.SaveWorkspaceJob(storeCtx, tenantID, *job); err != nil {
+		failure := fmt.Errorf("persist workspace job %s result: %w", job.ID, err)
+		packageLogger.Error("failed to persist workspace job result", "request_id", job.CorrelationID, "job_id", job.ID, "workspace_id", workspaceID, "error", err.Error())
+		if persistErr := s.recordWorkspaceJobFailure(storeCtx, tenantID, *job, true, failure); persistErr != nil {
+			return
+		}
+	}
 }
 
 func (s *Server) executeWorkspaceDiscoveryJob(ctx context.Context, tenantID string, workspace *models.PilotWorkspace, request workspaceJobCreateRequest) (json.RawMessage, string, error) {
@@ -743,11 +787,106 @@ func (s *Server) executeWorkspacePlanJob(ctx context.Context, tenantID string, w
 	return statePayload, fmt.Sprintf("Saved migration plan %s with %d workload(s).", migrationID, len(state.Workloads)), nil
 }
 
+func capWorkspaceJobOutput(output json.RawMessage) (json.RawMessage, bool, error) {
+	if len(output) == 0 {
+		return nil, false, nil
+	}
+	if len(output) <= workspaceJobOutputMaxBytes {
+		return append(json.RawMessage(nil), output...), false, nil
+	}
+
+	previewBytes := output
+	if len(previewBytes) > workspaceJobOutputPreviewBytes {
+		previewBytes = previewBytes[:workspaceJobOutputPreviewBytes]
+	}
+	payload, err := json.Marshal(map[string]any{
+		"preview":    string(previewBytes) + workspaceJobOutputTruncateMarker,
+		"size_bytes": len(output),
+	})
+	if err != nil {
+		return nil, false, fmt.Errorf("truncate workspace job output: %w", err)
+	}
+	return payload, true, nil
+}
+
+func workspaceJobErrorOutput(failure error) json.RawMessage {
+	if failure == nil {
+		failure = fmt.Errorf("workspace job failed")
+	}
+	payload, err := json.Marshal(map[string]any{
+		"error": failure.Error(),
+	})
+	if err != nil {
+		return json.RawMessage(`{"error":"workspace job failed"}`)
+	}
+	return payload
+}
+
+func workspaceJobFailurePlaceholder(tenantID, workspaceID, jobID string) models.WorkspaceJob {
+	now := time.Now().UTC()
+	return models.WorkspaceJob{
+		ID:          strings.TrimSpace(jobID),
+		TenantID:    strings.TrimSpace(tenantID),
+		WorkspaceID: strings.TrimSpace(workspaceID),
+		RequestedAt: now,
+		UpdatedAt:   now,
+	}
+}
+
+func (s *Server) recordWorkspaceJobFailure(ctx context.Context, tenantID string, job models.WorkspaceJob, retryable bool, failure error) error {
+	if failure == nil {
+		failure = fmt.Errorf("workspace job failed")
+	}
+	if err := s.failWorkspaceJob(ctx, tenantID, job, retryable, failure); err != nil {
+		packageLogger.Error(
+			"failed to persist workspace job failure",
+			"request_id", job.CorrelationID,
+			"job_id", job.ID,
+			"workspace_id", job.WorkspaceID,
+			"error", err.Error(),
+			"failure", failure.Error(),
+		)
+		return err
+	}
+	return nil
+}
+
+func writeChunkedResponse(ctx context.Context, writer io.Writer, payload []byte) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if len(payload) == 0 {
+		return nil
+	}
+
+	for start := 0; start < len(payload); start += workspaceReportChunkSize {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		end := start + workspaceReportChunkSize
+		if end > len(payload) {
+			end = len(payload)
+		}
+		if _, err := writer.Write(payload[start:end]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *Server) failWorkspaceJob(ctx context.Context, tenantID string, job models.WorkspaceJob, retryable bool, failure error) error {
+	if failure == nil {
+		failure = fmt.Errorf("workspace job failed")
+	}
 	job.Status = models.WorkspaceJobStatusFailed
 	job.Retryable = retryable
+	job.Truncated = false
 	job.Error = failure.Error()
 	job.Message = job.Error
+	job.OutputJSON = workspaceJobErrorOutput(failure)
 	job.UpdatedAt = time.Now().UTC()
 	job.CompletedAt = job.UpdatedAt
 	return s.store.SaveWorkspaceJob(ctx, tenantID, job)
@@ -1049,27 +1188,27 @@ func renderWorkspaceReportMarkdown(document workspaceReportDocument) string {
 	workspace := document.Workspace
 	var builder strings.Builder
 	builder.WriteString("# Pilot Workspace Report\n\n")
-	_, _ = fmt.Fprintf(&builder, "- Workspace: %s\n", workspace.Name)
-	_, _ = fmt.Fprintf(&builder, "- Workspace ID: %s\n", workspace.ID)
+	writeWorkspaceReportf(&builder, "- Workspace: %s\n", workspace.Name)
+	writeWorkspaceReportf(&builder, "- Workspace ID: %s\n", workspace.ID)
 	if strings.TrimSpace(workspace.Description) != "" {
-		_, _ = fmt.Fprintf(&builder, "- Description: %s\n", workspace.Description)
+		writeWorkspaceReportf(&builder, "- Description: %s\n", workspace.Description)
 	}
-	_, _ = fmt.Fprintf(&builder, "- Status: %s\n", workspace.Status)
-	_, _ = fmt.Fprintf(&builder, "- Exported at: %s\n", document.ExportedAt.Format(time.RFC3339))
-	_, _ = fmt.Fprintf(&builder, "- Sources: %d\n", len(workspace.SourceConnections))
-	_, _ = fmt.Fprintf(&builder, "- Snapshots: %d\n", len(workspace.Snapshots))
+	writeWorkspaceReportf(&builder, "- Status: %s\n", workspace.Status)
+	writeWorkspaceReportf(&builder, "- Exported at: %s\n", document.ExportedAt.Format(time.RFC3339))
+	writeWorkspaceReportf(&builder, "- Sources: %d\n", len(workspace.SourceConnections))
+	writeWorkspaceReportf(&builder, "- Snapshots: %d\n", len(workspace.Snapshots))
 	if workspace.Readiness != nil {
-		_, _ = fmt.Fprintf(&builder, "- Readiness: %s\n", workspace.Readiness.Status)
+		writeWorkspaceReportf(&builder, "- Readiness: %s\n", workspace.Readiness.Status)
 	}
 	if workspace.SavedPlan != nil {
-		_, _ = fmt.Fprintf(&builder, "- Saved plan: %s\n", workspace.SavedPlan.MigrationID)
+		writeWorkspaceReportf(&builder, "- Saved plan: %s\n", workspace.SavedPlan.MigrationID)
 	}
 	builder.WriteString("\n## Source Connections\n\n")
 	if len(workspace.SourceConnections) == 0 {
 		builder.WriteString("No source connections recorded.\n")
 	} else {
 		for _, source := range workspace.SourceConnections {
-			_, _ = fmt.Fprintf(&builder, "- %s (%s) at `%s`\n", source.Name, source.Platform, source.Address)
+			writeWorkspaceReportf(&builder, "- %s (%s) at `%s`\n", source.Name, source.Platform, source.Address)
 		}
 	}
 	builder.WriteString("\n## Discovery Snapshots\n\n")
@@ -1077,65 +1216,65 @@ func renderWorkspaceReportMarkdown(document workspaceReportDocument) string {
 		builder.WriteString("No snapshots have been saved for this workspace.\n")
 	} else {
 		for _, snapshot := range workspace.Snapshots {
-			_, _ = fmt.Fprintf(&builder, "- %s captured %d workload(s) at %s\n", firstNonEmpty(snapshot.Source, snapshot.SourceConnectionID), snapshot.VMCount, snapshot.DiscoveredAt.Format(time.RFC3339))
+			writeWorkspaceReportf(&builder, "- %s captured %d workload(s) at %s\n", firstNonEmpty(snapshot.Source, snapshot.SourceConnectionID), snapshot.VMCount, snapshot.DiscoveredAt.Format(time.RFC3339))
 		}
 	}
 	builder.WriteString("\n## Target Assumptions\n\n")
-	_, _ = fmt.Fprintf(&builder, "- Platform: %s\n", workspace.TargetAssumptions.Platform)
-	_, _ = fmt.Fprintf(&builder, "- Address: %s\n", workspace.TargetAssumptions.Address)
-	_, _ = fmt.Fprintf(&builder, "- Default host: %s\n", workspace.TargetAssumptions.DefaultHost)
-	_, _ = fmt.Fprintf(&builder, "- Default storage: %s\n", workspace.TargetAssumptions.DefaultStorage)
-	_, _ = fmt.Fprintf(&builder, "- Default network: %s\n", workspace.TargetAssumptions.DefaultNetwork)
+	writeWorkspaceReportf(&builder, "- Platform: %s\n", workspace.TargetAssumptions.Platform)
+	writeWorkspaceReportf(&builder, "- Address: %s\n", workspace.TargetAssumptions.Address)
+	writeWorkspaceReportf(&builder, "- Default host: %s\n", workspace.TargetAssumptions.DefaultHost)
+	writeWorkspaceReportf(&builder, "- Default storage: %s\n", workspace.TargetAssumptions.DefaultStorage)
+	writeWorkspaceReportf(&builder, "- Default network: %s\n", workspace.TargetAssumptions.DefaultNetwork)
 	if strings.TrimSpace(workspace.TargetAssumptions.Notes) != "" {
-		_, _ = fmt.Fprintf(&builder, "- Notes: %s\n", workspace.TargetAssumptions.Notes)
+		writeWorkspaceReportf(&builder, "- Notes: %s\n", workspace.TargetAssumptions.Notes)
 	}
 	builder.WriteString("\n## Dependency Graph\n\n")
 	if workspace.Graph == nil {
 		builder.WriteString("Dependency graph output has not been generated yet.\n")
 	} else {
-		_, _ = fmt.Fprintf(&builder, "- Generated at: %s\n", workspace.Graph.GeneratedAt.Format(time.RFC3339))
-		_, _ = fmt.Fprintf(&builder, "- Nodes: %d\n", workspace.Graph.NodeCount)
-		_, _ = fmt.Fprintf(&builder, "- Edges: %d\n", workspace.Graph.EdgeCount)
+		writeWorkspaceReportf(&builder, "- Generated at: %s\n", workspace.Graph.GeneratedAt.Format(time.RFC3339))
+		writeWorkspaceReportf(&builder, "- Nodes: %d\n", workspace.Graph.NodeCount)
+		writeWorkspaceReportf(&builder, "- Edges: %d\n", workspace.Graph.EdgeCount)
 	}
 	builder.WriteString("\n## Simulation\n\n")
 	if workspace.Simulation == nil {
 		builder.WriteString("Simulation output has not been generated yet.\n")
 	} else {
-		_, _ = fmt.Fprintf(&builder, "- Generated at: %s\n", workspace.Simulation.GeneratedAt.Format(time.RFC3339))
-		_, _ = fmt.Fprintf(&builder, "- Target platform: %s\n", workspace.Simulation.TargetPlatform)
-		_, _ = fmt.Fprintf(&builder, "- Workloads moved: %d\n", workspace.Simulation.MovedVMs)
-		_, _ = fmt.Fprintf(&builder, "- Selected workload IDs: %s\n", strings.Join(workspace.Simulation.SelectedWorkloadIDs, ", "))
+		writeWorkspaceReportf(&builder, "- Generated at: %s\n", workspace.Simulation.GeneratedAt.Format(time.RFC3339))
+		writeWorkspaceReportf(&builder, "- Target platform: %s\n", workspace.Simulation.TargetPlatform)
+		writeWorkspaceReportf(&builder, "- Workloads moved: %d\n", workspace.Simulation.MovedVMs)
+		writeWorkspaceReportf(&builder, "- Selected workload IDs: %s\n", strings.Join(workspace.Simulation.SelectedWorkloadIDs, ", "))
 	}
 	builder.WriteString("\n## Readiness\n\n")
 	if workspace.Readiness == nil {
 		builder.WriteString("Readiness has not been generated yet.\n")
 	} else {
-		_, _ = fmt.Fprintf(&builder, "- Status: %s\n", workspace.Readiness.Status)
-		_, _ = fmt.Fprintf(&builder, "- Selected workloads: %d\n", workspace.Readiness.SelectedWorkloadCount)
-		_, _ = fmt.Fprintf(&builder, "- Recommendations: %d\n", workspace.Readiness.RecommendationCount)
-		_, _ = fmt.Fprintf(&builder, "- Policy violations: %d\n", workspace.Readiness.PolicyViolationCount)
+		writeWorkspaceReportf(&builder, "- Status: %s\n", workspace.Readiness.Status)
+		writeWorkspaceReportf(&builder, "- Selected workloads: %d\n", workspace.Readiness.SelectedWorkloadCount)
+		writeWorkspaceReportf(&builder, "- Recommendations: %d\n", workspace.Readiness.RecommendationCount)
+		writeWorkspaceReportf(&builder, "- Policy violations: %d\n", workspace.Readiness.PolicyViolationCount)
 		for _, issue := range workspace.Readiness.BlockingIssues {
-			_, _ = fmt.Fprintf(&builder, "- Blocker: %s\n", issue)
+			writeWorkspaceReportf(&builder, "- Blocker: %s\n", issue)
 		}
 		for _, issue := range workspace.Readiness.WarningIssues {
-			_, _ = fmt.Fprintf(&builder, "- Warning: %s\n", issue)
+			writeWorkspaceReportf(&builder, "- Warning: %s\n", issue)
 		}
 	}
 	builder.WriteString("\n## Saved Plan\n\n")
 	if workspace.SavedPlan == nil {
 		builder.WriteString("No saved migration plan is attached to this workspace.\n")
 	} else {
-		_, _ = fmt.Fprintf(&builder, "- Migration ID: %s\n", workspace.SavedPlan.MigrationID)
-		_, _ = fmt.Fprintf(&builder, "- Spec name: %s\n", workspace.SavedPlan.SpecName)
-		_, _ = fmt.Fprintf(&builder, "- Workloads: %d\n", workspace.SavedPlan.WorkloadCount)
-		_, _ = fmt.Fprintf(&builder, "- Generated at: %s\n", workspace.SavedPlan.GeneratedAt.Format(time.RFC3339))
+		writeWorkspaceReportf(&builder, "- Migration ID: %s\n", workspace.SavedPlan.MigrationID)
+		writeWorkspaceReportf(&builder, "- Spec name: %s\n", workspace.SavedPlan.SpecName)
+		writeWorkspaceReportf(&builder, "- Workloads: %d\n", workspace.SavedPlan.WorkloadCount)
+		writeWorkspaceReportf(&builder, "- Generated at: %s\n", workspace.SavedPlan.GeneratedAt.Format(time.RFC3339))
 	}
 	builder.WriteString("\n## Approvals\n\n")
 	if len(workspace.Approvals) == 0 {
 		builder.WriteString("No approvals recorded.\n")
 	} else {
 		for _, approval := range workspace.Approvals {
-			_, _ = fmt.Fprintf(&builder, "- %s: %s (%s) ticket=%s created=%s\n", approval.Stage, approval.Status, firstNonEmpty(approval.ApprovedBy, "unassigned"), firstNonEmpty(approval.Ticket, "n/a"), approval.CreatedAt.Format(time.RFC3339))
+			writeWorkspaceReportf(&builder, "- %s: %s (%s) ticket=%s created=%s\n", approval.Stage, approval.Status, firstNonEmpty(approval.ApprovedBy, "unassigned"), firstNonEmpty(approval.Ticket, "n/a"), approval.CreatedAt.Format(time.RFC3339))
 		}
 	}
 	builder.WriteString("\n## Notes\n\n")
@@ -1143,7 +1282,7 @@ func renderWorkspaceReportMarkdown(document workspaceReportDocument) string {
 		builder.WriteString("No operator notes recorded.\n")
 	} else {
 		for _, note := range workspace.Notes {
-			_, _ = fmt.Fprintf(&builder, "- [%s] %s at %s: %s\n", note.Kind, note.Author, note.CreatedAt.Format(time.RFC3339), note.Body)
+			writeWorkspaceReportf(&builder, "- [%s] %s at %s: %s\n", note.Kind, note.Author, note.CreatedAt.Format(time.RFC3339), note.Body)
 		}
 	}
 	builder.WriteString("\n## Background Jobs\n\n")
@@ -1151,12 +1290,12 @@ func renderWorkspaceReportMarkdown(document workspaceReportDocument) string {
 		builder.WriteString("No background jobs recorded.\n")
 	} else {
 		for _, job := range document.Jobs {
-			_, _ = fmt.Fprintf(&builder, "- %s: %s requested_by=%s requested_at=%s correlation_id=%s\n", job.Type, job.Status, firstNonEmpty(job.RequestedBy, "unknown"), job.RequestedAt.Format(time.RFC3339), firstNonEmpty(job.CorrelationID, "n/a"))
+			writeWorkspaceReportf(&builder, "- %s: %s requested_by=%s requested_at=%s correlation_id=%s\n", job.Type, job.Status, firstNonEmpty(job.RequestedBy, "unknown"), job.RequestedAt.Format(time.RFC3339), firstNonEmpty(job.CorrelationID, "n/a"))
 			if strings.TrimSpace(job.Message) != "" {
-				_, _ = fmt.Fprintf(&builder, "  message: %s\n", job.Message)
+				writeWorkspaceReportf(&builder, "  message: %s\n", job.Message)
 			}
 			if strings.TrimSpace(job.Error) != "" {
-				_, _ = fmt.Fprintf(&builder, "  error: %s\n", job.Error)
+				writeWorkspaceReportf(&builder, "  error: %s\n", job.Error)
 			}
 		}
 	}
@@ -1165,10 +1304,18 @@ func renderWorkspaceReportMarkdown(document workspaceReportDocument) string {
 		builder.WriteString("No report exports recorded.\n")
 	} else {
 		for _, report := range workspace.Reports {
-			_, _ = fmt.Fprintf(&builder, "- %s (%s) file=%s correlation_id=%s exported_at=%s\n", report.Name, report.Format, report.FileName, firstNonEmpty(report.CorrelationID, "n/a"), report.ExportedAt.Format(time.RFC3339))
+			writeWorkspaceReportf(&builder, "- %s (%s) file=%s correlation_id=%s exported_at=%s\n", report.Name, report.Format, report.FileName, firstNonEmpty(report.CorrelationID, "n/a"), report.ExportedAt.Format(time.RFC3339))
 		}
 	}
 	return builder.String()
+}
+
+func writeWorkspaceReportf(builder *strings.Builder, format string, args ...any) {
+	if builder == nil {
+		return
+	}
+	// strings.Builder writes stay in memory and return a nil error, so formatted report writes are safe to ignore.
+	_, _ = fmt.Fprintf(builder, format, args...)
 }
 
 func parseLimitQuery(r *http.Request, fallback int) int {

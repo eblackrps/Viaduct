@@ -12,6 +12,7 @@ vi.mock("./runtimeAuth", () => ({
 
 import {
 	TimeoutError,
+	createRequestController,
 	createDashboardAuthSession,
 	getAbout,
 	getSnapshots,
@@ -118,5 +119,20 @@ describe("api", () => {
 			api_key: "new-key",
 			remember: true,
 		});
+	});
+
+	it("creates a shared request controller that times out and cleans up", async () => {
+		vi.useFakeTimers();
+
+		const requestController = createRequestController({ timeoutMs: 5 });
+		const abortListener = vi.fn();
+		requestController.signal.addEventListener("abort", abortListener);
+
+		await vi.advanceTimersByTimeAsync(5);
+
+		expect(abortListener).toHaveBeenCalledTimes(1);
+		expect(requestController.timedOut()).toBe(true);
+
+		requestController.cleanup();
 	});
 });

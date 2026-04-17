@@ -181,6 +181,7 @@ func NewPostgresStore(ctx context.Context, dsn string) (*PostgresStore, error) {
 	pingCtx, cancel := withTimeout(ctx, settings.WriteTimeout)
 	defer cancel()
 	if err := db.PingContext(pingCtx); err != nil {
+		// Close is best effort while unwinding a failed store initialization.
 		_ = db.Close()
 		return nil, fmt.Errorf("postgres store: ping database: %w", err)
 	}
@@ -188,12 +189,14 @@ func NewPostgresStore(ctx context.Context, dsn string) (*PostgresStore, error) {
 	migrationCtx, migrationCancel := withTimeout(ctx, settings.WriteTimeout)
 	defer migrationCancel()
 	if _, err := db.ExecContext(migrationCtx, createStoreSchemaSQL); err != nil {
+		// Close is best effort while unwinding a failed store initialization.
 		_ = db.Close()
 		return nil, fmt.Errorf("postgres store: run migrations: %w", err)
 	}
 	recordCtx, recordCancel := withTimeout(ctx, settings.WriteTimeout)
 	defer recordCancel()
 	if err := recordStoreSchemaHistory(recordCtx, db); err != nil {
+		// Close is best effort while unwinding a failed store initialization.
 		_ = db.Close()
 		return nil, fmt.Errorf("postgres store: record schema history: %w", err)
 	}
@@ -364,27 +367,36 @@ func (s *PostgresStore) ListSnapshotsPage(ctx context.Context, tenantID string, 
 	ctx, cancel := s.readContext(ctx)
 	defer cancel()
 
-	tenantID = normalizeTenantID(tenantID)
-
-	query := `FROM snapshots WHERE tenant_id = $1`
-	args := []interface{}{tenantID}
-
-	if platform != "" {
-		query += ` AND platform = $2`
-		args = append(args, string(platform))
+	page, perPage, err := normalizePageRequest(page, perPage)
+	if err != nil {
+		return nil, 0, fmt.Errorf("postgres store: list snapshots: %w", err)
 	}
 
+	tenantID = normalizeTenantID(tenantID)
+	platformName := string(platform)
+
 	var total int
-	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) `+query, args...).Scan(&total); err != nil {
+	if err := s.db.QueryRowContext(
+		ctx,
+		`SELECT COUNT(*) FROM snapshots WHERE tenant_id = $1 AND ($2 = '' OR platform = $2)`,
+		tenantID,
+		platformName,
+	).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("postgres store: count snapshots: %w", err)
 	}
 
-	selectQuery := `SELECT id, tenant_id, source, platform, vm_count, discovered_at ` + query + ` ORDER BY discovered_at DESC`
-	if perPage > 0 {
-		selectQuery += fmt.Sprintf(` LIMIT %d OFFSET %d`, perPage, pageOffset(page, perPage))
-	}
-
-	rows, err := s.db.QueryContext(ctx, selectQuery, args...)
+	rows, err := s.db.QueryContext(
+		ctx,
+		`SELECT id, tenant_id, source, platform, vm_count, discovered_at
+		 FROM snapshots
+		 WHERE tenant_id = $1 AND ($2 = '' OR platform = $2)
+		 ORDER BY discovered_at DESC
+		 LIMIT $3 OFFSET $4`,
+		tenantID,
+		platformName,
+		perPage,
+		pageOffset(page, perPage),
+	)
 	if err != nil {
 		return nil, 0, fmt.Errorf("postgres store: list snapshots: %w", err)
 	}
@@ -553,21 +565,29 @@ func (s *PostgresStore) ListMigrationsPage(ctx context.Context, tenantID string,
 	ctx, cancel := s.readContext(ctx)
 	defer cancel()
 
+	page, perPage, err := normalizePageRequest(page, perPage)
+	if err != nil {
+		return nil, 0, fmt.Errorf("postgres store: list migrations: %w", err)
+	}
+
 	tenantID = normalizeTenantID(tenantID)
 
-	baseQuery := `FROM migrations WHERE tenant_id = $1`
-
 	var total int
-	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) `+baseQuery, tenantID).Scan(&total); err != nil {
+	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM migrations WHERE tenant_id = $1`, tenantID).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("postgres store: count migrations: %w", err)
 	}
 
-	query := `SELECT id, tenant_id, spec_name, phase, started_at, updated_at, completed_at ` + baseQuery + ` ORDER BY updated_at DESC`
-	if perPage > 0 {
-		query += fmt.Sprintf(` LIMIT %d OFFSET %d`, perPage, pageOffset(page, perPage))
-	}
-
-	rows, err := s.db.QueryContext(ctx, query, tenantID)
+	rows, err := s.db.QueryContext(
+		ctx,
+		`SELECT id, tenant_id, spec_name, phase, started_at, updated_at, completed_at
+		 FROM migrations
+		 WHERE tenant_id = $1
+		 ORDER BY updated_at DESC
+		 LIMIT $2 OFFSET $3`,
+		tenantID,
+		perPage,
+		pageOffset(page, perPage),
+	)
 	if err != nil {
 		return nil, 0, fmt.Errorf("postgres store: list migrations: %w", err)
 	}
@@ -843,6 +863,7 @@ func (s *PostgresStore) DeleteTenant(ctx context.Context, tenantID string) error
 		return fmt.Errorf("postgres store: delete tenant %s: begin transaction: %w", tenantID, err)
 	}
 	defer func() {
+		// Rollback is best effort after commit or terminal transaction failure.
 		_ = tx.Rollback()
 	}()
 
@@ -1196,6 +1217,7 @@ func (s *PostgresStore) DeleteWorkspace(ctx context.Context, tenantID, workspace
 		return fmt.Errorf("postgres store: delete workspace %s: begin transaction: %w", workspaceID, err)
 	}
 	defer func() {
+		// Rollback is best effort after commit or terminal transaction failure.
 		_ = tx.Rollback()
 	}()
 
@@ -1237,13 +1259,13 @@ func (s *PostgresStore) SaveWorkspaceJob(ctx context.Context, tenantID string, j
 	if _, err := s.ensureTenant(ctx, tenantID); err != nil {
 		return fmt.Errorf("postgres store: save workspace job: %w", err)
 	}
-	if _, err := s.GetWorkspace(ctx, tenantID, job.WorkspaceID); err != nil {
-		return fmt.Errorf("postgres store: save workspace job: %w", err)
-	}
-	if existing, err := s.GetWorkspaceJob(ctx, tenantID, job.WorkspaceID, job.ID); err == nil {
+	existing, existingErr := s.GetWorkspaceJob(ctx, tenantID, job.WorkspaceID, job.ID)
+	if existingErr == nil {
 		if job.RequestedAt.IsZero() {
 			job.RequestedAt = existing.RequestedAt
 		}
+	} else if _, err := s.GetWorkspace(ctx, tenantID, job.WorkspaceID); err != nil {
+		return fmt.Errorf("postgres store: save workspace job: %w", err)
 	}
 
 	job = normalizeWorkspaceJob(tenantID, job)
@@ -1458,6 +1480,24 @@ func pageOffset(page, perPage int) int {
 		return 0
 	}
 	return (page - 1) * perPage
+}
+
+func normalizePageRequest(page, perPage int) (int, int, error) {
+	switch {
+	case page < 0:
+		return 0, 0, fmt.Errorf("page must be greater than or equal to zero")
+	case page == 0:
+		page = 1
+	}
+
+	switch {
+	case perPage <= 0:
+		perPage = 50
+	case perPage > 200:
+		perPage = 200
+	}
+
+	return page, perPage, nil
 }
 
 func pageCapacity(total, perPage int) int {

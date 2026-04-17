@@ -219,14 +219,26 @@ func actorFromContext(ctx context.Context) string {
 func writeCSV(w http.ResponseWriter, filename string, headers []string, rows [][]string) {
 	var buffer bytes.Buffer
 	writer := csv.NewWriter(&buffer)
-	_ = writer.Write(headers)
+	if err := writer.Write(headers); err != nil {
+		http.Error(w, "failed to encode CSV", http.StatusInternalServerError)
+		return
+	}
 	for _, row := range rows {
-		_ = writer.Write(row)
+		if err := writer.Write(row); err != nil {
+			http.Error(w, "failed to encode CSV", http.StatusInternalServerError)
+			return
+		}
 	}
 	writer.Flush()
+	if err := writer.Error(); err != nil {
+		http.Error(w, "failed to flush CSV", http.StatusInternalServerError)
+		return
+	}
 
 	w.Header().Set("Content-Type", "text/csv")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", filename))
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write(buffer.Bytes())
+	if _, err := w.Write(buffer.Bytes()); err != nil {
+		packageLogger.Warn("failed to write CSV response", "file_name", filename, "error", err.Error())
+	}
 }

@@ -85,6 +85,7 @@ export function useAuthBootstrap(): AuthBootstrapState {
 		const session = await createDashboardAuthSession(mode, apiKey, remember);
 		setDashboardAuthSession(mode, {
 			remember,
+			apiKey,
 			sessionID: session.session_id,
 		});
 		await refresh();

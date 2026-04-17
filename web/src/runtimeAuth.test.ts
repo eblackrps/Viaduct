@@ -14,6 +14,7 @@ describe("runtimeAuth", () => {
 
 	it("stores only a session marker for remembered runtime auth", () => {
 		setDashboardAuthSession("tenant", {
+			apiKey: "tenant-key",
 			remember: true,
 			sessionID: "session-123",
 		});
@@ -29,7 +30,7 @@ describe("runtimeAuth", () => {
 		);
 		expect(getDashboardAuthSession()).toEqual({
 			mode: "tenant",
-			apiKey: "",
+			apiKey: "tenant-key",
 			source: "runtime",
 			sessionID: "session-123",
 		});
@@ -51,6 +52,11 @@ describe("runtimeAuth", () => {
 		expect(
 			window.localStorage.getItem("viaduct.dashboardAuth.remembered"),
 		).toBeNull();
-		expect(warn).toHaveBeenCalled();
+		expect(warn).toHaveBeenCalledWith(
+			"failed to parse dashboard auth session, clearing stored data",
+			expect.objectContaining({
+				storageKey: "viaduct.dashboardAuth.remembered",
+			}),
+		);
 	});
 });

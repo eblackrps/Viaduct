@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"net/http"
 	"strings"
 	"sync"
@@ -93,6 +94,43 @@ func (m *authSessionManager) Delete(secret string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	delete(m.sessions, strings.TrimSpace(secret))
+}
+
+func (m *authSessionManager) StartSweeper(ctx context.Context, interval time.Duration) {
+	if m == nil {
+		return
+	}
+	if interval <= 0 {
+		interval = 5 * time.Minute
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	ticker := time.NewTicker(interval)
+	go func() {
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case now := <-ticker.C:
+				m.SweepExpired(now.UTC())
+			}
+		}
+	}()
+}
+
+func (m *authSessionManager) SweepExpired(now time.Time) int {
+	if m == nil {
+		return 0
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	before := len(m.sessions)
+	m.pruneLocked(now)
+	return before - len(m.sessions)
 }
 
 func (m *authSessionManager) pruneLocked(now time.Time) {

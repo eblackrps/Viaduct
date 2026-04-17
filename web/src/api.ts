@@ -191,6 +191,40 @@ const configuredTimeoutValue =
 const defaultRequestTimeoutMs =
 	Number.parseInt(configuredTimeoutValue, 10) || 30000;
 
+export interface RequestController {
+	controller: AbortController;
+	signal: AbortSignal;
+	cancel: () => void;
+	cleanup: () => void;
+	timedOut: () => boolean;
+}
+
+export function createRequestController(
+	options?: Pick<RequestOptions, "signal" | "timeoutMs">,
+): RequestController {
+	const controller = new AbortController();
+	const timeoutMs = options?.timeoutMs ?? defaultRequestTimeoutMs;
+	let didTimeout = false;
+	const timeoutID = globalThis.setTimeout(() => {
+		didTimeout = true;
+		controller.abort(new DOMException("Timed out", "AbortError"));
+	}, timeoutMs);
+	const forwardAbort = () =>
+		controller.abort(new DOMException("Canceled", "AbortError"));
+	options?.signal?.addEventListener("abort", forwardAbort, { once: true });
+
+	return {
+		controller,
+		signal: controller.signal,
+		cancel: () => controller.abort(new DOMException("Canceled", "AbortError")),
+		cleanup: () => {
+			globalThis.clearTimeout(timeoutID);
+			options?.signal?.removeEventListener("abort", forwardAbort);
+		},
+		timedOut: () => didTimeout,
+	};
+}
+
 class RequestManager {
 	private readonly inflight = new Map<
 		string,
@@ -213,15 +247,8 @@ class RequestManager {
 				.promise.then((response) => response.clone());
 		}
 
-		const controller = new AbortController();
+		const requestController = createRequestController(options);
 		const timeoutMs = options?.timeoutMs ?? defaultRequestTimeoutMs;
-		let timedOut = false;
-		const timeoutID = window.setTimeout(() => {
-			timedOut = true;
-			controller.abort(new DOMException("Timed out", "AbortError"));
-		}, timeoutMs);
-		const forwardAbort = () => controller.abort();
-		options?.signal?.addEventListener("abort", forwardAbort, { once: true });
 
 		const promise = (async () => {
 			try {
@@ -231,16 +258,15 @@ class RequestManager {
 					headers: options?.skipAuth
 						? new Headers(init?.headers)
 						: buildHeaders(init?.headers, init?.body !== undefined),
-					signal: controller.signal,
+					signal: requestController.signal,
 				});
 			} catch (reason) {
-				if (timedOut) {
+				if (requestController.timedOut()) {
 					throw new TimeoutError(timeoutMs);
 				}
 				throw reason;
 			} finally {
-				window.clearTimeout(timeoutID);
-				options?.signal?.removeEventListener("abort", forwardAbort);
+				requestController.cleanup();
 				if (dedupeKey) {
 					this.inflight.delete(dedupeKey);
 				}
@@ -248,7 +274,10 @@ class RequestManager {
 		})();
 
 		if (dedupeKey) {
-			this.inflight.set(dedupeKey, { controller, promise });
+			this.inflight.set(dedupeKey, {
+				controller: requestController.controller,
+				promise,
+			});
 			return promise.then((response) => response.clone());
 		}
 		return promise;

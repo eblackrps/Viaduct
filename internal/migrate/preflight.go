@@ -143,6 +143,7 @@ func (c *PreflightChecker) checkSourceConnectivity(ctx context.Context) CheckRes
 	if err := c.source.Connect(ctx); err != nil {
 		return CheckResult{Name: "source-connectivity", Status: StatusFail, Message: fmt.Sprintf("source connection failed: %v", err), Duration: time.Since(startedAt)}
 	}
+	// Connector shutdown is best effort for preflight probes.
 	defer func() { _ = c.source.Close() }()
 
 	result, err := c.source.Discover(ctx)
@@ -159,6 +160,7 @@ func (c *PreflightChecker) checkTargetConnectivity(ctx context.Context) CheckRes
 	if err := c.target.Connect(ctx); err != nil {
 		return CheckResult{Name: "target-connectivity", Status: StatusFail, Message: fmt.Sprintf("target connection failed: %v", err), Duration: time.Since(startedAt)}
 	}
+	// Connector shutdown is best effort for preflight probes.
 	defer func() { _ = c.target.Close() }()
 
 	result, err := c.target.Discover(ctx)

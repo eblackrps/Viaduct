@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -458,6 +459,62 @@ func TestServer_Handler_OpenAPIDocsRedirectAndJSON_Expected(t *testing.T) {
 	}
 }
 
+func TestServer_Handler_MetricsRouteRequiresAdmin_Expected(t *testing.T) {
+	t.Setenv("VIADUCT_ADMIN_KEY", "admin-key")
+	server := mustNewServer(t, store.NewMemoryStore())
+	handler := server.Handler()
+
+	unauthorizedRequest := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	unauthorizedRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(unauthorizedRecorder, unauthorizedRequest)
+	if unauthorizedRecorder.Code != http.StatusUnauthorized {
+		t.Fatalf("unauthorized status = %d, want %d: %s", unauthorizedRecorder.Code, http.StatusUnauthorized, unauthorizedRecorder.Body.String())
+	}
+
+	authorizedRequest := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	authorizedRequest.Header.Set(adminAPIKeyHeader, "admin-key")
+	authorizedRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(authorizedRecorder, authorizedRequest)
+	if authorizedRecorder.Code != http.StatusOK {
+		t.Fatalf("authorized status = %d, want %d: %s", authorizedRecorder.Code, http.StatusOK, authorizedRecorder.Body.String())
+	}
+	if body := authorizedRecorder.Body.String(); !strings.Contains(body, "viaduct_http_requests_total") {
+		t.Fatalf("metrics response missing expected counter: %s", body)
+	}
+}
+
+func TestServer_HandleHealthzAndReadyz_ReturnsExpectedStatus_Expected(t *testing.T) {
+	t.Parallel()
+
+	server := mustNewServer(t, store.NewMemoryStore())
+	handler := server.Handler()
+
+	healthRequest := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	healthRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(healthRecorder, healthRequest)
+	if healthRecorder.Code != http.StatusOK {
+		t.Fatalf("healthz status = %d, want %d: %s", healthRecorder.Code, http.StatusOK, healthRecorder.Body.String())
+	}
+
+	readinessRequest := httptest.NewRequest(http.MethodGet, "/readyz", nil)
+	readinessRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(readinessRecorder, readinessRequest)
+	if readinessRecorder.Code != http.StatusOK {
+		t.Fatalf("readyz status = %d, want %d: %s", readinessRecorder.Code, http.StatusOK, readinessRecorder.Body.String())
+	}
+
+	var readiness readinessResponse
+	if err := json.Unmarshal(readinessRecorder.Body.Bytes(), &readiness); err != nil {
+		t.Fatalf("Unmarshal(readiness) error = %v", err)
+	}
+	if readiness.Status != "ready" {
+		t.Fatalf("readiness.Status = %q, want ready", readiness.Status)
+	}
+	if !readiness.PoliciesLoaded {
+		t.Fatal("PoliciesLoaded = false, want true")
+	}
+}
+
 func TestServer_Handler_AuthSessionRouteRateLimited_Expected(t *testing.T) {
 	t.Parallel()
 
@@ -484,6 +541,37 @@ func TestServer_Handler_AuthSessionRouteRateLimited_Expected(t *testing.T) {
 		handler.ServeHTTP(recorder, request)
 		if recorder.Code != expectedStatus {
 			t.Fatalf("request %d status = %d, want %d: %s", index, recorder.Code, expectedStatus, recorder.Body.String())
+		}
+	}
+}
+
+func TestServer_Handler_TenantRoutesUseClientLimiter_NotAuthLimiter(t *testing.T) {
+	t.Parallel()
+
+	stateStore := store.NewMemoryStore()
+	if err := stateStore.CreateTenant(context.Background(), models.Tenant{
+		ID:     "tenant-a",
+		Name:   "Tenant A",
+		APIKey: "tenant-a-key",
+		Active: true,
+	}); err != nil {
+		t.Fatalf("CreateTenant() error = %v", err)
+	}
+
+	server := mustNewServer(t, stateStore)
+	server.clientRateLimiter = newTenantRateLimiter(5, time.Minute)
+	server.authRateLimiter = newTenantRateLimiter(1, time.Minute)
+	handler := server.Handler()
+
+	for index := 0; index < 2; index++ {
+		request := httptest.NewRequest(http.MethodGet, "/api/v1/tenants/current", nil)
+		request.RemoteAddr = "203.0.113.10:41000"
+		request.Header.Set("X-API-Key", "tenant-a-key")
+		recorder := httptest.NewRecorder()
+
+		handler.ServeHTTP(recorder, request)
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("request %d status = %d, want %d: %s", index, recorder.Code, http.StatusOK, recorder.Body.String())
 		}
 	}
 }
@@ -864,5 +952,80 @@ func TestServer_HandlePreflight_InvalidSpecReturnsFieldErrors_Expected(t *testin
 	}
 	if len(response.Error.FieldErrors) == 0 {
 		t.Fatalf("expected field errors, got %#v", response.Error)
+	}
+}
+
+func TestServer_BackgroundTaskContext_ServerLifetimeAndMetadata_Expected(t *testing.T) {
+	t.Parallel()
+
+	server := mustNewServer(t, store.NewMemoryStore())
+	parentCtx, parentCancel := context.WithCancel(
+		ContextWithRequestID(
+			store.ContextWithTenantID(context.Background(), "tenant-background"),
+			"req-background",
+		),
+	)
+	defer parentCancel()
+
+	ctx, cancel := server.backgroundTaskContext(parentCtx, "", "")
+	defer cancel()
+
+	parentCancel()
+	select {
+	case <-ctx.Done():
+		t.Fatal("background task context canceled with parent request")
+	default:
+	}
+	if got := store.TenantIDFromContext(ctx); got != "tenant-background" {
+		t.Fatalf("TenantIDFromContext() = %q, want tenant-background", got)
+	}
+	if got := RequestIDFromContext(ctx); got != "req-background" {
+		t.Fatalf("RequestIDFromContext() = %q, want req-background", got)
+	}
+
+	server.cancelBackgroundTasks()
+	select {
+	case <-ctx.Done():
+	case <-time.After(time.Second):
+		t.Fatal("background task context not canceled by server shutdown")
+	}
+}
+
+func TestServer_RunMigrationAsync_RecoversPanicsAndLogs_Expected(t *testing.T) {
+	t.Parallel()
+
+	server := mustNewServer(t, store.NewMemoryStore())
+	var logBuffer bytes.Buffer
+	server.logger = slog.New(slog.NewJSONHandler(&logBuffer, &slog.HandlerOptions{Level: slog.LevelInfo}))
+
+	server.runMigrationAsync(
+		ContextWithRequestID(store.ContextWithTenantID(context.Background(), "tenant-panic"), "req-panic"),
+		"",
+		"",
+		"execute",
+		"migration-panic",
+		func(ctx context.Context) error {
+			if got := store.TenantIDFromContext(ctx); got != "tenant-panic" {
+				t.Fatalf("TenantIDFromContext() = %q, want tenant-panic", got)
+			}
+			if got := RequestIDFromContext(ctx); got != "req-panic" {
+				t.Fatalf("RequestIDFromContext() = %q, want req-panic", got)
+			}
+			panic("boom")
+		},
+	)
+
+	logOutput := logBuffer.String()
+	for _, fragment := range []string{
+		`"msg":"migration background task panicked"`,
+		`"action":"execute"`,
+		`"migration_id":"migration-panic"`,
+		`"tenant_id":"tenant-panic"`,
+		`"request_id":"req-panic"`,
+		`"panic":"boom"`,
+	} {
+		if !strings.Contains(logOutput, fragment) {
+			t.Fatalf("log output missing %s: %s", fragment, logOutput)
+		}
 	}
 }

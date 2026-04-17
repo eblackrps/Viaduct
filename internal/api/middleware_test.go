@@ -364,6 +364,25 @@ func TestTenantAuthMiddleware_DefaultFallbackAnonymousAdminEnabled_Expected(t *t
 	}
 }
 
+func TestTenantAuthMiddleware_ContextTenantMismatch_ReturnsForbidden(t *testing.T) {
+	t.Parallel()
+
+	stateStore := newTenantTestStore(t)
+	handler := TenantAuthMiddleware(stateStore, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/inventory", nil)
+	req = req.WithContext(store.ContextWithTenantID(req.Context(), "tenant-b"))
+	req.Header.Set(tenantAPIKeyHeader, "tenant-a-key")
+	recorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(recorder, req)
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want %d: %s", recorder.Code, http.StatusForbidden, recorder.Body.String())
+	}
+}
+
 func newTenantTestStore(t *testing.T) store.Store {
 	t.Helper()
 

@@ -6,12 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -96,32 +98,44 @@ type healthResponse struct {
 	CircuitBreakers []connectorCircuitSnapshot `json:"circuit_breakers,omitempty"`
 }
 
+type readinessResponse struct {
+	Status          string                     `json:"status"`
+	PoliciesLoaded  bool                       `json:"policies_loaded"`
+	Store           *store.Diagnostics         `json:"store,omitempty"`
+	CircuitBreakers []connectorCircuitSnapshot `json:"circuit_breakers,omitempty"`
+}
+
 // Server serves Viaduct REST API endpoints for discovery, migration, and lifecycle workflows.
 type Server struct {
-	engine               *discovery.Engine
-	store                store.Store
-	port                 int
-	adminAPIKey          string
-	catalog              *connectorcatalog.Catalog
-	metrics              *apiMetrics
-	rateLimiter          *tenantRateLimiter
-	authRateLimiter      *tenantRateLimiter
-	build                buildInfo
-	backups              *models.BackupDiscoveryResult
-	costEngine           *lifecycle.CostEngine
-	policyEngine         *lifecycle.PolicyEngine
-	recommendationEngine *lifecycle.RecommendationEngine
-	driftDetector        *lifecycle.DriftDetector
-	resolveConfig        func(platform models.Platform, address, credentialRef string) connectors.Config
-	dashboardDir         string
-	bindHost             string
-	allowedOrigins       map[string]struct{}
-	workspaceJobTimeout  time.Duration
-	allowAnonymousAdmin  bool
-	authSessions         *authSessionManager
-	connectorCircuits    *connectorCircuitRegistry
-	apiCSP               string
-	dashboardCSP         string
+	engine                *discovery.Engine
+	store                 store.Store
+	port                  int
+	adminAPIKey           string
+	catalog               *connectorcatalog.Catalog
+	metrics               *apiMetrics
+	clientRateLimiter     *tenantRateLimiter
+	rateLimiter           *tenantRateLimiter
+	authRateLimiter       *tenantRateLimiter
+	build                 buildInfo
+	backups               *models.BackupDiscoveryResult
+	costEngine            *lifecycle.CostEngine
+	policyEngine          *lifecycle.PolicyEngine
+	recommendationEngine  *lifecycle.RecommendationEngine
+	driftDetector         *lifecycle.DriftDetector
+	resolveConfig         func(platform models.Platform, address, credentialRef string) connectors.Config
+	dashboardDir          string
+	bindHost              string
+	allowedOrigins        map[string]struct{}
+	backgroundTaskTimeout time.Duration
+	workspaceJobTimeout   time.Duration
+	allowAnonymousAdmin   bool
+	authSessions          *authSessionManager
+	connectorCircuits     *connectorCircuitRegistry
+	apiCSP                string
+	dashboardCSP          string
+	backgroundTaskCtx     context.Context
+	backgroundTaskCancel  context.CancelFunc
+	logger                *slog.Logger
 
 	mu    sync.RWMutex
 	specs map[string]*migratepkg.MigrationSpec
@@ -181,31 +195,38 @@ func NewServer(engine *discovery.Engine, stateStore store.Store, port int, catal
 		)
 	}
 
+	backgroundTaskCtx, backgroundTaskCancel := context.WithCancel(context.Background())
+
 	return &Server{
-		engine:               engine,
-		store:                stateStore,
-		port:                 port,
-		adminAPIKey:          os.Getenv("VIADUCT_ADMIN_KEY"),
-		catalog:              catalog,
-		metrics:              newAPIMetrics(),
-		rateLimiter:          newTenantRateLimiter(300, time.Minute),
-		authRateLimiter:      newTenantRateLimiter(20, time.Minute),
-		build:                buildInfo{version: "dev", commit: "none", date: "unknown"},
-		costEngine:           costEngine,
-		policyEngine:         policyEngine,
-		recommendationEngine: lifecycle.NewRecommendationEngine(costEngine, policyEngine),
-		driftDetector:        lifecycle.NewDriftDetector(stateStore, policyEngine, lifecycle.DriftConfig{}),
-		dashboardDir:         resolveDashboardAssetDir(""),
-		allowedOrigins:       allowedOrigins,
-		workspaceJobTimeout:  durationEnv("VIADUCT_WORKSPACE_JOB_TIMEOUT", 2*time.Minute),
-		allowAnonymousAdmin:  allowAnonymousAdmin,
-		authSessions:         newAuthSessionManager(durationEnv("VIADUCT_AUTH_SESSION_TTL", 12*time.Hour), durationEnv("VIADUCT_AUTH_REMEMBER_TTL", 30*24*time.Hour)),
-		connectorCircuits:    newConnectorCircuitRegistry(loadConnectorCircuitConfig()),
-		apiCSP:               configuredSecurityHeader("VIADUCT_API_CSP", "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"),
+		engine:                engine,
+		store:                 stateStore,
+		port:                  port,
+		adminAPIKey:           os.Getenv("VIADUCT_ADMIN_KEY"),
+		catalog:               catalog,
+		metrics:               newAPIMetrics(),
+		clientRateLimiter:     newTenantRateLimiter(300, time.Minute),
+		rateLimiter:           newTenantRateLimiter(300, time.Minute),
+		authRateLimiter:       newTenantRateLimiter(20, time.Minute),
+		build:                 buildInfo{version: "dev", commit: "none", date: "unknown"},
+		costEngine:            costEngine,
+		policyEngine:          policyEngine,
+		recommendationEngine:  lifecycle.NewRecommendationEngine(costEngine, policyEngine),
+		driftDetector:         lifecycle.NewDriftDetector(stateStore, policyEngine, lifecycle.DriftConfig{}),
+		dashboardDir:          resolveDashboardAssetDir(""),
+		allowedOrigins:        allowedOrigins,
+		backgroundTaskTimeout: durationEnv("VIADUCT_BACKGROUND_TASK_TIMEOUT", 24*time.Hour),
+		workspaceJobTimeout:   durationEnv("VIADUCT_WORKSPACE_JOB_TIMEOUT", 2*time.Minute),
+		allowAnonymousAdmin:   allowAnonymousAdmin,
+		authSessions:          newAuthSessionManager(durationEnv("VIADUCT_AUTH_SESSION_TTL", 12*time.Hour), durationEnv("VIADUCT_AUTH_REMEMBER_TTL", 30*24*time.Hour)),
+		connectorCircuits:     newConnectorCircuitRegistry(loadConnectorCircuitConfig()),
+		apiCSP:                configuredSecurityHeader("VIADUCT_API_CSP", "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"),
 		dashboardCSP: configuredSecurityHeader(
 			"VIADUCT_DASHBOARD_CSP",
 			"default-src 'self'; base-uri 'none'; connect-src 'self'; font-src 'self' data:; form-action 'self'; frame-ancestors 'none'; img-src 'self' data:; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'",
 		),
+		backgroundTaskCtx:    backgroundTaskCtx,
+		backgroundTaskCancel: backgroundTaskCancel,
+		logger:               packageLogger,
 		resolveConfig: func(platform models.Platform, address, credentialRef string) connectors.Config {
 			resolvedAddress := address
 			if platform == models.PlatformKVM {
@@ -287,6 +308,20 @@ func (s *Server) SetConnectorConfigResolver(resolver func(platform models.Platfo
 	s.resolveConfig = resolver
 }
 
+func (s *Server) backgroundLogger() *slog.Logger {
+	if s != nil && s.logger != nil {
+		return s.logger
+	}
+	return packageLogger
+}
+
+func (s *Server) cancelBackgroundTasks() {
+	if s == nil || s.backgroundTaskCancel == nil {
+		return
+	}
+	s.backgroundTaskCancel()
+}
+
 // Start runs the HTTP server until the context is canceled.
 func (s *Server) Start(ctx context.Context) error {
 	if s == nil {
@@ -302,16 +337,23 @@ func (s *Server) Start(ctx context.Context) error {
 		Handler:           s.Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
+	go func() {
+		select {
+		case <-ctx.Done():
+			s.cancelBackgroundTasks()
+			shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+			defer cancel()
+			if err := server.Shutdown(shutdownCtx); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				packageLogger.Warn("api server shutdown returned an error", "error", err.Error())
+			}
+		}
+	}()
+	if s.authSessions != nil {
+		s.authSessions.StartSweeper(ctx, 5*time.Minute)
+	}
 	if err := s.recoverWorkspaceJobs(ctx); err != nil {
 		packageLogger.Warn("failed to recover workspace jobs", "error", err.Error())
 	}
-
-	go func() {
-		<-ctx.Done()
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		_ = server.Shutdown(shutdownCtx)
-	}()
 
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		return fmt.Errorf("api server: listen and serve: %w", err)
@@ -323,9 +365,12 @@ func (s *Server) Start(ctx context.Context) error {
 // Handler returns the fully wired Viaduct API HTTP handler with auth, rate limiting, CORS, and observability middleware.
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
+	mux.HandleFunc("/healthz", s.handleHealthz)
+	mux.HandleFunc("/readyz", s.handleReadyz)
 	mux.HandleFunc("/api/v1/health", s.handleHealth)
 	mux.HandleFunc("/api/v1/about", s.handleAbout)
-	mux.HandleFunc("/api/v1/metrics", s.handleMetrics)
+	mux.Handle("/metrics", AdminAuthMiddleware(s.adminAPIKey, http.HandlerFunc(s.handleMetrics)))
+	mux.Handle("/api/v1/metrics", AdminAuthMiddleware(s.adminAPIKey, http.HandlerFunc(s.handleMetrics)))
 	mux.HandleFunc("/api/v1/docs", s.handleOpenAPIDocsRedirect)
 	mux.HandleFunc("/api/v1/docs/swagger.json", s.handleSwaggerJSON)
 	mux.Handle("/api/v1/docs/", swaggerUIHandler())
@@ -363,7 +408,7 @@ func (s *Server) Handler() http.Handler {
 	tenantMux.Handle("/api/v1/service-accounts", tenantRoute(models.TenantRoleAdmin, models.TenantPermissionTenantManage, s.handleServiceAccounts))
 	tenantMux.Handle("/api/v1/service-accounts/", tenantRoute(models.TenantRoleAdmin, models.TenantPermissionTenantManage, s.handleServiceAccountByID))
 
-	tenantHandler := ClientRateLimitMiddleware(s.authRateLimiter, s.tenantAuthMiddleware(TenantRateLimitMiddleware(s.rateLimiter, tenantMux)))
+	tenantHandler := ClientRateLimitMiddleware(s.clientRateLimiter, s.tenantAuthMiddleware(TenantRateLimitMiddleware(s.rateLimiter, tenantMux)))
 	mux.Handle("/api/v1/inventory", tenantHandler)
 	mux.Handle("/api/v2/inventory", tenantHandler)
 	mux.Handle("/api/v1/audit", tenantHandler)
@@ -417,26 +462,54 @@ func (s *Server) workspaceDocumentRoute(handler http.HandlerFunc) http.Handler {
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
+	s.handleReadyz(w, r)
+}
+
+func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writeAPIError(w, r, http.StatusMethodNotAllowed, "invalid_request", "method not allowed", apiErrorOptions{})
 		return
 	}
 
-	response := healthResponse{Status: "ok"}
+	writeJSON(w, http.StatusOK, healthResponse{Status: "ok"})
+}
+
+func (s *Server) handleReadyz(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeAPIError(w, r, http.StatusMethodNotAllowed, "invalid_request", "method not allowed", apiErrorOptions{})
+		return
+	}
+
+	response := readinessResponse{
+		Status:         "ready",
+		PoliciesLoaded: s.policyEngine != nil && s.policyEngine.PolicyCount() > 0,
+	}
+	statusCode := http.StatusOK
 	if provider, ok := s.store.(store.DiagnosticsProvider); ok {
 		if diagnostics, err := provider.Diagnostics(r.Context()); err == nil {
 			response.Store = &diagnostics
+			if diagnostics.Persistent && diagnostics.SchemaVersion <= 0 {
+				response.Status = "not_ready"
+				statusCode = http.StatusServiceUnavailable
+			}
+		} else {
+			response.Status = "not_ready"
+			statusCode = http.StatusServiceUnavailable
 		}
 	}
 	response.CircuitBreakers = s.connectorCircuits.snapshots()
 	for _, circuit := range response.CircuitBreakers {
 		if circuit.State == connectorCircuitOpen {
-			response.Status = "degraded"
-			break
+			response.Status = "not_ready"
+			statusCode = http.StatusServiceUnavailable
 		}
 	}
+	if !response.PoliciesLoaded {
+		response.Status = "not_ready"
+		statusCode = http.StatusServiceUnavailable
+	}
 
-	writeJSON(w, http.StatusOK, response)
+	writeJSON(w, statusCode, response)
 }
 
 func (s *Server) handleAbout(w http.ResponseWriter, r *http.Request) {
@@ -788,9 +861,11 @@ func (s *Server) handleMigrations(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		s.mu.Lock()
-		s.specs[s.specKey(tenantID, migrationID)] = spec
-		s.mu.Unlock()
+		func() {
+			s.mu.Lock()
+			defer s.mu.Unlock()
+			s.specs[s.specKey(tenantID, migrationID)] = spec
+		}()
 		s.recordAuditEvent(r, models.AuditEvent{
 			Category: "migration",
 			Action:   "plan",
@@ -896,12 +971,12 @@ func (s *Server) handleMigrationByID(w http.ResponseWriter, r *http.Request) {
 		}
 
 		requestID := RequestIDFromContext(r.Context())
-		go func(spec *migratepkg.MigrationSpec, id, tenantID, requestID string) {
+		go s.runMigrationAsync(r.Context(), tenantID, requestID, "execute", migrationID, func(ctx context.Context) error {
 			orchestrator := migratepkg.NewOrchestrator(sourceConnector, targetConnector, s.store, nil)
-			orchestrator.SetIDGenerator(func() string { return id })
-			ctx := contextWithConnectorRequestID(store.ContextWithTenantID(context.Background(), tenantID), requestID)
-			_, _ = orchestrator.Execute(ctx, spec)
-		}(&executionSpec, migrationID, tenantID, requestID)
+			orchestrator.SetIDGenerator(func() string { return migrationID })
+			_, err := orchestrator.Execute(ctx, &executionSpec)
+			return err
+		})
 		s.recordAuditEvent(r, models.AuditEvent{
 			Category: "migration",
 			Action:   "execute",
@@ -964,11 +1039,11 @@ func (s *Server) handleMigrationByID(w http.ResponseWriter, r *http.Request) {
 		}
 
 		requestID := RequestIDFromContext(r.Context())
-		go func(spec *migratepkg.MigrationSpec, id, tenantID, requestID string) {
+		go s.runMigrationAsync(r.Context(), tenantID, requestID, "resume", migrationID, func(ctx context.Context) error {
 			orchestrator := migratepkg.NewOrchestrator(sourceConnector, targetConnector, s.store, nil)
-			ctx := contextWithConnectorRequestID(store.ContextWithTenantID(context.Background(), tenantID), requestID)
-			_, _ = orchestrator.Resume(ctx, id, spec)
-		}(&resumeSpec, migrationID, tenantID, requestID)
+			_, err := orchestrator.Resume(ctx, migrationID, &resumeSpec)
+			return err
+		})
 		s.recordAuditEvent(r, models.AuditEvent{
 			Category: "migration",
 			Action:   "resume",
@@ -1254,6 +1329,65 @@ func (s *Server) lookupSpec(tenantID, migrationID string) (*migratepkg.Migration
 	defer s.mu.RUnlock()
 	spec, ok := s.specs[s.specKey(tenantID, migrationID)]
 	return spec, ok
+}
+
+func (s *Server) runMigrationAsync(parentCtx context.Context, tenantID, requestID, action, migrationID string, execute func(context.Context) error) {
+	ctx, cancel := s.backgroundTaskContext(parentCtx, tenantID, requestID)
+	defer cancel()
+	logger := s.backgroundLogger()
+	tenantID = store.TenantIDFromContext(ctx)
+	requestID = RequestIDFromContext(ctx)
+
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			logger.Error(
+				"migration background task panicked",
+				"action", action,
+				"migration_id", migrationID,
+				"tenant_id", tenantID,
+				"request_id", requestID,
+				"panic", fmt.Sprint(recovered),
+				"stack", string(debug.Stack()),
+			)
+		}
+	}()
+
+	if err := execute(ctx); err != nil {
+		logger.Error(
+			"migration background task failed",
+			"action", action,
+			"migration_id", migrationID,
+			"tenant_id", tenantID,
+			"request_id", requestID,
+			"error", err.Error(),
+		)
+	}
+}
+
+func (s *Server) backgroundTaskContext(parentCtx context.Context, tenantID, requestID string) (context.Context, context.CancelFunc) {
+	if parentCtx != nil {
+		if strings.TrimSpace(tenantID) == "" {
+			tenantID = store.TenantIDFromContext(parentCtx)
+		}
+		if strings.TrimSpace(requestID) == "" {
+			requestID = RequestIDFromContext(parentCtx)
+		}
+	}
+
+	baseCtx := context.Background()
+	if s != nil && s.backgroundTaskCtx != nil {
+		baseCtx = s.backgroundTaskCtx
+	}
+	ctx, cancel := context.WithCancel(baseCtx)
+	if s != nil && s.backgroundTaskTimeout > 0 {
+		cancel()
+		ctx, cancel = context.WithTimeout(baseCtx, s.backgroundTaskTimeout)
+	}
+
+	ctx = store.ContextWithTenantID(ctx, tenantID)
+	ctx = ContextWithRequestID(ctx, requestID)
+	ctx = contextWithConnectorRequestID(ctx, requestID)
+	return ctx, cancel
 }
 
 func (s *Server) specKey(tenantID, migrationID string) string {
