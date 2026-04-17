@@ -6,7 +6,7 @@ Viaduct can be evaluated from source or from a packaged release bundle.
 
 ### Prerequisites
 - Go 1.24+
-- Node.js 20.19+ for the dashboard
+- Node.js 20.19+ for the dashboard (`20.20.x` is what CI and release packaging currently pin)
 - `make` for the standard build flow
 - `qemu-img` if you want live disk-conversion execution outside tests
 
@@ -44,7 +44,7 @@ The canonical packaging matrix is:
 - `darwin/arm64`
 - `windows/amd64`
 
-Git tags keep the leading `v`, but bundle names use the numeric release label. For example, `v2.4.0` publishes `dist/viaduct_2.4.0_linux_amd64.tar.gz`.
+Git tags keep the leading `v`, but bundle names use the numeric release label. For example, `v2.4.1` publishes `dist/viaduct_2.4.1_linux_amd64.tar.gz`.
 
 Each bundle includes:
 - the Viaduct CLI binary

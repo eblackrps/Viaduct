@@ -6,7 +6,7 @@ The default dashboard path is now WebUI-first and workspace-first: `viaduct star
 
 ## Prerequisites
 - Go 1.24+
-- Node.js 20.19+
+- Node.js 20.19+ locally; CI and release packaging currently pin Node.js 20.20.x
 - `make` if you want the convenience targets
 
 ## 1. Build Viaduct

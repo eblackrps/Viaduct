@@ -38,7 +38,7 @@ npm ci
 npm run build
 ```
 
-Release bundles for the dashboard are produced through `make package-release-matrix`, and `make release-gate` is the canonical verification path.
+Release bundles for the dashboard are produced through `make package-release-matrix`, and `make release-gate` is the canonical local release-owner verification path. CI adds Playwright end-to-end coverage plus `gosec` and `trivy` on top of that same source-controlled flow.
 
 For the packaged local operator path from the repo root:
 
@@ -68,7 +68,7 @@ Current README and release-facing dashboard screenshots can be regenerated with 
 
 ## Notes
 
-- Vite 8 and the current React plugin require Node.js 20.19+ or a newer supported major.
+- Vite 8 and the current React plugin require Node.js 20.19+ or a newer supported major. CI and release packaging currently pin Node.js 20.20.x.
 - The Vite dev server is for local development only.
 - The dashboard depends on the same backend state as the CLI and API; avoid frontend-only assumptions about migration or policy state.
 - The default route is the pilot workspace flow in `web/src/features/workspaces/WorkspacePage.tsx`.
