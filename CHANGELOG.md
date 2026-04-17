@@ -6,6 +6,13 @@ This changelog tracks published releases and the major implementation milestones
 
 ## [Unreleased]
 
+### Release Engineering
+
+- aligned `make release-gate` with the repo’s public contract by adding connector certification coverage plus dashboard lint, format, unit-test, and build verification to the canonical local release-owner path
+- aligned `make package-release-matrix`, `scripts/package_release`, and `.github/workflows/release.yml` around the shipped artifact matrix: `linux/amd64`, `linux/arm64`, `darwin/arm64`, and `windows/amd64` tarballs plus `dist/SHA256SUMS`
+- made the tag workflow source-controlled and reproducible end to end by publishing GitHub releases from versioned files under `docs/releases/` and by tagging GHCR images with both `vX.Y.Z` and `X.Y.Z` alongside `latest`
+- replaced the hardcoded public-site release badge with a dynamic latest-release badge and stable release-notes link so `site/` stays aligned with the current published release surface
+
 ## [2.4.0] - 2026-04-17
 
 ### Upgrading From v2.3.0

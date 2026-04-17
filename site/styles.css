@@ -203,11 +203,17 @@ code {
 }
 
 .release-badge {
+  display: inline-flex;
+  align-items: center;
   padding: 8px 12px;
   border: 1px solid rgba(59, 130, 246, 0.28);
   border-radius: 999px;
   background: rgba(59, 130, 246, 0.12);
   color: var(--heading);
+}
+
+.release-badge img {
+  display: block;
 }
 
 .site-main {

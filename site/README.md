@@ -29,7 +29,7 @@ Then open `http://localhost:4173`.
 GitHub Pages deploys this directory through `.github/workflows/pages.yml`. The workflow uploads `site/` whenever `main` changes in this directory, or when the workflow is run manually.
 
 The Pages deployment is separate from GitHub releases. Release tags package the product artifacts; the public site publishes from the `main` branch workflow.
-Keep the header release badge in `index.html` aligned with the latest file under `docs/releases/` and the latest published GitHub release tag.
+`index.html` intentionally uses the dynamic GitHub latest-release badge plus the stable `docs/releases/README.md` link so the public site keeps pointing at the current release surface without hardcoding version-specific badge text. When release navigation changes, update the release-notes link and the checked-in site copy in the same change.
 
 ## Domain Notes
 

@@ -19,3 +19,5 @@ Keep these notes aligned with:
 - [OpenAPI reference](../reference/openapi.yaml)
 - [Screenshot assets](../operations/demo/screenshots/README.md)
 - [RELEASE.md](../../RELEASE.md)
+
+The tag workflow in [`.github/workflows/release.yml`](../../.github/workflows/release.yml) uses the versioned note file that matches the tag (for example `docs/releases/v2.4.0.md`) as the source-controlled GitHub release body when it exists. Keep the matching changelog entry and site links in sync before tagging.

@@ -13,14 +13,15 @@ This matrix reflects what is implemented and what is currently validated in the 
 ## Runtime Validation
 | Area | Validation Scope | Notes |
 | --- | --- | --- |
-| Backend build and tests | CI and local release-gate coverage | Includes build, vet, lint, race tests, coverage, and packaging. |
-| Dashboard lint and unit tests | CI and local | `npm run lint` and `npm run test` enforce frontend quality and auth/workspace regressions. |
-| Dashboard end-to-end tests | CI and local | `npm run e2e` exercises the login bootstrap, operator console, inventory, and migration workflow paths. |
+| Release owner gate | CI build job and local release-gate coverage | `make release-gate` runs `go mod tidy`, backend build, vet, `golangci-lint`, race tests, certification fixtures, soak coverage, plugin and OpenAPI contract checks, CLI smoke checks, dashboard lint/format/unit/build verification, the coverage gate, and the package matrix. |
+| Dashboard lint and unit tests | CI and local | `make release-gate`, `npm run lint`, `npm run format`, and `npm run test` enforce frontend quality and auth/workspace regressions. |
+| Dashboard end-to-end tests | CI and local opt-in | `npm run e2e` exercises the login bootstrap, operator console, inventory, and migration workflow paths. It stays outside `make release-gate` because it depends on Playwright browser setup, but CI still enforces it on every pull request. |
+| Security scans | CI and local opt-in | `gosec ./...` and `trivy fs --severity HIGH,CRITICAL .` run in CI; release owners can run the same commands locally when scanners are available. |
 | Connector certification | Fixture-backed local and CI coverage | `make certification-test` validates KVM and Proxmox normalization against stable fixtures. |
 | Migration soak | Tagged local and CI coverage | `make soak-test` exercises large-wave orchestration behavior without requiring external hypervisors. |
 | API contract | Local and CI contract check | `make contract-check` verifies the published OpenAPI reference plus `/api/v1/docs/swagger.json` coverage for documented routes. |
 | Plugin compatibility | Local and CI manifest validation | `make plugin-check` validates manifest protocol and host-version compatibility markers. |
-| CLI packaging | Local and CI packaging checks | Release bundles are ZIP-based and include docs, configs, and web assets. |
+| CLI packaging | Local and CI packaging checks | `make package-release-matrix` and the tag workflow both publish `tar.gz` bundles for `linux/amd64`, `linux/arm64`, `darwin/arm64`, and `windows/amd64`, plus `dist/SHA256SUMS`. |
 | Dashboard build | CI and local | `npm run build` is part of the release gate. |
 
 ## Connectors
