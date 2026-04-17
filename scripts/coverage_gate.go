@@ -20,6 +20,7 @@ func main() {
 		fail(fmt.Sprintf("parse minimum coverage %q: %v", os.Args[2], err))
 	}
 
+	// #nosec G204 -- this helper invokes the trusted Go toolchain directly and passes the coverage file as an argument.
 	command := exec.Command("go", "tool", "cover", "-func="+coverageFile)
 	output, err := command.CombinedOutput()
 	if err != nil {

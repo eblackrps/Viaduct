@@ -28,7 +28,7 @@ func TestTenantAuthMiddleware_ValidKey_AllowsRequest(t *testing.T) {
 	}))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/inventory", nil)
-	req.Header.Set(tenantAPIKeyHeader, "tenant-a-key")
+	req.Header.Set(tenantCredentialHeader, "tenant-a-key")
 	recorder := httptest.NewRecorder()
 
 	handler.ServeHTTP(recorder, req)
@@ -46,7 +46,7 @@ func TestTenantAuthMiddleware_InvalidKey_RejectsRequest(t *testing.T) {
 	}))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/inventory", nil)
-	req.Header.Set(tenantAPIKeyHeader, "bad-key")
+	req.Header.Set(tenantCredentialHeader, "bad-key")
 	recorder := httptest.NewRecorder()
 
 	handler.ServeHTTP(recorder, req)
@@ -110,7 +110,7 @@ func TestTenantAuthMiddleware_TenantIsolation_ScopesStoreAccess(t *testing.T) {
 	}))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/snapshots", nil)
-	req.Header.Set(tenantAPIKeyHeader, "tenant-a-key")
+	req.Header.Set(tenantCredentialHeader, "tenant-a-key")
 	recorder := httptest.NewRecorder()
 
 	handler.ServeHTTP(recorder, req)
@@ -157,7 +157,7 @@ func TestTenantAuthMiddleware_ServiceAccountKey_AllowsScopedRequest(t *testing.T
 	}))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/inventory", nil)
-	req.Header.Set(serviceAccountAPIKeyHeader, "service-key")
+	req.Header.Set(serviceAccountCredentialHeader, "service-key")
 	recorder := httptest.NewRecorder()
 
 	handler.ServeHTTP(recorder, req)
@@ -194,7 +194,7 @@ func TestRequireTenantRole_ViewerDeniedOperatorRoute_Expected(t *testing.T) {
 	})))
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/migrations", nil)
-	req.Header.Set(serviceAccountAPIKeyHeader, "service-key")
+	req.Header.Set(serviceAccountCredentialHeader, "service-key")
 	recorder := httptest.NewRecorder()
 
 	handler.ServeHTTP(recorder, req)
@@ -232,7 +232,7 @@ func TestRequireTenantPermission_ServiceAccountExplicitScopeDenied_Expected(t *t
 	})))
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/migrations", nil)
-	req.Header.Set(serviceAccountAPIKeyHeader, "inventory-key")
+	req.Header.Set(serviceAccountCredentialHeader, "inventory-key")
 	recorder := httptest.NewRecorder()
 
 	handler.ServeHTTP(recorder, req)
@@ -270,7 +270,7 @@ func TestRequireTenantPermission_ServiceAccountExplicitScopeAllows_Expected(t *t
 	})))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/reports/audit", nil)
-	req.Header.Set(serviceAccountAPIKeyHeader, "reports-key")
+	req.Header.Set(serviceAccountCredentialHeader, "reports-key")
 	recorder := httptest.NewRecorder()
 
 	handler.ServeHTTP(recorder, req)
@@ -308,7 +308,7 @@ func TestRequireAnyTenantPermission_ServiceAccountWithAlternatePermissionAllows_
 	}), models.TenantPermissionReportsRead, models.TenantPermissionMigrationManage)))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/workspaces", nil)
-	req.Header.Set(serviceAccountAPIKeyHeader, "operator-key")
+	req.Header.Set(serviceAccountCredentialHeader, "operator-key")
 	recorder := httptest.NewRecorder()
 
 	handler.ServeHTTP(recorder, req)
@@ -374,7 +374,7 @@ func TestTenantAuthMiddleware_ContextTenantMismatch_ReturnsForbidden(t *testing.
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/inventory", nil)
 	req = req.WithContext(store.ContextWithTenantID(req.Context(), "tenant-b"))
-	req.Header.Set(tenantAPIKeyHeader, "tenant-a-key")
+	req.Header.Set(tenantCredentialHeader, "tenant-a-key")
 	recorder := httptest.NewRecorder()
 
 	handler.ServeHTTP(recorder, req)

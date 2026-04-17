@@ -41,6 +41,7 @@ func NewVeeamClient(address string, insecure bool, requestID ...string) *VeeamCl
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 			Transport: &http.Transport{
+				// #nosec G402 -- operators can explicitly opt into insecure TLS for lab and self-signed Veeam endpoints.
 				TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS12, InsecureSkipVerify: insecure},
 			},
 		},

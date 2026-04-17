@@ -248,6 +248,7 @@ func (e *PolicyEngine) Simulate(inventory *models.DiscoveryResult, newPolicy Pol
 }
 
 func (e *PolicyEngine) loadPolicyFile(path string) error {
+	// #nosec G304 -- policy bundles are loaded from an explicit operator-selected path or policy directory.
 	payload, err := os.ReadFile(path)
 	if err != nil {
 		return fmt.Errorf("load policies: read %s: %w", path, err)

@@ -99,7 +99,7 @@ func packageRelease(options releaseOptions) error {
 	}
 
 	outputDir := filepath.Join(workspace, filepath.FromSlash(options.OutputDir))
-	if err := os.MkdirAll(outputDir, 0o755); err != nil {
+	if err := os.MkdirAll(outputDir, 0o750); err != nil {
 		return fmt.Errorf("package release: create output dir: %w", err)
 	}
 
@@ -117,7 +117,7 @@ func packageRelease(options releaseOptions) error {
 	if err := os.RemoveAll(bundleDir); err != nil {
 		return fmt.Errorf("package release: reset bundle dir: %w", err)
 	}
-	if err := os.MkdirAll(bundleDir, 0o755); err != nil {
+	if err := os.MkdirAll(bundleDir, 0o750); err != nil {
 		return fmt.Errorf("package release: create bundle dir: %w", err)
 	}
 
@@ -239,17 +239,19 @@ func requireDir(path string) error {
 }
 
 func copyFile(source, target string) error {
-	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(target), 0o750); err != nil {
 		return err
 	}
 
+	// #nosec G304 -- release packaging copies files from the validated workspace and bundle paths selected for this build.
 	in, err := os.Open(source)
 	if err != nil {
 		return err
 	}
 	defer in.Close()
 
-	out, err := os.Create(target)
+	// #nosec G304 -- release packaging writes bundle files under the generated output directory for this release build.
+	out, err := os.OpenFile(target, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0o600)
 	if err != nil {
 		return err
 	}
@@ -277,12 +279,12 @@ func copyDir(source, target string) error {
 			return err
 		}
 		if relative == "." {
-			return os.MkdirAll(target, 0o755)
+			return os.MkdirAll(target, 0o750)
 		}
 
 		destination := filepath.Join(target, relative)
 		if entry.IsDir() {
-			return os.MkdirAll(destination, 0o755)
+			return os.MkdirAll(destination, 0o750)
 		}
 
 		return copyFile(path, destination)
@@ -320,7 +322,7 @@ func writeJSON(path string, payload any) error {
 		return err
 	}
 	data = append(data, '\n')
-	return os.WriteFile(path, data, 0o644)
+	return os.WriteFile(path, data, 0o600)
 }
 
 func writeBundleModuleMarker(bundleDir string) error {
@@ -356,7 +358,7 @@ func writeExampleModuleMarkers(examplesRoot string) error {
 
 func writeModuleMarker(dir, modulePath string) error {
 	contents := fmt.Sprintf("module %s\n\ngo %s\n", modulePath, bundleGoVersion)
-	return os.WriteFile(filepath.Join(dir, "go.mod"), []byte(contents), 0o644)
+	return os.WriteFile(filepath.Join(dir, "go.mod"), []byte(contents), 0o600)
 }
 
 func writeChecksums(root string) error {
@@ -378,7 +380,7 @@ func writeChecksums(root string) error {
 		lines = append(lines, fmt.Sprintf("%s  %s", sum, relative))
 	}
 	sort.Strings(lines)
-	return os.WriteFile(filepath.Join(root, "SHA256SUMS.txt"), []byte(strings.Join(lines, "\n")+"\n"), 0o644)
+	return os.WriteFile(filepath.Join(root, "SHA256SUMS.txt"), []byte(strings.Join(lines, "\n")+"\n"), 0o600)
 }
 
 func writeDependencyManifest(workspace, bundleDir string) error {
@@ -472,6 +474,7 @@ func collectWebDependencies(packageJSONPath string) ([]dependencyVersion, []depe
 		DevDependencies map[string]string `json:"devDependencies"`
 	}
 
+	// #nosec G304 -- dependency collection reads the workspace package manifest chosen for the release bundle.
 	payload, err := os.ReadFile(packageJSONPath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("collect web dependencies: read %s: %w", packageJSONPath, err)
@@ -499,6 +502,7 @@ func dependencyVersionsFromMap(items map[string]string) []dependencyVersion {
 }
 
 func checksumFile(path string) (string, error) {
+	// #nosec G304 -- checksum generation only reads files already collected into the current release bundle.
 	file, err := os.Open(path)
 	if err != nil {
 		return "", err
@@ -513,7 +517,8 @@ func checksumFile(path string) (string, error) {
 }
 
 func zipDir(sourceDir, archivePath string) error {
-	archiveFile, err := os.Create(archivePath)
+	// #nosec G304 -- release packaging writes the archive to the generated output path for the current bundle.
+	archiveFile, err := os.OpenFile(archivePath, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0o600)
 	if err != nil {
 		return err
 	}
@@ -552,6 +557,7 @@ func zipDir(sourceDir, archivePath string) error {
 			return err
 		}
 
+		// #nosec G304 -- release packaging archives files already enumerated from the generated bundle directory.
 		source, err := os.Open(path)
 		if err != nil {
 			return err

@@ -64,7 +64,7 @@ func TestServer_WithObservability_CapturesAuthenticatedTenantScope_Expected(t *t
 	})))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/inventory", nil)
-	req.Header.Set(tenantAPIKeyHeader, "tenant-a-key")
+	req.Header.Set(tenantCredentialHeader, "tenant-a-key")
 	recorder := httptest.NewRecorder()
 
 	handler.ServeHTTP(recorder, req)
@@ -123,7 +123,7 @@ func TestTenantRateLimitMiddleware_UsesTenantQuotaOverride_Expected(t *testing.T
 
 	for idx, expectedStatus := range []int{http.StatusNoContent, http.StatusTooManyRequests} {
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/inventory", nil)
-		req.Header.Set(tenantAPIKeyHeader, "tenant-a-key")
+		req.Header.Set(tenantCredentialHeader, "tenant-a-key")
 		recorder := httptest.NewRecorder()
 
 		handler.ServeHTTP(recorder, req)

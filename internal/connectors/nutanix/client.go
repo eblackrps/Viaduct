@@ -42,6 +42,7 @@ func NewPrismClient(address, username, password string, insecure bool, requestID
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 			Transport: &http.Transport{
+				// #nosec G402 -- operators can explicitly opt into insecure TLS for lab and self-signed Prism endpoints.
 				TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS12, InsecureSkipVerify: insecure},
 			},
 		},

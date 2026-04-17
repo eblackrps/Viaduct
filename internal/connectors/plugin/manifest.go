@@ -37,6 +37,7 @@ func LoadManifest(path string) (*Manifest, error) {
 		return nil, nil
 	}
 
+	// #nosec G304 -- plugin manifests are loaded from the plugin executable directory resolved by the host.
 	payload, err := os.ReadFile(manifestPath)
 	if err != nil {
 		if os.IsNotExist(err) {
