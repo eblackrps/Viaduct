@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
 	createDashboardAuthSession,
 	deleteDashboardAuthSession,
@@ -6,6 +6,7 @@ import {
 	getAbout,
 	getCurrentTenant,
 	isAPIError,
+	requestManager,
 	type ErrorDisplay,
 } from "../../api";
 import {
@@ -20,6 +21,7 @@ export interface AuthBootstrapState {
 	status: "checking" | "authenticated" | "unauthenticated" | "error";
 	about: AboutResponse | null;
 	currentTenant: CurrentTenant | null;
+	localOperatorAvailable: boolean;
 	error: ErrorDisplay | null;
 	refresh: () => Promise<void>;
 	connect: (
@@ -27,6 +29,7 @@ export interface AuthBootstrapState {
 		apiKey: string,
 		remember?: boolean,
 	) => Promise<void>;
+	connectLocal: (remember?: boolean) => Promise<void>;
 	signOut: () => void;
 }
 
@@ -34,23 +37,35 @@ export function useAuthBootstrap(): AuthBootstrapState {
 	const [status, setStatus] =
 		useState<AuthBootstrapState["status"]>("checking");
 	const [about, setAbout] = useState<AboutResponse | null>(null);
+	const aboutRef = useRef<AboutResponse | null>(null);
 	const [currentTenant, setCurrentTenant] = useState<CurrentTenant | null>(
 		null,
 	);
 	const [error, setError] = useState<ErrorDisplay | null>(null);
 
-	async function refresh() {
-		setAbout((current) => current);
+	const refresh = useCallback(async () => {
 		setStatus("checking");
 		const [aboutResult, tenantResult] = await Promise.allSettled([
-			getAbout(),
-			getCurrentTenant(),
+			getAbout({ dedupe: false }),
+			getCurrentTenant({ dedupe: false }),
 		]);
+		const aboutValue =
+			aboutResult.status === "fulfilled" ? aboutResult.value : aboutRef.current;
 		if (aboutResult.status === "fulfilled") {
+			aboutRef.current = aboutResult.value;
 			setAbout(aboutResult.value);
 		}
 
 		if (tenantResult.status === "fulfilled") {
+			if (requiresLocalOperatorBootstrap(aboutValue, tenantResult.value)) {
+				if (getDashboardAuthSession().source === "runtime") {
+					clearDashboardAuthSession();
+				}
+				setCurrentTenant(null);
+				setError(null);
+				setStatus("unauthenticated");
+				return;
+			}
 			setCurrentTenant(tenantResult.value);
 			setError(null);
 			setStatus("authenticated");
@@ -75,14 +90,16 @@ export function useAuthBootstrap(): AuthBootstrapState {
 			}),
 		);
 		setStatus("error");
-	}
+	}, []);
 
 	async function connect(
 		mode: Exclude<DashboardAuthMode, "none">,
 		apiKey: string,
 		remember = false,
 	) {
+		requestManager.cancelAll();
 		const session = await createDashboardAuthSession(mode, apiKey, remember);
+		requestManager.cancelAll();
 		setDashboardAuthSession(mode, {
 			remember,
 			apiKey,
@@ -91,7 +108,19 @@ export function useAuthBootstrap(): AuthBootstrapState {
 		await refresh();
 	}
 
+	async function connectLocal(remember = false) {
+		requestManager.cancelAll();
+		const session = await createDashboardAuthSession("local", "", remember);
+		requestManager.cancelAll();
+		setDashboardAuthSession("local", {
+			remember,
+			sessionID: session.session_id,
+		});
+		await refresh();
+	}
+
 	function signOut() {
+		requestManager.cancelAll();
 		clearDashboardAuthSession();
 		void deleteDashboardAuthSession()
 			.catch(() => undefined)
@@ -102,15 +131,17 @@ export function useAuthBootstrap(): AuthBootstrapState {
 
 	useEffect(() => {
 		void refresh();
-	}, []);
+	}, [refresh]);
 
 	return {
 		status,
 		about,
 		currentTenant,
+		localOperatorAvailable: Boolean(about?.local_operator_session_enabled),
 		error,
 		refresh,
 		connect,
+		connectLocal,
 		signOut,
 	};
 }
@@ -125,5 +156,16 @@ function isExpectedUnauthenticated(reason: unknown): boolean {
 	return (
 		reason.code === "missing_credentials" ||
 		reason.code === "invalid_credentials"
+	);
+}
+
+function requiresLocalOperatorBootstrap(
+	about: AboutResponse | null,
+	currentTenant: CurrentTenant,
+): boolean {
+	return Boolean(
+		about?.local_operator_session_enabled &&
+		currentTenant.auth_method === "default-fallback" &&
+		currentTenant.role === "viewer",
 	);
 }

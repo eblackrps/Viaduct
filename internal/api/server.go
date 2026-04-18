@@ -90,6 +90,7 @@ type aboutResponse struct {
 	StoreBackend         string                    `json:"store_backend"`
 	StoreSchemaVersion   int                       `json:"store_schema_version,omitempty"`
 	PersistentStore      bool                      `json:"persistent_store"`
+	LocalOperatorSession bool                      `json:"local_operator_session_enabled"`
 }
 
 type healthResponse struct {
@@ -130,6 +131,7 @@ type Server struct {
 	workspaceJobTimeout   time.Duration
 	allowAnonymousAdmin   bool
 	authSessions          *authSessionManager
+	localRuntimeMode      bool
 	connectorCircuits     *connectorCircuitRegistry
 	apiCSP                string
 	dashboardCSP          string
@@ -252,6 +254,14 @@ func (s *Server) SetBindHost(host string) {
 		return
 	}
 	s.bindHost = strings.TrimSpace(host)
+}
+
+// SetLocalRuntimeMode enables or disables local-runtime-only affordances such as one-click operator session bootstrap.
+func (s *Server) SetLocalRuntimeMode(enabled bool) {
+	if s == nil {
+		return
+	}
+	s.localRuntimeMode = enabled
 }
 
 func resolveOperatorPath(path string) string {
@@ -539,7 +549,24 @@ func (s *Server) handleAbout(w http.ResponseWriter, r *http.Request) {
 		StoreBackend:         diagnostics.Backend,
 		StoreSchemaVersion:   diagnostics.SchemaVersion,
 		PersistentStore:      diagnostics.Persistent,
+		LocalOperatorSession: s.localOperatorSessionEnabled(r.Context()),
 	})
+}
+
+func (s *Server) localOperatorSessionEnabled(ctx context.Context) bool {
+	if s == nil || !s.localRuntimeMode || s.store == nil {
+		return false
+	}
+	if hasConfiguredAPIKeys(ctx, s.store, s.adminAPIKey) {
+		return false
+	}
+
+	tenants, err := s.store.ListTenants(ctx)
+	if err != nil {
+		return false
+	}
+	_, ok := defaultTenantFallback(tenants)
+	return ok
 }
 
 func (s *Server) handleAdminTenants(w http.ResponseWriter, r *http.Request) {

@@ -59,10 +59,11 @@ func startForeground(cmd *cobra.Command, startContext localStartContext, openBro
 	errCh := make(chan error, 1)
 	go func() {
 		errCh <- runServeAPI(ctx, serveAPIOptions{
-			ConfigPath: startContext.state.ConfigPath,
-			Port:       startContext.state.Port,
-			WebDir:     startContext.state.WebDir,
-			Host:       startContext.state.Host,
+			ConfigPath:   startContext.state.ConfigPath,
+			Port:         startContext.state.Port,
+			WebDir:       startContext.state.WebDir,
+			Host:         startContext.state.Host,
+			LocalRuntime: true,
 		})
 	}()
 
@@ -117,6 +118,7 @@ func startDetached(cmd *cobra.Command, startContext localStartContext) error {
 	if startContext.state.WebDir != "" {
 		args = append(args, "--web-dir", startContext.state.WebDir)
 	}
+	args = append(args, "--local-runtime")
 
 	// #nosec G204 -- the child process re-executes the current trusted Viaduct binary with explicit arguments.
 	child := exec.Command(executable, args...)

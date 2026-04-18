@@ -28,6 +28,7 @@ func TestOpenAPISpec_Phase5RoutesAndSchemasDocumented_Expected(t *testing.T) {
 	}
 	for _, route := range []string{
 		"/api/v1/audit",
+		"/api/v1/auth/session",
 		"/api/v1/migrations/{migrationID}/execute",
 		"/api/v1/migrations/{migrationID}/resume",
 		"/api/v1/migrations/{migrationID}/rollback",
@@ -61,6 +62,9 @@ func TestOpenAPISpec_Phase5RoutesAndSchemasDocumented_Expected(t *testing.T) {
 		"ApiErrorEnvelope",
 		"ApiError",
 		"ApiFieldError",
+		"AuthSessionRequest",
+		"AuthSessionResponse",
+		"AuthSessionDeleteResponse",
 		"Pagination",
 		"InventoryListResponse",
 		"SnapshotListResponse",

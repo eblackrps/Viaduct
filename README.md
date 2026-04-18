@@ -78,7 +78,7 @@ On a fresh source checkout, `viaduct start`:
 - serves the built dashboard and API together at [http://127.0.0.1:8080](http://127.0.0.1:8080)
 - opens the WebUI automatically on interactive local runs when practical
 
-For the default local lab path, the dashboard can use the built-in single-user fallback and does not require a pasted browser key. Tenant keys and service-account keys remain supported for multi-tenant, packaged, and pilot environments.
+For the default local lab path, the bootstrap screen offers `Use local operator session`, so no pasted browser key is required. Tenant keys and service-account keys remain supported for multi-tenant, packaged, and pilot environments.
 
 Use these companion commands when you need them:
 

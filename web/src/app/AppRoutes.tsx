@@ -153,20 +153,26 @@ function AuthenticatedAppRoutes({ auth }: { auth: AuthBootstrapState }) {
 		auth.currentTenant?.auth_method === "default-fallback";
 	const authSourceLabel = localSingleUserMode
 		? "Local single-user session"
-		: authSession.mode === "service-account"
-			? "Service-account key"
-			: authSession.mode === "tenant"
-				? "Tenant key"
-				: "No runtime credential";
+		: authSession.mode === "local"
+			? "Local operator session"
+			: authSession.mode === "service-account"
+				? "Service-account key"
+				: authSession.mode === "tenant"
+					? "Tenant key"
+					: "No runtime credential";
 	const authPersistenceLabel = localSingleUserMode
 		? "No browser credential required on this local runtime"
-		: authPersistence === "local"
-			? "Remembered in this browser"
-			: authPersistence === "session"
-				? "Session-only browser session"
-				: authPersistence === "environment"
-					? "Provided by environment configuration"
-					: "No stored credential";
+		: authSession.mode === "local"
+			? authPersistence === "local"
+				? "Remembered local operator session"
+				: "Session-only local operator session"
+			: authPersistence === "local"
+				? "Remembered in this browser"
+				: authPersistence === "session"
+					? "Session-only browser session"
+					: authPersistence === "environment"
+						? "Provided by environment configuration"
+						: "No stored credential";
 
 	useEffect(() => {
 		return () => {

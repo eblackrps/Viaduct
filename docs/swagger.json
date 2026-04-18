@@ -27,6 +27,9 @@
           "go_version": {
             "type": "string"
           },
+          "local_operator_session_enabled": {
+            "type": "boolean"
+          },
           "name": {
             "type": "string"
           },
@@ -152,6 +155,53 @@
             "type": "string"
           },
           "resource": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "AuthSessionDeleteResponse": {
+        "properties": {
+          "status": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "AuthSessionRequest": {
+        "properties": {
+          "api_key": {
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "local",
+              "tenant",
+              "service-account"
+            ],
+            "type": "string"
+          },
+          "remember": {
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "AuthSessionResponse": {
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "local",
+              "tenant",
+              "service-account"
+            ],
+            "type": "string"
+          },
+          "session_id": {
             "type": "string"
           }
         },
@@ -1431,6 +1481,61 @@
         "summary": "Tenant audit events"
       }
     },
+    "/api/v1/auth/session": {
+      "delete": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthSessionDeleteResponse"
+                }
+              }
+            },
+            "description": "Dashboard auth session cleared"
+          }
+        },
+        "summary": "Clear the current dashboard auth session"
+      },
+      "post": {
+        "description": "Create a same-origin dashboard session. Use `local` only with the packaged loopback runtime started through `viaduct start`; use tenant or service-account modes when an operator intentionally supplies a scoped key at runtime.\n",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthSessionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthSessionResponse"
+                }
+              }
+            },
+            "description": "Dashboard auth session created"
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "summary": "Create a dashboard auth session"
+      }
+    },
     "/api/v1/health": {
       "get": {
         "responses": {
@@ -1456,6 +1561,8 @@
     },
     "/api/v1/inventory": {
       "get": {
+        "deprecated": true,
+        "description": "Compatibility route that returns the historical unpaginated inventory payload. The packaged dashboard uses `/api/v2/inventory` for the stable paginated list contract.\n",
         "parameters": [
           {
             "in": "query",
@@ -1485,7 +1592,7 @@
             "ServiceAccountKey": []
           }
         ],
-        "summary": "Latest tenant inventory"
+        "summary": "Latest tenant inventory (legacy shape)"
       }
     },
     "/api/v1/metrics": {
@@ -1507,6 +1614,8 @@
     },
     "/api/v1/migrations": {
       "get": {
+        "deprecated": true,
+        "description": "Compatibility route that returns the historical unpaginated migration list. The packaged dashboard uses `/api/v2/migrations` for the stable paginated list contract.\n",
         "responses": {
           "200": {
             "content": {
@@ -1530,7 +1639,7 @@
             "ServiceAccountKey": []
           }
         ],
-        "summary": "List tenant migrations"
+        "summary": "List tenant migrations (legacy shape)"
       },
       "post": {
         "requestBody": {
@@ -2011,6 +2120,8 @@
     },
     "/api/v1/snapshots": {
       "get": {
+        "deprecated": true,
+        "description": "Compatibility route that returns the historical unpaginated snapshot list. The packaged dashboard uses `/api/v2/snapshots` for the stable paginated list contract.\n",
         "responses": {
           "200": {
             "content": {
@@ -2034,7 +2145,7 @@
             "ServiceAccountKey": []
           }
         ],
-        "summary": "List tenant discovery snapshots"
+        "summary": "List tenant discovery snapshots (legacy shape)"
       }
     },
     "/api/v1/summary": {
@@ -2557,6 +2668,7 @@
     },
     "/api/v2/inventory": {
       "get": {
+        "description": "Canonical paginated inventory route used by the packaged dashboard.",
         "parameters": [
           {
             "in": "query",
@@ -2605,11 +2717,12 @@
             "ServiceAccountKey": []
           }
         ],
-        "summary": "Latest tenant inventory (paginated)"
+        "summary": "Latest tenant inventory"
       }
     },
     "/api/v2/migrations": {
       "get": {
+        "description": "Canonical paginated migration route used by the packaged dashboard.",
         "parameters": [
           {
             "in": "query",
@@ -2651,7 +2764,7 @@
             "ServiceAccountKey": []
           }
         ],
-        "summary": "List tenant migrations (paginated)"
+        "summary": "List tenant migrations"
       },
       "post": {
         "requestBody": {
@@ -2701,6 +2814,7 @@
     },
     "/api/v2/snapshots": {
       "get": {
+        "description": "Canonical paginated snapshot route used by the packaged dashboard.",
         "parameters": [
           {
             "in": "query",
@@ -2742,7 +2856,7 @@
             "ServiceAccountKey": []
           }
         ],
-        "summary": "List tenant discovery snapshots (paginated)"
+        "summary": "List tenant discovery snapshots"
       }
     }
   },

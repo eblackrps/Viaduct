@@ -6,6 +6,12 @@ This changelog tracks published releases and the major implementation milestones
 
 ## [Unreleased]
 
+### Runtime And API Contract
+
+- restored the documented local operator path so `viaduct start` serves the bundled dashboard, backend, and live Swagger docs together while exposing a loopback-only local operator bootstrap through `/api/v1/auth/session`
+- aligned the packaged dashboard, API router, and OpenAPI contract around paginated `/api/v2/inventory`, `/api/v2/snapshots`, and `/api/v2/migrations` list routes while explicitly documenting `/api/v1` list responses as legacy compatibility shapes
+- kept the workspace-first operator flow fully wired in the shipped backend and added browser coverage that boots both the seeded fixture server and the real `viaduct start` runtime so dashboard auth, workspace discovery, and the operator overview contract stay in sync
+
 ## [2.4.1] - 2026-04-17
 
 ### Upgrading From v2.4.0

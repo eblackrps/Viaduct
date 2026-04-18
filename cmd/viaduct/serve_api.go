@@ -15,16 +15,18 @@ import (
 )
 
 type serveAPIOptions struct {
-	ConfigPath string
-	Port       int
-	WebDir     string
-	Host       string
+	ConfigPath   string
+	Port         int
+	WebDir       string
+	Host         string
+	LocalRuntime bool
 }
 
 func newServeAPICommand() *cobra.Command {
 	var port int
 	var webDir string
 	var host string
+	var localRuntime bool
 
 	cmd := &cobra.Command{
 		Use:    "serve-api",
@@ -34,10 +36,11 @@ func newServeAPICommand() *cobra.Command {
 			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 			defer stop()
 			return runServeAPI(ctx, serveAPIOptions{
-				ConfigPath: configPath,
-				Port:       port,
-				WebDir:     webDir,
-				Host:       host,
+				ConfigPath:   configPath,
+				Port:         port,
+				WebDir:       webDir,
+				Host:         host,
+				LocalRuntime: localRuntime,
 			})
 		},
 	}
@@ -45,6 +48,8 @@ func newServeAPICommand() *cobra.Command {
 	cmd.Flags().IntVar(&port, "port", 8080, "Port to bind the Viaduct API server to")
 	cmd.Flags().StringVar(&host, "host", "", "Host interface to bind; leave empty to listen on all interfaces")
 	cmd.Flags().StringVar(&webDir, "web-dir", "", "Path to built dashboard assets; when empty, Viaduct auto-detects packaged or built web assets")
+	cmd.Flags().BoolVar(&localRuntime, "local-runtime", false, "Enable the local-runtime operator bootstrap affordances")
+	_ = cmd.Flags().MarkHidden("local-runtime")
 	return cmd
 }
 
@@ -72,6 +77,7 @@ func runServeAPI(ctx context.Context, options serveAPIOptions) error {
 	server.SetBuildInfo(version, commit, date)
 	server.SetBindHost(options.Host)
 	server.SetDashboardDir(options.WebDir)
+	server.SetLocalRuntimeMode(options.LocalRuntime)
 	server.SetConnectorConfigResolver(func(platform models.Platform, address, credentialRef string) connectors.Config {
 		return resolveMigrationConnectorConfig(address, string(platform), credentialRef, cfg)
 	})
