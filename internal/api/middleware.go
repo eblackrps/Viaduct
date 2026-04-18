@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -54,24 +55,50 @@ func tenantAuthMiddleware(stateStore store.Store, sessions *authSessionManager, 
 		apiKey := strings.TrimSpace(r.Header.Get(tenantCredentialHeader))
 		serviceAccountKey := strings.TrimSpace(r.Header.Get(serviceAccountCredentialHeader))
 		authMethod := ""
-		if apiKey == "" && serviceAccountKey == "" && sessions != nil {
-			if sessionRecord, ok := sessions.Lookup(readAuthSessionSecret(r)); ok {
-				switch sessionRecord.Mode {
-				case "tenant":
-					apiKey = sessionRecord.APIKey
-				case "service-account":
-					serviceAccountKey = sessionRecord.APIKey
-				}
-				authMethod = "runtime-session"
-			}
-		}
 		tenants, err := stateStore.ListTenants(r.Context())
 		if err != nil {
 			writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 			return
 		}
 
-		principal, ok := authenticateTenantPrincipal(tenants, apiKey, serviceAccountKey)
+		var sessionPrincipal *AuthenticatedPrincipal
+		if apiKey == "" && serviceAccountKey == "" && sessions != nil {
+			if sessionRecord, ok := sessions.Lookup(readAuthSessionSecret(r)); ok {
+				switch sessionRecord.Mode {
+				case "tenant":
+					apiKey = sessionRecord.APIKey
+					authMethod = "runtime-session"
+				case "service-account":
+					serviceAccountKey = sessionRecord.APIKey
+					authMethod = "runtime-session"
+				case "local":
+					if tenant, tenantFound := findTenantByID(tenants, sessionRecord.TenantID); tenantFound {
+						principal := AuthenticatedPrincipal{
+							Tenant:     tenant,
+							Role:       sessionRecord.Role,
+							AuthMethod: firstNonEmpty(sessionRecord.AuthMethod, "local-runtime-session"),
+						}
+						sessionPrincipal = &principal
+					}
+					authMethod = firstNonEmpty(sessionRecord.AuthMethod, "local-runtime-session")
+				}
+			}
+		}
+
+		var (
+			principal AuthenticatedPrincipal
+			ok        bool
+		)
+		if sessionPrincipal != nil {
+			if tenant, tenantFound := findTenantByID(tenants, sessionPrincipal.Tenant.ID); tenantFound {
+				principal = *sessionPrincipal
+				principal.Tenant = tenant
+				ok = true
+			}
+		}
+		if !ok {
+			principal, ok = authenticateTenantPrincipal(tenants, apiKey, serviceAccountKey)
+		}
 		if !ok {
 			if apiKey == "" && serviceAccountKey == "" {
 				if tenant, fallbackOK := defaultTenantFallback(tenants); fallbackOK {
@@ -128,6 +155,35 @@ func tenantAuthMiddleware(stateStore store.Store, sessions *authSessionManager, 
 		ctx := withPrincipal(r.Context(), principal)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+func findTenantByID(tenants []models.Tenant, tenantID string) (models.Tenant, bool) {
+	tenantID = strings.TrimSpace(tenantID)
+	if tenantID == "" {
+		return models.Tenant{}, false
+	}
+	for _, tenant := range tenants {
+		if tenant.Active && tenant.ID == tenantID {
+			return tenant, true
+		}
+	}
+	return models.Tenant{}, false
+}
+
+func requestFromLoopback(r *http.Request) bool {
+	if r == nil {
+		return false
+	}
+	host := strings.TrimSpace(r.RemoteAddr)
+	if host == "" {
+		return false
+	}
+	if parsedHost, _, err := net.SplitHostPort(host); err == nil {
+		host = parsedHost
+	}
+	host = strings.Trim(host, "[]")
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
 
 // RequireTenant returns the authenticated tenant from a request context.

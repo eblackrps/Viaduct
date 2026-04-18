@@ -15,7 +15,9 @@
     "lint": "eslint src/",
     "format": "prettier --check src/",
     "test": "vitest run",
-    "e2e": "playwright test",
+    "e2e": "npm run e2e:fixture && npm run e2e:runtime",
+    "e2e:fixture": "playwright test",
+    "e2e:runtime": "playwright test --config playwright.runtime.config.ts",
     "e2e:serve": "go run ../tests/e2e/server -port 4173 -web-dir dist",
     "screenshots:readme": "npm run build && node scripts/capture-readme-screenshots.mjs"
   },

@@ -26,7 +26,7 @@ Start the local operator runtime:
 ./bin/viaduct start
 ```
 
-On a fresh source checkout, `viaduct start` generates the default local lab config when `~/.viaduct/config.yaml` is missing, serves the built dashboard and API together, and prints the WebUI URL.
+On a fresh source checkout, `viaduct start` generates the default local lab config when `~/.viaduct/config.yaml` is missing, serves the built dashboard and API together, and prints the WebUI URL. The browser-first flow starts on the runtime bootstrap screen, where the default local lab path offers a loopback-only `Use local operator session` action instead of requiring a pasted key.
 
 The default local URL is [http://127.0.0.1:8080](http://127.0.0.1:8080).
 The same runtime also serves live API docs at [http://127.0.0.1:8080/api/v1/docs](http://127.0.0.1:8080/api/v1/docs).

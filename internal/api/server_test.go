@@ -422,6 +422,9 @@ func TestServer_HandleAbout_ReturnsBuildInfo_Expected(t *testing.T) {
 	if len(response.SupportedPermissions) == 0 {
 		t.Fatal("SupportedPermissions is empty")
 	}
+	if response.LocalOperatorSession {
+		t.Fatal("LocalOperatorSession = true, want false by default")
+	}
 }
 
 func TestServer_Handler_OpenAPIDocsRedirectAndJSON_Expected(t *testing.T) {
@@ -542,6 +545,73 @@ func TestServer_Handler_AuthSessionRouteRateLimited_Expected(t *testing.T) {
 		if recorder.Code != expectedStatus {
 			t.Fatalf("request %d status = %d, want %d: %s", index, recorder.Code, expectedStatus, recorder.Body.String())
 		}
+	}
+}
+
+func TestServer_Handler_LocalRuntimeAuthSession_IssuesOperatorSession_Expected(t *testing.T) {
+	t.Parallel()
+
+	server := mustNewServer(t, store.NewMemoryStore())
+	server.SetLocalRuntimeMode(true)
+	handler := server.Handler()
+
+	createRequest := httptest.NewRequest(http.MethodPost, "/api/v1/auth/session", bytes.NewBufferString(`{"mode":"local"}`))
+	createRequest.RemoteAddr = "127.0.0.1:41000"
+	createRequest.Header.Set("Content-Type", "application/json")
+	createRecorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(createRecorder, createRequest)
+	if createRecorder.Code != http.StatusCreated {
+		t.Fatalf("create status = %d, want %d: %s", createRecorder.Code, http.StatusCreated, createRecorder.Body.String())
+	}
+
+	var createResponse authSessionResponse
+	if err := json.Unmarshal(createRecorder.Body.Bytes(), &createResponse); err != nil {
+		t.Fatalf("Unmarshal(create auth session) error = %v", err)
+	}
+	if createResponse.Mode != "local" || createResponse.SessionID == "" {
+		t.Fatalf("unexpected local auth session response: %#v", createResponse)
+	}
+
+	currentTenantRequest := httptest.NewRequest(http.MethodGet, "/api/v1/tenants/current", nil)
+	currentTenantRequest.RemoteAddr = "127.0.0.1:41000"
+	for _, cookie := range createRecorder.Result().Cookies() {
+		currentTenantRequest.AddCookie(cookie)
+	}
+	currentTenantRecorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(currentTenantRecorder, currentTenantRequest)
+	if currentTenantRecorder.Code != http.StatusOK {
+		t.Fatalf("current tenant status = %d, want %d: %s", currentTenantRecorder.Code, http.StatusOK, currentTenantRecorder.Body.String())
+	}
+
+	var currentTenant currentTenantResponse
+	if err := json.Unmarshal(currentTenantRecorder.Body.Bytes(), &currentTenant); err != nil {
+		t.Fatalf("Unmarshal(current tenant) error = %v", err)
+	}
+	if currentTenant.Role != models.TenantRoleOperator {
+		t.Fatalf("currentTenant.Role = %q, want %q", currentTenant.Role, models.TenantRoleOperator)
+	}
+	if currentTenant.AuthMethod != "local-runtime-session" {
+		t.Fatalf("currentTenant.AuthMethod = %q, want local-runtime-session", currentTenant.AuthMethod)
+	}
+}
+
+func TestServer_Handler_LocalRuntimeAuthSession_RejectsNonLoopback_Expected(t *testing.T) {
+	t.Parallel()
+
+	server := mustNewServer(t, store.NewMemoryStore())
+	server.SetLocalRuntimeMode(true)
+	handler := server.Handler()
+
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/auth/session", bytes.NewBufferString(`{"mode":"local"}`))
+	request.RemoteAddr = "203.0.113.10:41000"
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want %d: %s", recorder.Code, http.StatusForbidden, recorder.Body.String())
 	}
 }
 

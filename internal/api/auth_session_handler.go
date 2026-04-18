@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -49,45 +50,63 @@ func (s *Server) createAuthSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	apiKey := strings.TrimSpace(request.APIKey)
-	if apiKey == "" {
-		writeAPIError(w, r, http.StatusBadRequest, "invalid_request", "api key is required", apiErrorOptions{
-			FieldErrors: []apiFieldError{{Path: "api_key", Message: "api key is required"}},
+	mode := strings.TrimSpace(request.Mode)
+	if mode == "" {
+		mode = "service-account"
+	}
+
+	var (
+		principal AuthenticatedPrincipal
+		record    authSessionRecord
+		err       error
+	)
+	switch mode {
+	case "local":
+		principal, err = s.localRuntimeOperatorPrincipal(r.Context(), r)
+		if err != nil {
+			writeAPIError(w, r, http.StatusForbidden, "invalid_request", err.Error(), apiErrorOptions{})
+			return
+		}
+		record = s.authSessions.CreateLocal(principal.Tenant.ID, principal.Role, principal.AuthMethod, request.Remember)
+	case "tenant", "service-account":
+		apiKey := strings.TrimSpace(request.APIKey)
+		if apiKey == "" {
+			writeAPIError(w, r, http.StatusBadRequest, "invalid_request", "api key is required", apiErrorOptions{
+				FieldErrors: []apiFieldError{{Path: "api_key", Message: "api key is required"}},
+			})
+			return
+		}
+
+		tenants, listErr := s.store.ListTenants(r.Context())
+		if listErr != nil {
+			writeAPIError(w, r, http.StatusInternalServerError, "internal_error", listErr.Error(), apiErrorOptions{Retryable: true})
+			return
+		}
+
+		var ok bool
+		switch mode {
+		case "tenant":
+			principal, ok = findTenantPrincipalByAPIKey(tenants, apiKey)
+		case "service-account":
+			principal, ok = findServiceAccountPrincipalByAPIKey(tenants, apiKey)
+		}
+		if !ok {
+			writeAPIError(w, r, http.StatusUnauthorized, "invalid_credentials", "invalid tenant credentials", apiErrorOptions{})
+			return
+		}
+
+		record = s.authSessions.Create(mode, apiKey, request.Remember)
+	default:
+		writeAPIError(w, r, http.StatusBadRequest, "invalid_request", "mode must be local, tenant, or service-account", apiErrorOptions{
+			FieldErrors: []apiFieldError{{Path: "mode", Message: "mode must be local, tenant, or service-account"}},
 		})
 		return
 	}
 
-	if request.Mode != "tenant" && request.Mode != "service-account" {
-		writeAPIError(w, r, http.StatusBadRequest, "invalid_request", "mode must be tenant or service-account", apiErrorOptions{
-			FieldErrors: []apiFieldError{{Path: "mode", Message: "mode must be tenant or service-account"}},
-		})
-		return
-	}
-
-	tenants, err := s.store.ListTenants(r.Context())
-	if err != nil {
-		writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
-		return
-	}
-
-	var principal AuthenticatedPrincipal
-	var ok bool
-	switch request.Mode {
-	case "tenant":
-		principal, ok = findTenantPrincipalByAPIKey(tenants, apiKey)
-	case "service-account":
-		principal, ok = findServiceAccountPrincipalByAPIKey(tenants, apiKey)
-	}
-	if !ok {
-		writeAPIError(w, r, http.StatusUnauthorized, "invalid_credentials", "invalid tenant credentials", apiErrorOptions{})
-		return
-	}
-
-	record := s.authSessions.Create(request.Mode, apiKey, request.Remember)
 	setAuthSessionCookie(w, r, record)
 	writeJSON(w, http.StatusCreated, authSessionResponse{
 		SessionID: record.PublicID,
-		Mode:      request.Mode,
+		Mode:      record.Mode,
 		ExpiresAt: record.ExpiresAt,
 	})
 
@@ -99,7 +118,7 @@ func (s *Server) createAuthSession(w http.ResponseWriter, r *http.Request) {
 		Message:  "dashboard auth session created",
 		Details: map[string]string{
 			"tenant_id":  principal.Tenant.ID,
-			"auth_mode":  request.Mode,
+			"auth_mode":  record.Mode,
 			"persistent": fmt.Sprintf("%t", request.Remember),
 		},
 	})
@@ -111,4 +130,30 @@ func (s *Server) deleteAuthSession(w http.ResponseWriter, r *http.Request) {
 	}
 	clearAuthSessionCookie(w, r)
 	writeJSON(w, http.StatusOK, map[string]string{"status": "cleared"})
+}
+
+func (s *Server) localRuntimeOperatorPrincipal(ctx context.Context, r *http.Request) (AuthenticatedPrincipal, error) {
+	if s == nil || !s.localRuntimeMode {
+		return AuthenticatedPrincipal{}, fmt.Errorf("local runtime operator bootstrap is not enabled on this server")
+	}
+	if !requestFromLoopback(r) {
+		return AuthenticatedPrincipal{}, fmt.Errorf("local runtime operator bootstrap is available only from loopback requests")
+	}
+	if hasConfiguredAPIKeys(ctx, s.store, s.adminAPIKey) {
+		return AuthenticatedPrincipal{}, fmt.Errorf("local runtime operator bootstrap is disabled when API keys are configured")
+	}
+
+	tenants, err := s.store.ListTenants(ctx)
+	if err != nil {
+		return AuthenticatedPrincipal{}, fmt.Errorf("list tenants for local runtime bootstrap: %w", err)
+	}
+	tenant, ok := defaultTenantFallback(tenants)
+	if !ok {
+		return AuthenticatedPrincipal{}, fmt.Errorf("local runtime operator bootstrap requires the default fallback tenant")
+	}
+	return AuthenticatedPrincipal{
+		Tenant:     tenant,
+		Role:       models.TenantRoleOperator,
+		AuthMethod: "local-runtime-session",
+	}, nil
 }

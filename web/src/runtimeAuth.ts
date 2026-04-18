@@ -3,7 +3,7 @@
  * Residual risk: an operator-provided API key still lives in module memory for the active
  * tab until the page reloads, the tab closes, or sign-out clears the session.
  */
-export type DashboardAuthMode = "tenant" | "service-account" | "none";
+export type DashboardAuthMode = "local" | "tenant" | "service-account" | "none";
 export type DashboardAuthSource = "runtime" | "environment" | "none";
 export type DashboardAuthPersistence =
 	| "session"
@@ -177,7 +177,9 @@ function parseRuntimeSession(
 	try {
 		const parsed = JSON.parse(raw) as Partial<StoredRuntimeSession>;
 		const mode =
-			parsed.mode === "tenant" || parsed.mode === "service-account"
+			parsed.mode === "tenant" ||
+			parsed.mode === "service-account" ||
+			parsed.mode === "local"
 				? parsed.mode
 				: "none";
 		const sessionID =

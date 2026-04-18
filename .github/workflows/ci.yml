@@ -60,8 +60,11 @@ jobs:
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
 
-      - name: Run End-To-End Tests
-        run: npm run e2e
+      - name: Run Fixture End-To-End Tests
+        run: npm run e2e:fixture
+
+      - name: Run Real Runtime Smoke
+        run: npm run e2e:runtime
 
       - name: Upload Playwright Report
         if: failure()

@@ -39,6 +39,7 @@ func TestOpenAPISpec_StableRoutesDocumented_Expected(t *testing.T) {
 	for _, route := range []string{
 		"/api/v1/health",
 		"/api/v1/about",
+		"/api/v1/auth/session",
 		"/api/v1/inventory",
 		"/api/v1/snapshots",
 		"/api/v1/summary",
@@ -56,6 +57,18 @@ func TestOpenAPISpec_StableRoutesDocumented_Expected(t *testing.T) {
 		}
 	}
 
+	aboutSchema, ok := schemas(document)["AboutResponse"]
+	if !ok {
+		t.Fatal("schemas missing AboutResponse")
+	}
+	properties, ok := aboutSchema["properties"].(map[string]any)
+	if !ok {
+		t.Fatalf("AboutResponse.properties = %#v, want map", aboutSchema["properties"])
+	}
+	if _, ok := properties["local_operator_session_enabled"]; !ok {
+		t.Fatal("AboutResponse missing local_operator_session_enabled")
+	}
+
 	components, ok := document["components"].(map[string]any)
 	if !ok {
 		t.Fatalf("components = %#v, want map", document["components"])
@@ -69,4 +82,22 @@ func TestOpenAPISpec_StableRoutesDocumented_Expected(t *testing.T) {
 			t.Fatalf("securitySchemes missing %s", scheme)
 		}
 	}
+}
+
+func schemas(document map[string]any) map[string]map[string]any {
+	components, ok := document["components"].(map[string]any)
+	if !ok {
+		return map[string]map[string]any{}
+	}
+	schemaValues, ok := components["schemas"].(map[string]any)
+	if !ok {
+		return map[string]map[string]any{}
+	}
+	items := make(map[string]map[string]any, len(schemaValues))
+	for key, value := range schemaValues {
+		if schema, ok := value.(map[string]any); ok {
+			items[key] = schema
+		}
+	}
+	return items
 }

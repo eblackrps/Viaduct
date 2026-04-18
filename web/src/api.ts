@@ -584,7 +584,7 @@ export function listWorkspaces(): Promise<PilotWorkspace[]> {
 
 export function createDashboardAuthSession(
 	mode: Exclude<DashboardAuthMode, "none">,
-	apiKey: string,
+	apiKey = "",
 	remember = false,
 	options?: RequestOptions,
 ): Promise<{
@@ -600,11 +600,18 @@ export function createDashboardAuthSession(
 		"/api/v1/auth/session",
 		{
 			method: "POST",
-			body: JSON.stringify({
-				mode,
-				api_key: apiKey.trim(),
-				remember,
-			}),
+			body: JSON.stringify(
+				mode === "local"
+					? {
+							mode,
+							remember,
+						}
+					: {
+							mode,
+							api_key: apiKey.trim(),
+							remember,
+						},
+			),
 		},
 		{ ...options, dedupe: false, skipAuth: true },
 	);

@@ -21,6 +21,7 @@ make web-build
 ```
 
 On a fresh source checkout, `viaduct start` creates the default local lab config when it is missing, points it at `examples/lab/kvm`, and serves the WebUI and API together at `http://127.0.0.1:8080`.
+The browser-first flow starts on the runtime bootstrap screen, where the default local lab path offers a loopback-only `Use local operator session` action instead of requiring a pasted key.
 The same runtime also serves live operator API docs at `http://127.0.0.1:8080/api/v1/docs`.
 
 ## Packaged Release Bundle

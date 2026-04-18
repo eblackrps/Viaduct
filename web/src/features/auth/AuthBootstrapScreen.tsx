@@ -23,6 +23,7 @@ export function AuthBootstrapScreen({ auth }: AuthBootstrapScreenProps) {
 	const [apiKey, setAPIKey] = useState("");
 	const [remember, setRemember] = useState(false);
 	const [submitting, setSubmitting] = useState(false);
+	const [startingLocalSession, setStartingLocalSession] = useState(false);
 	const storedSession = getDashboardAuthSession();
 	const persistence = getDashboardAuthPersistence();
 	const runtimeKeyPresent =
@@ -58,6 +59,15 @@ export function AuthBootstrapScreen({ auth }: AuthBootstrapScreenProps) {
 		}
 	}
 
+	async function handleLocalSession() {
+		setStartingLocalSession(true);
+		try {
+			await auth.connectLocal(remember);
+		} finally {
+			setStartingLocalSession(false);
+		}
+	}
+
 	return (
 		<main className="min-h-screen bg-transparent px-4 py-4 md:px-6 md:py-6">
 			<div className="mx-auto max-w-[1520px] space-y-6">
@@ -73,7 +83,12 @@ export function AuthBootstrapScreen({ auth }: AuthBootstrapScreenProps) {
 							tone: "neutral",
 						},
 						{ label: "Session storage is the default", tone: "info" },
-						{ label: "Runtime authentication", tone: "accent" },
+						{
+							label: auth.localOperatorAvailable
+								? "Local operator bootstrap available"
+								: "Runtime authentication",
+							tone: "accent",
+						},
 					]}
 				/>
 
@@ -97,9 +112,37 @@ export function AuthBootstrapScreen({ auth }: AuthBootstrapScreenProps) {
 					<SectionCard
 						eyebrow="Authentication"
 						title="Runtime credential bootstrap"
-						description="The dashboard accepts runtime credentials so operators can rotate or replace access without rebuilding the frontend."
+						description={
+							auth.localOperatorAvailable
+								? "This local runtime can issue an operator-scoped session without a pasted key. Service-account and tenant keys remain available for packaged or multi-tenant deployments."
+								: "The dashboard accepts runtime credentials so operators can rotate or replace access without rebuilding the frontend."
+						}
 					>
 						<form className="space-y-5" onSubmit={handleSubmit}>
+							{auth.localOperatorAvailable ? (
+								<div className="metric-surface space-y-3">
+									<div>
+										<p className="operator-kicker">Local lab session</p>
+										<p className="mt-2 text-sm leading-6 text-slate-600">
+											Use the shipped local runtime to start the workspace-first
+											operator flow without pasting a key. The browser stores
+											only a non-sensitive session marker while the server keeps
+											the effective operator identity.
+										</p>
+									</div>
+									<button
+										type="button"
+										onClick={() => void handleLocalSession()}
+										disabled={startingLocalSession || submitting}
+										className="operator-button"
+									>
+										{startingLocalSession
+											? "Starting local session..."
+											: "Use local operator session"}
+									</button>
+								</div>
+							) : null}
+
 							<div className="operator-toggle">
 								<button
 									type="button"
@@ -159,9 +202,9 @@ export function AuthBootstrapScreen({ auth }: AuthBootstrapScreenProps) {
 										</span>
 										<span className="mt-1.5 block leading-6 text-slate-600">
 											Persist only a non-sensitive session marker in this
-											browser while the authenticated API session stays in an
-											httpOnly cookie. Leave this off for shared devices,
-											temporary sessions, or validation labs.
+											browser while the server-backed dashboard session stays
+											behind an httpOnly cookie. Leave this off for shared
+											devices, temporary sessions, or validation labs.
 										</span>
 									</span>
 								</label>
@@ -171,7 +214,11 @@ export function AuthBootstrapScreen({ auth }: AuthBootstrapScreenProps) {
 								<button
 									type="submit"
 									disabled={submitting || apiKey.trim() === ""}
-									className="operator-button"
+									className={
+										auth.localOperatorAvailable
+											? "operator-button-secondary"
+											: "operator-button"
+									}
 								>
 									{submitting ? "Connecting..." : "Connect dashboard"}
 								</button>
@@ -315,11 +362,14 @@ function StorageRow({ label, value }: { label: string; value: string }) {
 }
 
 function describeCurrentSource(
-	mode: "tenant" | "service-account" | "none",
+	mode: "local" | "tenant" | "service-account" | "none",
 	source: "runtime" | "environment" | "none",
 ): string {
 	if (mode === "none" || source === "none") {
 		return "No credential configured";
+	}
+	if (mode === "local") {
+		return "Local operator session issued by the runtime";
 	}
 	if (mode === "service-account") {
 		return source === "runtime"

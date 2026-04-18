@@ -34,6 +34,44 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AboutResponse"
+  /api/v1/auth/session:
+    post:
+      summary: Create a dashboard auth session
+      description: >
+        Create a same-origin dashboard session. Use `local` only with the
+        packaged loopback runtime started through `viaduct start`; use tenant or
+        service-account modes when an operator intentionally supplies a scoped
+        key at runtime.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthSessionRequest"
+      responses:
+        "201":
+          description: Dashboard auth session created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSessionResponse"
+        "400":
+          $ref: "#/components/responses/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+        "403":
+          $ref: "#/components/responses/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/ErrorResponse"
+    delete:
+      summary: Clear the current dashboard auth session
+      responses:
+        "200":
+          description: Dashboard auth session cleared
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSessionDeleteResponse"
   /api/v1/metrics:
     get:
       summary: Prometheus metrics
@@ -46,7 +84,12 @@ paths:
                 type: string
   /api/v1/inventory:
     get:
-      summary: Latest tenant inventory
+      summary: Latest tenant inventory (legacy shape)
+      description: >
+        Compatibility route that returns the historical unpaginated inventory
+        payload. The packaged dashboard uses `/api/v2/inventory` for the stable
+        paginated list contract.
+      deprecated: true
       security:
         - TenantAPIKey: []
         - ServiceAccountKey: []
@@ -64,7 +107,12 @@ paths:
                 $ref: "#/components/schemas/DiscoveryResult"
   /api/v1/snapshots:
     get:
-      summary: List tenant discovery snapshots
+      summary: List tenant discovery snapshots (legacy shape)
+      description: >
+        Compatibility route that returns the historical unpaginated snapshot
+        list. The packaged dashboard uses `/api/v2/snapshots` for the stable
+        paginated list contract.
+      deprecated: true
       security:
         - TenantAPIKey: []
         - ServiceAccountKey: []
@@ -79,7 +127,8 @@ paths:
                   $ref: "#/components/schemas/SnapshotMeta"
   /api/v2/inventory:
     get:
-      summary: Latest tenant inventory (paginated)
+      summary: Latest tenant inventory
+      description: Canonical paginated inventory route used by the packaged dashboard.
       security:
         - TenantAPIKey: []
         - ServiceAccountKey: []
@@ -110,7 +159,8 @@ paths:
                 $ref: "#/components/schemas/InventoryListResponse"
   /api/v2/snapshots:
     get:
-      summary: List tenant discovery snapshots (paginated)
+      summary: List tenant discovery snapshots
+      description: Canonical paginated snapshot route used by the packaged dashboard.
       security:
         - TenantAPIKey: []
         - ServiceAccountKey: []
@@ -270,7 +320,12 @@ paths:
           $ref: "#/components/responses/ErrorResponse"
   /api/v1/migrations:
     get:
-      summary: List tenant migrations
+      summary: List tenant migrations (legacy shape)
+      description: >
+        Compatibility route that returns the historical unpaginated migration
+        list. The packaged dashboard uses `/api/v2/migrations` for the stable
+        paginated list contract.
+      deprecated: true
       security:
         - TenantAPIKey: []
         - ServiceAccountKey: []
@@ -311,7 +366,8 @@ paths:
           $ref: "#/components/responses/ErrorResponse"
   /api/v2/migrations:
     get:
-      summary: List tenant migrations (paginated)
+      summary: List tenant migrations
+      description: Canonical paginated migration route used by the packaged dashboard.
       security:
         - TenantAPIKey: []
         - ServiceAccountKey: []
@@ -844,6 +900,32 @@ components:
       properties:
         error:
           $ref: "#/components/schemas/ApiError"
+    AuthSessionRequest:
+      type: object
+      properties:
+        mode:
+          type: string
+          enum: [local, tenant, service-account]
+        api_key:
+          type: string
+        remember:
+          type: boolean
+    AuthSessionResponse:
+      type: object
+      properties:
+        session_id:
+          type: string
+        mode:
+          type: string
+          enum: [local, tenant, service-account]
+        expires_at:
+          type: string
+          format: date-time
+    AuthSessionDeleteResponse:
+      type: object
+      properties:
+        status:
+          type: string
     AboutResponse:
       type: object
       properties:
@@ -874,6 +956,8 @@ components:
         store_schema_version:
           type: integer
         persistent_store:
+          type: boolean
+        local_operator_session_enabled:
           type: boolean
     DiscoveryResult:
       type: object

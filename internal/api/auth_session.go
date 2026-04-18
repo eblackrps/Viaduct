@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/eblackrps/viaduct/internal/models"
 	"github.com/google/uuid"
 )
 
@@ -17,6 +18,9 @@ type authSessionRecord struct {
 	Secret     string
 	Mode       string
 	APIKey     string
+	TenantID   string
+	Role       models.TenantRole
+	AuthMethod string
 	Persistent bool
 	ExpiresAt  time.Time
 }
@@ -43,20 +47,41 @@ func newAuthSessionManager(sessionTTL, persistentTTL time.Duration) *authSession
 }
 
 func (m *authSessionManager) Create(mode, apiKey string, persistent bool) authSessionRecord {
+	return m.createRecord(authSessionRecord{
+		Mode:       strings.TrimSpace(mode),
+		APIKey:     strings.TrimSpace(apiKey),
+		Persistent: persistent,
+	})
+}
+
+func (m *authSessionManager) CreateLocal(tenantID string, role models.TenantRole, authMethod string, persistent bool) authSessionRecord {
+	return m.createRecord(authSessionRecord{
+		Mode:       "local",
+		TenantID:   strings.TrimSpace(tenantID),
+		Role:       role,
+		AuthMethod: strings.TrimSpace(authMethod),
+		Persistent: persistent,
+	})
+}
+
+func (m *authSessionManager) createRecord(seed authSessionRecord) authSessionRecord {
 	if m == nil {
 		return authSessionRecord{}
 	}
 
 	ttl := m.sessionTTL
-	if persistent {
+	if seed.Persistent {
 		ttl = m.persistentTTL
 	}
 	record := authSessionRecord{
 		PublicID:   uuid.NewString(),
 		Secret:     uuid.NewString(),
-		Mode:       strings.TrimSpace(mode),
-		APIKey:     strings.TrimSpace(apiKey),
-		Persistent: persistent,
+		Mode:       strings.TrimSpace(seed.Mode),
+		APIKey:     strings.TrimSpace(seed.APIKey),
+		TenantID:   strings.TrimSpace(seed.TenantID),
+		Role:       seed.Role,
+		AuthMethod: strings.TrimSpace(seed.AuthMethod),
+		Persistent: seed.Persistent,
 		ExpiresAt:  time.Now().UTC().Add(ttl),
 	}
 

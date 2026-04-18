@@ -121,6 +121,27 @@ describe("api", () => {
 		});
 	});
 
+	it("creates a local runtime auth session without sending an api key", async () => {
+		const fetchMock = vi
+			.fn()
+			.mockResolvedValue(
+				new Response(
+					JSON.stringify({ session_id: "session-456", mode: "local" }),
+					{ status: 201 },
+				),
+			);
+		vi.stubGlobal("fetch", fetchMock);
+
+		await createDashboardAuthSession("local", "ignored-key", true);
+
+		const [input, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+		expect(input).toBe("/api/v1/auth/session");
+		expect(JSON.parse(typeof init.body === "string" ? init.body : "")).toEqual({
+			mode: "local",
+			remember: true,
+		});
+	});
+
 	it("creates a shared request controller that times out and cleans up", async () => {
 		vi.useFakeTimers();
 

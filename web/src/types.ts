@@ -516,6 +516,7 @@ export interface AboutResponse {
 	store_backend: string;
 	store_schema_version?: number;
 	persistent_store: boolean;
+	local_operator_session_enabled: boolean;
 }
 
 export interface CurrentTenant {
