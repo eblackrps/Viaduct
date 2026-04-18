@@ -6,6 +6,30 @@ This changelog tracks published releases and the major implementation milestones
 
 ## [Unreleased]
 
+## [2.4.2] - 2026-04-18
+
+### Upgrading From v2.4.1
+
+- `viaduct serve-api` now defaults to loopback and refuses unauthenticated non-loopback listeners unless you configure credentials or pass the explicit dangerous override
+- local operator bootstrap now requires a direct `127.0.0.1` browser request to a loopback-bound runtime; same-host reverse proxies and remote hostnames should use tenant or service-account credentials instead
+- PostgreSQL credential upgrades now fail fast when legacy tenant or service-account API keys were reused across multiple identities, with a remediation message that tells operators to resolve duplicate keys before restart
+
+### Runtime And Security Hardening
+
+- hardened `serve-api`, local runtime bootstrap, and tenant auth so protected routes no longer inherit ambient default-tenant access and forwarded/proxied requests cannot masquerade as local loopback operator traffic
+- migrated tenant and service-account credentials to hashed-at-rest storage with constant-time comparisons, persisted runtime-session digests instead of raw keys, and enforced global credential uniqueness across tenant keys and service-account keys
+- replaced direct workspace-job goroutine fan-out with a bounded executor shared by enqueue and startup recovery, tied execution to server lifecycle cancellation, and added bounded-concurrency plus recovery coverage
+
+### Runtime Contract And Operator UX
+
+- aligned the shipped CLI/runtime, backend router, OpenAPI contract, and dashboard around the real same-origin operator path exposed by `viaduct start`, including live docs, runtime auth bootstrap, and browser/runtime smoke coverage against the actual Go runtime
+- normalized the touched dashboard request query construction onto `URLSearchParams`, removed the last frontend assumptions about the retired `default-fallback` auth mode, and clarified auth bootstrap messaging for proxied versus direct loopback runtime access
+- refreshed the release-facing README/demo screenshots and aligned the release notes, upgrade docs, install docs, lab guidance, and demo collateral around the `v2.4.2` release surface
+
+### Release Workflow Follow-Through
+
+- repaired the tag workflow recovery path so manual dispatch, YAML validation, bundle-sidecar bridging, and cosign sidecar publishing stay reproducible from source control
+
 ### Runtime And API Contract
 
 - restored the documented local operator path so `viaduct start` serves the bundled dashboard, backend, and live Swagger docs together while exposing a loopback-only local operator bootstrap through `/api/v1/auth/session`
