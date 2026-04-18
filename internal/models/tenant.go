@@ -39,7 +39,9 @@ type ServiceAccount struct {
 	// Description explains the intended purpose of the credential.
 	Description string `json:"description,omitempty" yaml:"description,omitempty"`
 	// APIKey is the bearer credential used for API authentication.
-	APIKey string `json:"api_key" yaml:"api_key"`
+	APIKey string `json:"-" yaml:"-"`
+	// APIKeyHash stores the persisted non-recoverable digest used for API authentication.
+	APIKeyHash string `json:"-" yaml:"-"`
 	// Role is the tenant-scoped authorization level granted to the service account.
 	Role TenantRole `json:"role" yaml:"role"`
 	// Active reports whether the service account may authenticate.
@@ -73,7 +75,9 @@ type Tenant struct {
 	// Name is the human-readable tenant name.
 	Name string `json:"name" yaml:"name"`
 	// APIKey is the tenant API credential used by middleware authentication.
-	APIKey string `json:"api_key" yaml:"api_key"`
+	APIKey string `json:"-" yaml:"-"`
+	// APIKeyHash stores the persisted non-recoverable digest used by middleware authentication.
+	APIKeyHash string `json:"-" yaml:"-"`
 	// CreatedAt is when the tenant was created.
 	CreatedAt time.Time `json:"created_at" yaml:"created_at"`
 	// Active reports whether the tenant may access the API.

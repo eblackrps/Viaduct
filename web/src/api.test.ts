@@ -15,6 +15,9 @@ import {
 	createRequestController,
 	createDashboardAuthSession,
 	getAbout,
+	getCosts,
+	getDrift,
+	getRemediation,
 	getSnapshots,
 	requestManager,
 } from "./api";
@@ -155,5 +158,39 @@ describe("api", () => {
 		expect(requestController.timedOut()).toBe(true);
 
 		requestController.cleanup();
+	});
+
+	it("encodes operator query params with URLSearchParams", async () => {
+		const fetchMock = vi
+			.fn()
+			.mockResolvedValueOnce(new Response(JSON.stringify([]), { status: 200 }))
+			.mockResolvedValueOnce(new Response(JSON.stringify({}), { status: 200 }))
+			.mockResolvedValueOnce(new Response(JSON.stringify({}), { status: 200 }));
+		vi.stubGlobal("fetch", fetchMock);
+
+		await getCosts("vmware & kvm");
+		await getDrift("baseline east/west");
+		await getRemediation("north+south");
+
+		const costsURL = new URL(
+			fetchMock.mock.calls[0][0] as string,
+			window.location.origin,
+		);
+		expect(costsURL.pathname).toBe("/api/v1/costs");
+		expect(costsURL.searchParams.get("platform")).toBe("vmware & kvm");
+
+		const driftURL = new URL(
+			fetchMock.mock.calls[1][0] as string,
+			window.location.origin,
+		);
+		expect(driftURL.pathname).toBe("/api/v1/drift");
+		expect(driftURL.searchParams.get("baseline")).toBe("baseline east/west");
+
+		const remediationURL = new URL(
+			fetchMock.mock.calls[2][0] as string,
+			window.location.origin,
+		);
+		expect(remediationURL.pathname).toBe("/api/v1/remediation");
+		expect(remediationURL.searchParams.get("baseline")).toBe("north+south");
 	});
 });

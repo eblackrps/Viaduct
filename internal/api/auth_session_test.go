@@ -4,14 +4,22 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	"github.com/eblackrps/viaduct/internal/models"
 )
 
 func TestAuthSessionManager_SweepExpired_RemovesExpiredSessions_Expected(t *testing.T) {
 	t.Parallel()
 
 	manager := newAuthSessionManager(time.Hour, time.Hour)
-	expired := manager.Create("tenant", "expired-key", false)
-	active := manager.Create("tenant", "active-key", false)
+	expired := manager.CreateCredential("tenant", AuthenticatedPrincipal{
+		Tenant: models.Tenant{ID: "tenant-expired"},
+		Role:   models.TenantRoleAdmin,
+	}, "hash-expired", false)
+	active := manager.CreateCredential("tenant", AuthenticatedPrincipal{
+		Tenant: models.Tenant{ID: "tenant-active"},
+		Role:   models.TenantRoleAdmin,
+	}, "hash-active", false)
 
 	manager.mu.Lock()
 	expiredRecord := manager.sessions[expired.Secret]
@@ -38,7 +46,10 @@ func TestAuthSessionManager_StartSweeper_RemovesExpiredSessions_Expected(t *test
 	t.Parallel()
 
 	manager := newAuthSessionManager(time.Hour, time.Hour)
-	record := manager.Create("tenant", "swept-key", false)
+	record := manager.CreateCredential("tenant", AuthenticatedPrincipal{
+		Tenant: models.Tenant{ID: "tenant-swept"},
+		Role:   models.TenantRoleAdmin,
+	}, "hash-swept", false)
 
 	manager.mu.Lock()
 	expiredRecord := manager.sessions[record.Secret]

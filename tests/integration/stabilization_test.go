@@ -289,7 +289,7 @@ func TestPluginCrash_AfterLoad_DiscoverFails_Expected(t *testing.T) {
 	}
 }
 
-func TestTenantCompatibility_DefaultTenantLegacyDataRemainsAccessible_Expected(t *testing.T) {
+func TestTenantCompatibility_DefaultTenantLegacyDataRequiresExplicitCredentials_Expected(t *testing.T) {
 	t.Parallel()
 
 	stateStore := store.NewMemoryStore()
@@ -308,6 +308,14 @@ func TestTenantCompatibility_DefaultTenantLegacyDataRemainsAccessible_Expected(t
 	}); err != nil {
 		t.Fatalf("CreateTenant() error = %v", err)
 	}
+	defaultTenant, err := stateStore.GetTenant(context.Background(), store.DefaultTenantID)
+	if err != nil {
+		t.Fatalf("GetTenant(default) error = %v", err)
+	}
+	defaultTenant.APIKey = "default-key"
+	if err := stateStore.UpdateTenant(context.Background(), *defaultTenant); err != nil {
+		t.Fatalf("UpdateTenant(default) error = %v", err)
+	}
 
 	handler := apipkg.TenantAuthMiddleware(stateStore, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		items, err := stateStore.ListSnapshots(r.Context(), store.TenantIDFromContext(r.Context()), "", 10)
@@ -323,6 +331,7 @@ func TestTenantCompatibility_DefaultTenantLegacyDataRemainsAccessible_Expected(t
 	}))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/snapshots", nil)
+	req.Header.Set("X-API-Key", "default-key")
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, req)
 	if recorder.Code != http.StatusOK {

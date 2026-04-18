@@ -12,6 +12,15 @@ This changelog tracks published releases and the major implementation milestones
 - aligned the packaged dashboard, API router, and OpenAPI contract around paginated `/api/v2/inventory`, `/api/v2/snapshots`, and `/api/v2/migrations` list routes while explicitly documenting `/api/v1` list responses as legacy compatibility shapes
 - kept the workspace-first operator flow fully wired in the shipped backend and added browser coverage that boots both the seeded fixture server and the real `viaduct start` runtime so dashboard auth, workspace discovery, and the operator overview contract stay in sync
 
+### Security And Reliability
+
+- made `viaduct serve-api` bind to loopback by default and refuse unauthenticated remote listeners unless an operator configures credentials or passes an explicit dangerous override
+- tightened local operator bootstrap to require direct loopback requests and an explicit auth-session handshake so protected routes no longer inherit ambient default-tenant access
+- migrated tenant and service-account credentials to non-recoverable hashes in both stores, kept legacy plaintext PostgreSQL records authenticating through startup migration, and enforced global credential uniqueness across tenant keys and service-account keys
+- added actionable upgrade guidance when legacy PostgreSQL credential migration finds reused tenant or service-account keys, and removed the last frontend/runtime references to the retired `default-fallback` auth mode
+- replaced direct workspace-job goroutine fan-out with a bounded executor shared by fresh queueing and startup recovery, including lifecycle-aware shutdown and coverage for bounded concurrency and recovery requeue behavior
+- normalized dashboard query construction onto `URLSearchParams` for the touched operator routes so filter and report parameters stay encoded consistently
+
 ## [2.4.1] - 2026-04-17
 
 ### Upgrading From v2.4.0

@@ -317,50 +317,33 @@ func TestRequireAnyTenantPermission_ServiceAccountWithAlternatePermissionAllows_
 	}
 }
 
-func TestTenantAuthMiddleware_DefaultFallbackUsesViewerRole_Expected(t *testing.T) {
+func TestTenantAuthMiddleware_RejectsLoopbackWithoutExplicitCredentials_Expected(t *testing.T) {
+	t.Parallel()
+
 	stateStore := store.NewMemoryStore()
-	handler := tenantAuthMiddleware(stateStore, nil, false, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		principal, err := RequirePrincipal(r.Context())
-		if err != nil {
-			t.Fatalf("RequirePrincipal() error = %v", err)
-		}
-		if principal.Role != models.TenantRoleViewer {
-			t.Fatalf("principal.Role = %q, want viewer", principal.Role)
-		}
-		if principal.AuthMethod != "default-fallback" {
-			t.Fatalf("principal.AuthMethod = %q, want default-fallback", principal.AuthMethod)
-		}
-		w.WriteHeader(http.StatusNoContent)
+	handler := TenantAuthMiddleware(stateStore, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatal("unexpected unauthenticated access through tenant middleware")
 	}))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/inventory", nil)
+	req.RemoteAddr = "127.0.0.1:41000"
 	recorder := httptest.NewRecorder()
 
 	handler.ServeHTTP(recorder, req)
-	if recorder.Code != http.StatusNoContent {
-		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusNoContent)
+	if recorder.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want %d: %s", recorder.Code, http.StatusUnauthorized, recorder.Body.String())
 	}
 }
 
-func TestTenantAuthMiddleware_DefaultFallbackAnonymousAdminEnabled_Expected(t *testing.T) {
-	stateStore := store.NewMemoryStore()
-	handler := tenantAuthMiddleware(stateStore, nil, true, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		principal, err := RequirePrincipal(r.Context())
-		if err != nil {
-			t.Fatalf("RequirePrincipal() error = %v", err)
-		}
-		if principal.Role != models.TenantRoleAdmin {
-			t.Fatalf("principal.Role = %q, want admin", principal.Role)
-		}
-		w.WriteHeader(http.StatusNoContent)
-	}))
+func TestLocalRuntimeRequestAllowed_RejectsForwardedProxyRequest_Expected(t *testing.T) {
+	t.Parallel()
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/inventory", nil)
-	recorder := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "http://viaduct.example.local/api/v1/auth/session", nil)
+	req.RemoteAddr = "127.0.0.1:41000"
+	req.Header.Set("X-Forwarded-For", "203.0.113.10")
 
-	handler.ServeHTTP(recorder, req)
-	if recorder.Code != http.StatusNoContent {
-		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusNoContent)
+	if localRuntimeRequestAllowed(req, "127.0.0.1") {
+		t.Fatal("localRuntimeRequestAllowed() = true, want false for forwarded proxy request")
 	}
 }
 

@@ -115,7 +115,7 @@ export function AuthBootstrapScreen({ auth }: AuthBootstrapScreenProps) {
 						description={
 							auth.localOperatorAvailable
 								? "This local runtime can issue an operator-scoped session without a pasted key. Service-account and tenant keys remain available for packaged or multi-tenant deployments."
-								: "The dashboard accepts runtime credentials so operators can rotate or replace access without rebuilding the frontend."
+								: "The dashboard accepts runtime credentials so operators can rotate or replace access without rebuilding the frontend. Direct loopback runtime bootstrap is only available on 127.0.0.1, so proxied or remote access should use a service-account or tenant key."
 						}
 					>
 						<form className="space-y-5" onSubmit={handleSubmit}>

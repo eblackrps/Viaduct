@@ -1,0 +1,192 @@
+package api
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"sync"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"github.com/eblackrps/viaduct/internal/models"
+	"github.com/eblackrps/viaduct/internal/store"
+)
+
+func TestWorkspaceJobExecutor_BoundsConcurrency_Expected(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	const (
+		concurrency = 2
+		jobCount    = 6
+	)
+
+	var (
+		current atomic.Int32
+		peak    atomic.Int32
+		wg      sync.WaitGroup
+	)
+	started := make(chan struct{}, jobCount)
+	release := make(chan struct{})
+	wg.Add(jobCount)
+
+	executor := newWorkspaceJobExecutor(ctx, concurrency, func(_ context.Context, _ workspaceJobTask) {
+		running := current.Add(1)
+		for {
+			seen := peak.Load()
+			if running <= seen || peak.CompareAndSwap(seen, running) {
+				break
+			}
+		}
+		started <- struct{}{}
+		<-release
+		current.Add(-1)
+		wg.Done()
+	})
+
+	for index := 0; index < jobCount; index++ {
+		if err := executor.Enqueue(context.Background(), workspaceJobTask{jobID: fmt.Sprintf("job-%d", index)}); err != nil {
+			t.Fatalf("Enqueue(%d) error = %v", index, err)
+		}
+	}
+
+	for startedCount := 0; startedCount < concurrency; startedCount++ {
+		select {
+		case <-started:
+		case <-time.After(2 * time.Second):
+			t.Fatalf("executor started %d jobs, want %d before timeout", startedCount, concurrency)
+		}
+	}
+
+	time.Sleep(100 * time.Millisecond)
+	if got := peak.Load(); got != concurrency {
+		t.Fatalf("peak concurrency = %d, want %d", got, concurrency)
+	}
+	if got := current.Load(); got != concurrency {
+		t.Fatalf("running workers = %d, want %d while jobs are blocked", got, concurrency)
+	}
+
+	close(release)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		wg.Wait()
+	}()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("executor did not drain queued jobs before timeout")
+	}
+}
+
+func TestServer_RecoverWorkspaceJobs_RequeuesThroughExecutor_Expected(t *testing.T) {
+	t.Parallel()
+
+	stateStore := store.NewMemoryStore()
+	server := mustNewServer(t, stateStore)
+	recordingExecutor := &workspaceJobRecordingExecutor{}
+	server.workspaceJobExecutor = recordingExecutor
+	ctx := store.ContextWithTenantID(context.Background(), store.DefaultTenantID)
+
+	if err := stateStore.CreateWorkspace(ctx, store.DefaultTenantID, models.PilotWorkspace{
+		ID:     "workspace-recover-queue",
+		Name:   "Recover Queue Workspace",
+		Status: models.PilotWorkspaceStatusDraft,
+	}); err != nil {
+		t.Fatalf("CreateWorkspace() error = %v", err)
+	}
+	if err := stateStore.SaveWorkspaceJob(ctx, store.DefaultTenantID, models.WorkspaceJob{
+		ID:            "job-requeue",
+		TenantID:      store.DefaultTenantID,
+		WorkspaceID:   "workspace-recover-queue",
+		Type:          models.WorkspaceJobTypeGraph,
+		Status:        models.WorkspaceJobStatusRunning,
+		RequestedAt:   time.Now().UTC(),
+		UpdatedAt:     time.Now().UTC(),
+		StartedAt:     time.Now().UTC(),
+		CorrelationID: "req-requeue",
+		InputJSON:     json.RawMessage(`{"type":"graph"}`),
+	}); err != nil {
+		t.Fatalf("SaveWorkspaceJob() error = %v", err)
+	}
+
+	if err := server.recoverWorkspaceJobs(ctx); err != nil {
+		t.Fatalf("recoverWorkspaceJobs() error = %v", err)
+	}
+
+	if len(recordingExecutor.tasks) != 1 {
+		t.Fatalf("len(recordingExecutor.tasks) = %d, want 1", len(recordingExecutor.tasks))
+	}
+	task := recordingExecutor.tasks[0]
+	if task.tenantID != store.DefaultTenantID || task.workspaceID != "workspace-recover-queue" || task.jobID != "job-requeue" {
+		t.Fatalf("unexpected requeued task: %#v", task)
+	}
+
+	job, err := stateStore.GetWorkspaceJob(ctx, store.DefaultTenantID, "workspace-recover-queue", "job-requeue")
+	if err != nil {
+		t.Fatalf("GetWorkspaceJob() error = %v", err)
+	}
+	if job.Status != models.WorkspaceJobStatusQueued {
+		t.Fatalf("job.Status = %s, want queued", job.Status)
+	}
+}
+
+func TestWorkspaceJobExecutor_CancelledExecutorRejectsQueuedWork_Expected(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	started := make(chan string, 2)
+	release := make(chan struct{})
+	executor := newWorkspaceJobExecutor(ctx, 1, func(_ context.Context, task workspaceJobTask) {
+		started <- task.jobID
+		<-release
+	})
+
+	if err := executor.Enqueue(context.Background(), workspaceJobTask{jobID: "job-1"}); err != nil {
+		t.Fatalf("Enqueue(job-1) error = %v", err)
+	}
+	select {
+	case jobID := <-started:
+		if jobID != "job-1" {
+			t.Fatalf("started job = %s, want job-1", jobID)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("executor did not start first job before timeout")
+	}
+
+	if err := executor.Enqueue(context.Background(), workspaceJobTask{jobID: "job-2"}); err != nil {
+		t.Fatalf("Enqueue(job-2) error = %v", err)
+	}
+	cancel()
+
+	if err := executor.Enqueue(context.Background(), workspaceJobTask{jobID: "job-3"}); !errors.Is(err, context.Canceled) {
+		t.Fatalf("Enqueue(job-3) error = %v, want context canceled", err)
+	}
+
+	select {
+	case jobID := <-started:
+		t.Fatalf("executor started queued work after cancellation: %s", jobID)
+	default:
+	}
+
+	close(release)
+}
+
+type workspaceJobRecordingExecutor struct {
+	mu    sync.Mutex
+	tasks []workspaceJobTask
+	err   error
+}
+
+func (e *workspaceJobRecordingExecutor) Enqueue(_ context.Context, task workspaceJobTask) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.tasks = append(e.tasks, task)
+	return e.err
+}

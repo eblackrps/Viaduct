@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -12,10 +13,10 @@ import (
 
 	"github.com/eblackrps/viaduct/internal/models"
 	"github.com/google/uuid"
-	_ "github.com/lib/pq"
+	pq "github.com/lib/pq"
 )
 
-const currentStoreSchemaVersion = 6
+const currentStoreSchemaVersion = 7
 
 type storeSchemaVersion struct {
 	version     int
@@ -29,6 +30,7 @@ var storeSchemaHistory = []storeSchemaVersion{
 	{version: 4, description: "tenant quotas and service-account metadata"},
 	{version: 5, description: "schema version tracking and operator diagnostics"},
 	{version: 6, description: "pilot workspaces and persisted workspace background jobs"},
+	{version: 7, description: "hashed tenant credentials and durable credential uniqueness registry"},
 }
 
 const createStoreSchemaSQL = `
@@ -42,18 +44,29 @@ CREATE TABLE IF NOT EXISTS tenants (
 	id TEXT PRIMARY KEY,
 	name TEXT NOT NULL,
 	api_key TEXT NOT NULL,
+	api_key_hash TEXT NOT NULL DEFAULT '',
 	created_at TIMESTAMPTZ NOT NULL,
 	active BOOLEAN NOT NULL,
 	settings JSONB NOT NULL DEFAULT '{}'::jsonb,
 	quotas JSONB NOT NULL DEFAULT '{}'::jsonb,
 	service_accounts JSONB NOT NULL DEFAULT '[]'::jsonb
 );
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS api_key_hash TEXT NOT NULL DEFAULT '';
 ALTER TABLE tenants ADD COLUMN IF NOT EXISTS quotas JSONB NOT NULL DEFAULT '{}'::jsonb;
 ALTER TABLE tenants ADD COLUMN IF NOT EXISTS service_accounts JSONB NOT NULL DEFAULT '[]'::jsonb;
 
 INSERT INTO tenants (id, name, api_key, created_at, active, settings)
 VALUES ('default', 'Default Tenant', '', to_timestamp(0), TRUE, '{}'::jsonb)
 ON CONFLICT (id) DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS credential_hashes (
+	credential_hash TEXT PRIMARY KEY,
+	tenant_id TEXT NOT NULL,
+	owner_type TEXT NOT NULL,
+	service_account_id TEXT NOT NULL DEFAULT '',
+	created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_credential_hashes_tenant ON credential_hashes(tenant_id);
 
 CREATE TABLE IF NOT EXISTS snapshots (
 	id TEXT PRIMARY KEY,
@@ -199,6 +212,10 @@ func NewPostgresStore(ctx context.Context, dsn string) (*PostgresStore, error) {
 		// Close is best effort while unwinding a failed store initialization.
 		_ = db.Close()
 		return nil, fmt.Errorf("postgres store: record schema history: %w", err)
+	}
+	if err := migrateStoredCredentials(recordCtx, db); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("postgres store: migrate credentials: %w", annotateCredentialMigrationError(err))
 	}
 
 	return &PostgresStore{
@@ -686,6 +703,17 @@ func (s *PostgresStore) CreateTenant(ctx context.Context, tenant models.Tenant) 
 		return fmt.Errorf("postgres store: create tenant: tenant name is empty")
 	}
 	tenant = normalizeTenant(tenant)
+	tenant, err := prepareTenantCredentials(tenant)
+	if err != nil {
+		return fmt.Errorf("postgres store: create tenant %s: %w", tenant.ID, err)
+	}
+	existingTenants, err := s.ListTenants(ctx)
+	if err != nil {
+		return fmt.Errorf("postgres store: create tenant %s: validate credentials: %w", tenant.ID, err)
+	}
+	if err := validateCredentialUniqueness(existingTenants, tenant); err != nil {
+		return fmt.Errorf("postgres store: create tenant %s: %w", tenant.ID, err)
+	}
 	settingsPayload, err := marshalTenantComponent("settings", tenant.Settings)
 	if err != nil {
 		return fmt.Errorf("postgres store: create tenant: %w", err)
@@ -694,28 +722,39 @@ func (s *PostgresStore) CreateTenant(ctx context.Context, tenant models.Tenant) 
 	if err != nil {
 		return fmt.Errorf("postgres store: create tenant: %w", err)
 	}
-	serviceAccountsPayload, err := marshalTenantComponent("service_accounts", tenant.ServiceAccounts)
+	serviceAccountsPayload, err := marshalServiceAccounts(tenant.ServiceAccounts)
 	if err != nil {
 		return fmt.Errorf("postgres store: create tenant: %w", err)
 	}
 
-	_, err = s.db.ExecContext(
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("postgres store: create tenant %s: begin transaction: %w", tenant.ID, err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	if _, err := tx.ExecContext(
 		ctx,
-		`INSERT INTO tenants (id, name, api_key, created_at, active, settings, quotas, service_accounts)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+		`INSERT INTO tenants (id, name, api_key, api_key_hash, created_at, active, settings, quotas, service_accounts)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
 		tenant.ID,
 		tenant.Name,
-		tenant.APIKey,
+		"",
+		tenant.APIKeyHash,
 		tenant.CreatedAt,
 		tenant.Active,
 		settingsPayload,
 		quotasPayload,
 		serviceAccountsPayload,
-	)
-	if err != nil {
+	); err != nil {
+		return fmt.Errorf("postgres store: create tenant %s: %w", tenant.ID, translateCredentialConstraintError(err))
+	}
+	if err := replaceTenantCredentialHashes(ctx, tx, tenant); err != nil {
 		return fmt.Errorf("postgres store: create tenant %s: %w", tenant.ID, err)
 	}
-
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("postgres store: create tenant %s: commit transaction: %w", tenant.ID, err)
+	}
 	return nil
 }
 
@@ -731,6 +770,7 @@ func (s *PostgresStore) UpdateTenant(ctx context.Context, tenant models.Tenant) 
 	if tenant.ID == DefaultTenantID {
 		existing := defaultTenant()
 		existing.APIKey = tenant.APIKey
+		existing.APIKeyHash = tenant.APIKeyHash
 		existing.Active = tenant.Active
 		existing.Settings = tenant.Settings
 		existing.Quotas = tenant.Quotas
@@ -738,6 +778,17 @@ func (s *PostgresStore) UpdateTenant(ctx context.Context, tenant models.Tenant) 
 		tenant = existing
 	}
 	tenant = normalizeTenant(tenant)
+	tenant, err := prepareTenantCredentials(tenant)
+	if err != nil {
+		return fmt.Errorf("postgres store: update tenant %s: %w", tenant.ID, err)
+	}
+	existingTenants, err := s.ListTenants(ctx)
+	if err != nil {
+		return fmt.Errorf("postgres store: update tenant %s: validate credentials: %w", tenant.ID, err)
+	}
+	if err := validateCredentialUniqueness(existingTenants, tenant); err != nil {
+		return fmt.Errorf("postgres store: update tenant %s: %w", tenant.ID, err)
+	}
 	settingsPayload, err := marshalTenantComponent("settings", tenant.Settings)
 	if err != nil {
 		return fmt.Errorf("postgres store: update tenant %s: %w", tenant.ID, err)
@@ -746,25 +797,33 @@ func (s *PostgresStore) UpdateTenant(ctx context.Context, tenant models.Tenant) 
 	if err != nil {
 		return fmt.Errorf("postgres store: update tenant %s: %w", tenant.ID, err)
 	}
-	serviceAccountsPayload, err := marshalTenantComponent("service_accounts", tenant.ServiceAccounts)
+	serviceAccountsPayload, err := marshalServiceAccounts(tenant.ServiceAccounts)
 	if err != nil {
 		return fmt.Errorf("postgres store: update tenant %s: %w", tenant.ID, err)
 	}
 
-	result, err := s.db.ExecContext(
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("postgres store: update tenant %s: begin transaction: %w", tenant.ID, err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	result, err := tx.ExecContext(
 		ctx,
 		`UPDATE tenants
 		 SET name = $2,
 		     api_key = $3,
-		     created_at = $4,
-		     active = $5,
-		     settings = $6,
-		     quotas = $7,
-		     service_accounts = $8
+		     api_key_hash = $4,
+		     created_at = $5,
+		     active = $6,
+		     settings = $7,
+		     quotas = $8,
+		     service_accounts = $9
 		 WHERE id = $1`,
 		tenant.ID,
 		tenant.Name,
-		tenant.APIKey,
+		"",
+		tenant.APIKeyHash,
 		tenant.CreatedAt,
 		tenant.Active,
 		settingsPayload,
@@ -772,7 +831,7 @@ func (s *PostgresStore) UpdateTenant(ctx context.Context, tenant models.Tenant) 
 		serviceAccountsPayload,
 	)
 	if err != nil {
-		return fmt.Errorf("postgres store: update tenant %s: %w", tenant.ID, err)
+		return fmt.Errorf("postgres store: update tenant %s: %w", tenant.ID, translateCredentialConstraintError(err))
 	}
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
@@ -780,6 +839,12 @@ func (s *PostgresStore) UpdateTenant(ctx context.Context, tenant models.Tenant) 
 	}
 	if rowsAffected == 0 {
 		return fmt.Errorf("postgres store: update tenant %s: not found", tenant.ID)
+	}
+	if err := replaceTenantCredentialHashes(ctx, tx, tenant); err != nil {
+		return fmt.Errorf("postgres store: update tenant %s: %w", tenant.ID, err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("postgres store: update tenant %s: commit transaction: %w", tenant.ID, err)
 	}
 
 	return nil
@@ -800,9 +865,9 @@ func (s *PostgresStore) GetTenant(ctx context.Context, tenantID string) (*models
 	)
 	if err := s.db.QueryRowContext(
 		ctx,
-		`SELECT id, name, api_key, created_at, active, settings, quotas, service_accounts FROM tenants WHERE id = $1`,
+		`SELECT id, name, api_key, api_key_hash, created_at, active, settings, quotas, service_accounts FROM tenants WHERE id = $1`,
 		tenantID,
-	).Scan(&tenant.ID, &tenant.Name, &tenant.APIKey, &tenant.CreatedAt, &tenant.Active, &settingsPayload, &quotasPayload, &serviceAccountsPayload); err != nil {
+	).Scan(&tenant.ID, &tenant.Name, &tenant.APIKey, &tenant.APIKeyHash, &tenant.CreatedAt, &tenant.Active, &settingsPayload, &quotasPayload, &serviceAccountsPayload); err != nil {
 		return nil, fmt.Errorf("postgres store: get tenant %s: %w", tenantID, err)
 	}
 
@@ -818,7 +883,7 @@ func (s *PostgresStore) ListTenants(ctx context.Context) ([]models.Tenant, error
 	ctx, cancel := s.readContext(ctx)
 	defer cancel()
 
-	rows, err := s.db.QueryContext(ctx, `SELECT id, name, api_key, created_at, active, settings, quotas, service_accounts FROM tenants ORDER BY created_at ASC`)
+	rows, err := s.db.QueryContext(ctx, `SELECT id, name, api_key, api_key_hash, created_at, active, settings, quotas, service_accounts FROM tenants ORDER BY created_at ASC`)
 	if err != nil {
 		return nil, fmt.Errorf("postgres store: list tenants: %w", err)
 	}
@@ -832,7 +897,7 @@ func (s *PostgresStore) ListTenants(ctx context.Context) ([]models.Tenant, error
 			quotasPayload          []byte
 			serviceAccountsPayload []byte
 		)
-		if err := rows.Scan(&tenant.ID, &tenant.Name, &tenant.APIKey, &tenant.CreatedAt, &tenant.Active, &settingsPayload, &quotasPayload, &serviceAccountsPayload); err != nil {
+		if err := rows.Scan(&tenant.ID, &tenant.Name, &tenant.APIKey, &tenant.APIKeyHash, &tenant.CreatedAt, &tenant.Active, &settingsPayload, &quotasPayload, &serviceAccountsPayload); err != nil {
 			return nil, fmt.Errorf("postgres store: scan tenant: %w", err)
 		}
 		if err := decodeTenantComponents(&tenant, settingsPayload, quotasPayload, serviceAccountsPayload); err != nil {
@@ -874,6 +939,7 @@ func (s *PostgresStore) DeleteTenant(ctx context.Context, tenantID string) error
 		`DELETE FROM recovery_points WHERE tenant_id = $1`,
 		`DELETE FROM migrations WHERE tenant_id = $1`,
 		`DELETE FROM snapshots WHERE tenant_id = $1`,
+		`DELETE FROM credential_hashes WHERE tenant_id = $1`,
 		`DELETE FROM tenants WHERE id = $1`,
 	} {
 		if _, err := tx.ExecContext(ctx, statement, tenantID); err != nil {
@@ -1438,6 +1504,21 @@ func (s *PostgresStore) migrationCount(ctx context.Context, tenantID string) (in
 	return count, nil
 }
 
+type persistedServiceAccount struct {
+	ID            string                    `json:"id"`
+	Name          string                    `json:"name"`
+	Description   string                    `json:"description,omitempty"`
+	APIKey        string                    `json:"api_key,omitempty"`
+	APIKeyHash    string                    `json:"api_key_hash,omitempty"`
+	Role          models.TenantRole         `json:"role"`
+	Active        bool                      `json:"active"`
+	CreatedAt     time.Time                 `json:"created_at"`
+	LastRotatedAt time.Time                 `json:"last_rotated_at,omitempty"`
+	ExpiresAt     time.Time                 `json:"expires_at,omitempty"`
+	Metadata      map[string]string         `json:"metadata,omitempty"`
+	Permissions   []models.TenantPermission `json:"permissions,omitempty"`
+}
+
 func decodeTenantComponents(tenant *models.Tenant, settingsPayload, quotasPayload, serviceAccountsPayload []byte) error {
 	if len(settingsPayload) > 0 {
 		if err := json.Unmarshal(settingsPayload, &tenant.Settings); err != nil {
@@ -1450,12 +1531,19 @@ func decodeTenantComponents(tenant *models.Tenant, settingsPayload, quotasPayloa
 		}
 	}
 	if len(serviceAccountsPayload) > 0 {
-		if err := json.Unmarshal(serviceAccountsPayload, &tenant.ServiceAccounts); err != nil {
+		accounts, err := decodeServiceAccounts(serviceAccountsPayload)
+		if err != nil {
 			return fmt.Errorf("decode service accounts: %w", err)
 		}
+		tenant.ServiceAccounts = accounts
 	}
 	tenant.Settings = copyStringMap(tenant.Settings)
 	tenant.ServiceAccounts = cloneServiceAccounts(tenant.ServiceAccounts)
+	normalized, err := prepareTenantCredentials(*tenant)
+	if err != nil {
+		return fmt.Errorf("normalize tenant credentials: %w", err)
+	}
+	*tenant = normalized
 	return nil
 }
 
@@ -1465,6 +1553,175 @@ func marshalTenantComponent(name string, value interface{}) ([]byte, error) {
 		return nil, fmt.Errorf("marshal %s: %w", name, err)
 	}
 	return payload, nil
+}
+
+func marshalServiceAccounts(accounts []models.ServiceAccount) ([]byte, error) {
+	items := make([]persistedServiceAccount, 0, len(accounts))
+	for _, account := range accounts {
+		items = append(items, persistedServiceAccount{
+			ID:            account.ID,
+			Name:          account.Name,
+			Description:   account.Description,
+			APIKeyHash:    strings.TrimSpace(account.APIKeyHash),
+			Role:          account.Role,
+			Active:        account.Active,
+			CreatedAt:     account.CreatedAt,
+			LastRotatedAt: account.LastRotatedAt,
+			ExpiresAt:     account.ExpiresAt,
+			Metadata:      copyStringMap(account.Metadata),
+			Permissions:   append([]models.TenantPermission(nil), account.Permissions...),
+		})
+	}
+	return marshalTenantComponent("service_accounts", items)
+}
+
+func decodeServiceAccounts(payload []byte) ([]models.ServiceAccount, error) {
+	if len(payload) == 0 {
+		return nil, nil
+	}
+
+	var stored []persistedServiceAccount
+	if err := json.Unmarshal(payload, &stored); err != nil {
+		return nil, err
+	}
+
+	accounts := make([]models.ServiceAccount, 0, len(stored))
+	for _, item := range stored {
+		accounts = append(accounts, models.ServiceAccount{
+			ID:            item.ID,
+			Name:          item.Name,
+			Description:   item.Description,
+			APIKey:        strings.TrimSpace(item.APIKey),
+			APIKeyHash:    strings.TrimSpace(item.APIKeyHash),
+			Role:          item.Role,
+			Active:        item.Active,
+			CreatedAt:     item.CreatedAt,
+			LastRotatedAt: item.LastRotatedAt,
+			ExpiresAt:     item.ExpiresAt,
+			Metadata:      copyStringMap(item.Metadata),
+			Permissions:   append([]models.TenantPermission(nil), item.Permissions...),
+		})
+	}
+	return accounts, nil
+}
+
+func replaceTenantCredentialHashes(ctx context.Context, tx *sql.Tx, tenant models.Tenant) error {
+	if tx == nil {
+		return fmt.Errorf("replace credential hashes: transaction is nil")
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM credential_hashes WHERE tenant_id = $1`, tenant.ID); err != nil {
+		return fmt.Errorf("delete credential hashes for tenant %s: %w", tenant.ID, err)
+	}
+	for hash, owner := range tenantCredentialOwners(tenant) {
+		if _, err := tx.ExecContext(
+			ctx,
+			`INSERT INTO credential_hashes (credential_hash, tenant_id, owner_type, service_account_id)
+			 VALUES ($1, $2, $3, $4)`,
+			hash,
+			tenant.ID,
+			credentialOwnerType(owner),
+			owner.serviceAccountID,
+		); err != nil {
+			return translateCredentialConstraintError(err)
+		}
+	}
+	return nil
+}
+
+func credentialOwnerType(owner credentialOwner) string {
+	if strings.TrimSpace(owner.serviceAccountID) != "" {
+		return "service_account"
+	}
+	return "tenant"
+}
+
+func translateCredentialConstraintError(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	var pqErr *pq.Error
+	if errors.As(err, &pqErr) {
+		if pqErr.Code == "23505" && (strings.Contains(pqErr.Constraint, "credential_hashes") || pqErr.Table == "credential_hashes") {
+			return &CredentialConflictError{}
+		}
+	}
+	return err
+}
+
+func annotateCredentialMigrationError(err error) error {
+	if err == nil {
+		return nil
+	}
+	if IsCredentialConflict(err) {
+		return fmt.Errorf("%w; resolve duplicated tenant or service-account API keys before restarting so each persisted credential is globally unique", err)
+	}
+	return err
+}
+
+func migrateStoredCredentials(ctx context.Context, db *sql.DB) error {
+	rows, err := db.QueryContext(ctx, `SELECT id, name, api_key, api_key_hash, created_at, active, settings, quotas, service_accounts FROM tenants ORDER BY created_at ASC`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	tenants := make([]models.Tenant, 0)
+	for rows.Next() {
+		var (
+			tenant                 models.Tenant
+			settingsPayload        []byte
+			quotasPayload          []byte
+			serviceAccountsPayload []byte
+		)
+		if err := rows.Scan(&tenant.ID, &tenant.Name, &tenant.APIKey, &tenant.APIKeyHash, &tenant.CreatedAt, &tenant.Active, &settingsPayload, &quotasPayload, &serviceAccountsPayload); err != nil {
+			return err
+		}
+		if err := decodeTenantComponents(&tenant, settingsPayload, quotasPayload, serviceAccountsPayload); err != nil {
+			return err
+		}
+		tenants = append(tenants, tenant)
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	for _, tenant := range tenants {
+		if err := validateCredentialUniqueness(tenants, tenant); err != nil {
+			return err
+		}
+	}
+
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	if _, err := tx.ExecContext(ctx, `DELETE FROM credential_hashes`); err != nil {
+		return err
+	}
+	for _, tenant := range tenants {
+		serviceAccountsPayload, err := marshalServiceAccounts(tenant.ServiceAccounts)
+		if err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(
+			ctx,
+			`UPDATE tenants SET api_key = $2, api_key_hash = $3, service_accounts = $4 WHERE id = $1`,
+			tenant.ID,
+			"",
+			tenant.APIKeyHash,
+			serviceAccountsPayload,
+		); err != nil {
+			return translateCredentialConstraintError(err)
+		}
+		if err := replaceTenantCredentialHashes(ctx, tx, tenant); err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit()
 }
 
 func nullTime(value time.Time) interface{} {

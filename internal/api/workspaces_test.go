@@ -476,7 +476,7 @@ func TestServer_RunWorkspaceJob_GetWorkspaceFailureMarksFailed_Expected(t *testi
 		t.Fatalf("SaveWorkspaceJob() error = %v", err)
 	}
 
-	server.runWorkspaceJob(store.DefaultTenantID, "workspace-failure", "job-failure")
+	server.runWorkspaceJob(ctx, store.DefaultTenantID, "workspace-failure", "job-failure")
 
 	job, err := baseStore.GetWorkspaceJob(ctx, store.DefaultTenantID, "workspace-failure", "job-failure")
 	if err != nil {
@@ -525,7 +525,7 @@ func TestServer_RunWorkspaceJob_SaveResultFailureMarksFailed_Expected(t *testing
 		t.Fatalf("SaveWorkspaceJob() error = %v", err)
 	}
 
-	server.runWorkspaceJob(store.DefaultTenantID, "workspace-save-failure", "job-save-failure")
+	server.runWorkspaceJob(ctx, store.DefaultTenantID, "workspace-save-failure", "job-save-failure")
 
 	job, err := baseStore.GetWorkspaceJob(ctx, store.DefaultTenantID, "workspace-save-failure", "job-save-failure")
 	if err != nil {

@@ -124,6 +124,38 @@ func TestServer_HandleAdminTenants_ExplicitInactiveTenantPreserved_Expected(t *t
 	}
 }
 
+func TestServer_HandleAdminTenants_TrimsOneTimeTenantKeyResponse_Expected(t *testing.T) {
+	t.Parallel()
+
+	stateStore := store.NewMemoryStore()
+	server := mustNewServer(t, stateStore)
+
+	body := bytes.NewBufferString(`{"name":"Trimmed Tenant","api_key":"  tenant-key  "}`)
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/admin/tenants", body)
+	recorder := httptest.NewRecorder()
+
+	server.handleAdminTenants(recorder, request)
+	if recorder.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want %d: %s", recorder.Code, http.StatusCreated, recorder.Body.String())
+	}
+
+	var created adminTenantResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &created); err != nil {
+		t.Fatalf("Unmarshal() error = %v", err)
+	}
+	if created.APIKey != "tenant-key" {
+		t.Fatalf("created tenant APIKey = %q, want trimmed value", created.APIKey)
+	}
+
+	persisted, err := stateStore.GetTenant(context.Background(), created.ID)
+	if err != nil {
+		t.Fatalf("GetTenant() error = %v", err)
+	}
+	if !store.APIKeyMatches("tenant-key", persisted.APIKeyHash, persisted.APIKey) {
+		t.Fatal("persisted tenant credential did not match trimmed one-time response")
+	}
+}
+
 func TestServer_HandleAdminTenants_ListRedactsSecrets_Expected(t *testing.T) {
 	t.Parallel()
 
@@ -553,9 +585,10 @@ func TestServer_Handler_LocalRuntimeAuthSession_IssuesOperatorSession_Expected(t
 
 	server := mustNewServer(t, store.NewMemoryStore())
 	server.SetLocalRuntimeMode(true)
+	server.SetBindHost("127.0.0.1")
 	handler := server.Handler()
 
-	createRequest := httptest.NewRequest(http.MethodPost, "/api/v1/auth/session", bytes.NewBufferString(`{"mode":"local"}`))
+	createRequest := httptest.NewRequest(http.MethodPost, "http://127.0.0.1/api/v1/auth/session", bytes.NewBufferString(`{"mode":"local"}`))
 	createRequest.RemoteAddr = "127.0.0.1:41000"
 	createRequest.Header.Set("Content-Type", "application/json")
 	createRecorder := httptest.NewRecorder()
@@ -573,7 +606,7 @@ func TestServer_Handler_LocalRuntimeAuthSession_IssuesOperatorSession_Expected(t
 		t.Fatalf("unexpected local auth session response: %#v", createResponse)
 	}
 
-	currentTenantRequest := httptest.NewRequest(http.MethodGet, "/api/v1/tenants/current", nil)
+	currentTenantRequest := httptest.NewRequest(http.MethodGet, "http://127.0.0.1/api/v1/tenants/current", nil)
 	currentTenantRequest.RemoteAddr = "127.0.0.1:41000"
 	for _, cookie := range createRecorder.Result().Cookies() {
 		currentTenantRequest.AddCookie(cookie)
@@ -597,14 +630,33 @@ func TestServer_Handler_LocalRuntimeAuthSession_IssuesOperatorSession_Expected(t
 	}
 }
 
+func TestServer_Handler_LocalRuntimeProtectedRoute_RejectsAmbientLoopbackRequest_Expected(t *testing.T) {
+	t.Parallel()
+
+	server := mustNewServer(t, store.NewMemoryStore())
+	server.SetLocalRuntimeMode(true)
+	server.SetBindHost("127.0.0.1")
+	handler := server.Handler()
+
+	request := httptest.NewRequest(http.MethodGet, "http://127.0.0.1/api/v1/tenants/current", nil)
+	request.RemoteAddr = "127.0.0.1:41000"
+	recorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want %d: %s", recorder.Code, http.StatusUnauthorized, recorder.Body.String())
+	}
+}
+
 func TestServer_Handler_LocalRuntimeAuthSession_RejectsNonLoopback_Expected(t *testing.T) {
 	t.Parallel()
 
 	server := mustNewServer(t, store.NewMemoryStore())
 	server.SetLocalRuntimeMode(true)
+	server.SetBindHost("127.0.0.1")
 	handler := server.Handler()
 
-	request := httptest.NewRequest(http.MethodPost, "/api/v1/auth/session", bytes.NewBufferString(`{"mode":"local"}`))
+	request := httptest.NewRequest(http.MethodPost, "http://127.0.0.1/api/v1/auth/session", bytes.NewBufferString(`{"mode":"local"}`))
 	request.RemoteAddr = "203.0.113.10:41000"
 	request.Header.Set("Content-Type", "application/json")
 	recorder := httptest.NewRecorder()
@@ -612,6 +664,55 @@ func TestServer_Handler_LocalRuntimeAuthSession_RejectsNonLoopback_Expected(t *t
 	handler.ServeHTTP(recorder, request)
 	if recorder.Code != http.StatusForbidden {
 		t.Fatalf("status = %d, want %d: %s", recorder.Code, http.StatusForbidden, recorder.Body.String())
+	}
+}
+
+func TestServer_Handler_LocalRuntimeAuthSession_RejectsForwardedProxyRequest_Expected(t *testing.T) {
+	t.Parallel()
+
+	server := mustNewServer(t, store.NewMemoryStore())
+	server.SetLocalRuntimeMode(true)
+	server.SetBindHost("127.0.0.1")
+	handler := server.Handler()
+
+	request := httptest.NewRequest(http.MethodPost, "https://viaduct.example.com/api/v1/auth/session", bytes.NewBufferString(`{"mode":"local"}`))
+	request.RemoteAddr = "127.0.0.1:41000"
+	request.Host = "viaduct.example.com"
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("X-Forwarded-For", "203.0.113.10")
+	request.Header.Set("Origin", "https://viaduct.example.com")
+	recorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want %d: %s", recorder.Code, http.StatusForbidden, recorder.Body.String())
+	}
+}
+
+func TestServer_HandleAbout_HidesLocalOperatorSessionForNonLocalRequest_Expected(t *testing.T) {
+	t.Parallel()
+
+	server := mustNewServer(t, store.NewMemoryStore())
+	server.SetLocalRuntimeMode(true)
+	server.SetBindHost("127.0.0.1")
+
+	request := httptest.NewRequest(http.MethodGet, "https://viaduct.example.com/api/v1/about", nil)
+	request.RemoteAddr = "127.0.0.1:41000"
+	request.Host = "viaduct.example.com"
+	request.Header.Set("X-Forwarded-For", "203.0.113.10")
+	recorder := httptest.NewRecorder()
+
+	server.handleAbout(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d: %s", recorder.Code, http.StatusOK, recorder.Body.String())
+	}
+
+	var response aboutResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Unmarshal(about) error = %v", err)
+	}
+	if response.LocalOperatorSession {
+		t.Fatal("LocalOperatorSession = true, want false for forwarded non-local request")
 	}
 }
 
@@ -1097,5 +1198,64 @@ func TestServer_RunMigrationAsync_RecoversPanicsAndLogs_Expected(t *testing.T) {
 		if !strings.Contains(logOutput, fragment) {
 			t.Fatalf("log output missing %s: %s", fragment, logOutput)
 		}
+	}
+}
+
+func TestServer_ValidateBindSecurity_RemoteBindWithoutCredentialsRejected_Expected(t *testing.T) {
+	t.Parallel()
+
+	server := mustNewServer(t, store.NewMemoryStore())
+	server.SetBindHost("0.0.0.0")
+
+	err := server.validateBindSecurity(context.Background())
+	if err == nil {
+		t.Fatal("validateBindSecurity() error = nil, want remote bind rejection")
+	}
+	if !strings.Contains(err.Error(), "remote bind without configured authentication is refused") {
+		t.Fatalf("validateBindSecurity() error = %q, want remote bind refusal", err)
+	}
+}
+
+func TestServer_ValidateBindSecurity_LoopbackWithoutCredentialsAllowed_Expected(t *testing.T) {
+	t.Parallel()
+
+	server := mustNewServer(t, store.NewMemoryStore())
+	server.SetBindHost("127.0.0.1")
+
+	if err := server.validateBindSecurity(context.Background()); err != nil {
+		t.Fatalf("validateBindSecurity() error = %v", err)
+	}
+}
+
+func TestServer_ValidateBindSecurity_RemoteBindAllowedWithConfiguredCredentials_Expected(t *testing.T) {
+	t.Parallel()
+
+	stateStore := store.NewMemoryStore()
+	if err := stateStore.CreateTenant(context.Background(), models.Tenant{
+		ID:     "tenant-a",
+		Name:   "Tenant A",
+		APIKey: "tenant-a-key",
+		Active: true,
+	}); err != nil {
+		t.Fatalf("CreateTenant() error = %v", err)
+	}
+
+	server := mustNewServer(t, stateStore)
+	server.SetBindHost("0.0.0.0")
+
+	if err := server.validateBindSecurity(context.Background()); err != nil {
+		t.Fatalf("validateBindSecurity() error = %v", err)
+	}
+}
+
+func TestServer_ValidateBindSecurity_RemoteBindAllowsExplicitDangerousOverride_Expected(t *testing.T) {
+	t.Parallel()
+
+	server := mustNewServer(t, store.NewMemoryStore())
+	server.SetBindHost("0.0.0.0")
+	server.SetAllowUnauthenticatedRemote(true)
+
+	if err := server.validateBindSecurity(context.Background()); err != nil {
+		t.Fatalf("validateBindSecurity() error = %v", err)
 	}
 }

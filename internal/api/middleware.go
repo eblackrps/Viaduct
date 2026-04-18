@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"crypto/subtle"
 	"fmt"
 	"net"
 	"net/http"
@@ -35,17 +36,17 @@ type AuthenticatedPrincipal struct {
 
 // TenantAuthMiddleware authenticates tenant API keys and injects tenant context.
 func TenantAuthMiddleware(stateStore store.Store, next http.Handler) http.Handler {
-	return tenantAuthMiddleware(stateStore, nil, false, next)
+	return tenantAuthMiddleware(stateStore, nil, next)
 }
 
 func (s *Server) tenantAuthMiddleware(next http.Handler) http.Handler {
 	if s == nil {
 		return next
 	}
-	return tenantAuthMiddleware(s.store, s.authSessions, s.allowAnonymousAdmin, next)
+	return tenantAuthMiddleware(s.store, s.authSessions, next)
 }
 
-func tenantAuthMiddleware(stateStore store.Store, sessions *authSessionManager, allowAnonymousAdmin bool, next http.Handler) http.Handler {
+func tenantAuthMiddleware(stateStore store.Store, sessions *authSessionManager, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if stateStore == nil {
 			writeAPIError(w, r, http.StatusInternalServerError, "internal_error", "tenant store is not configured", apiErrorOptions{Retryable: true})
@@ -66,11 +67,15 @@ func tenantAuthMiddleware(stateStore store.Store, sessions *authSessionManager, 
 			if sessionRecord, ok := sessions.Lookup(readAuthSessionSecret(r)); ok {
 				switch sessionRecord.Mode {
 				case "tenant":
-					apiKey = sessionRecord.APIKey
-					authMethod = "runtime-session"
+					if principal, tenantFound := principalFromTenantSession(tenants, sessionRecord); tenantFound {
+						sessionPrincipal = &principal
+						authMethod = "runtime-session"
+					}
 				case "service-account":
-					serviceAccountKey = sessionRecord.APIKey
-					authMethod = "runtime-session"
+					if principal, accountFound := principalFromServiceAccountSession(tenants, sessionRecord); accountFound {
+						sessionPrincipal = &principal
+						authMethod = "runtime-session"
+					}
 				case "local":
 					if tenant, tenantFound := findTenantByID(tenants, sessionRecord.TenantID); tenantFound {
 						principal := AuthenticatedPrincipal{
@@ -101,27 +106,6 @@ func tenantAuthMiddleware(stateStore store.Store, sessions *authSessionManager, 
 		}
 		if !ok {
 			if apiKey == "" && serviceAccountKey == "" {
-				if tenant, fallbackOK := defaultTenantFallback(tenants); fallbackOK {
-					role := models.TenantRoleViewer
-					if allowAnonymousAdmin {
-						role = models.TenantRoleAdmin
-					}
-					packageLogger.Warn(
-						"AUDIT default tenant fallback granted",
-						"request_id", responseRequestID(nil, r),
-						"tenant_id", tenant.ID,
-						"role", role,
-						"allow_anonymous_admin", allowAnonymousAdmin,
-					)
-					principal = AuthenticatedPrincipal{
-						Tenant:     tenant,
-						Role:       role,
-						AuthMethod: "default-fallback",
-					}
-					ctx := withPrincipal(r.Context(), principal)
-					next.ServeHTTP(w, r.WithContext(ctx))
-					return
-				}
 				writeAPIError(w, r, http.StatusUnauthorized, "missing_credentials", "missing tenant API key", apiErrorOptions{})
 				return
 			}
@@ -157,6 +141,230 @@ func tenantAuthMiddleware(stateStore store.Store, sessions *authSessionManager, 
 	})
 }
 
+func bindHostIsLoopbackOnly(host string) bool {
+	host = strings.TrimSpace(host)
+	switch strings.ToLower(host) {
+	case "", "0.0.0.0", "::":
+		return false
+	case "localhost":
+		return true
+	}
+	parsed := net.ParseIP(strings.Trim(host, "[]"))
+	return parsed != nil && parsed.IsLoopback()
+}
+
+func localRuntimeRequestAllowed(r *http.Request, bindHost string) bool {
+	if !bindHostIsLoopbackOnly(bindHost) || !requestFromLoopback(r) || !requestHostIsLoopback(r) || requestUsesForwardingHeaders(r) {
+		return false
+	}
+	origin := strings.TrimSpace(r.Header.Get("Origin"))
+	return origin == "" || sameOriginRequest(r, origin)
+}
+
+func principalFromTenantSession(tenants []models.Tenant, record authSessionRecord) (AuthenticatedPrincipal, bool) {
+	tenant, ok := findTenantByID(tenants, record.TenantID)
+	if !ok {
+		return AuthenticatedPrincipal{}, false
+	}
+	if !storedCredentialHashMatches(tenant.APIKeyHash, tenant.APIKey, record.CredentialHash) {
+		return AuthenticatedPrincipal{}, false
+	}
+	return AuthenticatedPrincipal{
+		Tenant:     tenant,
+		Role:       models.TenantRoleAdmin,
+		AuthMethod: "runtime-session",
+	}, true
+}
+
+func principalFromServiceAccountSession(tenants []models.Tenant, record authSessionRecord) (AuthenticatedPrincipal, bool) {
+	now := time.Now().UTC()
+	for _, tenant := range tenants {
+		if !tenant.Active || tenant.ID != record.TenantID {
+			continue
+		}
+		for index := range tenant.ServiceAccounts {
+			account := tenant.ServiceAccounts[index]
+			if account.ID != record.ServiceAccountID || !serviceAccountUsable(account, now) {
+				continue
+			}
+			if !storedCredentialHashMatches(account.APIKeyHash, account.APIKey, record.CredentialHash) {
+				return AuthenticatedPrincipal{}, false
+			}
+			role := account.Role
+			if role == "" {
+				role = models.TenantRoleViewer
+			}
+			return AuthenticatedPrincipal{
+				Tenant:         tenant,
+				Role:           role,
+				ServiceAccount: &account,
+				AuthMethod:     "runtime-session",
+			}, true
+		}
+	}
+	return AuthenticatedPrincipal{}, false
+}
+
+func storedCredentialHashMatches(storedHash, legacyRaw, expectedHash string) bool {
+	expectedHash = strings.TrimSpace(expectedHash)
+	if expectedHash == "" {
+		return false
+	}
+	current := strings.TrimSpace(storedHash)
+	if current == "" && strings.TrimSpace(legacyRaw) != "" {
+		current = store.HashAPIKey(legacyRaw)
+	}
+	if current == "" {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(current), []byte(expectedHash)) == 1
+}
+
+func constantTimeEqual(left, right string) bool {
+	left = strings.TrimSpace(left)
+	right = strings.TrimSpace(right)
+	return left != "" && right != "" && subtle.ConstantTimeCompare([]byte(left), []byte(right)) == 1
+}
+
+// AdminAuthMiddleware authenticates administrative API requests.
+func AdminAuthMiddleware(adminAPIKey string, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.TrimSpace(adminAPIKey) == "" {
+			writeAPIError(w, r, http.StatusServiceUnavailable, "internal_error", "admin API key is not configured", apiErrorOptions{Retryable: true})
+			return
+		}
+		if !constantTimeEqual(r.Header.Get(adminCredentialHeader), adminAPIKey) {
+			writeAPIError(w, r, http.StatusUnauthorized, "invalid_credentials", "invalid admin API key", apiErrorOptions{})
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+func authenticateTenantPrincipal(tenants []models.Tenant, tenantAPIKey, serviceAccountKey string) (AuthenticatedPrincipal, bool) {
+	if principal, ok := findTenantPrincipalByAPIKey(tenants, tenantAPIKey); ok {
+		return principal, true
+	}
+	if principal, ok := findServiceAccountPrincipalByAPIKey(tenants, serviceAccountKey); ok {
+		return principal, true
+	}
+	if serviceAccountKey == "" {
+		if principal, ok := findServiceAccountPrincipalByAPIKey(tenants, tenantAPIKey); ok {
+			return principal, true
+		}
+	}
+	return AuthenticatedPrincipal{}, false
+}
+
+func lookupCredentialTenantIDs(tenants []models.Tenant, tenantAPIKey, serviceAccountKey string) map[string]struct{} {
+	tenantIDs := make(map[string]struct{})
+	addMatches := func(apiKey string) {
+		if principal, ok := findTenantPrincipalByAPIKey(tenants, apiKey); ok {
+			tenantIDs[principal.Tenant.ID] = struct{}{}
+		}
+		if principal, ok := findServiceAccountPrincipalByAPIKey(tenants, apiKey); ok {
+			tenantIDs[principal.Tenant.ID] = struct{}{}
+		}
+	}
+	addMatches(tenantAPIKey)
+	addMatches(serviceAccountKey)
+	return tenantIDs
+}
+
+func tenantAuthMismatch(contextTenantID, principalTenantID string, credentialTenantIDs map[string]struct{}) bool {
+	contextTenantID = strings.TrimSpace(contextTenantID)
+	principalTenantID = strings.TrimSpace(principalTenantID)
+	if contextTenantID == store.DefaultTenantID && principalTenantID != "" && principalTenantID != store.DefaultTenantID {
+		contextTenantID = ""
+	}
+
+	if contextTenantID != "" && principalTenantID != "" && contextTenantID != principalTenantID {
+		return true
+	}
+	for tenantID := range credentialTenantIDs {
+		if principalTenantID != "" && tenantID != "" && tenantID != principalTenantID {
+			return true
+		}
+		if contextTenantID != "" && tenantID != "" && tenantID != contextTenantID {
+			return true
+		}
+	}
+	return false
+}
+
+func defaultTenantFallback(tenants []models.Tenant) (models.Tenant, bool) {
+	if len(tenants) == 0 {
+		return models.Tenant{}, false
+	}
+
+	activeCustomTenants := 0
+	var defaultTenant models.Tenant
+	for _, tenant := range tenants {
+		if !tenant.Active {
+			continue
+		}
+		if tenant.ID == store.DefaultTenantID {
+			defaultTenant = tenant
+			continue
+		}
+		activeCustomTenants++
+	}
+
+	if activeCustomTenants == 0 && defaultTenant.ID == store.DefaultTenantID && !store.HasAPIKeyConfigured(defaultTenant.APIKeyHash, defaultTenant.APIKey) {
+		return defaultTenant, true
+	}
+	return models.Tenant{}, false
+}
+
+func findTenantPrincipalByAPIKey(tenants []models.Tenant, apiKey string) (AuthenticatedPrincipal, bool) {
+	apiKey = strings.TrimSpace(apiKey)
+	if apiKey == "" {
+		return AuthenticatedPrincipal{}, false
+	}
+
+	for _, tenant := range tenants {
+		if tenant.Active && store.APIKeyMatches(apiKey, tenant.APIKeyHash, tenant.APIKey) {
+			return AuthenticatedPrincipal{
+				Tenant:     tenant,
+				Role:       models.TenantRoleAdmin,
+				AuthMethod: "tenant-api-key",
+			}, true
+		}
+	}
+	return AuthenticatedPrincipal{}, false
+}
+
+func findServiceAccountPrincipalByAPIKey(tenants []models.Tenant, apiKey string) (AuthenticatedPrincipal, bool) {
+	apiKey = strings.TrimSpace(apiKey)
+	if apiKey == "" {
+		return AuthenticatedPrincipal{}, false
+	}
+
+	now := time.Now().UTC()
+	for _, tenant := range tenants {
+		if !tenant.Active {
+			continue
+		}
+		for index := range tenant.ServiceAccounts {
+			account := tenant.ServiceAccounts[index]
+			if !store.APIKeyMatches(apiKey, account.APIKeyHash, account.APIKey) || !serviceAccountUsable(account, now) {
+				continue
+			}
+			role := account.Role
+			if role == "" {
+				role = models.TenantRoleViewer
+			}
+			return AuthenticatedPrincipal{
+				Tenant:         tenant,
+				Role:           role,
+				ServiceAccount: &account,
+				AuthMethod:     "service-account",
+			}, true
+		}
+	}
+	return AuthenticatedPrincipal{}, false
+}
 func findTenantByID(tenants []models.Tenant, tenantID string) (models.Tenant, bool) {
 	tenantID = strings.TrimSpace(tenantID)
 	if tenantID == "" {
@@ -184,6 +392,38 @@ func requestFromLoopback(r *http.Request) bool {
 	host = strings.Trim(host, "[]")
 	ip := net.ParseIP(host)
 	return ip != nil && ip.IsLoopback()
+}
+
+func requestHostIsLoopback(r *http.Request) bool {
+	if r == nil {
+		return false
+	}
+	host := strings.TrimSpace(r.Host)
+	if host == "" {
+		return false
+	}
+	if parsedHost, _, err := net.SplitHostPort(host); err == nil {
+		host = parsedHost
+	}
+	host = strings.Trim(host, "[]")
+	switch strings.ToLower(host) {
+	case "localhost":
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
+}
+
+func requestUsesForwardingHeaders(r *http.Request) bool {
+	if r == nil {
+		return false
+	}
+	for _, header := range []string{"Forwarded", "X-Forwarded-For", "X-Forwarded-Host", "X-Forwarded-Proto", "X-Real-IP", "Via"} {
+		if strings.TrimSpace(r.Header.Get(header)) != "" {
+			return true
+		}
+	}
+	return false
 }
 
 // RequireTenant returns the authenticated tenant from a request context.
@@ -279,146 +519,6 @@ func RequireAnyTenantPermission(next http.Handler, permissions ...models.TenantP
 			},
 		})
 	})
-}
-
-// AdminAuthMiddleware authenticates administrative API requests.
-func AdminAuthMiddleware(adminAPIKey string, next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.TrimSpace(adminAPIKey) == "" {
-			writeAPIError(w, r, http.StatusServiceUnavailable, "internal_error", "admin API key is not configured", apiErrorOptions{Retryable: true})
-			return
-		}
-		if r.Header.Get(adminCredentialHeader) != adminAPIKey {
-			writeAPIError(w, r, http.StatusUnauthorized, "invalid_credentials", "invalid admin API key", apiErrorOptions{})
-			return
-		}
-
-		next.ServeHTTP(w, r)
-	})
-}
-
-func authenticateTenantPrincipal(tenants []models.Tenant, tenantAPIKey, serviceAccountKey string) (AuthenticatedPrincipal, bool) {
-	if principal, ok := findTenantPrincipalByAPIKey(tenants, tenantAPIKey); ok {
-		return principal, true
-	}
-	if principal, ok := findServiceAccountPrincipalByAPIKey(tenants, serviceAccountKey); ok {
-		return principal, true
-	}
-	if serviceAccountKey == "" {
-		if principal, ok := findServiceAccountPrincipalByAPIKey(tenants, tenantAPIKey); ok {
-			return principal, true
-		}
-	}
-	return AuthenticatedPrincipal{}, false
-}
-
-func lookupCredentialTenantIDs(tenants []models.Tenant, tenantAPIKey, serviceAccountKey string) map[string]struct{} {
-	tenantIDs := make(map[string]struct{})
-	addMatches := func(apiKey string) {
-		if principal, ok := findTenantPrincipalByAPIKey(tenants, apiKey); ok {
-			tenantIDs[principal.Tenant.ID] = struct{}{}
-		}
-		if principal, ok := findServiceAccountPrincipalByAPIKey(tenants, apiKey); ok {
-			tenantIDs[principal.Tenant.ID] = struct{}{}
-		}
-	}
-	addMatches(tenantAPIKey)
-	addMatches(serviceAccountKey)
-	return tenantIDs
-}
-
-func tenantAuthMismatch(contextTenantID, principalTenantID string, credentialTenantIDs map[string]struct{}) bool {
-	contextTenantID = strings.TrimSpace(contextTenantID)
-	principalTenantID = strings.TrimSpace(principalTenantID)
-	if contextTenantID == store.DefaultTenantID && principalTenantID != "" && principalTenantID != store.DefaultTenantID {
-		contextTenantID = ""
-	}
-
-	if contextTenantID != "" && principalTenantID != "" && contextTenantID != principalTenantID {
-		return true
-	}
-	for tenantID := range credentialTenantIDs {
-		if principalTenantID != "" && tenantID != "" && tenantID != principalTenantID {
-			return true
-		}
-		if contextTenantID != "" && tenantID != "" && tenantID != contextTenantID {
-			return true
-		}
-	}
-	return false
-}
-
-func defaultTenantFallback(tenants []models.Tenant) (models.Tenant, bool) {
-	if len(tenants) == 0 {
-		return models.Tenant{}, false
-	}
-
-	activeCustomTenants := 0
-	var defaultTenant models.Tenant
-	for _, tenant := range tenants {
-		if !tenant.Active {
-			continue
-		}
-		if tenant.ID == store.DefaultTenantID {
-			defaultTenant = tenant
-			continue
-		}
-		activeCustomTenants++
-	}
-
-	if activeCustomTenants == 0 && defaultTenant.ID == store.DefaultTenantID && defaultTenant.APIKey == "" {
-		return defaultTenant, true
-	}
-	return models.Tenant{}, false
-}
-
-func findTenantPrincipalByAPIKey(tenants []models.Tenant, apiKey string) (AuthenticatedPrincipal, bool) {
-	apiKey = strings.TrimSpace(apiKey)
-	if apiKey == "" {
-		return AuthenticatedPrincipal{}, false
-	}
-
-	for _, tenant := range tenants {
-		if tenant.Active && tenant.APIKey == apiKey {
-			return AuthenticatedPrincipal{
-				Tenant:     tenant,
-				Role:       models.TenantRoleAdmin,
-				AuthMethod: "tenant-api-key",
-			}, true
-		}
-	}
-	return AuthenticatedPrincipal{}, false
-}
-
-func findServiceAccountPrincipalByAPIKey(tenants []models.Tenant, apiKey string) (AuthenticatedPrincipal, bool) {
-	apiKey = strings.TrimSpace(apiKey)
-	if apiKey == "" {
-		return AuthenticatedPrincipal{}, false
-	}
-
-	now := time.Now().UTC()
-	for _, tenant := range tenants {
-		if !tenant.Active {
-			continue
-		}
-		for index := range tenant.ServiceAccounts {
-			account := tenant.ServiceAccounts[index]
-			if account.APIKey != apiKey || !serviceAccountUsable(account, now) {
-				continue
-			}
-			role := account.Role
-			if role == "" {
-				role = models.TenantRoleViewer
-			}
-			return AuthenticatedPrincipal{
-				Tenant:         tenant,
-				Role:           role,
-				ServiceAccount: &account,
-				AuthMethod:     "service-account",
-			}, true
-		}
-	}
-	return AuthenticatedPrincipal{}, false
 }
 
 func serviceAccountUsable(account models.ServiceAccount, now time.Time) bool {

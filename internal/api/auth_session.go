@@ -14,15 +14,16 @@ import (
 const dashboardSessionCookieName = "viaduct_dashboard_session"
 
 type authSessionRecord struct {
-	PublicID   string
-	Secret     string
-	Mode       string
-	APIKey     string
-	TenantID   string
-	Role       models.TenantRole
-	AuthMethod string
-	Persistent bool
-	ExpiresAt  time.Time
+	PublicID         string
+	Secret           string
+	Mode             string
+	CredentialHash   string
+	TenantID         string
+	ServiceAccountID string
+	Role             models.TenantRole
+	AuthMethod       string
+	Persistent       bool
+	ExpiresAt        time.Time
 }
 
 type authSessionManager struct {
@@ -46,11 +47,19 @@ func newAuthSessionManager(sessionTTL, persistentTTL time.Duration) *authSession
 	}
 }
 
-func (m *authSessionManager) Create(mode, apiKey string, persistent bool) authSessionRecord {
+func (m *authSessionManager) CreateCredential(mode string, principal AuthenticatedPrincipal, credentialHash string, persistent bool) authSessionRecord {
+	serviceAccountID := ""
+	if principal.ServiceAccount != nil {
+		serviceAccountID = principal.ServiceAccount.ID
+	}
 	return m.createRecord(authSessionRecord{
-		Mode:       strings.TrimSpace(mode),
-		APIKey:     strings.TrimSpace(apiKey),
-		Persistent: persistent,
+		Mode:             strings.TrimSpace(mode),
+		CredentialHash:   strings.TrimSpace(credentialHash),
+		TenantID:         strings.TrimSpace(principal.Tenant.ID),
+		ServiceAccountID: strings.TrimSpace(serviceAccountID),
+		Role:             principal.Role,
+		AuthMethod:       strings.TrimSpace(principal.AuthMethod),
+		Persistent:       persistent,
 	})
 }
 
@@ -74,15 +83,16 @@ func (m *authSessionManager) createRecord(seed authSessionRecord) authSessionRec
 		ttl = m.persistentTTL
 	}
 	record := authSessionRecord{
-		PublicID:   uuid.NewString(),
-		Secret:     uuid.NewString(),
-		Mode:       strings.TrimSpace(seed.Mode),
-		APIKey:     strings.TrimSpace(seed.APIKey),
-		TenantID:   strings.TrimSpace(seed.TenantID),
-		Role:       seed.Role,
-		AuthMethod: strings.TrimSpace(seed.AuthMethod),
-		Persistent: seed.Persistent,
-		ExpiresAt:  time.Now().UTC().Add(ttl),
+		PublicID:         uuid.NewString(),
+		Secret:           uuid.NewString(),
+		Mode:             strings.TrimSpace(seed.Mode),
+		CredentialHash:   strings.TrimSpace(seed.CredentialHash),
+		TenantID:         strings.TrimSpace(seed.TenantID),
+		ServiceAccountID: strings.TrimSpace(seed.ServiceAccountID),
+		Role:             seed.Role,
+		AuthMethod:       strings.TrimSpace(seed.AuthMethod),
+		Persistent:       seed.Persistent,
+		ExpiresAt:        time.Now().UTC().Add(ttl),
 	}
 
 	m.mu.Lock()

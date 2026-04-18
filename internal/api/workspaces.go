@@ -348,7 +348,14 @@ func (s *Server) handleWorkspaceJobs(w http.ResponseWriter, r *http.Request, ten
 			},
 		})
 
-		go s.runWorkspaceJob(tenantID, workspace.ID, job.ID)
+		if err := s.enqueueWorkspaceJob(r.Context(), job); err != nil {
+			persistCtx := store.ContextWithTenantID(context.WithoutCancel(r.Context()), tenantID)
+			if persistErr := s.recordWorkspaceJobFailure(persistCtx, tenantID, job, true, err); persistErr != nil {
+				packageLogger.Error("failed to persist workspace job enqueue failure", "job_id", job.ID, "workspace_id", workspace.ID, "error", persistErr.Error())
+			}
+			writeAPIError(w, r, http.StatusServiceUnavailable, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
+			return
+		}
 		writeJSON(w, http.StatusAccepted, job)
 	default:
 		writeAPIError(w, r, http.StatusMethodNotAllowed, "invalid_request", "method not allowed", apiErrorOptions{})
@@ -479,8 +486,22 @@ func (s *Server) handleWorkspaceReportExport(w http.ResponseWriter, r *http.Requ
 	}
 }
 
-func (s *Server) runWorkspaceJob(tenantID, workspaceID, jobID string) {
-	storeCtx := store.ContextWithTenantID(context.Background(), tenantID)
+func (s *Server) enqueueWorkspaceJob(ctx context.Context, job models.WorkspaceJob) error {
+	if s == nil || s.workspaceJobExecutor == nil {
+		return fmt.Errorf("workspace job executor is not configured")
+	}
+	return s.workspaceJobExecutor.Enqueue(ctx, workspaceJobTask{
+		tenantID:    job.TenantID,
+		workspaceID: job.WorkspaceID,
+		jobID:       job.ID,
+	})
+}
+
+func (s *Server) runWorkspaceJob(ctx context.Context, tenantID, workspaceID, jobID string) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	storeCtx := store.ContextWithTenantID(ctx, tenantID)
 
 	job, err := s.store.GetWorkspaceJob(storeCtx, tenantID, workspaceID, jobID)
 	if err != nil {
@@ -928,7 +949,13 @@ func (s *Server) recoverWorkspaceJobs(ctx context.Context) error {
 				if err := s.store.SaveWorkspaceJob(tenantCtx, tenant.ID, job); err != nil {
 					return fmt.Errorf("recover workspace jobs: save recovered job %s: %w", job.ID, err)
 				}
-				go s.runWorkspaceJob(tenant.ID, workspace.ID, job.ID)
+				if err := s.enqueueWorkspaceJob(tenantCtx, job); err != nil {
+					persistCtx := store.ContextWithTenantID(context.WithoutCancel(tenantCtx), tenant.ID)
+					if persistErr := s.recordWorkspaceJobFailure(persistCtx, tenant.ID, job, true, err); persistErr != nil {
+						return fmt.Errorf("recover workspace jobs: enqueue job %s: %v (persist failure: %w)", job.ID, err, persistErr)
+					}
+					return fmt.Errorf("recover workspace jobs: enqueue job %s: %w", job.ID, err)
+				}
 			}
 		}
 	}

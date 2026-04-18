@@ -1,0 +1,263 @@
+package store
+
+import (
+	"context"
+	"regexp"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/eblackrps/viaduct/internal/models"
+)
+
+func TestPrepareTenantCredentials_HashesAndRedactsWithoutMutatingCaller_Expected(t *testing.T) {
+	t.Parallel()
+
+	original := models.Tenant{
+		ID:     "tenant-a",
+		Name:   "Tenant A",
+		APIKey: "tenant-secret",
+		ServiceAccounts: []models.ServiceAccount{
+			{
+				ID:     "sa-1",
+				Name:   "Automation",
+				APIKey: "service-secret",
+				Role:   models.TenantRoleOperator,
+				Active: true,
+			},
+		},
+	}
+
+	normalized, err := prepareTenantCredentials(original)
+	if err != nil {
+		t.Fatalf("prepareTenantCredentials() error = %v", err)
+	}
+
+	if normalized.APIKey != "" {
+		t.Fatalf("normalized.APIKey = %q, want redacted", normalized.APIKey)
+	}
+	if normalized.APIKeyHash != HashAPIKey("tenant-secret") {
+		t.Fatalf("normalized.APIKeyHash = %q, want %q", normalized.APIKeyHash, HashAPIKey("tenant-secret"))
+	}
+	if normalized.ServiceAccounts[0].APIKey != "" {
+		t.Fatalf("normalized.ServiceAccounts[0].APIKey = %q, want redacted", normalized.ServiceAccounts[0].APIKey)
+	}
+	if normalized.ServiceAccounts[0].APIKeyHash != HashAPIKey("service-secret") {
+		t.Fatalf("normalized.ServiceAccounts[0].APIKeyHash = %q, want %q", normalized.ServiceAccounts[0].APIKeyHash, HashAPIKey("service-secret"))
+	}
+
+	if original.APIKey != "tenant-secret" {
+		t.Fatalf("original.APIKey = %q, want caller value preserved", original.APIKey)
+	}
+	if original.ServiceAccounts[0].APIKey != "service-secret" {
+		t.Fatalf("original.ServiceAccounts[0].APIKey = %q, want caller value preserved", original.ServiceAccounts[0].APIKey)
+	}
+}
+
+func TestAPIKeyMatches_HashedAndLegacyValues_Expected(t *testing.T) {
+	t.Parallel()
+
+	hash := HashAPIKey("tenant-secret")
+	if !APIKeyMatches("tenant-secret", hash, "") {
+		t.Fatal("APIKeyMatches(hashed) = false, want true")
+	}
+	if APIKeyMatches("different-secret", hash, "tenant-secret") {
+		t.Fatal("APIKeyMatches(hashed-wrong) = true, want false")
+	}
+	if !APIKeyMatches("legacy-secret", "", "legacy-secret") {
+		t.Fatal("APIKeyMatches(legacy) = false, want true")
+	}
+	if APIKeyMatches("legacy-secret", "", "different") {
+		t.Fatal("APIKeyMatches(legacy-wrong) = true, want false")
+	}
+}
+
+func TestMemoryStore_CreateTenant_PersistsOnlyCredentialHashes_Expected(t *testing.T) {
+	t.Parallel()
+
+	stateStore := NewMemoryStore()
+	tenant := models.Tenant{
+		ID:     "tenant-a",
+		Name:   "Tenant A",
+		APIKey: "tenant-secret",
+		Active: true,
+		ServiceAccounts: []models.ServiceAccount{
+			{
+				ID:        "sa-1",
+				Name:      "Automation",
+				APIKey:    "service-secret",
+				Role:      models.TenantRoleOperator,
+				Active:    true,
+				CreatedAt: time.Now().UTC(),
+			},
+		},
+	}
+
+	if err := stateStore.CreateTenant(context.Background(), tenant); err != nil {
+		t.Fatalf("CreateTenant() error = %v", err)
+	}
+
+	persisted, err := stateStore.GetTenant(context.Background(), tenant.ID)
+	if err != nil {
+		t.Fatalf("GetTenant() error = %v", err)
+	}
+
+	if persisted.APIKey != "" {
+		t.Fatalf("persisted.APIKey = %q, want redacted", persisted.APIKey)
+	}
+	if persisted.APIKeyHash != HashAPIKey("tenant-secret") {
+		t.Fatalf("persisted.APIKeyHash = %q, want %q", persisted.APIKeyHash, HashAPIKey("tenant-secret"))
+	}
+	if len(persisted.ServiceAccounts) != 1 {
+		t.Fatalf("len(persisted.ServiceAccounts) = %d, want 1", len(persisted.ServiceAccounts))
+	}
+	if persisted.ServiceAccounts[0].APIKey != "" {
+		t.Fatalf("persisted.ServiceAccounts[0].APIKey = %q, want redacted", persisted.ServiceAccounts[0].APIKey)
+	}
+	if persisted.ServiceAccounts[0].APIKeyHash != HashAPIKey("service-secret") {
+		t.Fatalf("persisted.ServiceAccounts[0].APIKeyHash = %q, want %q", persisted.ServiceAccounts[0].APIKeyHash, HashAPIKey("service-secret"))
+	}
+	if !APIKeyMatches("tenant-secret", persisted.APIKeyHash, persisted.APIKey) {
+		t.Fatal("persisted tenant credential no longer authenticates")
+	}
+	if !APIKeyMatches("service-secret", persisted.ServiceAccounts[0].APIKeyHash, persisted.ServiceAccounts[0].APIKey) {
+		t.Fatal("persisted service-account credential no longer authenticates")
+	}
+}
+
+func TestMemoryStore_CreateTenant_GlobalCredentialUniqueness_Expected(t *testing.T) {
+	t.Parallel()
+
+	stateStore := NewMemoryStore()
+	if err := stateStore.CreateTenant(context.Background(), models.Tenant{
+		ID:     "tenant-a",
+		Name:   "Tenant A",
+		Active: true,
+		ServiceAccounts: []models.ServiceAccount{
+			{
+				ID:        "sa-1",
+				Name:      "Automation",
+				APIKey:    "shared-secret",
+				Role:      models.TenantRoleOperator,
+				Active:    true,
+				CreatedAt: time.Now().UTC(),
+			},
+		},
+	}); err != nil {
+		t.Fatalf("CreateTenant(tenant-a) error = %v", err)
+	}
+
+	err := stateStore.CreateTenant(context.Background(), models.Tenant{
+		ID:     "tenant-b",
+		Name:   "Tenant B",
+		APIKey: "shared-secret",
+		Active: true,
+	})
+	if !IsCredentialConflict(err) {
+		t.Fatalf("CreateTenant(tenant-b) error = %v, want credential conflict", err)
+	}
+}
+
+func TestMemoryStore_UpdateTenant_DuplicateCredentialWithinTenantRejected_Expected(t *testing.T) {
+	t.Parallel()
+
+	stateStore := NewMemoryStore()
+	if err := stateStore.CreateTenant(context.Background(), models.Tenant{
+		ID:     "tenant-a",
+		Name:   "Tenant A",
+		APIKey: "tenant-secret",
+		Active: true,
+	}); err != nil {
+		t.Fatalf("CreateTenant() error = %v", err)
+	}
+
+	tenant, err := stateStore.GetTenant(context.Background(), "tenant-a")
+	if err != nil {
+		t.Fatalf("GetTenant() error = %v", err)
+	}
+	tenant.ServiceAccounts = append(tenant.ServiceAccounts, models.ServiceAccount{
+		ID:        "sa-1",
+		Name:      "Automation",
+		APIKey:    "tenant-secret",
+		Role:      models.TenantRoleOperator,
+		Active:    true,
+		CreatedAt: time.Now().UTC(),
+	})
+
+	err = stateStore.UpdateTenant(context.Background(), *tenant)
+	if !IsCredentialConflict(err) {
+		t.Fatalf("UpdateTenant() error = %v, want credential conflict", err)
+	}
+}
+
+func TestMigrateStoredCredentials_RewritesLegacyPlaintext_Expected(t *testing.T) {
+	t.Parallel()
+
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock.New() error = %v", err)
+	}
+	defer db.Close()
+	mock.MatchExpectationsInOrder(false)
+
+	createdAt := time.Date(2026, time.April, 17, 12, 0, 0, 0, time.UTC)
+	serviceAccountsPayload := []byte(`[{"id":"sa-1","name":"Automation","api_key":"service-secret","role":"operator","active":true,"created_at":"2026-04-17T12:00:00Z"}]`)
+	rows := sqlmock.NewRows([]string{"id", "name", "api_key", "api_key_hash", "created_at", "active", "settings", "quotas", "service_accounts"}).
+		AddRow("tenant-a", "Tenant A", "tenant-secret", "", createdAt, true, []byte(`{"region":"lab"}`), []byte(`{"requests_per_minute":10}`), serviceAccountsPayload)
+
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT id, name, api_key, api_key_hash, created_at, active, settings, quotas, service_accounts FROM tenants ORDER BY created_at ASC`)).
+		WillReturnRows(rows)
+	mock.ExpectBegin()
+	mock.ExpectExec(regexp.QuoteMeta(`DELETE FROM credential_hashes`)).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec(regexp.QuoteMeta(`UPDATE tenants SET api_key = $2, api_key_hash = $3, service_accounts = $4 WHERE id = $1`)).
+		WithArgs("tenant-a", "", HashAPIKey("tenant-secret"), sqlmock.AnyArg()).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec(regexp.QuoteMeta(`DELETE FROM credential_hashes WHERE tenant_id = $1`)).
+		WithArgs("tenant-a").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec(regexp.QuoteMeta(`INSERT INTO credential_hashes (credential_hash, tenant_id, owner_type, service_account_id)
+			 VALUES ($1, $2, $3, $4)`)).
+		WithArgs(HashAPIKey("tenant-secret"), "tenant-a", "tenant", "").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec(regexp.QuoteMeta(`INSERT INTO credential_hashes (credential_hash, tenant_id, owner_type, service_account_id)
+			 VALUES ($1, $2, $3, $4)`)).
+		WithArgs(HashAPIKey("service-secret"), "tenant-a", "service_account", "sa-1").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
+
+	if err := migrateStoredCredentials(context.Background(), db); err != nil {
+		t.Fatalf("migrateStoredCredentials() error = %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("sql expectations = %v", err)
+	}
+}
+
+func TestAnnotateCredentialMigrationError_DuplicateCredentialConflictActionable_Expected(t *testing.T) {
+	t.Parallel()
+
+	err := annotateCredentialMigrationError(&CredentialConflictError{TenantID: "tenant-a"})
+	if err == nil {
+		t.Fatal("annotateCredentialMigrationError() error = nil, want actionable message")
+	}
+	if !IsCredentialConflict(err) {
+		t.Fatalf("annotateCredentialMigrationError() error = %v, want credential conflict", err)
+	}
+	message := err.Error()
+	if !strings.Contains(message, "resolve duplicated tenant or service-account API keys before restarting") {
+		t.Fatalf("annotateCredentialMigrationError() message = %q, want remediation guidance", message)
+	}
+}
+
+func TestCreateStoreSchemaSQL_CredentialHashesRegistryDurablyUnique_Expected(t *testing.T) {
+	t.Parallel()
+
+	if !strings.Contains(createStoreSchemaSQL, "CREATE TABLE IF NOT EXISTS credential_hashes") {
+		t.Fatal("createStoreSchemaSQL is missing credential_hashes registry")
+	}
+	if !strings.Contains(createStoreSchemaSQL, "credential_hash TEXT PRIMARY KEY") {
+		t.Fatal("createStoreSchemaSQL is missing durable credential hash primary key")
+	}
+}

@@ -26,7 +26,7 @@ Start the local operator runtime:
 ./bin/viaduct start
 ```
 
-On a fresh source checkout, `viaduct start` generates the default local lab config when `~/.viaduct/config.yaml` is missing, serves the built dashboard and API together, and prints the WebUI URL. The browser-first flow starts on the runtime bootstrap screen, where the default local lab path offers a loopback-only `Use local operator session` action instead of requiring a pasted key.
+On a fresh source checkout, `viaduct start` generates the default local lab config when `~/.viaduct/config.yaml` is missing, serves the built dashboard and API together, and prints the WebUI URL. The browser-first flow starts on the runtime bootstrap screen, where the default local lab path offers a direct loopback-only `Use local operator session` action instead of requiring a pasted key.
 
 The default local URL is [http://127.0.0.1:8080](http://127.0.0.1:8080).
 The same runtime also serves live API docs at [http://127.0.0.1:8080/api/v1/docs](http://127.0.0.1:8080/api/v1/docs).
@@ -91,6 +91,8 @@ For packaged or persistent evaluation environments:
 - keep `VIADUCT_ALLOWED_ORIGINS` empty for same-origin deployments; set it only when the dashboard is served from a different origin than the API
 - set `VIADUCT_WEB_DIR` only when you keep built dashboard assets in a non-standard location
 - tune `VIADUCT_WORKSPACE_JOB_TIMEOUT` if discovery or planning jobs need a different server-side timeout budget
+- tune `VIADUCT_WORKSPACE_JOB_CONCURRENCY` if a packaged deployment needs fewer or more concurrent workspace workers than the default bounded pool
 - keep the dashboard runtime auth flow on its default server-backed session path unless you have a reason to pre-seed browser credentials in development
 - keep the Vite dev server out of any shared or internet-facing environment
-- use `viaduct serve-api` directly for service, container, or intentionally headless deployments
+- use `viaduct serve-api` directly for service, container, or intentionally headless deployments, keeping its default loopback bind unless you have configured API credentials
+- do not use `VIADUCT_ALLOW_UNAUTHENTICATED_REMOTE=true` outside disposable break-glass scenarios

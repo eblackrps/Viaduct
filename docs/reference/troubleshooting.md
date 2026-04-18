@@ -12,10 +12,11 @@ Fix:
 
 Cause:
 - you called a tenant-scoped API route without either `X-API-Key` or `X-Service-Account-Key`
-- or the default-tenant fallback is no longer active because custom tenants exist
+- or the local operator runtime session was not bootstrapped for this browser
 
 Fix:
 - provide a valid tenant API key or service-account key
+- on the default local lab path, use `Use local operator session` from the bootstrap screen and keep the request direct to `127.0.0.1`
 - verify tenant status in the admin tenant list
 - prefer a service-account key for normal dashboard or automation use if you are not intentionally using tenant-admin access
 

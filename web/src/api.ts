@@ -323,6 +323,20 @@ function withListParams(path: string, options?: ListRequestOptions): string {
 	return `${url.pathname}${url.search}`;
 }
 
+function withSearchParams(
+	path: string,
+	params: Record<string, string | number | undefined>,
+): string {
+	const url = new URL(path, window.location.origin);
+	for (const [key, value] of Object.entries(params)) {
+		if (value === undefined) {
+			continue;
+		}
+		url.searchParams.set(key, String(value));
+	}
+	return `${url.pathname}${url.search}`;
+}
+
 async function request<T>(
 	input: RequestInfo | URL,
 	init?: RequestInit,
@@ -515,7 +529,7 @@ export function getCosts(
 	options?: RequestOptions,
 ): Promise<PlatformComparison[] | FleetCost> {
 	return request<PlatformComparison[] | FleetCost>(
-		`/api/v1/costs?platform=${platform}`,
+		withSearchParams("/api/v1/costs", { platform }),
 		undefined,
 		options,
 	);
@@ -530,7 +544,7 @@ export function getDrift(
 	options?: RequestOptions,
 ): Promise<DriftReport> {
 	return request<DriftReport>(
-		`/api/v1/drift?baseline=${baseline}`,
+		withSearchParams("/api/v1/drift", { baseline }),
 		undefined,
 		options,
 	);
@@ -540,9 +554,8 @@ export function getRemediation(
 	baseline?: string,
 	options?: RequestOptions,
 ): Promise<RecommendationReport> {
-	const search = baseline ? `?baseline=${baseline}` : "";
 	return request<RecommendationReport>(
-		`/api/v1/remediation${search}`,
+		withSearchParams("/api/v1/remediation", { baseline }),
 		undefined,
 		options,
 	);
@@ -711,7 +724,9 @@ export async function downloadReport(
 	name: ReportName,
 	format: ReportFormat = "json",
 ): Promise<{ blob: Blob; filename: string; contentType: string }> {
-	const result = await requestBlob(`/api/v1/reports/${name}?format=${format}`);
+	const result = await requestBlob(
+		withSearchParams(`/api/v1/reports/${name}`, { format }),
+	);
 	return {
 		blob: result.blob,
 		filename: result.filename ?? `${name}.${format}`,

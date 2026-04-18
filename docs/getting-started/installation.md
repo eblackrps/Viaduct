@@ -21,7 +21,7 @@ make web-build
 ```
 
 On a fresh source checkout, `viaduct start` creates the default local lab config when it is missing, points it at `examples/lab/kvm`, and serves the WebUI and API together at `http://127.0.0.1:8080`.
-The browser-first flow starts on the runtime bootstrap screen, where the default local lab path offers a loopback-only `Use local operator session` action instead of requiring a pasted key.
+The browser-first flow starts on the runtime bootstrap screen, where the default local lab path offers a direct loopback-only `Use local operator session` action instead of requiring a pasted key.
 The same runtime also serves live operator API docs at `http://127.0.0.1:8080/api/v1/docs`.
 
 ## Packaged Release Bundle
@@ -54,7 +54,7 @@ Each bundle includes:
 - docs, configs, and examples
 - `release-manifest.json`
 - `dependency-manifest.json`
-- `SHA256SUMS.txt`
+- `SHA256SUMS`
 
 ## Container Build
 
@@ -64,7 +64,7 @@ Build the container image:
 make docker
 ```
 
-The image packages the API binary plus built dashboard assets under `/opt/viaduct/web`. The default container command starts `viaduct serve-api --port 8080`, which serves the dashboard at `/` and the API under `/api/v1/`.
+The image packages the API binary plus built dashboard assets under `/opt/viaduct/web`. The default container command starts `viaduct serve-api --port 8080`, which serves the dashboard at `/` and the API under `/api/v1/`. `serve-api` binds to loopback by default and expects explicit API credentials before you expose it remotely.
 
 ## Install On Unix-Like Systems
 
@@ -120,4 +120,6 @@ For browser access in packaged environments:
 - prefer service-account keys for normal operator access
 - rely on the runtime auth bootstrap for packaged environments unless you intentionally pre-seed a development-only browser credential
 - use `VIADUCT_WORKSPACE_JOB_TIMEOUT` if workspace jobs need a different server-side timeout budget
-- use `viaduct serve-api` directly only when you intentionally want the lower-level service command instead of the local `start` flow
+- use `VIADUCT_WORKSPACE_JOB_CONCURRENCY` if packaged workspace execution needs a different bounded worker count
+- use `viaduct serve-api` directly only when you intentionally want the lower-level service command instead of the local `start` flow, and keep its default loopback bind unless API credentials are configured
+- reserve `VIADUCT_ALLOW_UNAUTHENTICATED_REMOTE=true` for disposable break-glass scenarios only

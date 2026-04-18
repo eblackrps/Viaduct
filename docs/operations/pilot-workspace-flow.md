@@ -42,7 +42,7 @@ The local runtime serves the WebUI at [http://127.0.0.1:8080](http://127.0.0.1:8
 
 ## 2. Open The Dashboard
 
-Open [http://127.0.0.1:8080](http://127.0.0.1:8080). The dashboard opens on the pilot workspace route and starts on the runtime bootstrap screen. For this default local lab path, choose `Use local operator session`; no pasted browser key is required.
+Open [http://127.0.0.1:8080](http://127.0.0.1:8080). The dashboard opens on the pilot workspace route and starts on the runtime bootstrap screen. For this default local lab path, choose `Use local operator session` from a direct `127.0.0.1` browser request; no pasted browser key is required.
 Live operator API docs remain available at [http://127.0.0.1:8080/api/v1/docs](http://127.0.0.1:8080/api/v1/docs) throughout the flow.
 
 If you intentionally configure tenant-scoped access instead, the runtime authentication bootstrap screen still supports:
