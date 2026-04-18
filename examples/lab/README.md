@@ -21,7 +21,7 @@ make web-build
 
 On a fresh source checkout, `viaduct start` generates `~/.viaduct/config.yaml` automatically when it is missing and points it at the fixtures in this directory.
 
-Then open [http://127.0.0.1:8080](http://127.0.0.1:8080). For the default local lab path, the bootstrap screen offers `Use local operator session`, so no pasted browser key is required.
+Then open [http://127.0.0.1:8080](http://127.0.0.1:8080). For the default local lab path, the bootstrap screen offers `Use local operator session` on direct `127.0.0.1` requests, so no pasted browser key is required.
 Live operator API docs are also available at [http://127.0.0.1:8080/api/v1/docs](http://127.0.0.1:8080/api/v1/docs).
 
 If you intentionally want to exercise the tenant-scoped bootstrap path, use the seeded payloads in this directory:

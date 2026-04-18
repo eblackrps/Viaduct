@@ -24,4 +24,4 @@ Use the files in this directory when you actually present.
 
 These assets are intentionally narrow. They support the mixed-estate migration assessment, planning, and controlled operator workflow that Viaduct demonstrates best today, not a broad repo tour.
 
-The current release-facing screenshots are aligned with the packaged operator shell, the local `viaduct start` flow, the runtime bootstrap path, and the current `v2.4.1` release surface.
+The current release-facing screenshots are aligned with the packaged operator shell, the local `viaduct start` flow, the runtime bootstrap path, and the current `v2.4.2` release surface.

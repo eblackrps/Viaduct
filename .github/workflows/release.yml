@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "Tag to publish, including the leading v (for example v2.4.1)"
+        description: "Tag to publish, including the leading v (for example v2.4.2)"
         required: true
         type: string
 
