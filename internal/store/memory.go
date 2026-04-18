@@ -391,12 +391,19 @@ func (s *MemoryStore) CreateTenant(ctx context.Context, tenant models.Tenant) er
 		return fmt.Errorf("memory store: create tenant: tenant name is empty")
 	}
 	tenant = normalizeTenant(tenant)
+	tenant, err := prepareTenantCredentials(tenant)
+	if err != nil {
+		return fmt.Errorf("memory store: create tenant %s: %w", tenant.ID, err)
+	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	if existing, ok := s.tenants[tenant.ID]; ok && existing.ID != "" {
 		return fmt.Errorf("memory store: create tenant %s: already exists", tenant.ID)
+	}
+	if err := validateCredentialUniqueness(tenantsFromMap(s.tenants), tenant); err != nil {
+		return fmt.Errorf("memory store: create tenant %s: %w", tenant.ID, err)
 	}
 
 	s.tenants[tenant.ID] = cloneTenant(tenant)
@@ -418,6 +425,7 @@ func (s *MemoryStore) UpdateTenant(ctx context.Context, tenant models.Tenant) er
 	if tenant.ID == DefaultTenantID {
 		existing := defaultTenant()
 		existing.APIKey = tenant.APIKey
+		existing.APIKeyHash = tenant.APIKeyHash
 		existing.Active = tenant.Active
 		existing.Settings = copyStringMap(tenant.Settings)
 		existing.Quotas = tenant.Quotas
@@ -426,12 +434,19 @@ func (s *MemoryStore) UpdateTenant(ctx context.Context, tenant models.Tenant) er
 	} else {
 		tenant = normalizeTenant(tenant)
 	}
+	tenant, err := prepareTenantCredentials(tenant)
+	if err != nil {
+		return fmt.Errorf("memory store: update tenant %s: %w", tenant.ID, err)
+	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	if _, ok := s.tenants[tenant.ID]; !ok {
 		return fmt.Errorf("memory store: update tenant %s: not found", tenant.ID)
+	}
+	if err := validateCredentialUniqueness(tenantsFromMap(s.tenants), tenant); err != nil {
+		return fmt.Errorf("memory store: update tenant %s: %w", tenant.ID, err)
 	}
 
 	s.tenants[tenant.ID] = cloneTenant(tenant)
@@ -1038,6 +1053,18 @@ func cloneTenant(tenant models.Tenant) models.Tenant {
 	tenant.Settings = copyStringMap(tenant.Settings)
 	tenant.ServiceAccounts = cloneServiceAccounts(tenant.ServiceAccounts)
 	return tenant
+}
+
+func tenantsFromMap(items map[string]models.Tenant) []models.Tenant {
+	if len(items) == 0 {
+		return nil
+	}
+
+	tenants := make([]models.Tenant, 0, len(items))
+	for _, tenant := range items {
+		tenants = append(tenants, cloneTenant(tenant))
+	}
+	return tenants
 }
 
 func normalizeTenant(tenant models.Tenant) models.Tenant {

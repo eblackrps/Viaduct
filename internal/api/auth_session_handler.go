@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/eblackrps/viaduct/internal/models"
+	"github.com/eblackrps/viaduct/internal/store"
 )
 
 type authSessionRequest struct {
@@ -95,7 +96,7 @@ func (s *Server) createAuthSession(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		record = s.authSessions.Create(mode, apiKey, request.Remember)
+		record = s.authSessions.CreateCredential(mode, principal, store.HashAPIKey(apiKey), request.Remember)
 	default:
 		writeAPIError(w, r, http.StatusBadRequest, "invalid_request", "mode must be local, tenant, or service-account", apiErrorOptions{
 			FieldErrors: []apiFieldError{{Path: "mode", Message: "mode must be local, tenant, or service-account"}},
@@ -136,8 +137,8 @@ func (s *Server) localRuntimeOperatorPrincipal(ctx context.Context, r *http.Requ
 	if s == nil || !s.localRuntimeMode {
 		return AuthenticatedPrincipal{}, fmt.Errorf("local runtime operator bootstrap is not enabled on this server")
 	}
-	if !requestFromLoopback(r) {
-		return AuthenticatedPrincipal{}, fmt.Errorf("local runtime operator bootstrap is available only from loopback requests")
+	if !localRuntimeRequestAllowed(r, s.bindHost) {
+		return AuthenticatedPrincipal{}, fmt.Errorf("local runtime operator bootstrap is available only for direct loopback requests to a loopback-bound runtime")
 	}
 	if hasConfiguredAPIKeys(ctx, s.store, s.adminAPIKey) {
 		return AuthenticatedPrincipal{}, fmt.Errorf("local runtime operator bootstrap is disabled when API keys are configured")

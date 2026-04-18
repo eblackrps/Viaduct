@@ -49,6 +49,7 @@ make web-build
 ```
 
 Then open [http://127.0.0.1:8080](http://127.0.0.1:8080). The local runtime serves the built dashboard from `web/dist` when those assets are present and can generate the default local lab config automatically on a fresh checkout.
+The lower-level `viaduct serve-api` path also serves the dashboard, but it now binds to loopback by default and refuses unauthenticated remote exposure unless an operator configures credentials or opts into the explicit dangerous override.
 
 ## Environment
 
@@ -59,10 +60,11 @@ Then open [http://127.0.0.1:8080](http://127.0.0.1:8080). The local runtime serv
 See [./.env.example](./.env.example).
 
 The dashboard also supports runtime authentication bootstrap. When no environment key is set, the app either:
-- offers a loopback-only local operator session when the packaged runtime started through `viaduct start` is running against the default local lab path, or
+- offers a direct loopback-only local operator session when the packaged runtime started through `viaduct start` is running against the default local lab path, or
 - opens the bootstrap screen so the operator can provide a service-account or tenant key at runtime
 
 The runtime bootstrap path now keeps tenant or service-account credentials in a server-backed session behind an `httpOnly` cookie. The browser stores only an opaque session marker, and local operator sessions do not use an API key at all. Non-persistent sessions use session storage for that marker, and the remember option persists only the marker in local storage on trusted workstations.
+Tenant and service-account keys are persisted by the backend as non-recoverable hashes; the raw key is only shown at create or rotate time.
 
 Current README and release-facing dashboard screenshots can be regenerated with `npm run screenshots:readme`. That script builds the dashboard, boots the seeded Playwright fixture server, and captures the checked-in PNG assets used by the root README and demo collateral. Runtime compatibility against the actual `viaduct start` path is covered separately by `npm run e2e:runtime`.
 

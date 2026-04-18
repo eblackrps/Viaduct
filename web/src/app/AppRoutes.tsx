@@ -148,21 +148,16 @@ function AuthenticatedAppRoutes({ auth }: { auth: AuthBootstrapState }) {
 	const currentRoute = getNavigationItem(path);
 	const authSession = getDashboardAuthSession();
 	const authPersistence = getDashboardAuthPersistence();
-	const localSingleUserMode =
-		authSession.mode === "none" &&
-		auth.currentTenant?.auth_method === "default-fallback";
-	const authSourceLabel = localSingleUserMode
-		? "Local single-user session"
-		: authSession.mode === "local"
+	const authSourceLabel =
+		authSession.mode === "local"
 			? "Local operator session"
 			: authSession.mode === "service-account"
 				? "Service-account key"
 				: authSession.mode === "tenant"
 					? "Tenant key"
 					: "No runtime credential";
-	const authPersistenceLabel = localSingleUserMode
-		? "No browser credential required on this local runtime"
-		: authSession.mode === "local"
+	const authPersistenceLabel =
+		authSession.mode === "local"
 			? authPersistence === "local"
 				? "Remembered local operator session"
 				: "Session-only local operator session"

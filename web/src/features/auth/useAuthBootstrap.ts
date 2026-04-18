@@ -49,23 +49,12 @@ export function useAuthBootstrap(): AuthBootstrapState {
 			getAbout({ dedupe: false }),
 			getCurrentTenant({ dedupe: false }),
 		]);
-		const aboutValue =
-			aboutResult.status === "fulfilled" ? aboutResult.value : aboutRef.current;
 		if (aboutResult.status === "fulfilled") {
 			aboutRef.current = aboutResult.value;
 			setAbout(aboutResult.value);
 		}
 
 		if (tenantResult.status === "fulfilled") {
-			if (requiresLocalOperatorBootstrap(aboutValue, tenantResult.value)) {
-				if (getDashboardAuthSession().source === "runtime") {
-					clearDashboardAuthSession();
-				}
-				setCurrentTenant(null);
-				setError(null);
-				setStatus("unauthenticated");
-				return;
-			}
 			setCurrentTenant(tenantResult.value);
 			setError(null);
 			setStatus("authenticated");
@@ -156,16 +145,5 @@ function isExpectedUnauthenticated(reason: unknown): boolean {
 	return (
 		reason.code === "missing_credentials" ||
 		reason.code === "invalid_credentials"
-	);
-}
-
-function requiresLocalOperatorBootstrap(
-	about: AboutResponse | null,
-	currentTenant: CurrentTenant,
-): boolean {
-	return Boolean(
-		about?.local_operator_session_enabled &&
-		currentTenant.auth_method === "default-fallback" &&
-		currentTenant.role === "viewer",
 	);
 }

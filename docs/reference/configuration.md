@@ -56,9 +56,10 @@ Fields:
 - `VIADUCT_ADMIN_KEY`: admin API key used by the REST server for tenant administration
 - `VIADUCT_PLUGIN_ADDR`: plugin listener address used by community connector plugins
 - `VIADUCT_ALLOWED_ORIGINS`: comma-separated browser origins allowed to call the API from another origin; defaults to same-origin only when empty
-- `VIADUCT_ALLOW_ANONYMOUS_ADMIN`: explicit local-lab override that preserves anonymous admin access on the default tenant; keep this `false` outside disposable environments
+- `VIADUCT_ALLOW_UNAUTHENTICATED_REMOTE`: explicit dangerous override that permits a non-loopback `serve-api` bind without configured admin, tenant, or service-account credentials; leave this unset outside disposable break-glass scenarios
 - `VIADUCT_WEB_DIR`: override path for built dashboard assets when they are not in `web/dist`, `web/`, or the installed `share/viaduct/web` layout
 - `VIADUCT_WORKSPACE_JOB_TIMEOUT`: per-job server-side timeout for pilot workspace discovery, graph, simulation, and plan generation; defaults to `2m`
+- `VIADUCT_WORKSPACE_JOB_CONCURRENCY`: bounded worker count for queued and recovered workspace jobs; defaults to `4`
 - `VIADUCT_AUTH_SESSION_TTL`: dashboard runtime auth-session lifetime for non-persistent browser sessions; defaults to `12h`
 - `VIADUCT_AUTH_REMEMBER_TTL`: dashboard runtime auth-session lifetime for remembered browser sessions; defaults to `720h` (30 days)
 - `VIADUCT_API_CSP`: override the default API response Content Security Policy
@@ -77,12 +78,14 @@ Fields:
 The dashboard reads this through Vite. See [`../../web/.env.example`](../../web/.env.example).
 
 The dashboard now also supports runtime authentication bootstrap. When neither variable is set, the app either:
-- offers a loopback-only local operator session when `viaduct start` is running against the default local lab path and the default tenant is still unkeyed, or
+- offers a direct loopback-only local operator session when `viaduct start` is running against the default local lab path and the default tenant is still unkeyed, or
 - starts on a bootstrap screen and accepts either a service-account key or tenant key at runtime
 
 The runtime bootstrap flow creates a server-backed session. The browser stores only an opaque session identifier, and any tenant or service-account key stays server-side for that session instead of landing in browser storage. Local operator sessions do not use an API key at all. Non-persistent sessions keep that identifier in session storage. Operators can explicitly choose to remember only that non-sensitive marker in local storage on trusted workstations.
 
 Prefer `VITE_VIADUCT_SERVICE_ACCOUNT_KEY` for normal dashboard access when you intentionally pre-seed a development build. Reserve `VITE_VIADUCT_API_KEY` for tenant bootstrap, short-lived admin work, or break-glass access.
+
+Tenant and service-account credentials are persisted as non-recoverable hashes in both the in-memory and PostgreSQL stores. Viaduct only reveals a raw key during tenant creation or an explicit service-account create/rotate response.
 
 ## API Authentication Headers
 - `X-API-Key`: tenant-scoped API key for inventory, migration, lifecycle, and summary routes
@@ -92,10 +95,8 @@ Prefer `VITE_VIADUCT_SERVICE_ACCOUNT_KEY` for normal dashboard access when you i
 
 ## Tenant Defaults
 - The built-in `default` tenant exists automatically in both the memory store and PostgreSQL store.
-- The API can fall back to the default tenant only when there are no active custom tenants and the default tenant has no API key configured.
-- The default anonymous fallback is viewer-only unless `VIADUCT_ALLOW_ANONYMOUS_ADMIN=true` is set explicitly.
-- `viaduct start` relies on that default-tenant fallback for the standard local lab path so a fresh clone can reach the WebUI without manual key seeding.
-- Any shared or persistent deployment should use explicit tenant keys rather than relying on fallback behavior.
+- `viaduct start` exposes local operator bootstrap only through the explicit loopback auth-session flow. A fresh clone can still reach the WebUI without manual key seeding, but protected routes require the issued session cookie rather than ambient fallback access.
+- Any shared or persistent deployment should use explicit tenant or service-account keys instead of relying on local bootstrap behavior.
 - Any pilot or packaged dashboard deployment should prefer named service-account credentials over a shared tenant-wide key.
 
 ## State Store Notes

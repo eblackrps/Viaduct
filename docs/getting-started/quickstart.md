@@ -36,7 +36,7 @@ On a fresh source checkout, `viaduct start` creates `~/.viaduct/config.yaml` if 
 Open [http://127.0.0.1:8080](http://127.0.0.1:8080). The local runtime serves the dashboard at `/` and the API under `/api/v1/`.
 Live operator API docs are also available at [http://127.0.0.1:8080/api/v1/docs](http://127.0.0.1:8080/api/v1/docs).
 
-For the default local lab path, the bootstrap screen offers `Use local operator session`, so you do not need to paste a browser key.
+For the default local lab path, the bootstrap screen offers `Use local operator session` on direct `127.0.0.1` requests, so you do not need to paste a browser key.
 
 If you intentionally configure a tenant key or service-account key, the runtime bootstrap screen remains available:
 - preferred service-account key: `lab-operator-key`

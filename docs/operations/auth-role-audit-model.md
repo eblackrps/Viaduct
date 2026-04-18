@@ -397,7 +397,7 @@ Viaduct does not need a large security console for v1. It does need attribution 
 - Keep the current auth headers and three-role model.
 - Update operator-facing docs so tenant keys are bootstrap or break-glass credentials, while dashboard and automation guidance prefer service accounts.
 - Document `VITE_VIADUCT_SERVICE_ACCOUNT_KEY` as the normal dashboard credential path.
-- Treat default-tenant fallback as local-lab-only behavior in product messaging.
+- Treat the local operator session bootstrap as a direct loopback-only local-lab behavior in product messaging.
 
 ### Work package 2: Complete backend audit coverage
 - Normalize migration audit details in `internal/api/server.go` so `plan`, `execute`, `resume`, and `rollback` use the same detail keys.
@@ -430,14 +430,14 @@ Viaduct does not need a large security console for v1. It does need attribution 
 - The dashboard shows current auth method, role, and effective permissions.
 - Migration execution history shows action attribution without frontend-only inference.
 - The first UI attribution pass reads from audit events, not from new ad hoc migration-history fields.
-- Default-tenant fallback is documented as lab behavior, not pilot guidance.
+- Local operator session bootstrap is documented as lab behavior, not pilot guidance.
 
 ### Test outlines
 - Auth middleware tests:
   - tenant key authenticates as tenant admin
   - service-account key authenticates with effective permissions
   - inactive or expired service account is rejected
-  - default-tenant fallback only applies when no active custom tenant is configured
+  - direct loopback-only local operator bootstrap is rejected for proxied or forwarded requests
   - explicit service-account permissions do not bypass role-gated routes
 - Authorization tests:
   - viewer cannot call migration-manage routes

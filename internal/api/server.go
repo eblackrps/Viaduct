@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -129,9 +130,11 @@ type Server struct {
 	allowedOrigins        map[string]struct{}
 	backgroundTaskTimeout time.Duration
 	workspaceJobTimeout   time.Duration
-	allowAnonymousAdmin   bool
+	workspaceJobExecutor  workspaceJobEnqueuer
+	workspaceJobWorkers   int
 	authSessions          *authSessionManager
 	localRuntimeMode      bool
+	allowUnauthRemote     bool
 	connectorCircuits     *connectorCircuitRegistry
 	apiCSP                string
 	dashboardCSP          string
@@ -177,7 +180,6 @@ func NewServer(engine *discovery.Engine, stateStore store.Store, port int, catal
 		return nil, fmt.Errorf("api server: stat policies directory: %w", err)
 	}
 
-	allowAnonymousAdmin := strings.EqualFold(strings.TrimSpace(os.Getenv("VIADUCT_ALLOW_ANONYMOUS_ADMIN")), "true")
 	authEnabled := hasConfiguredAPIKeys(context.Background(), stateStore, os.Getenv("VIADUCT_ADMIN_KEY"))
 	allowedOrigins, err := configuredAllowedOrigins(os.Getenv("VIADUCT_ALLOWED_ORIGINS"), authEnabled)
 	if err != nil {
@@ -190,16 +192,14 @@ func NewServer(engine *discovery.Engine, stateStore store.Store, port int, catal
 	}
 	if !authEnabled {
 		packageLogger.Warn(
-			"no API keys are configured; anonymous requests will fall back to the default tenant",
-			"tenant", store.DefaultTenantID,
-			"role", anonymousFallbackRole(allowAnonymousAdmin),
-			"allow_anonymous_admin", allowAnonymousAdmin,
+			"no API keys are configured; protected routes require explicit credentials or an explicit loopback local-runtime session bootstrap",
+			"default_tenant", store.DefaultTenantID,
 		)
 	}
 
 	backgroundTaskCtx, backgroundTaskCancel := context.WithCancel(context.Background())
 
-	return &Server{
+	server := &Server{
 		engine:                engine,
 		store:                 stateStore,
 		port:                  port,
@@ -218,7 +218,7 @@ func NewServer(engine *discovery.Engine, stateStore store.Store, port int, catal
 		allowedOrigins:        allowedOrigins,
 		backgroundTaskTimeout: durationEnv("VIADUCT_BACKGROUND_TASK_TIMEOUT", 24*time.Hour),
 		workspaceJobTimeout:   durationEnv("VIADUCT_WORKSPACE_JOB_TIMEOUT", 2*time.Minute),
-		allowAnonymousAdmin:   allowAnonymousAdmin,
+		workspaceJobWorkers:   intEnv("VIADUCT_WORKSPACE_JOB_CONCURRENCY", defaultWorkspaceJobConcurrency),
 		authSessions:          newAuthSessionManager(durationEnv("VIADUCT_AUTH_SESSION_TTL", 12*time.Hour), durationEnv("VIADUCT_AUTH_REMEMBER_TTL", 30*24*time.Hour)),
 		connectorCircuits:     newConnectorCircuitRegistry(loadConnectorCircuitConfig()),
 		apiCSP:                configuredSecurityHeader("VIADUCT_API_CSP", "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"),
@@ -237,7 +237,11 @@ func NewServer(engine *discovery.Engine, stateStore store.Store, port int, catal
 			return connectors.Config{Address: resolvedAddress}
 		},
 		specs: make(map[string]*migratepkg.MigrationSpec),
-	}, nil
+	}
+	server.workspaceJobExecutor = newWorkspaceJobExecutor(backgroundTaskCtx, server.workspaceJobWorkers, func(ctx context.Context, task workspaceJobTask) {
+		server.runWorkspaceJob(ctx, task.tenantID, task.workspaceID, task.jobID)
+	})
+	return server, nil
 }
 
 // SetDashboardDir configures the directory used to serve built dashboard assets from the API process.
@@ -248,7 +252,7 @@ func (s *Server) SetDashboardDir(path string) {
 	s.dashboardDir = resolveDashboardAssetDir(path)
 }
 
-// SetBindHost configures the host interface the HTTP server listens on. An empty host preserves the default all-interface behavior.
+// SetBindHost configures the host interface the HTTP server listens on.
 func (s *Server) SetBindHost(host string) {
 	if s == nil {
 		return
@@ -262,6 +266,14 @@ func (s *Server) SetLocalRuntimeMode(enabled bool) {
 		return
 	}
 	s.localRuntimeMode = enabled
+}
+
+// SetAllowUnauthenticatedRemote enables explicit dangerous remote binds without configured authentication.
+func (s *Server) SetAllowUnauthenticatedRemote(enabled bool) {
+	if s == nil {
+		return
+	}
+	s.allowUnauthRemote = enabled
 }
 
 func resolveOperatorPath(path string) string {
@@ -337,6 +349,9 @@ func (s *Server) Start(ctx context.Context) error {
 	if s == nil {
 		return fmt.Errorf("start api server: nil server")
 	}
+	if err := s.validateBindSecurity(ctx); err != nil {
+		return err
+	}
 
 	addr := fmt.Sprintf(":%d", s.port)
 	if strings.TrimSpace(s.bindHost) != "" {
@@ -368,6 +383,27 @@ func (s *Server) Start(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (s *Server) validateBindSecurity(ctx context.Context) error {
+	if s == nil {
+		return nil
+	}
+	if bindHostIsLoopbackOnly(s.bindHost) {
+		return nil
+	}
+	if hasConfiguredAPIKeys(ctx, s.store, s.adminAPIKey) {
+		return nil
+	}
+	if s.allowUnauthRemote {
+		packageLogger.Warn(
+			"starting remotely reachable API listener without configured authentication because an explicit dangerous override was provided",
+			"bind_host", strings.TrimSpace(s.bindHost),
+			"port", s.port,
+		)
+		return nil
+	}
+	return fmt.Errorf("api server: remote bind without configured authentication is refused; bind to loopback, configure admin/tenant credentials, or pass the explicit dangerous remote override")
 }
 
 // Handler returns the fully wired Viaduct API HTTP handler with auth, rate limiting, CORS, and observability middleware.
@@ -549,19 +585,22 @@ func (s *Server) handleAbout(w http.ResponseWriter, r *http.Request) {
 		StoreBackend:         diagnostics.Backend,
 		StoreSchemaVersion:   diagnostics.SchemaVersion,
 		PersistentStore:      diagnostics.Persistent,
-		LocalOperatorSession: s.localOperatorSessionEnabled(r.Context()),
+		LocalOperatorSession: s.localOperatorSessionEnabled(r),
 	})
 }
 
-func (s *Server) localOperatorSessionEnabled(ctx context.Context) bool {
-	if s == nil || !s.localRuntimeMode || s.store == nil {
+func (s *Server) localOperatorSessionEnabled(r *http.Request) bool {
+	if s == nil || !s.localRuntimeMode || s.store == nil || r == nil {
 		return false
 	}
-	if hasConfiguredAPIKeys(ctx, s.store, s.adminAPIKey) {
+	if !localRuntimeRequestAllowed(r, s.bindHost) {
+		return false
+	}
+	if hasConfiguredAPIKeys(r.Context(), s.store, s.adminAPIKey) {
 		return false
 	}
 
-	tenants, err := s.store.ListTenants(ctx)
+	tenants, err := s.store.ListTenants(r.Context())
 	if err != nil {
 		return false
 	}
@@ -593,7 +632,7 @@ func (s *Server) handleAdminTenants(w http.ResponseWriter, r *http.Request) {
 		tenant := models.Tenant{
 			ID:        request.ID,
 			Name:      request.Name,
-			APIKey:    request.APIKey,
+			APIKey:    strings.TrimSpace(request.APIKey),
 			CreatedAt: request.CreatedAt,
 			Settings:  request.Settings,
 			Quotas:    request.Quotas,
@@ -619,6 +658,14 @@ func (s *Server) handleAdminTenants(w http.ResponseWriter, r *http.Request) {
 			tenant.Active = true
 		}
 		if err := s.store.CreateTenant(r.Context(), tenant); err != nil {
+			if store.IsCredentialConflict(err) {
+				writeAPIError(w, r, http.StatusConflict, "conflict", "tenant credential already exists", apiErrorOptions{
+					Details: map[string]any{
+						"tenant_id": tenant.ID,
+					},
+				})
+				return
+			}
 			writeAPIError(w, r, http.StatusBadRequest, "invalid_request", err.Error(), apiErrorOptions{})
 			return
 		}
@@ -1763,6 +1810,18 @@ func durationEnv(name string, fallback time.Duration) time.Duration {
 	return parsed
 }
 
+func intEnv(name string, fallback int) int {
+	raw := strings.TrimSpace(os.Getenv(name))
+	if raw == "" {
+		return fallback
+	}
+	parsed, err := strconv.Atoi(raw)
+	if err != nil || parsed <= 0 {
+		return fallback
+	}
+	return parsed
+}
+
 func pendingApprovalFromRecord(record *store.MigrationRecord) bool {
 	if record == nil || len(record.RawJSON) == 0 {
 		return false
@@ -1809,11 +1868,11 @@ func hasConfiguredAPIKeys(ctx context.Context, stateStore store.Store, adminAPIK
 		return false
 	}
 	for _, tenant := range tenants {
-		if strings.TrimSpace(tenant.APIKey) != "" {
+		if store.HasAPIKeyConfigured(tenant.APIKeyHash, tenant.APIKey) {
 			return true
 		}
 		for _, account := range tenant.ServiceAccounts {
-			if strings.TrimSpace(account.APIKey) != "" {
+			if store.HasAPIKeyConfigured(account.APIKeyHash, account.APIKey) {
 				return true
 			}
 		}
@@ -1827,11 +1886,4 @@ func keysFromSet(values map[string]struct{}) []string {
 		keys = append(keys, value)
 	}
 	return keys
-}
-
-func anonymousFallbackRole(allowAnonymousAdmin bool) string {
-	if allowAnonymousAdmin {
-		return string(models.TenantRoleAdmin)
-	}
-	return string(models.TenantRoleViewer)
 }

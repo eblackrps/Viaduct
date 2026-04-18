@@ -38,7 +38,7 @@ func newStartCommand() *cobra.Command {
 	}
 
 	cmd.Flags().IntVar(&port, "port", 8080, "Port to bind the local operator runtime to")
-	cmd.Flags().StringVar(&host, "host", "127.0.0.1", "Host interface for the local operator runtime")
+	cmd.Flags().StringVar(&host, "host", "127.0.0.1", "Host interface for the local operator runtime; defaults to loopback")
 	cmd.Flags().StringVar(&webDir, "web-dir", "", "Path to built dashboard assets; when empty, Viaduct auto-detects packaged or built web assets")
 	cmd.Flags().BoolVar(&openBrowserWhenReady, "open-browser", true, "Open the Viaduct WebUI in the default browser when the runtime becomes healthy")
 	cmd.Flags().BoolVar(&detach, "detach", false, "Start the runtime in the background and return once the local health check passes")

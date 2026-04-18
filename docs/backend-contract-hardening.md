@@ -588,9 +588,10 @@ The following enums should be treated as stable once documented in OpenAPI and c
 
 - `tenant-api-key`
 - `service-account`
-- `default-fallback`
+- `runtime-session`
+- `local-runtime-session`
 
-`default-fallback` should remain explicitly documented as a lab and compatibility behavior, not a product-grade packaged auth story.
+`local-runtime-session` is the only lab-specific auth method that should remain operator-visible. It is a direct loopback runtime bootstrap path, not a packaged or proxied deployment story.
 
 ### Preflight Check Status
 

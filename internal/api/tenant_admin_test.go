@@ -140,3 +140,63 @@ func TestServer_HandleServiceAccounts_CreateAndRotate_Expected(t *testing.T) {
 		t.Fatalf("unexpected rotated service account: %#v", rotated)
 	}
 }
+
+func TestServer_HandleServiceAccounts_CreateAndRotateRejectCredentialConflicts_Expected(t *testing.T) {
+	t.Parallel()
+
+	stateStore := store.NewMemoryStore()
+	if err := stateStore.CreateTenant(context.Background(), models.Tenant{
+		ID:     "tenant-a",
+		Name:   "Tenant A",
+		APIKey: "tenant-a-key",
+		Active: true,
+		ServiceAccounts: []models.ServiceAccount{
+			{
+				ID:        "sa-1",
+				Name:      "Automation",
+				APIKey:    "sa-1-key",
+				Role:      models.TenantRoleOperator,
+				Active:    true,
+				CreatedAt: time.Now().UTC(),
+			},
+		},
+	}); err != nil {
+		t.Fatalf("CreateTenant(tenant-a) error = %v", err)
+	}
+	if err := stateStore.CreateTenant(context.Background(), models.Tenant{
+		ID:     "tenant-b",
+		Name:   "Tenant B",
+		APIKey: "shared-secret",
+		Active: true,
+	}); err != nil {
+		t.Fatalf("CreateTenant(tenant-b) error = %v", err)
+	}
+
+	server := mustNewServer(t, stateStore)
+	handler := TenantAuthMiddleware(stateStore, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v1/service-accounts":
+			RequireTenantRole(models.TenantRoleAdmin, http.HandlerFunc(server.handleServiceAccounts)).ServeHTTP(w, r)
+		case "/api/v1/service-accounts/sa-1/rotate":
+			RequireTenantRole(models.TenantRoleAdmin, http.HandlerFunc(server.handleServiceAccountByID)).ServeHTTP(w, r)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+
+	createRequest := httptest.NewRequest(http.MethodPost, "/api/v1/service-accounts", bytes.NewBufferString(`{"id":"sa-conflict","name":"Conflict","api_key":"shared-secret"}`))
+	createRequest.Header.Set(tenantCredentialHeader, "tenant-a-key")
+	createRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(createRecorder, createRequest)
+	if createRecorder.Code != http.StatusConflict {
+		t.Fatalf("create status = %d, want %d: %s", createRecorder.Code, http.StatusConflict, createRecorder.Body.String())
+	}
+
+	rotateRequest := httptest.NewRequest(http.MethodPost, "/api/v1/service-accounts/sa-1/rotate", bytes.NewBufferString(`{"api_key":"shared-secret"}`))
+	rotateRequest.Header.Set(tenantCredentialHeader, "tenant-a-key")
+	rotateRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(rotateRecorder, rotateRequest)
+	if rotateRecorder.Code != http.StatusConflict {
+		t.Fatalf("rotate status = %d, want %d: %s", rotateRecorder.Code, http.StatusConflict, rotateRecorder.Body.String())
+	}
+}

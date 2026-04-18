@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/eblackrps/viaduct/internal/models"
+	"github.com/eblackrps/viaduct/internal/store"
 	"github.com/google/uuid"
 )
 
@@ -147,6 +148,14 @@ func (s *Server) handleServiceAccounts(w http.ResponseWriter, r *http.Request) {
 
 		tenant.ServiceAccounts = append(tenant.ServiceAccounts, account)
 		if err := s.store.UpdateTenant(r.Context(), *tenant); err != nil {
+			if store.IsCredentialConflict(err) {
+				writeAPIError(w, r, http.StatusConflict, "conflict", "service account credential already exists", apiErrorOptions{
+					Details: map[string]any{
+						"service_account_id": account.ID,
+					},
+				})
+				return
+			}
 			writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 			return
 		}
@@ -213,6 +222,14 @@ func (s *Server) handleServiceAccountByID(w http.ResponseWriter, r *http.Request
 		tenant.ServiceAccounts[index].LastRotatedAt = time.Now().UTC()
 
 		if err := s.store.UpdateTenant(r.Context(), *tenant); err != nil {
+			if store.IsCredentialConflict(err) {
+				writeAPIError(w, r, http.StatusConflict, "conflict", "service account credential already exists", apiErrorOptions{
+					Details: map[string]any{
+						"service_account_id": accountID,
+					},
+				})
+				return
+			}
 			writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 			return
 		}
