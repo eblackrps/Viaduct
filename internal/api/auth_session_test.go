@@ -8,6 +8,7 @@ import (
 
 	"github.com/eblackrps/viaduct/internal/models"
 	"github.com/eblackrps/viaduct/internal/store"
+	"go.uber.org/goleak"
 )
 
 func TestAuthSessionManager_SweepExpired_RemovesExpiredSessions_Expected(t *testing.T) {
@@ -107,7 +108,7 @@ func TestAuthSessionManager_CreateRecord_RejectsMissingExpiration_Expected(t *te
 }
 
 func TestAuthSessionManager_Revoke_ConcurrentLookupStaysRaceSafe_Expected(t *testing.T) {
-	t.Parallel()
+	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 
 	stateStore := store.NewMemoryStore()
 	manager := newAuthSessionManager(time.Hour, time.Hour)

@@ -52,6 +52,7 @@ func TestForwardedForIP_RejectsNonCanonicalEntries_Expected(t *testing.T) {
 		{name: "link local zone rejected", value: "fe80::1%eth0", ok: false},
 		{name: "ipv4 zone rejected", value: "127.0.0.1%0", ok: false},
 		{name: "ipv4 mapped rejected", value: "::ffff:127.0.0.1", ok: false},
+		{name: "ipv4 mapped remote rejected", value: "::ffff:8.8.8.8", ok: false},
 	}
 
 	for _, tc := range cases {
