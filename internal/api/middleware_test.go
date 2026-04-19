@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -344,6 +345,79 @@ func TestLocalRuntimeRequestAllowed_RejectsForwardedProxyRequest_Expected(t *tes
 
 	if localRuntimeRequestAllowed(req, "127.0.0.1") {
 		t.Fatal("localRuntimeRequestAllowed() = true, want false for forwarded proxy request")
+	}
+}
+
+func TestRequestFromLoopback_NormalizesRemoteAddr_Expected(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name       string
+		remoteAddr string
+		want       bool
+	}{
+		{name: "ipv4 loopback", remoteAddr: "127.0.0.1:41000", want: true},
+		{name: "ipv6 loopback", remoteAddr: "[::1]:41000", want: true},
+		{name: "ipv4 mapped loopback", remoteAddr: "[::ffff:127.0.0.1]:41000", want: true},
+		{name: "ipv4 mapped remote", remoteAddr: "[::ffff:8.8.8.8]:41000", want: false},
+		{name: "private remote", remoteAddr: "10.0.0.1:41000", want: false},
+		{name: "empty", remoteAddr: "", want: false},
+		{name: "garbage", remoteAddr: "not-an-ip", want: false},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			req := httptest.NewRequest(http.MethodGet, "http://127.0.0.1/api/v1/about", nil)
+			req.RemoteAddr = tc.remoteAddr
+
+			if got := requestFromLoopback(req); got != tc.want {
+				t.Fatalf("requestFromLoopback(%q) = %t, want %t", tc.remoteAddr, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestLocalRuntimeRequestAllowed_MutatingRequestsRequireSameOriginSource_Expected(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name    string
+		method  string
+		origin  string
+		referer string
+		want    bool
+	}{
+		{name: "post same origin", method: http.MethodPost, origin: "http://127.0.0.1", want: true},
+		{name: "post same origin explicit port", method: http.MethodPost, origin: "http://127.0.0.1:80", want: true},
+		{name: "post referer fallback", method: http.MethodPost, referer: "http://127.0.0.1/settings", want: true},
+		{name: "post missing source", method: http.MethodPost, want: false},
+		{name: "post empty origin", method: http.MethodPost, origin: "   ", want: false},
+		{name: "post wrong port", method: http.MethodPost, origin: "http://127.0.0.1:8080", want: false},
+		{name: "post wrong host", method: http.MethodPost, origin: "http://localhost", want: false},
+		{name: "get no source allowed", method: http.MethodGet, want: true},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			req := httptest.NewRequest(tc.method, "http://127.0.0.1/api/v1/auth/session", nil)
+			req.RemoteAddr = "127.0.0.1:41000"
+			if tc.origin != "" || strings.Contains(tc.name, "empty origin") {
+				req.Header.Set("Origin", tc.origin)
+			}
+			if tc.referer != "" {
+				req.Header.Set("Referer", tc.referer)
+			}
+
+			if got := localRuntimeRequestAllowed(req, "127.0.0.1"); got != tc.want {
+				t.Fatalf("localRuntimeRequestAllowed(%s, origin=%q, referer=%q) = %t, want %t", tc.method, tc.origin, tc.referer, got, tc.want)
+			}
+		})
 	}
 }
 
