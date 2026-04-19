@@ -225,10 +225,12 @@ func NewPostgresStore(ctx context.Context, dsn string) (*PostgresStore, error) {
 		return nil, fmt.Errorf("postgres store: record schema history: %w", err)
 	}
 	if err := migrateStoredCredentials(recordCtx, db); err != nil {
+		// Close is best effort while unwinding a failed credential migration.
 		_ = db.Close()
 		return nil, fmt.Errorf("postgres store: migrate credentials: %w", annotateCredentialMigrationError(err))
 	}
 	if err := applyCredentialHashUniqueIndexMigration(recordCtx, db); err != nil {
+		// Close is best effort while unwinding a failed credential-index migration.
 		_ = db.Close()
 		return nil, fmt.Errorf("postgres store: credential hash unique index: %w", annotateCredentialMigrationError(err))
 	}
@@ -746,6 +748,7 @@ func (s *PostgresStore) CreateTenant(ctx context.Context, tenant models.Tenant) 
 	if err != nil {
 		return fmt.Errorf("postgres store: create tenant %s: begin transaction: %w", tenant.ID, err)
 	}
+	// Rollback is best effort after commit or terminal transaction failure.
 	defer func() { _ = tx.Rollback() }()
 
 	if _, err := tx.ExecContext(
@@ -821,6 +824,7 @@ func (s *PostgresStore) UpdateTenant(ctx context.Context, tenant models.Tenant) 
 	if err != nil {
 		return fmt.Errorf("postgres store: update tenant %s: begin transaction: %w", tenant.ID, err)
 	}
+	// Rollback is best effort after commit or terminal transaction failure.
 	defer func() { _ = tx.Rollback() }()
 
 	result, err := tx.ExecContext(
@@ -1777,6 +1781,7 @@ func migrateStoredCredentials(ctx context.Context, db *sql.DB) error {
 	if err != nil {
 		return err
 	}
+	// Rollback is best effort after commit or terminal transaction failure.
 	defer func() { _ = tx.Rollback() }()
 
 	if _, err := tx.ExecContext(ctx, `DELETE FROM credential_hashes`); err != nil {

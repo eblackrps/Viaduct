@@ -2,14 +2,19 @@ package store
 
 import (
 	"context"
+	"database/sql"
+	"database/sql/driver"
 	"fmt"
+	"io"
 	"regexp"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/eblackrps/viaduct/internal/models"
+	"github.com/lib/pq"
 )
 
 func TestPrepareTenantCredentials_HashesAndRedactsWithoutMutatingCaller_Expected(t *testing.T) {
@@ -201,6 +206,7 @@ func TestMigrateStoredCredentials_RewritesLegacyPlaintext_Expected(t *testing.T)
 	}
 	defer db.Close()
 	mock.MatchExpectationsInOrder(false)
+	mock.MatchExpectationsInOrder(false)
 
 	createdAt := time.Date(2026, time.April, 17, 12, 0, 0, 0, time.UTC)
 	serviceAccountsPayload := []byte(`[{"id":"sa-1","name":"Automation","api_key":"service-secret","role":"operator","active":true,"created_at":"2026-04-17T12:00:00Z"}]`)
@@ -274,6 +280,76 @@ func TestMigrateStoredCredentials_InsertFailureRollsBackBeforeClearingPlaintext_
 	}
 }
 
+func TestInsertTenantCredentialHashes_ConcurrentDuplicate_ReturnsSingleConflict_Expected(t *testing.T) {
+	t.Parallel()
+
+	driverName := fmt.Sprintf("credential-hash-race-%d", time.Now().UnixNano())
+	sql.Register(driverName, &credentialHashRaceDriver{
+		state: &credentialHashRaceState{
+			inserted: make(map[string]struct{}),
+		},
+	})
+
+	db, err := sql.Open(driverName, "")
+	if err != nil {
+		t.Fatalf("sql.Open() error = %v", err)
+	}
+	defer db.Close()
+	db.SetMaxOpenConns(2)
+
+	tenant := models.Tenant{
+		ID:         "tenant-a",
+		Name:       "Tenant A",
+		APIKeyHash: HashAPIKey("shared-secret"),
+		Active:     true,
+	}
+
+	const workerCount = 2
+	results := make(chan error, workerCount)
+	var wg sync.WaitGroup
+	wg.Add(workerCount)
+
+	for index := 0; index < workerCount; index++ {
+		go func() {
+			defer wg.Done()
+
+			tx, txErr := db.BeginTx(context.Background(), nil)
+			if txErr != nil {
+				results <- txErr
+				return
+			}
+
+			if insertErr := insertTenantCredentialHashes(context.Background(), tx, tenant); insertErr != nil {
+				// Rollback is best effort after the simulated unique-constraint failure.
+				_ = tx.Rollback()
+				results <- insertErr
+				return
+			}
+
+			results <- tx.Commit()
+		}()
+	}
+
+	wg.Wait()
+	close(results)
+
+	var successCount, conflictCount int
+	for err := range results {
+		switch {
+		case err == nil:
+			successCount++
+		case IsCredentialConflict(err):
+			conflictCount++
+		default:
+			t.Fatalf("insertTenantCredentialHashes() error = %v, want nil or credential conflict", err)
+		}
+	}
+
+	if successCount != 1 || conflictCount != 1 {
+		t.Fatalf("successes/conflicts = %d/%d, want 1/1", successCount, conflictCount)
+	}
+}
+
 func TestReadStoreMigrationFile_ReadsBundledSQLAndRejectsTraversal_Expected(t *testing.T) {
 	t.Parallel()
 
@@ -315,4 +391,101 @@ func TestCreateStoreSchemaSQL_CredentialHashesRegistryDurablyUnique_Expected(t *
 	if !strings.Contains(createStoreSchemaSQL, "credential_hash TEXT PRIMARY KEY") {
 		t.Fatal("createStoreSchemaSQL is missing durable credential hash primary key")
 	}
+}
+
+type credentialHashRaceDriver struct {
+	state *credentialHashRaceState
+}
+
+type credentialHashRaceState struct {
+	mu       sync.Mutex
+	inserted map[string]struct{}
+}
+
+type credentialHashRaceConn struct {
+	state *credentialHashRaceState
+}
+
+type credentialHashRaceTx struct{}
+
+type credentialHashRaceRows struct {
+	columns []string
+	values  [][]driver.Value
+	index   int
+}
+
+func (d *credentialHashRaceDriver) Open(_ string) (driver.Conn, error) {
+	return &credentialHashRaceConn{state: d.state}, nil
+}
+
+func (c *credentialHashRaceConn) Prepare(_ string) (driver.Stmt, error) {
+	return nil, fmt.Errorf("credential hash race driver does not support prepared statements")
+}
+
+func (c *credentialHashRaceConn) Close() error {
+	return nil
+}
+
+func (c *credentialHashRaceConn) Begin() (driver.Tx, error) {
+	return credentialHashRaceTx{}, nil
+}
+
+func (c *credentialHashRaceConn) BeginTx(_ context.Context, _ driver.TxOptions) (driver.Tx, error) {
+	return credentialHashRaceTx{}, nil
+}
+
+func (c *credentialHashRaceConn) QueryContext(_ context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+	if !strings.Contains(query, "INSERT INTO credential_hashes") || !strings.Contains(query, "RETURNING credential_hash") {
+		return nil, fmt.Errorf("credential hash race driver received unexpected query: %s", query)
+	}
+	if len(args) == 0 {
+		return nil, fmt.Errorf("credential hash race driver requires the credential hash argument")
+	}
+
+	hash, ok := args[0].Value.(string)
+	if !ok {
+		return nil, fmt.Errorf("credential hash race driver hash arg type = %T, want string", args[0].Value)
+	}
+
+	c.state.mu.Lock()
+	defer c.state.mu.Unlock()
+
+	if _, exists := c.state.inserted[hash]; exists {
+		return nil, &pq.Error{
+			Code:       "23505",
+			Table:      "credential_hashes",
+			Constraint: "credential_hashes_hash_unique",
+		}
+	}
+	c.state.inserted[hash] = struct{}{}
+
+	return &credentialHashRaceRows{
+		columns: []string{"credential_hash"},
+		values:  [][]driver.Value{{hash}},
+	}, nil
+}
+
+func (credentialHashRaceTx) Commit() error {
+	return nil
+}
+
+func (credentialHashRaceTx) Rollback() error {
+	return nil
+}
+
+func (r *credentialHashRaceRows) Columns() []string {
+	return r.columns
+}
+
+func (r *credentialHashRaceRows) Close() error {
+	return nil
+}
+
+func (r *credentialHashRaceRows) Next(dest []driver.Value) error {
+	if r.index >= len(r.values) {
+		return io.EOF
+	}
+	copy(dest, r.values[r.index])
+	r.index++
+	return nil
 }
