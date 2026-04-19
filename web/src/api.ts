@@ -294,7 +294,10 @@ class RequestManager {
 			} finally {
 				requestController.cleanup();
 				this.inflight.delete(inflightID);
-				if (dedupeKey && this.inflightByDedupeKey.get(dedupeKey) === inflightID) {
+				if (
+					dedupeKey &&
+					this.inflightByDedupeKey.get(dedupeKey) === inflightID
+				) {
 					this.inflightByDedupeKey.delete(dedupeKey);
 				}
 			}
@@ -348,7 +351,10 @@ function toRequestURL(input: RequestInfo | URL): URL {
 }
 
 function withListParams(path: string, options?: ListRequestOptions): string {
-	const url = new URL(normalizeBaseRelativePath(path, getRequestBaseURL()), getRequestBaseURL());
+	const url = new URL(
+		normalizeBaseRelativePath(path, getRequestBaseURL()),
+		getRequestBaseURL(),
+	);
 	if (options?.page) {
 		url.searchParams.set("page", String(options.page));
 	}
@@ -362,7 +368,10 @@ function withSearchParams(
 	path: string,
 	params: Record<string, string | number | undefined>,
 ): string {
-	const url = new URL(normalizeBaseRelativePath(path, getRequestBaseURL()), getRequestBaseURL());
+	const url = new URL(
+		normalizeBaseRelativePath(path, getRequestBaseURL()),
+		getRequestBaseURL(),
+	);
 	for (const [key, value] of Object.entries(params)) {
 		if (value === undefined) {
 			continue;

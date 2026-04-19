@@ -225,7 +225,9 @@ describe("api", () => {
 	it("resolves request URLs against the base tag when present", async () => {
 		const fetchMock = vi
 			.fn()
-			.mockResolvedValue(new Response(JSON.stringify({ version: "2.6.0" }), { status: 200 }));
+			.mockResolvedValue(
+				new Response(JSON.stringify({ version: "2.6.0" }), { status: 200 }),
+			);
 		vi.stubGlobal("fetch", fetchMock);
 
 		const base = document.createElement("base");

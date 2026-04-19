@@ -118,7 +118,9 @@ describe("useFocusTrap", () => {
 		fireEvent.click(screen.getByRole("button", { name: "Remove trigger" }));
 
 		const dialog = screen.getByRole("dialog");
-		fireEvent.click(screen.getByRole("button", { name: "Close removable dialog" }));
+		fireEvent.click(
+			screen.getByRole("button", { name: "Close removable dialog" }),
+		);
 		expect(dialog).toHaveFocus();
 		expect(document.body).not.toHaveFocus();
 	});
