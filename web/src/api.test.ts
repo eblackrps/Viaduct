@@ -14,6 +14,7 @@ import {
 	TimeoutError,
 	createRequestController,
 	createDashboardAuthSession,
+	getActiveRequestControllerCount,
 	getAbout,
 	getCosts,
 	getDrift,
@@ -192,5 +193,27 @@ describe("api", () => {
 		);
 		expect(remediationURL.pathname).toBe("/api/v1/remediation");
 		expect(remediationURL.searchParams.get("baseline")).toBe("north+south");
+	});
+
+	it("does not dedupe concurrent GET requests with different query strings", async () => {
+		const fetchMock = vi
+			.fn()
+			.mockResolvedValue(new Response(JSON.stringify({ items: [] }), { status: 200 }));
+		vi.stubGlobal("fetch", fetchMock);
+
+		const pageOnePromise = requestManager.fetch("/api/v2/inventory?page=1");
+		const pageTwoPromise = requestManager.fetch("/api/v2/inventory?page=2");
+
+		expect(pageOnePromise).not.toBe(pageTwoPromise);
+
+		await Promise.all([pageOnePromise, pageTwoPromise]);
+		expect(fetchMock).toHaveBeenCalledTimes(2);
+	});
+
+	it("does not leak request controllers when request URL normalization throws", async () => {
+		await expect(
+			requestManager.fetch({ url: "http://%" } as Request),
+		).rejects.toThrow();
+		expect(getActiveRequestControllerCount()).toBe(0);
 	});
 });

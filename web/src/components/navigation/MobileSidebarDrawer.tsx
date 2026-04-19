@@ -39,6 +39,7 @@ export function MobileSidebarDrawer({
 				role="dialog"
 				aria-modal="true"
 				aria-labelledby={titleID}
+				tabIndex={-1}
 				className="fixed inset-y-0 left-0 z-50 flex w-[88vw] max-w-[320px] flex-col gap-4 bg-transparent p-4 2xl:hidden"
 			>
 				<div className="panel flex h-full min-h-0 flex-col px-4 py-4">

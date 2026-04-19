@@ -190,6 +190,7 @@ const configuredTimeoutValue =
 		: "30000";
 const defaultRequestTimeoutMs =
 	Number.parseInt(configuredTimeoutValue, 10) || 30000;
+let activeRequestControllerCount = 0;
 
 export interface RequestController {
 	controller: AbortController;
@@ -203,8 +204,10 @@ export function createRequestController(
 	options?: Pick<RequestOptions, "signal" | "timeoutMs">,
 ): RequestController {
 	const controller = new AbortController();
+	activeRequestControllerCount++;
 	const timeoutMs = options?.timeoutMs ?? defaultRequestTimeoutMs;
 	let didTimeout = false;
+	let cleanedUp = false;
 	const timeoutID = globalThis.setTimeout(() => {
 		didTimeout = true;
 		controller.abort(new DOMException("Timed out", "AbortError"));
@@ -218,11 +221,20 @@ export function createRequestController(
 		signal: controller.signal,
 		cancel: () => controller.abort(new DOMException("Canceled", "AbortError")),
 		cleanup: () => {
+			if (cleanedUp) {
+				return;
+			}
+			cleanedUp = true;
 			globalThis.clearTimeout(timeoutID);
 			options?.signal?.removeEventListener("abort", forwardAbort);
+			activeRequestControllerCount--;
 		},
 		timedOut: () => didTimeout,
 	};
+}
+
+export function getActiveRequestControllerCount(): number {
+	return activeRequestControllerCount;
 }
 
 class RequestManager {
@@ -237,10 +249,11 @@ class RequestManager {
 		options?: RequestOptions,
 	): Promise<Response> {
 		const method = (init?.method ?? "GET").toUpperCase();
+		const requestURL = toRequestURL(input);
 		const dedupeKey =
 			options?.dedupe === false || method !== "GET"
 				? ""
-				: `${method}:${toRequestKey(input)}`;
+				: `${method}:${requestURL.toString()}`;
 		if (dedupeKey && this.inflight.has(dedupeKey)) {
 			return this.inflight
 				.get(dedupeKey)!
@@ -302,14 +315,14 @@ class RequestManager {
 
 export const requestManager = new RequestManager();
 
-function toRequestKey(input: RequestInfo | URL): string {
+function toRequestURL(input: RequestInfo | URL): URL {
 	if (typeof input === "string") {
-		return input;
+		return new URL(input, window.location.origin);
 	}
 	if (input instanceof URL) {
-		return input.toString();
+		return input;
 	}
-	return input.url;
+	return new URL(input.url, window.location.origin);
 }
 
 function withListParams(path: string, options?: ListRequestOptions): string {
