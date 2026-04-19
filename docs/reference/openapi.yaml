@@ -34,6 +34,20 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AboutResponse"
+  /api/v1/ping:
+    get:
+      summary: Unauthenticated API reachability probe
+      responses:
+        "200":
+          description: API is reachable without authentication
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
   /api/v1/auth/session:
     post:
       summary: Create a dashboard auth session
@@ -72,6 +86,34 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AuthSessionDeleteResponse"
+        "500":
+          $ref: "#/components/responses/ErrorResponse"
+  /api/v1/auth/session/revoke:
+    post:
+      summary: Revoke a dashboard auth session
+      security:
+        - AdminAPIKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthSessionRevokeRequest"
+      responses:
+        "200":
+          description: Dashboard auth session revoked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSessionRevokeResponse"
+        "400":
+          $ref: "#/components/responses/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+        "404":
+          $ref: "#/components/responses/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/ErrorResponse"
   /api/v1/metrics:
     get:
       summary: Prometheus metrics
@@ -925,6 +967,19 @@ components:
       type: object
       properties:
         status:
+          type: string
+    AuthSessionRevokeRequest:
+      type: object
+      required: [session_id]
+      properties:
+        session_id:
+          type: string
+    AuthSessionRevokeResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        session_id:
           type: string
     AboutResponse:
       type: object
