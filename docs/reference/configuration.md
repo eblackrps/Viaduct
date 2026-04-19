@@ -59,6 +59,7 @@ Fields:
 - `VIADUCT_ALLOW_UNAUTHENTICATED_REMOTE`: explicit dangerous override that permits a non-loopback `serve-api` bind without configured admin, tenant, or service-account credentials; leave this unset outside disposable break-glass scenarios
 - `VIADUCT_WEB_DIR`: override path for built dashboard assets when they are not in `web/dist`, `web/`, or the installed `share/viaduct/web` layout
 - `VIADUCT_WORKSPACE_JOB_TIMEOUT`: per-job server-side timeout for pilot workspace discovery, graph, simulation, and plan generation; defaults to `2m`
+- `VIADUCT_WORKSPACE_ENQUEUE_TIMEOUT`: maximum time an API request waits for the bounded workspace executor to acknowledge queue admission before returning `ErrEnqueueTimeout`; defaults to `30s`
 - `VIADUCT_WORKSPACE_JOB_CONCURRENCY`: bounded worker count for queued and recovered workspace jobs; defaults to `4`
 - `VIADUCT_AUTH_SESSION_TTL`: dashboard runtime auth-session lifetime for non-persistent browser sessions; defaults to `12h`
 - `VIADUCT_AUTH_REMEMBER_TTL`: dashboard runtime auth-session lifetime for remembered browser sessions; defaults to `168h` (7 days) and is capped there unless `VIADUCT_LONG_SESSION_DAYS` is set

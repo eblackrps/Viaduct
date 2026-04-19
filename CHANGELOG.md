@@ -6,7 +6,32 @@ This changelog tracks published releases and the major implementation milestones
 
 ## [Unreleased]
 
+## [2.6.0] - 2026-04-19
+
+### Security Follow-Up Hardening
+
+- normalized malformed credential-hash handling onto a fixed-cost comparison path so zero, malformed, and valid stored hashes all terminate in the same constant-time compare flow
+- made dashboard-session revocation durable and atomic across the PostgreSQL revocation write plus the in-memory session cache, then revalidated credential-bound sessions against the current tenant or service-account hash on every lookup
+- hardened trusted-forwarded-peer parsing by stripping IPv6 zones before direct peer evaluation while rejecting zoned or non-canonical forwarded addresses, and added explicit `AUDIT` loopback-rejection logs for rejected non-GET local-runtime requests
+- kept loopback-only mode authoritative even when `VIADUCT_TRUSTED_PROXIES` is broadly configured, and tightened session invalidation so credential rotation immediately expires sessions bound to the old key material
+
+### Runtime, Store, And Operator Platform
+
+- added a distinct workspace enqueue deadline via `VIADUCT_WORKSPACE_ENQUEUE_TIMEOUT`, hardened worker handoff during shutdown, and covered executor cancellation with high-pressure enqueue stress tests
+- upgraded PostgreSQL duplicate-credential preflight failures into actionable configuration errors that list the affected tenant IDs, point operators at `docs/operations/credential-migration.md`, and exit with sysexits-style code `78`
+- taught the bundled store migration runner to honor non-transactional migration pragmas so concurrent index migrations stay safe and explicit
+- tightened release-artifact verification by pinning `cosign verify-blob` to the exact workflow identity for the tagged release, signing and checksumming `zip` sidecars alongside the existing tarball assets, and adding `set -euo pipefail` to the chained release shell steps
+
+### Dashboard And Console Reliability
+
+- switched in-flight request bookkeeping to UUID-based tracking, made URL dedupe opt-in through `{ dedupe: true }`, preserved external abort reasons, and resolved relative API paths against the page `<base>` tag when the dashboard is hosted below the origin root
+- hardened the mobile and dialog focus trap so empty traps keep focus on the container, removed triggers fall back to the trap root instead of `document.body`, and added Testing Library coverage for both edge cases
+
 ## [2.5.0] - 2026-04-19
+
+### Upgrade Advisory
+
+- the durable credential-hash uniqueness index shipped in v2.5.0, not v2.4.2; startup validation already blocked known duplicate hashes in v2.4.2, but v2.5.0 is the release that added the explicit concurrent unique-index migration artifact for the credential registry
 
 ### Security And Session Hardening
 
@@ -30,10 +55,6 @@ This changelog tracks published releases and the major implementation milestones
 - hardened the release workflow so every `cosign sign-blob` result is immediately verified, `SHA256SUMS` is regenerated after sidecars exist, and the final checksum manifest is signed last
 
 ## [2.4.2] - 2026-04-18
-
-### Corrective Note
-
-- the original v2.4.2 wording about "global credential uniqueness" described the startup validation path and credential-hash registry behavior that shipped in that patch; v2.5.0 adds an explicit concurrent unique-index migration artifact for the registry as a follow-through hardening step
 
 ### Upgrading From v2.4.1
 
