@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/eblackrps/viaduct/internal/models"
@@ -17,12 +18,22 @@ const apiKeyHashPrefix = "sha256:"
 type CredentialConflictError struct {
 	TenantID         string
 	ServiceAccountID string
+	Owners           []CredentialConflictOwner
+}
+
+// CredentialConflictOwner identifies one persisted tenant or service-account credential owner.
+type CredentialConflictOwner struct {
+	TenantID         string
+	ServiceAccountID string
 }
 
 // Error returns a human-readable description of the conflicting credential owner.
 func (e *CredentialConflictError) Error() string {
 	if e == nil {
 		return "credential already exists"
+	}
+	if len(e.Owners) > 0 {
+		return fmt.Sprintf("credential already exists; tenant_ids=%v", e.TenantIDs())
 	}
 	if strings.TrimSpace(e.ServiceAccountID) != "" {
 		return fmt.Sprintf("credential already exists on service account %s in tenant %s", e.ServiceAccountID, e.TenantID)
@@ -31,6 +42,34 @@ func (e *CredentialConflictError) Error() string {
 		return fmt.Sprintf("credential already exists on tenant %s", e.TenantID)
 	}
 	return "credential already exists"
+}
+
+// TenantIDs returns the sorted set of tenant identifiers referenced by the credential conflict.
+func (e *CredentialConflictError) TenantIDs() []string {
+	if e == nil {
+		return nil
+	}
+
+	seen := make(map[string]struct{})
+	items := make([]string, 0, len(e.Owners)+1)
+	addTenant := func(tenantID string) {
+		tenantID = strings.TrimSpace(tenantID)
+		if tenantID == "" {
+			return
+		}
+		if _, ok := seen[tenantID]; ok {
+			return
+		}
+		seen[tenantID] = struct{}{}
+		items = append(items, tenantID)
+	}
+
+	addTenant(e.TenantID)
+	for _, owner := range e.Owners {
+		addTenant(owner.TenantID)
+	}
+	sort.Strings(items)
+	return items
 }
 
 // IsCredentialConflict reports whether err describes a persisted credential collision.

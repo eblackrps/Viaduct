@@ -1139,7 +1139,14 @@ func (s *PostgresStore) RevokeAuthSession(ctx context.Context, sessionID string,
 		return fmt.Errorf("postgres store: revoke auth session: expires at is required")
 	}
 
-	if _, err := s.db.ExecContext(
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("postgres store: revoke auth session %s: begin transaction: %w", sessionID, err)
+	}
+	// Rollback is best effort after commit or terminal transaction failure.
+	defer func() { _ = tx.Rollback() }()
+
+	if _, err := tx.ExecContext(
 		ctx,
 		`INSERT INTO revoked_sessions (session_id, expires_at, revoked_at)
 		 VALUES ($1, $2, NOW())
@@ -1148,6 +1155,9 @@ func (s *PostgresStore) RevokeAuthSession(ctx context.Context, sessionID string,
 		expiresAt.UTC(),
 	); err != nil {
 		return fmt.Errorf("postgres store: revoke auth session %s: %w", sessionID, err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("postgres store: revoke auth session %s: commit transaction: %w", sessionID, err)
 	}
 
 	return nil
@@ -1777,7 +1787,7 @@ func annotateCredentialMigrationError(err error) error {
 		return nil
 	}
 	if IsCredentialConflict(err) {
-		return fmt.Errorf("%w; resolve duplicated tenant or service-account API keys before restarting so each persisted credential is globally unique", err)
+		return fmt.Errorf("%w; resolve duplicated tenant or service-account API keys before restarting so each persisted credential is globally unique; see docs/operations/credential-migration.md", err)
 	}
 	return err
 }
@@ -1918,32 +1928,91 @@ func applyCredentialHashUniqueIndexMigration(ctx context.Context, db *sql.DB) er
 		return fmt.Errorf("apply credential hash unique index migration: database is nil")
 	}
 
-	var duplicateHash string
-	if err := db.QueryRowContext(
-		ctx,
-		`SELECT credential_hash
-		 FROM credential_hashes
-		 GROUP BY credential_hash
-		 HAVING COUNT(*) > 1
-		 LIMIT 1`,
-	).Scan(&duplicateHash); err != nil && !errors.Is(err, sql.ErrNoRows) {
+	conflicts, err := duplicateCredentialOwners(ctx, db)
+	if err != nil {
 		return fmt.Errorf("preflight credential hash uniqueness: %w", err)
 	}
-	if strings.TrimSpace(duplicateHash) != "" {
-		return &CredentialConflictError{}
+	if len(conflicts) > 0 {
+		return &CredentialConflictError{Owners: conflicts}
 	}
 
-	migrationSQL, err := readStoreMigrationFile("008_credential_hash_unique.sql")
+	if err := executeStoreMigration(ctx, db, "008_credential_hash_unique.sql"); err != nil {
+		return fmt.Errorf("apply credential hash unique index migration: %w", err)
+	}
+	return nil
+}
+
+func duplicateCredentialOwners(ctx context.Context, db *sql.DB) ([]CredentialConflictOwner, error) {
+	rows, err := db.QueryContext(
+		ctx,
+		`SELECT DISTINCT tenant_id, service_account_id
+		 FROM credential_hashes
+		 WHERE credential_hash IN (
+		 	SELECT credential_hash
+		 	FROM credential_hashes
+		 	GROUP BY credential_hash
+		 	HAVING COUNT(*) > 1
+		 )
+		 ORDER BY tenant_id ASC, service_account_id ASC`,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	owners := make([]CredentialConflictOwner, 0)
+	for rows.Next() {
+		var owner CredentialConflictOwner
+		if err := rows.Scan(&owner.TenantID, &owner.ServiceAccountID); err != nil {
+			return nil, err
+		}
+		owners = append(owners, owner)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return owners, nil
+}
+
+func executeStoreMigration(ctx context.Context, db *sql.DB, name string) error {
+	migrationSQL, err := readStoreMigrationFile(name)
 	if err != nil {
 		return err
 	}
 	if strings.TrimSpace(migrationSQL) == "" {
 		return nil
 	}
-	if _, err := db.ExecContext(ctx, migrationSQL); err != nil {
-		return fmt.Errorf("apply credential hash unique index migration: %w", err)
+	if storeMigrationSkipsTransaction(migrationSQL) {
+		_, err = db.ExecContext(ctx, migrationSQL)
+		return err
 	}
-	return nil
+
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	// Rollback is best effort after commit or terminal transaction failure.
+	defer func() { _ = tx.Rollback() }()
+	if _, err := tx.ExecContext(ctx, migrationSQL); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func storeMigrationSkipsTransaction(payload string) bool {
+	for _, line := range strings.Split(payload, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
+		}
+		if !strings.HasPrefix(trimmed, "--") {
+			return false
+		}
+		if strings.Contains(trimmed, "MUST NOT be wrapped in a transaction") {
+			return true
+		}
+	}
+	return false
 }
 
 func readStoreMigrationFile(name string) (string, error) {
