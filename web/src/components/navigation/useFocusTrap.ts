@@ -11,18 +11,19 @@ export function useFocusTrap(
 			return;
 		}
 
+		const trapRoot = containerRef.current;
 		const previousActiveElement = document.activeElement as HTMLElement | null;
 		const previousOverflow = document.body.style.overflow;
 		document.body.style.overflow = "hidden";
-		const focusable = getFocusableElements(containerRef.current);
+		const focusable = getFocusableElements(trapRoot);
 		if (focusable.length > 0) {
 			focusable[0].focus();
 		} else {
-			containerRef.current?.focus();
+			trapRoot?.focus();
 		}
 
 		function handleKeyDown(event: KeyboardEvent) {
-			if (!containerRef.current) {
+			if (!trapRoot) {
 				return;
 			}
 
@@ -36,9 +37,10 @@ export function useFocusTrap(
 				return;
 			}
 
-			const items = getFocusableElements(containerRef.current);
+			const items = getFocusableElements(trapRoot);
 			if (items.length === 0) {
 				event.preventDefault();
+				trapRoot.focus();
 				return;
 			}
 
@@ -62,7 +64,11 @@ export function useFocusTrap(
 		return () => {
 			document.body.style.overflow = previousOverflow;
 			document.removeEventListener("keydown", handleKeyDown);
-			previousActiveElement?.focus();
+			if (previousActiveElement && document.contains(previousActiveElement)) {
+				previousActiveElement.focus();
+				return;
+			}
+			trapRoot?.focus();
 		};
 	}, [containerRef, enabled, onEscape]);
 }
