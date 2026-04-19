@@ -12,6 +12,7 @@ import (
 
 	"github.com/eblackrps/viaduct/internal/models"
 	"github.com/eblackrps/viaduct/internal/store"
+	"go.uber.org/goleak"
 )
 
 func TestWorkspaceJobExecutor_BoundsConcurrency_Expected(t *testing.T) {
@@ -227,7 +228,7 @@ func TestWorkspaceJobExecutor_TenantQueueShareExceeded_ReturnsTypedError(t *test
 }
 
 func TestWorkspaceJobExecutor_CancelMidEnqueue_ReturnsAckOrShutdownError(t *testing.T) {
-	t.Parallel()
+	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 
 	ctx, cancel := context.WithCancel(context.Background())
 	started := make(chan struct{})
@@ -279,6 +280,12 @@ func TestWorkspaceJobExecutor_CancelMidEnqueue_ReturnsAckOrShutdownError(t *test
 		if err != nil && !errors.Is(err, ErrExecutorShuttingDown) {
 			t.Fatalf("Enqueue() error = %v, want nil or ErrExecutorShuttingDown", err)
 		}
+	}
+
+	select {
+	case <-executor.done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("executor did not finish dispatch loop before timeout")
 	}
 }
 

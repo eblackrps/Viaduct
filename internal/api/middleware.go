@@ -25,6 +25,8 @@ const (
 type tenantContextKey struct{}
 type principalContextKey struct{}
 
+var zeroCredentialHash [sha256.Size]byte
+
 // API authentication always hashes presented and persisted credentials into fixed-size
 // SHA-256 digests before comparing them so every constant-time comparison operates on
 // equal-length 32-byte inputs, including legacy plaintext records that are normalized
@@ -246,23 +248,19 @@ func principalFromServiceAccountSession(ctx context.Context, tenants []models.Te
 }
 
 func storedCredentialHashMatches(ctx context.Context, storedHash, legacyRaw string, expectedHash [32]byte) bool {
-	if isZeroCredentialHash(expectedHash) {
-		return false
-	}
 	current, ok := storedCredentialHash(ctx, storedHash, legacyRaw)
-	if !ok {
-		return false
-	}
-	return subtle.ConstantTimeCompare(current[:], expectedHash[:]) == 1
+	return ok &&
+		!isZeroCredentialHash(current) &&
+		!isZeroCredentialHash(expectedHash) &&
+		subtle.ConstantTimeCompare(current[:], expectedHash[:]) == 1
 }
 
 func constantTimeEqual(left, right string) bool {
 	leftHash := hashCredential(context.Background(), left)
 	rightHash := hashCredential(context.Background(), right)
-	if isZeroCredentialHash(leftHash) || isZeroCredentialHash(rightHash) {
-		return false
-	}
-	return subtle.ConstantTimeCompare(leftHash[:], rightHash[:]) == 1
+	return !isZeroCredentialHash(leftHash) &&
+		!isZeroCredentialHash(rightHash) &&
+		subtle.ConstantTimeCompare(leftHash[:], rightHash[:]) == 1
 }
 
 // AdminAuthMiddleware authenticates administrative API requests.
@@ -343,7 +341,7 @@ func parseCredentialHash(value string) ([32]byte, bool) {
 }
 
 func isZeroCredentialHash(value [32]byte) bool {
-	return subtle.ConstantTimeCompare(value[:], make([]byte, len(value))) == 1
+	return subtle.ConstantTimeCompare(value[:], zeroCredentialHash[:]) == 1
 }
 
 func tenantAuthMismatch(contextTenantID, principalTenantID string, credentialTenantIDs map[string]struct{}) bool {

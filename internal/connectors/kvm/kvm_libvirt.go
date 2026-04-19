@@ -13,9 +13,7 @@ import (
 )
 
 // Connect opens a live libvirt connection.
-func (c *KVMConnector) Connect(ctx context.Context) error {
-	// libvirt.NewConnect does not accept a context; keep the interface-consistent parameter explicit.
-	_ = ctx
+func (c *KVMConnector) Connect(_ context.Context) error {
 	conn, err := libvirt.NewConnect(buildLibvirtURI(c.config.Address))
 	if err != nil {
 		return fmt.Errorf("kvm: connect: %w", err)

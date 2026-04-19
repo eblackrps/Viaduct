@@ -421,6 +421,41 @@ func TestLocalRuntimeRequestAllowed_MutatingRequestsRequireSameOriginSource_Expe
 	}
 }
 
+func TestStoredCredentialHashMatches_HashedAndLegacySources_Expected(t *testing.T) {
+	t.Parallel()
+
+	digest := hashCredential(context.Background(), "tenant-secret")
+	if !storedCredentialHashMatches(context.Background(), store.HashAPIKey("tenant-secret"), "", digest) {
+		t.Fatal("storedCredentialHashMatches(hashed) = false, want true")
+	}
+	if !storedCredentialHashMatches(context.Background(), "", "tenant-secret", digest) {
+		t.Fatal("storedCredentialHashMatches(legacy) = false, want true")
+	}
+}
+
+func TestStoredCredentialHashMatches_InvalidOrZeroDigestRejected_Expected(t *testing.T) {
+	t.Parallel()
+
+	digest := hashCredential(context.Background(), "tenant-secret")
+	if storedCredentialHashMatches(context.Background(), "invalid-hex", "", digest) {
+		t.Fatal("storedCredentialHashMatches(invalid stored hash) = true, want false")
+	}
+	if storedCredentialHashMatches(context.Background(), store.HashAPIKey("tenant-secret"), "", [32]byte{}) {
+		t.Fatal("storedCredentialHashMatches(zero expected hash) = true, want false")
+	}
+}
+
+func TestConstantTimeEqual_EmptyInputsRejected_Expected(t *testing.T) {
+	t.Parallel()
+
+	if constantTimeEqual("", "") {
+		t.Fatal("constantTimeEqual(empty, empty) = true, want false")
+	}
+	if constantTimeEqual("tenant-secret", "") {
+		t.Fatal("constantTimeEqual(non-empty, empty) = true, want false")
+	}
+}
+
 func TestTenantAuthMiddleware_ContextTenantMismatch_ReturnsForbidden(t *testing.T) {
 	t.Parallel()
 
