@@ -206,7 +206,6 @@ func TestMigrateStoredCredentials_RewritesLegacyPlaintext_Expected(t *testing.T)
 	}
 	defer db.Close()
 	mock.MatchExpectationsInOrder(false)
-	mock.MatchExpectationsInOrder(false)
 
 	createdAt := time.Date(2026, time.April, 17, 12, 0, 0, 0, time.UTC)
 	serviceAccountsPayload := []byte(`[{"id":"sa-1","name":"Automation","api_key":"service-secret","role":"operator","active":true,"created_at":"2026-04-17T12:00:00Z"}]`)
@@ -249,6 +248,7 @@ func TestMigrateStoredCredentials_InsertFailureRollsBackBeforeClearingPlaintext_
 		t.Fatalf("sqlmock.New() error = %v", err)
 	}
 	defer db.Close()
+	mock.MatchExpectationsInOrder(false)
 
 	createdAt := time.Date(2026, time.April, 17, 12, 0, 0, 0, time.UTC)
 	serviceAccountsPayload := []byte(`[{"id":"sa-1","name":"Automation","api_key":"service-secret","role":"operator","active":true,"created_at":"2026-04-17T12:00:00Z"}]`)
