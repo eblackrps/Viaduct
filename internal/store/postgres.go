@@ -1692,17 +1692,17 @@ func insertTenantCredentialHashes(ctx context.Context, tx *sql.Tx, tenant models
 	if tx == nil {
 		return fmt.Errorf("insert credential hashes: transaction is nil")
 	}
-	for hash, owner := range tenantCredentialOwners(tenant) {
+	for _, entry := range orderedTenantCredentialHashes(tenant) {
 		var insertedHash string
 		if err := tx.QueryRowContext(
 			ctx,
 			`INSERT INTO credential_hashes (credential_hash, tenant_id, owner_type, service_account_id)
 			 VALUES ($1, $2, $3, $4)
 			 RETURNING credential_hash`,
-			hash,
+			entry.hash,
 			tenant.ID,
-			credentialOwnerType(owner),
-			owner.serviceAccountID,
+			credentialOwnerType(entry.owner),
+			entry.owner.serviceAccountID,
 		).Scan(&insertedHash); err != nil {
 			return translateCredentialConstraintError(err)
 		}
@@ -1711,6 +1711,44 @@ func insertTenantCredentialHashes(ctx context.Context, tx *sql.Tx, tenant models
 		}
 	}
 	return nil
+}
+
+type tenantCredentialHashInsert struct {
+	hash  string
+	owner credentialOwner
+}
+
+func orderedTenantCredentialHashes(tenant models.Tenant) []tenantCredentialHashInsert {
+	ordered := make([]tenantCredentialHashInsert, 0, 1+len(tenant.ServiceAccounts))
+	seen := make(map[string]struct{}, 1+len(tenant.ServiceAccounts))
+
+	if hash := strings.TrimSpace(tenant.APIKeyHash); hash != "" {
+		ordered = append(ordered, tenantCredentialHashInsert{
+			hash:  hash,
+			owner: credentialOwner{tenantID: tenant.ID},
+		})
+		seen[hash] = struct{}{}
+	}
+
+	for _, account := range tenant.ServiceAccounts {
+		hash := strings.TrimSpace(account.APIKeyHash)
+		if hash == "" {
+			continue
+		}
+		if _, exists := seen[hash]; exists {
+			continue
+		}
+		ordered = append(ordered, tenantCredentialHashInsert{
+			hash: hash,
+			owner: credentialOwner{
+				tenantID:         tenant.ID,
+				serviceAccountID: account.ID,
+			},
+		})
+		seen[hash] = struct{}{}
+	}
+
+	return ordered
 }
 
 func credentialOwnerType(owner credentialOwner) string {

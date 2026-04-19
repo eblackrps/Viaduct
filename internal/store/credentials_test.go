@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -16,6 +17,8 @@ import (
 	"github.com/eblackrps/viaduct/internal/models"
 	"github.com/lib/pq"
 )
+
+var credentialHashRaceDriverCounter uint64
 
 func TestPrepareTenantCredentials_HashesAndRedactsWithoutMutatingCaller_Expected(t *testing.T) {
 	t.Parallel()
@@ -283,7 +286,7 @@ func TestMigrateStoredCredentials_InsertFailureRollsBackBeforeClearingPlaintext_
 func TestInsertTenantCredentialHashes_ConcurrentDuplicate_ReturnsSingleConflict_Expected(t *testing.T) {
 	t.Parallel()
 
-	driverName := fmt.Sprintf("credential-hash-race-%d", time.Now().UnixNano())
+	driverName := fmt.Sprintf("credential-hash-race-%d", atomic.AddUint64(&credentialHashRaceDriverCounter, 1))
 	sql.Register(driverName, &credentialHashRaceDriver{
 		state: &credentialHashRaceState{
 			inserted: make(map[string]struct{}),
