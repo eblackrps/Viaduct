@@ -77,11 +77,10 @@ func (s *Server) handleAuthSessionRevoke(w http.ResponseWriter, r *http.Request)
 		})
 		return
 	}
-	if err := s.store.RevokeAuthSession(r.Context(), record.PublicID, record.ExpiresAt); err != nil {
+	if err := s.authSessions.Revoke(r.Context(), s.store, record, secret); err != nil {
 		writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 		return
 	}
-	s.authSessions.Delete(secret)
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "revoked", "session_id": record.PublicID})
 }
@@ -112,7 +111,7 @@ func (s *Server) createAuthSession(w http.ResponseWriter, r *http.Request) {
 			writeAPIError(w, r, http.StatusForbidden, "invalid_request", err.Error(), apiErrorOptions{})
 			return
 		}
-		record = s.authSessions.CreateLocal(principal.Tenant.ID, principal.Role, principal.AuthMethod, request.Remember)
+		record, err = s.authSessions.CreateLocal(principal.Tenant.ID, principal.Role, principal.AuthMethod, request.Remember)
 	case "tenant", "service-account":
 		apiKey := strings.TrimSpace(request.APIKey)
 		if apiKey == "" {
@@ -140,11 +139,15 @@ func (s *Server) createAuthSession(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		record = s.authSessions.CreateCredential(mode, principal, hashCredential(r.Context(), apiKey), request.Remember)
+		record, err = s.authSessions.CreateCredential(mode, principal, hashCredential(r.Context(), apiKey), request.Remember)
 	default:
 		writeAPIError(w, r, http.StatusBadRequest, "invalid_request", "mode must be local, tenant, or service-account", apiErrorOptions{
 			FieldErrors: []apiFieldError{{Path: "mode", Message: "mode must be local, tenant, or service-account"}},
 		})
+		return
+	}
+	if err != nil {
+		writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 		return
 	}
 
@@ -171,13 +174,17 @@ func (s *Server) createAuthSession(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) deleteAuthSession(w http.ResponseWriter, r *http.Request) {
 	if secret := readAuthSessionSecret(r); secret != "" {
-		if record, ok := s.authSessions.Lookup(secret); ok {
-			if err := s.store.RevokeAuthSession(r.Context(), record.PublicID, record.ExpiresAt); err != nil {
+		if record, ok, err := s.authSessions.LookupActive(r.Context(), s.store, secret); err != nil {
+			writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
+			return
+		} else if ok {
+			if err := s.authSessions.Revoke(r.Context(), s.store, record, secret); err != nil {
 				writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 				return
 			}
+		} else {
+			s.authSessions.Delete(secret)
 		}
-		s.authSessions.Delete(secret)
 	}
 	clearAuthSessionCookie(w, s.requestScheme(r) == "https")
 	writeJSON(w, http.StatusOK, map[string]string{"status": "cleared"})

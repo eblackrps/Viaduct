@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strings"
 	"sync"
@@ -31,6 +32,7 @@ type authSessionManager struct {
 	sessionTTL    time.Duration
 	persistentTTL time.Duration
 	sessions      map[string]authSessionRecord
+	revoked       map[string]time.Time
 }
 
 func newAuthSessionManager(sessionTTL, persistentTTL time.Duration) *authSessionManager {
@@ -44,13 +46,23 @@ func newAuthSessionManager(sessionTTL, persistentTTL time.Duration) *authSession
 		sessionTTL:    sessionTTL,
 		persistentTTL: persistentTTL,
 		sessions:      make(map[string]authSessionRecord),
+		revoked:       make(map[string]time.Time),
 	}
 }
 
-func (m *authSessionManager) CreateCredential(mode string, principal AuthenticatedPrincipal, credentialHash [32]byte, persistent bool) authSessionRecord {
+type authSessionRevocationStore interface {
+	RevokeAuthSession(ctx context.Context, sessionID string, expiresAt time.Time) error
+	IsAuthSessionRevoked(ctx context.Context, sessionID string) (bool, error)
+}
+
+func (m *authSessionManager) CreateCredential(mode string, principal AuthenticatedPrincipal, credentialHash [32]byte, persistent bool) (authSessionRecord, error) {
 	serviceAccountID := ""
 	if principal.ServiceAccount != nil {
 		serviceAccountID = principal.ServiceAccount.ID
+	}
+	expiresAt, err := m.expirationFor(persistent)
+	if err != nil {
+		return authSessionRecord{}, err
 	}
 	return m.createRecord(authSessionRecord{
 		Mode:             strings.TrimSpace(mode),
@@ -60,28 +72,31 @@ func (m *authSessionManager) CreateCredential(mode string, principal Authenticat
 		Role:             principal.Role,
 		AuthMethod:       strings.TrimSpace(principal.AuthMethod),
 		Persistent:       persistent,
+		ExpiresAt:        expiresAt,
 	})
 }
 
-func (m *authSessionManager) CreateLocal(tenantID string, role models.TenantRole, authMethod string, persistent bool) authSessionRecord {
+func (m *authSessionManager) CreateLocal(tenantID string, role models.TenantRole, authMethod string, persistent bool) (authSessionRecord, error) {
+	expiresAt, err := m.expirationFor(persistent)
+	if err != nil {
+		return authSessionRecord{}, err
+	}
 	return m.createRecord(authSessionRecord{
 		Mode:       "local",
 		TenantID:   strings.TrimSpace(tenantID),
 		Role:       role,
 		AuthMethod: strings.TrimSpace(authMethod),
 		Persistent: persistent,
+		ExpiresAt:  expiresAt,
 	})
 }
 
-func (m *authSessionManager) createRecord(seed authSessionRecord) authSessionRecord {
+func (m *authSessionManager) createRecord(seed authSessionRecord) (authSessionRecord, error) {
 	if m == nil {
-		return authSessionRecord{}
+		return authSessionRecord{}, fmt.Errorf("auth session manager is not configured")
 	}
 
-	ttl := m.sessionTTL
-	if seed.Persistent {
-		ttl = m.persistentTTL
-	}
+	now := time.Now().UTC()
 	record := authSessionRecord{
 		PublicID:         uuid.NewString(),
 		Secret:           uuid.NewString(),
@@ -92,14 +107,17 @@ func (m *authSessionManager) createRecord(seed authSessionRecord) authSessionRec
 		Role:             seed.Role,
 		AuthMethod:       strings.TrimSpace(seed.AuthMethod),
 		Persistent:       seed.Persistent,
-		ExpiresAt:        time.Now().UTC().Add(ttl),
+		ExpiresAt:        seed.ExpiresAt.UTC(),
+	}
+	if record.ExpiresAt.IsZero() || !record.ExpiresAt.After(now) {
+		return authSessionRecord{}, fmt.Errorf("auth session expiration must be set")
 	}
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.pruneLocked(time.Now().UTC())
+	m.pruneLocked(now)
 	m.sessions[record.Secret] = record
-	return record
+	return record, nil
 }
 
 func (m *authSessionManager) Lookup(secret string) (authSessionRecord, bool) {
@@ -107,18 +125,42 @@ func (m *authSessionManager) Lookup(secret string) (authSessionRecord, bool) {
 		return authSessionRecord{}, false
 	}
 
+	secret = strings.TrimSpace(secret)
+	if secret == "" {
+		return authSessionRecord{}, false
+	}
 	now := time.Now().UTC()
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	record, ok := m.sessions[strings.TrimSpace(secret)]
+	record, ok := m.sessions[secret]
 	if !ok {
 		return authSessionRecord{}, false
 	}
-	if !record.ExpiresAt.IsZero() && now.After(record.ExpiresAt) {
+	if m.revokedLocked(record.PublicID, now) || !record.ExpiresAt.After(now) {
 		delete(m.sessions, secret)
 		return authSessionRecord{}, false
 	}
 	return record, true
+}
+
+func (m *authSessionManager) LookupActive(ctx context.Context, revocations authSessionRevocationStore, secret string) (authSessionRecord, bool, error) {
+	record, ok := m.Lookup(secret)
+	if !ok || revocations == nil {
+		return record, ok, nil
+	}
+
+	revoked, err := revocations.IsAuthSessionRevoked(ctx, record.PublicID)
+	if err != nil {
+		return authSessionRecord{}, false, err
+	}
+	if !revoked {
+		return record, true, nil
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.markRevokedLocked(record, secret)
+	return authSessionRecord{}, false, nil
 }
 
 func (m *authSessionManager) Delete(secret string) {
@@ -148,7 +190,7 @@ func (m *authSessionManager) LookupByPublicID(publicID string) (authSessionRecor
 		if record.PublicID != publicID {
 			continue
 		}
-		if !record.ExpiresAt.IsZero() && now.After(record.ExpiresAt) {
+		if m.revokedLocked(record.PublicID, now) || !record.ExpiresAt.After(now) {
 			delete(m.sessions, secret)
 			return authSessionRecord{}, "", false
 		}
@@ -182,6 +224,22 @@ func (m *authSessionManager) StartSweeper(ctx context.Context, interval time.Dur
 	}()
 }
 
+func (m *authSessionManager) expirationFor(persistent bool) (time.Time, error) {
+	if m == nil {
+		return time.Time{}, fmt.Errorf("auth session manager is not configured")
+	}
+
+	ttl := m.sessionTTL
+	if persistent {
+		ttl = m.persistentTTL
+	}
+	expiresAt := time.Now().UTC().Add(ttl)
+	if expiresAt.IsZero() {
+		return time.Time{}, fmt.Errorf("auth session expiration must be set")
+	}
+	return expiresAt, nil
+}
+
 func (m *authSessionManager) SweepExpired(now time.Time) int {
 	if m == nil {
 		return 0
@@ -195,11 +253,63 @@ func (m *authSessionManager) SweepExpired(now time.Time) int {
 }
 
 func (m *authSessionManager) pruneLocked(now time.Time) {
+	for publicID, expiresAt := range m.revoked {
+		if !expiresAt.After(now) {
+			delete(m.revoked, publicID)
+		}
+	}
 	for secret, record := range m.sessions {
-		if !record.ExpiresAt.IsZero() && now.After(record.ExpiresAt) {
+		if m.revokedLocked(record.PublicID, now) || !record.ExpiresAt.After(now) {
 			delete(m.sessions, secret)
 		}
 	}
+}
+
+func (m *authSessionManager) MarkRevoked(record authSessionRecord, secret string) {
+	if m == nil {
+		return
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.markRevokedLocked(record, secret)
+}
+
+func (m *authSessionManager) Revoke(ctx context.Context, revocations authSessionRevocationStore, record authSessionRecord, secret string) error {
+	if m == nil {
+		return fmt.Errorf("auth session manager is not configured")
+	}
+	if revocations == nil {
+		return fmt.Errorf("auth session revocation store is not configured")
+	}
+	if err := revocations.RevokeAuthSession(ctx, record.PublicID, record.ExpiresAt); err != nil {
+		return err
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.markRevokedLocked(record, secret)
+	return nil
+}
+
+func (m *authSessionManager) markRevokedLocked(record authSessionRecord, secret string) {
+	m.pruneLocked(time.Now().UTC())
+	if record.PublicID != "" && record.ExpiresAt.After(time.Now().UTC()) {
+		m.revoked[record.PublicID] = record.ExpiresAt.UTC()
+	}
+	delete(m.sessions, strings.TrimSpace(secret))
+}
+
+func (m *authSessionManager) revokedLocked(publicID string, now time.Time) bool {
+	expiresAt, ok := m.revoked[strings.TrimSpace(publicID)]
+	if !ok {
+		return false
+	}
+	if !expiresAt.After(now) {
+		delete(m.revoked, publicID)
+		return false
+	}
+	return true
 }
 
 func readAuthSessionSecret(r *http.Request) string {
