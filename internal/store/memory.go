@@ -40,26 +40,28 @@ type storedWorkspaceJob struct {
 
 // MemoryStore is an in-memory Store implementation for testing and small deployments.
 type MemoryStore struct {
-	mu             sync.RWMutex
-	tenants        map[string]models.Tenant
-	snapshots      map[string]storedSnapshot
-	migrations     map[string]storedMigration
-	recoveryPoints map[string]storedRecoveryPoint
-	auditEvents    map[string][]models.AuditEvent
-	workspaces     map[string]storedWorkspace
-	workspaceJobs  map[string]storedWorkspaceJob
+	mu              sync.RWMutex
+	tenants         map[string]models.Tenant
+	snapshots       map[string]storedSnapshot
+	migrations      map[string]storedMigration
+	recoveryPoints  map[string]storedRecoveryPoint
+	auditEvents     map[string][]models.AuditEvent
+	revokedSessions map[string]time.Time
+	workspaces      map[string]storedWorkspace
+	workspaceJobs   map[string]storedWorkspaceJob
 }
 
 // NewMemoryStore creates an empty in-memory discovery snapshot store.
 func NewMemoryStore() *MemoryStore {
 	store := &MemoryStore{
-		tenants:        make(map[string]models.Tenant),
-		snapshots:      make(map[string]storedSnapshot),
-		migrations:     make(map[string]storedMigration),
-		recoveryPoints: make(map[string]storedRecoveryPoint),
-		auditEvents:    make(map[string][]models.AuditEvent),
-		workspaces:     make(map[string]storedWorkspace),
-		workspaceJobs:  make(map[string]storedWorkspaceJob),
+		tenants:         make(map[string]models.Tenant),
+		snapshots:       make(map[string]storedSnapshot),
+		migrations:      make(map[string]storedMigration),
+		recoveryPoints:  make(map[string]storedRecoveryPoint),
+		auditEvents:     make(map[string][]models.AuditEvent),
+		revokedSessions: make(map[string]time.Time),
+		workspaces:      make(map[string]storedWorkspace),
+		workspaceJobs:   make(map[string]storedWorkspaceJob),
 	}
 
 	store.tenants[DefaultTenantID] = defaultTenant()
@@ -611,6 +613,65 @@ func (s *MemoryStore) ListAuditEvents(ctx context.Context, tenantID string, limi
 	}
 
 	return items, nil
+}
+
+// RevokeAuthSession records an auth session revocation in memory until the original session expires.
+func (s *MemoryStore) RevokeAuthSession(ctx context.Context, sessionID string, expiresAt time.Time) error {
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("memory store: revoke auth session: %w", ctx.Err())
+	default:
+	}
+
+	sessionID = strings.TrimSpace(sessionID)
+	if sessionID == "" {
+		return fmt.Errorf("memory store: revoke auth session: session ID is empty")
+	}
+	if expiresAt.IsZero() {
+		return fmt.Errorf("memory store: revoke auth session: expires at is required")
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.pruneRevokedSessionsLocked(time.Now().UTC())
+	s.revokedSessions[sessionID] = expiresAt.UTC()
+	return nil
+}
+
+// IsAuthSessionRevoked reports whether a non-expired auth session revocation exists in memory.
+func (s *MemoryStore) IsAuthSessionRevoked(ctx context.Context, sessionID string) (bool, error) {
+	select {
+	case <-ctx.Done():
+		return false, fmt.Errorf("memory store: read auth session revocation: %w", ctx.Err())
+	default:
+	}
+
+	sessionID = strings.TrimSpace(sessionID)
+	if sessionID == "" {
+		return false, nil
+	}
+
+	now := time.Now().UTC()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.pruneRevokedSessionsLocked(now)
+	expiresAt, ok := s.revokedSessions[sessionID]
+	if !ok {
+		return false, nil
+	}
+	if !expiresAt.After(now) {
+		delete(s.revokedSessions, sessionID)
+		return false, nil
+	}
+	return true, nil
+}
+
+func (s *MemoryStore) pruneRevokedSessionsLocked(now time.Time) {
+	for sessionID, expiresAt := range s.revokedSessions {
+		if !expiresAt.After(now) {
+			delete(s.revokedSessions, sessionID)
+		}
+	}
 }
 
 // CreateWorkspace persists a pilot workspace in memory.

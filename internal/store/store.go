@@ -69,6 +69,10 @@ type Store interface {
 	SaveAuditEvent(ctx context.Context, event models.AuditEvent) error
 	// ListAuditEvents returns tenant audit events ordered from newest to oldest.
 	ListAuditEvents(ctx context.Context, tenantID string, limit int) ([]models.AuditEvent, error)
+	// RevokeAuthSession persists a dashboard session revocation until the original session expiry.
+	RevokeAuthSession(ctx context.Context, sessionID string, expiresAt time.Time) error
+	// IsAuthSessionRevoked reports whether a dashboard session identifier has been revoked and is still active.
+	IsAuthSessionRevoked(ctx context.Context, sessionID string) (bool, error)
 	// CreateWorkspace persists a new pilot workspace for the supplied tenant.
 	CreateWorkspace(ctx context.Context, tenantID string, workspace models.PilotWorkspace) error
 	// UpdateWorkspace overwrites a previously persisted pilot workspace.

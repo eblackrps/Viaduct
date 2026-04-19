@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/eblackrps/viaduct/internal/models"
-	"github.com/eblackrps/viaduct/internal/store"
 )
 
 type authSessionRequest struct {
@@ -24,6 +23,10 @@ type authSessionResponse struct {
 	SessionID string    `json:"session_id"`
 	Mode      string    `json:"mode"`
 	ExpiresAt time.Time `json:"expires_at,omitempty"`
+}
+
+type authSessionRevokeRequest struct {
+	SessionID string `json:"session_id"`
 }
 
 func (s *Server) handleAuthSession(w http.ResponseWriter, r *http.Request) {
@@ -40,6 +43,47 @@ func (s *Server) handleAuthSession(w http.ResponseWriter, r *http.Request) {
 	default:
 		writeAPIError(w, r, http.StatusMethodNotAllowed, "invalid_request", "method not allowed", apiErrorOptions{})
 	}
+}
+
+func (s *Server) handleAuthSessionRevoke(w http.ResponseWriter, r *http.Request) {
+	if s == nil {
+		writeAPIError(w, r, http.StatusInternalServerError, "internal_error", "auth session server is not configured", apiErrorOptions{Retryable: true})
+		return
+	}
+	if r.Method != http.MethodPost {
+		writeAPIError(w, r, http.StatusMethodNotAllowed, "invalid_request", "method not allowed", apiErrorOptions{})
+		return
+	}
+	defer r.Body.Close()
+
+	var request authSessionRevokeRequest
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil && !errors.Is(err, io.EOF) {
+		writeAPIError(w, r, http.StatusBadRequest, "invalid_request", fmt.Errorf("decode auth session revoke request: %w", err).Error(), apiErrorOptions{})
+		return
+	}
+
+	sessionID := strings.TrimSpace(request.SessionID)
+	if sessionID == "" {
+		writeAPIError(w, r, http.StatusBadRequest, "invalid_request", "session_id is required", apiErrorOptions{
+			FieldErrors: []apiFieldError{{Path: "session_id", Message: "session_id is required"}},
+		})
+		return
+	}
+
+	record, secret, ok := s.authSessions.LookupByPublicID(sessionID)
+	if !ok {
+		writeAPIError(w, r, http.StatusNotFound, "session_not_found", "dashboard auth session was not found", apiErrorOptions{
+			Details: map[string]any{"session_id": sessionID},
+		})
+		return
+	}
+	if err := s.store.RevokeAuthSession(r.Context(), record.PublicID, record.ExpiresAt); err != nil {
+		writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
+		return
+	}
+	s.authSessions.Delete(secret)
+
+	writeJSON(w, http.StatusOK, map[string]string{"status": "revoked", "session_id": record.PublicID})
 }
 
 func (s *Server) createAuthSession(w http.ResponseWriter, r *http.Request) {
@@ -87,16 +131,16 @@ func (s *Server) createAuthSession(w http.ResponseWriter, r *http.Request) {
 		var ok bool
 		switch mode {
 		case "tenant":
-			principal, ok = findTenantPrincipalByAPIKey(tenants, apiKey)
+			principal, ok = findTenantPrincipalByAPIKey(r.Context(), tenants, apiKey)
 		case "service-account":
-			principal, ok = findServiceAccountPrincipalByAPIKey(tenants, apiKey)
+			principal, ok = findServiceAccountPrincipalByAPIKey(r.Context(), tenants, apiKey)
 		}
 		if !ok {
 			writeAPIError(w, r, http.StatusUnauthorized, "invalid_credentials", "invalid tenant credentials", apiErrorOptions{})
 			return
 		}
 
-		record = s.authSessions.CreateCredential(mode, principal, store.HashAPIKey(apiKey), request.Remember)
+		record = s.authSessions.CreateCredential(mode, principal, hashCredential(r.Context(), apiKey), request.Remember)
 	default:
 		writeAPIError(w, r, http.StatusBadRequest, "invalid_request", "mode must be local, tenant, or service-account", apiErrorOptions{
 			FieldErrors: []apiFieldError{{Path: "mode", Message: "mode must be local, tenant, or service-account"}},
@@ -104,7 +148,7 @@ func (s *Server) createAuthSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	setAuthSessionCookie(w, r, record)
+	setAuthSessionCookie(w, record, s.requestScheme(r) == "https")
 	writeJSON(w, http.StatusCreated, authSessionResponse{
 		SessionID: record.PublicID,
 		Mode:      record.Mode,
@@ -127,9 +171,15 @@ func (s *Server) createAuthSession(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) deleteAuthSession(w http.ResponseWriter, r *http.Request) {
 	if secret := readAuthSessionSecret(r); secret != "" {
+		if record, ok := s.authSessions.Lookup(secret); ok {
+			if err := s.store.RevokeAuthSession(r.Context(), record.PublicID, record.ExpiresAt); err != nil {
+				writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
+				return
+			}
+		}
 		s.authSessions.Delete(secret)
 	}
-	clearAuthSessionCookie(w, r)
+	clearAuthSessionCookie(w, s.requestScheme(r) == "https")
 	writeJSON(w, http.StatusOK, map[string]string{"status": "cleared"})
 }
 

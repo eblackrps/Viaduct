@@ -538,6 +538,13 @@ func TestServer_HandleHealthzAndReadyz_ReturnsExpectedStatus_Expected(t *testing
 		t.Fatalf("readyz status = %d, want %d: %s", readinessRecorder.Code, http.StatusOK, readinessRecorder.Body.String())
 	}
 
+	pingRequest := httptest.NewRequest(http.MethodGet, "/api/v1/ping", nil)
+	pingRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(pingRecorder, pingRequest)
+	if pingRecorder.Code != http.StatusOK {
+		t.Fatalf("ping status = %d, want %d: %s", pingRecorder.Code, http.StatusOK, pingRecorder.Body.String())
+	}
+
 	var readiness readinessResponse
 	if err := json.Unmarshal(readinessRecorder.Body.Bytes(), &readiness); err != nil {
 		t.Fatalf("Unmarshal(readiness) error = %v", err)
@@ -580,6 +587,41 @@ func TestServer_Handler_AuthSessionRouteRateLimited_Expected(t *testing.T) {
 	}
 }
 
+func TestServer_Handler_AuthSessionRouteRateLimited_TwentyFirstRequestRejected_Expected(t *testing.T) {
+	t.Parallel()
+
+	stateStore := store.NewMemoryStore()
+	if err := stateStore.CreateTenant(context.Background(), models.Tenant{
+		ID:     "tenant-a",
+		Name:   "Tenant A",
+		APIKey: "tenant-a-key",
+		Active: true,
+	}); err != nil {
+		t.Fatalf("CreateTenant() error = %v", err)
+	}
+
+	server := mustNewServer(t, stateStore)
+	server.authRateLimiter = newTenantRateLimiter(20, time.Minute)
+	handler := server.Handler()
+
+	for index := 0; index < 21; index++ {
+		request := httptest.NewRequest(http.MethodPost, "/api/v1/auth/session", bytes.NewBufferString(`{"mode":"tenant","api_key":"tenant-a-key"}`))
+		request.RemoteAddr = "203.0.113.10:41000"
+		request.Header.Set("Content-Type", "application/json")
+		recorder := httptest.NewRecorder()
+
+		handler.ServeHTTP(recorder, request)
+
+		expectedStatus := http.StatusCreated
+		if index == 20 {
+			expectedStatus = http.StatusTooManyRequests
+		}
+		if recorder.Code != expectedStatus {
+			t.Fatalf("request %d status = %d, want %d: %s", index+1, recorder.Code, expectedStatus, recorder.Body.String())
+		}
+	}
+}
+
 func TestServer_Handler_LocalRuntimeAuthSession_IssuesOperatorSession_Expected(t *testing.T) {
 	t.Parallel()
 
@@ -591,6 +633,7 @@ func TestServer_Handler_LocalRuntimeAuthSession_IssuesOperatorSession_Expected(t
 	createRequest := httptest.NewRequest(http.MethodPost, "http://127.0.0.1/api/v1/auth/session", bytes.NewBufferString(`{"mode":"local"}`))
 	createRequest.RemoteAddr = "127.0.0.1:41000"
 	createRequest.Header.Set("Content-Type", "application/json")
+	createRequest.Header.Set("Origin", "http://127.0.0.1")
 	createRecorder := httptest.NewRecorder()
 
 	handler.ServeHTTP(createRecorder, createRequest)
@@ -686,6 +729,228 @@ func TestServer_Handler_LocalRuntimeAuthSession_RejectsForwardedProxyRequest_Exp
 	handler.ServeHTTP(recorder, request)
 	if recorder.Code != http.StatusForbidden {
 		t.Fatalf("status = %d, want %d: %s", recorder.Code, http.StatusForbidden, recorder.Body.String())
+	}
+}
+
+func TestServer_Handler_AuthSessionCookieSecure_TrustedForwardedProtoOnlyWhenProxyTrusted_Expected(t *testing.T) {
+	t.Setenv("VIADUCT_TRUSTED_PROXIES", "10.0.0.0/8")
+
+	stateStore := store.NewMemoryStore()
+	if err := stateStore.CreateTenant(context.Background(), models.Tenant{
+		ID:     "tenant-a",
+		Name:   "Tenant A",
+		APIKey: "tenant-a-key",
+		Active: true,
+	}); err != nil {
+		t.Fatalf("CreateTenant() error = %v", err)
+	}
+
+	server := mustNewServer(t, stateStore)
+	server.SetBindHost("0.0.0.0")
+	handler := server.Handler()
+
+	request := httptest.NewRequest(http.MethodPost, "http://viaduct.example.com/api/v1/auth/session", bytes.NewBufferString(`{"mode":"tenant","api_key":"tenant-a-key"}`))
+	request.RemoteAddr = "10.10.10.10:41000"
+	request.Host = "viaduct.example.com"
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("X-Forwarded-For", "203.0.113.10")
+	request.Header.Set("X-Forwarded-Proto", "https")
+	recorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want %d: %s", recorder.Code, http.StatusCreated, recorder.Body.String())
+	}
+
+	cookies := recorder.Result().Cookies()
+	if len(cookies) == 0 || !cookies[0].Secure {
+		t.Fatalf("session cookie secure = %t, want true", len(cookies) > 0 && cookies[0].Secure)
+	}
+}
+
+func TestServer_Handler_AuthSessionCookieSecure_IgnoresForwardedProtoWithoutTrustedProxy_Expected(t *testing.T) {
+	t.Parallel()
+
+	stateStore := store.NewMemoryStore()
+	if err := stateStore.CreateTenant(context.Background(), models.Tenant{
+		ID:     "tenant-a",
+		Name:   "Tenant A",
+		APIKey: "tenant-a-key",
+		Active: true,
+	}); err != nil {
+		t.Fatalf("CreateTenant() error = %v", err)
+	}
+
+	server := mustNewServer(t, stateStore)
+	server.SetBindHost("0.0.0.0")
+	handler := server.Handler()
+
+	request := httptest.NewRequest(http.MethodPost, "http://viaduct.example.com/api/v1/auth/session", bytes.NewBufferString(`{"mode":"tenant","api_key":"tenant-a-key"}`))
+	request.RemoteAddr = "10.10.10.10:41000"
+	request.Host = "viaduct.example.com"
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("X-Forwarded-For", "203.0.113.10")
+	request.Header.Set("X-Forwarded-Proto", "https")
+	recorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want %d: %s", recorder.Code, http.StatusCreated, recorder.Body.String())
+	}
+
+	cookies := recorder.Result().Cookies()
+	if len(cookies) == 0 || cookies[0].Secure {
+		t.Fatalf("session cookie secure = %t, want false", len(cookies) > 0 && cookies[0].Secure)
+	}
+}
+
+func TestServer_Handler_AuthSessionCookieSecure_IgnoresForwardedProtoOnLoopbackBind_Expected(t *testing.T) {
+	t.Setenv("VIADUCT_TRUSTED_PROXIES", "10.0.0.0/8")
+
+	stateStore := store.NewMemoryStore()
+	if err := stateStore.CreateTenant(context.Background(), models.Tenant{
+		ID:     "tenant-a",
+		Name:   "Tenant A",
+		APIKey: "tenant-a-key",
+		Active: true,
+	}); err != nil {
+		t.Fatalf("CreateTenant() error = %v", err)
+	}
+
+	server := mustNewServer(t, stateStore)
+	server.SetBindHost("127.0.0.1")
+	handler := server.Handler()
+
+	request := httptest.NewRequest(http.MethodPost, "http://127.0.0.1/api/v1/auth/session", bytes.NewBufferString(`{"mode":"tenant","api_key":"tenant-a-key"}`))
+	request.RemoteAddr = "10.10.10.10:41000"
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("X-Forwarded-For", "203.0.113.10")
+	request.Header.Set("X-Forwarded-Proto", "https")
+	recorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want %d: %s", recorder.Code, http.StatusCreated, recorder.Body.String())
+	}
+
+	cookies := recorder.Result().Cookies()
+	if len(cookies) == 0 || cookies[0].Secure {
+		t.Fatalf("session cookie secure = %t, want false", len(cookies) > 0 && cookies[0].Secure)
+	}
+}
+
+func TestServer_Handler_DeleteAuthSession_RevokesCurrentSession_Expected(t *testing.T) {
+	t.Parallel()
+
+	stateStore := store.NewMemoryStore()
+	if err := stateStore.CreateTenant(context.Background(), models.Tenant{
+		ID:     "tenant-a",
+		Name:   "Tenant A",
+		APIKey: "tenant-a-key",
+		Active: true,
+	}); err != nil {
+		t.Fatalf("CreateTenant() error = %v", err)
+	}
+
+	server := mustNewServer(t, stateStore)
+	handler := server.Handler()
+
+	createRequest := httptest.NewRequest(http.MethodPost, "/api/v1/auth/session", bytes.NewBufferString(`{"mode":"tenant","api_key":"tenant-a-key"}`))
+	createRequest.RemoteAddr = "203.0.113.10:41000"
+	createRequest.Header.Set("Content-Type", "application/json")
+	createRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(createRecorder, createRequest)
+	if createRecorder.Code != http.StatusCreated {
+		t.Fatalf("create status = %d, want %d: %s", createRecorder.Code, http.StatusCreated, createRecorder.Body.String())
+	}
+
+	deleteRequest := httptest.NewRequest(http.MethodDelete, "/api/v1/auth/session", nil)
+	deleteRequest.RemoteAddr = "203.0.113.10:41000"
+	for _, cookie := range createRecorder.Result().Cookies() {
+		deleteRequest.AddCookie(cookie)
+	}
+	deleteRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(deleteRecorder, deleteRequest)
+	if deleteRecorder.Code != http.StatusOK {
+		t.Fatalf("delete status = %d, want %d: %s", deleteRecorder.Code, http.StatusOK, deleteRecorder.Body.String())
+	}
+
+	currentTenantRequest := httptest.NewRequest(http.MethodGet, "/api/v1/tenants/current", nil)
+	currentTenantRequest.RemoteAddr = "203.0.113.10:41000"
+	for _, cookie := range createRecorder.Result().Cookies() {
+		currentTenantRequest.AddCookie(cookie)
+	}
+	currentTenantRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(currentTenantRecorder, currentTenantRequest)
+	if currentTenantRecorder.Code != http.StatusUnauthorized {
+		t.Fatalf("current tenant status = %d, want %d: %s", currentTenantRecorder.Code, http.StatusUnauthorized, currentTenantRecorder.Body.String())
+	}
+}
+
+func TestServer_Handler_AdminAuthSessionRevoke_BlocksSessionLookup_Expected(t *testing.T) {
+	t.Setenv("VIADUCT_ADMIN_KEY", "admin-secret")
+
+	stateStore := store.NewMemoryStore()
+	if err := stateStore.CreateTenant(context.Background(), models.Tenant{
+		ID:     "tenant-a",
+		Name:   "Tenant A",
+		APIKey: "tenant-a-key",
+		Active: true,
+	}); err != nil {
+		t.Fatalf("CreateTenant() error = %v", err)
+	}
+
+	server := mustNewServer(t, stateStore)
+	handler := server.Handler()
+
+	createRequest := httptest.NewRequest(http.MethodPost, "/api/v1/auth/session", bytes.NewBufferString(`{"mode":"tenant","api_key":"tenant-a-key"}`))
+	createRequest.RemoteAddr = "203.0.113.10:41000"
+	createRequest.Header.Set("Content-Type", "application/json")
+	createRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(createRecorder, createRequest)
+	if createRecorder.Code != http.StatusCreated {
+		t.Fatalf("create status = %d, want %d: %s", createRecorder.Code, http.StatusCreated, createRecorder.Body.String())
+	}
+
+	var sessionResponse authSessionResponse
+	if err := json.Unmarshal(createRecorder.Body.Bytes(), &sessionResponse); err != nil {
+		t.Fatalf("Unmarshal(create auth session) error = %v", err)
+	}
+
+	revokeRequest := httptest.NewRequest(http.MethodPost, "/api/v1/auth/session/revoke", bytes.NewBufferString(fmt.Sprintf(`{"session_id":%q}`, sessionResponse.SessionID)))
+	revokeRequest.RemoteAddr = "203.0.113.10:41000"
+	revokeRequest.Header.Set("Content-Type", "application/json")
+	revokeRequest.Header.Set(adminCredentialHeader, "admin-secret")
+	revokeRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(revokeRecorder, revokeRequest)
+	if revokeRecorder.Code != http.StatusOK {
+		t.Fatalf("revoke status = %d, want %d: %s", revokeRecorder.Code, http.StatusOK, revokeRecorder.Body.String())
+	}
+
+	currentTenantRequest := httptest.NewRequest(http.MethodGet, "/api/v1/tenants/current", nil)
+	currentTenantRequest.RemoteAddr = "203.0.113.10:41000"
+	for _, cookie := range createRecorder.Result().Cookies() {
+		currentTenantRequest.AddCookie(cookie)
+	}
+	currentTenantRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(currentTenantRecorder, currentTenantRequest)
+	if currentTenantRecorder.Code != http.StatusUnauthorized {
+		t.Fatalf("current tenant status = %d, want %d: %s", currentTenantRecorder.Code, http.StatusUnauthorized, currentTenantRecorder.Body.String())
+	}
+}
+
+func TestNewServer_PersistentAuthSessionTTL_DefaultAndOverride_Expected(t *testing.T) {
+	stateStore := store.NewMemoryStore()
+
+	defaultServer := mustNewServer(t, stateStore)
+	if defaultServer.authSessions.persistentTTL != 7*24*time.Hour {
+		t.Fatalf("default persistentTTL = %s, want %s", defaultServer.authSessions.persistentTTL, 7*24*time.Hour)
+	}
+
+	t.Setenv("VIADUCT_LONG_SESSION_DAYS", "21")
+	overrideServer := mustNewServer(t, stateStore)
+	if overrideServer.authSessions.persistentTTL != 21*24*time.Hour {
+		t.Fatalf("override persistentTTL = %s, want %s", overrideServer.authSessions.persistentTTL, 21*24*time.Hour)
 	}
 }
 
@@ -1086,6 +1351,24 @@ func TestServer_Handler_ExplicitAllowedCORSOrigin_Expected(t *testing.T) {
 	}
 	if got := recorder.Header().Get("Access-Control-Allow-Origin"); got != "http://localhost:5173" {
 		t.Fatalf("Access-Control-Allow-Origin = %q, want explicit configured origin", got)
+	}
+}
+
+func TestServer_Handler_ExplicitAllowedCORSOrigin_CaseInsensitive_Expected(t *testing.T) {
+	t.Setenv("VIADUCT_ALLOWED_ORIGINS", "HTTP://LOCALHOST:5173")
+	server := mustNewServer(t, store.NewMemoryStore())
+	handler := server.Handler()
+
+	request := httptest.NewRequest(http.MethodOptions, "/api/v1/health", nil)
+	request.Header.Set("Origin", "http://localhost:5173")
+	recorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusNoContent)
+	}
+	if got := recorder.Header().Get("Access-Control-Allow-Origin"); got != "http://localhost:5173" {
+		t.Fatalf("Access-Control-Allow-Origin = %q, want lowercase request origin", got)
 	}
 }
 

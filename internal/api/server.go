@@ -9,7 +9,6 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -128,6 +127,7 @@ type Server struct {
 	dashboardDir          string
 	bindHost              string
 	allowedOrigins        map[string]struct{}
+	trustedProxies        []*net.IPNet
 	backgroundTaskTimeout time.Duration
 	workspaceJobTimeout   time.Duration
 	workspaceJobExecutor  workspaceJobEnqueuer
@@ -185,10 +185,17 @@ func NewServer(engine *discovery.Engine, stateStore store.Store, port int, catal
 	if err != nil {
 		return nil, err
 	}
+	trustedProxies, err := parseTrustedProxyCIDRs(os.Getenv("VIADUCT_TRUSTED_PROXIES"))
+	if err != nil {
+		return nil, fmt.Errorf("api server: parse VIADUCT_TRUSTED_PROXIES: %w", err)
+	}
 	if len(allowedOrigins) == 0 {
 		packageLogger.Info("api CORS policy set to same-origin only")
 	} else {
 		packageLogger.Info("api CORS policy configured", "allowed_origins", keysFromSet(allowedOrigins))
+	}
+	if len(trustedProxies) > 0 {
+		packageLogger.Info("api trusted proxy ranges configured", "trusted_proxies", trustedProxyStrings(trustedProxies))
 	}
 	if !authEnabled {
 		packageLogger.Warn(
@@ -216,10 +223,11 @@ func NewServer(engine *discovery.Engine, stateStore store.Store, port int, catal
 		driftDetector:         lifecycle.NewDriftDetector(stateStore, policyEngine, lifecycle.DriftConfig{}),
 		dashboardDir:          resolveDashboardAssetDir(""),
 		allowedOrigins:        allowedOrigins,
+		trustedProxies:        trustedProxies,
 		backgroundTaskTimeout: durationEnv("VIADUCT_BACKGROUND_TASK_TIMEOUT", 24*time.Hour),
 		workspaceJobTimeout:   durationEnv("VIADUCT_WORKSPACE_JOB_TIMEOUT", 2*time.Minute),
 		workspaceJobWorkers:   intEnv("VIADUCT_WORKSPACE_JOB_CONCURRENCY", defaultWorkspaceJobConcurrency),
-		authSessions:          newAuthSessionManager(durationEnv("VIADUCT_AUTH_SESSION_TTL", 12*time.Hour), durationEnv("VIADUCT_AUTH_REMEMBER_TTL", 30*24*time.Hour)),
+		authSessions:          newAuthSessionManager(durationEnv("VIADUCT_AUTH_SESSION_TTL", 12*time.Hour), persistentAuthSessionTTL()),
 		connectorCircuits:     newConnectorCircuitRegistry(loadConnectorCircuitConfig()),
 		apiCSP:                configuredSecurityHeader("VIADUCT_API_CSP", "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"),
 		dashboardCSP: configuredSecurityHeader(
@@ -274,6 +282,18 @@ func (s *Server) SetAllowUnauthenticatedRemote(enabled bool) {
 		return
 	}
 	s.allowUnauthRemote = enabled
+}
+
+func bindHostLooksLikeUnixSocket(host string) bool {
+	trimmed := strings.TrimSpace(host)
+	if trimmed == "" {
+		return false
+	}
+	return strings.HasPrefix(trimmed, "unix:") ||
+		strings.HasPrefix(trimmed, "unix://") ||
+		strings.HasSuffix(trimmed, ".sock") ||
+		strings.Contains(trimmed, "/") ||
+		strings.Contains(trimmed, "\\")
 }
 
 func resolveOperatorPath(path string) string {
@@ -389,6 +409,12 @@ func (s *Server) validateBindSecurity(ctx context.Context) error {
 	if s == nil {
 		return nil
 	}
+	if s.localRuntimeMode && bindHostLooksLikeUnixSocket(s.bindHost) {
+		packageLogger.Warn(
+			"local loopback enforcement only applies to TCP listeners; unix-style bind addresses are not eligible for loopback-only runtime bootstrap",
+			"bind_host", strings.TrimSpace(s.bindHost),
+		)
+	}
 	if bindHostIsLoopbackOnly(s.bindHost) {
 		return nil
 	}
@@ -412,13 +438,15 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/healthz", s.handleHealthz)
 	mux.HandleFunc("/readyz", s.handleReadyz)
 	mux.HandleFunc("/api/v1/health", s.handleHealth)
+	mux.HandleFunc("/api/v1/ping", s.handlePing)
 	mux.HandleFunc("/api/v1/about", s.handleAbout)
 	mux.Handle("/metrics", AdminAuthMiddleware(s.adminAPIKey, http.HandlerFunc(s.handleMetrics)))
 	mux.Handle("/api/v1/metrics", AdminAuthMiddleware(s.adminAPIKey, http.HandlerFunc(s.handleMetrics)))
 	mux.HandleFunc("/api/v1/docs", s.handleOpenAPIDocsRedirect)
 	mux.HandleFunc("/api/v1/docs/swagger.json", s.handleSwaggerJSON)
 	mux.Handle("/api/v1/docs/", swaggerUIHandler())
-	mux.Handle("/api/v1/auth/session", ClientRateLimitMiddleware(s.authRateLimiter, http.HandlerFunc(s.handleAuthSession)))
+	mux.Handle("/api/v1/auth/session", s.clientRateLimitMiddleware(s.authRateLimiter, http.HandlerFunc(s.handleAuthSession)))
+	mux.Handle("/api/v1/auth/session/revoke", AdminAuthMiddleware(s.adminAPIKey, http.HandlerFunc(s.handleAuthSessionRevoke)))
 	mux.Handle("/api/v1/admin/tenants", AdminAuthMiddleware(s.adminAPIKey, http.HandlerFunc(s.handleAdminTenants)))
 	mux.Handle("/api/v1/admin/tenants/", AdminAuthMiddleware(s.adminAPIKey, http.HandlerFunc(s.handleAdminTenantByID)))
 
@@ -452,7 +480,7 @@ func (s *Server) Handler() http.Handler {
 	tenantMux.Handle("/api/v1/service-accounts", tenantRoute(models.TenantRoleAdmin, models.TenantPermissionTenantManage, s.handleServiceAccounts))
 	tenantMux.Handle("/api/v1/service-accounts/", tenantRoute(models.TenantRoleAdmin, models.TenantPermissionTenantManage, s.handleServiceAccountByID))
 
-	tenantHandler := ClientRateLimitMiddleware(s.clientRateLimiter, s.tenantAuthMiddleware(TenantRateLimitMiddleware(s.rateLimiter, tenantMux)))
+	tenantHandler := s.clientRateLimitMiddleware(s.clientRateLimiter, s.tenantAuthMiddleware(TenantRateLimitMiddleware(s.rateLimiter, tenantMux)))
 	mux.Handle("/api/v1/inventory", tenantHandler)
 	mux.Handle("/api/v2/inventory", tenantHandler)
 	mux.Handle("/api/v1/audit", tenantHandler)
@@ -507,6 +535,10 @@ func (s *Server) workspaceDocumentRoute(handler http.HandlerFunc) http.Handler {
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	s.handleReadyz(w, r)
+}
+
+func (s *Server) handlePing(w http.ResponseWriter, r *http.Request) {
+	s.handleHealthz(w, r)
 }
 
 func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request) {
@@ -1713,7 +1745,7 @@ func (s *Server) applySecurityHeaders(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("X-Frame-Options", "DENY")
-	if requestScheme(r) == "https" {
+	if s.requestScheme(r) == "https" {
 		w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 	}
 }
@@ -1724,7 +1756,7 @@ func (s *Server) applyDashboardSecurityHeaders(w http.ResponseWriter, r *http.Re
 	w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("X-Frame-Options", "DENY")
-	if requestScheme(r) == "https" {
+	if s.requestScheme(r) == "https" {
 		w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 	}
 }
@@ -1734,35 +1766,36 @@ func (s *Server) allowedOrigin(r *http.Request) (string, bool) {
 	if origin == "" {
 		return "", true
 	}
-	if sameOriginRequest(r, origin) {
+	if sameOriginHost(s.requestScheme(r), requestHost(r), origin) {
 		return origin, true
 	}
 	if s == nil || len(s.allowedOrigins) == 0 {
 		return origin, false
 	}
-	_, ok := s.allowedOrigins[origin]
+	normalizedOrigin, ok := normalizedOriginKey(origin)
+	if !ok {
+		return origin, false
+	}
+	_, ok = s.allowedOrigins[normalizedOrigin]
 	return origin, ok
 }
 
-func sameOriginRequest(r *http.Request, origin string) bool {
-	parsedOrigin, err := url.Parse(origin)
-	if err != nil {
-		return false
-	}
-	return strings.EqualFold(parsedOrigin.Scheme, requestScheme(r)) && strings.EqualFold(parsedOrigin.Host, r.Host)
+func (s *Server) requestScheme(r *http.Request) string {
+	return s.requestTrustConfig().requestScheme(r)
 }
 
-func requestScheme(r *http.Request) string {
-	if r == nil {
-		return "http"
+func (s *Server) requestPeerIP(r *http.Request) (net.IP, bool) {
+	return s.requestTrustConfig().peerIP(r)
+}
+
+func (s *Server) requestTrustConfig() requestTrustConfig {
+	if s == nil {
+		return requestTrustConfig{}
 	}
-	if forwarded := strings.TrimSpace(r.Header.Get("X-Forwarded-Proto")); forwarded != "" {
-		return strings.ToLower(forwarded)
+	return requestTrustConfig{
+		loopbackOnly:   bindHostIsLoopbackOnly(s.bindHost),
+		trustedProxies: s.trustedProxies,
 	}
-	if r.TLS != nil {
-		return "https"
-	}
-	return "http"
 }
 
 func isV2Path(path string) bool {
@@ -1793,9 +1826,31 @@ func configuredAllowedOrigins(raw string, authEnabled bool) (map[string]struct{}
 		if origin == "*" && authEnabled {
 			return nil, fmt.Errorf("api server: VIADUCT_ALLOWED_ORIGINS cannot include * when API key authentication is enabled")
 		}
-		allowed[origin] = struct{}{}
+		if origin == "*" {
+			allowed[origin] = struct{}{}
+			continue
+		}
+		normalizedOrigin, ok := normalizedOriginKey(origin)
+		if !ok {
+			return nil, fmt.Errorf("api server: VIADUCT_ALLOWED_ORIGINS entry %q must be a valid origin", origin)
+		}
+		allowed[normalizedOrigin] = struct{}{}
 	}
 	return allowed, nil
+}
+
+func trustedProxyStrings(networks []*net.IPNet) []string {
+	if len(networks) == 0 {
+		return nil
+	}
+	items := make([]string, 0, len(networks))
+	for _, network := range networks {
+		if network == nil {
+			continue
+		}
+		items = append(items, network.String())
+	}
+	return items
 }
 
 func durationEnv(name string, fallback time.Duration) time.Duration {
@@ -1808,6 +1863,23 @@ func durationEnv(name string, fallback time.Duration) time.Duration {
 		return fallback
 	}
 	return parsed
+}
+
+func persistentAuthSessionTTL() time.Duration {
+	const defaultPersistentTTL = 7 * 24 * time.Hour
+
+	if rawDays := strings.TrimSpace(os.Getenv("VIADUCT_LONG_SESSION_DAYS")); rawDays != "" {
+		days, err := strconv.Atoi(rawDays)
+		if err == nil && days > 0 {
+			return time.Duration(days) * 24 * time.Hour
+		}
+	}
+
+	ttl := durationEnv("VIADUCT_AUTH_REMEMBER_TTL", defaultPersistentTTL)
+	if ttl > defaultPersistentTTL {
+		return defaultPersistentTTL
+	}
+	return ttl
 }
 
 func intEnv(name string, fallback int) int {
