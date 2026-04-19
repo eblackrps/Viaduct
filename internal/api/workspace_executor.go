@@ -6,15 +6,19 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 )
 
 const defaultWorkspaceJobConcurrency = 4
+const defaultWorkspaceEnqueueTimeout = 30 * time.Second
 
 var (
 	// ErrExecutorShuttingDown reports that the workspace executor stopped accepting work because the server is shutting down.
 	ErrExecutorShuttingDown = errors.New("workspace job executor is shutting down")
 	// ErrTenantQueueFull reports that a single tenant exhausted its fair-share of the queued workspace capacity.
 	ErrTenantQueueFull = errors.New("workspace job executor tenant queue share is full")
+	// ErrEnqueueTimeout reports that a caller waited too long for the executor to acknowledge queue admission.
+	ErrEnqueueTimeout = errors.New("workspace job executor enqueue timed out")
 )
 
 type workspaceJobTask struct {
@@ -38,32 +42,46 @@ type workspaceJobEnqueueRequest struct {
 	result chan error
 }
 
+type workspaceWorkerHandle struct {
+	tasks chan workspaceJobTask
+	exit  <-chan struct{}
+}
+
 type workspaceJobExecutor struct {
-	ctx           context.Context
-	done          chan struct{}
-	enqueue       chan workspaceJobEnqueueRequest
-	workerReady   chan chan workspaceJobTask
-	queueCapacity int
-	run           func(context.Context, workspaceJobTask)
+	ctx            context.Context
+	done           chan struct{}
+	enqueue        chan workspaceJobEnqueueRequest
+	workerReady    chan workspaceWorkerHandle
+	queueCapacity  int
+	enqueueTimeout time.Duration
+	run            func(context.Context, workspaceJobTask)
 
 	queueMu        sync.RWMutex
 	queuedByTenant map[string]int
 }
 
 func newWorkspaceJobExecutor(ctx context.Context, concurrency int, run func(context.Context, workspaceJobTask)) *workspaceJobExecutor {
+	return newWorkspaceJobExecutorWithTimeout(ctx, concurrency, defaultWorkspaceEnqueueTimeout, run)
+}
+
+func newWorkspaceJobExecutorWithTimeout(ctx context.Context, concurrency int, enqueueTimeout time.Duration, run func(context.Context, workspaceJobTask)) *workspaceJobExecutor {
 	if concurrency <= 0 {
 		concurrency = defaultWorkspaceJobConcurrency
 	}
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	if enqueueTimeout <= 0 {
+		enqueueTimeout = defaultWorkspaceEnqueueTimeout
+	}
 
 	executor := &workspaceJobExecutor{
 		ctx:            ctx,
 		done:           make(chan struct{}),
 		enqueue:        make(chan workspaceJobEnqueueRequest),
-		workerReady:    make(chan chan workspaceJobTask),
+		workerReady:    make(chan workspaceWorkerHandle),
 		queueCapacity:  concurrency * 2,
+		enqueueTimeout: enqueueTimeout,
 		run:            run,
 		queuedByTenant: make(map[string]int),
 	}
@@ -89,11 +107,19 @@ func (e *workspaceJobExecutor) Enqueue(ctx context.Context, task workspaceJobTas
 		task:   task,
 		result: make(chan error, 1),
 	}
+	waitCtx, cancel := context.WithTimeout(ctx, e.enqueueTimeout)
+	defer cancel()
+
 	select {
 	case <-e.done:
 		return e.executorErr()
 	case <-ctx.Done():
 		return ctx.Err()
+	case <-waitCtx.Done():
+		if ctx.Err() == nil && errors.Is(waitCtx.Err(), context.DeadlineExceeded) {
+			return ErrEnqueueTimeout
+		}
+		return waitCtx.Err()
 	case e.enqueue <- request:
 	}
 
@@ -104,6 +130,11 @@ func (e *workspaceJobExecutor) Enqueue(ctx context.Context, task workspaceJobTas
 		return e.executorErr()
 	case <-ctx.Done():
 		return ctx.Err()
+	case <-waitCtx.Done():
+		if ctx.Err() == nil && errors.Is(waitCtx.Err(), context.DeadlineExceeded) {
+			return ErrEnqueueTimeout
+		}
+		return waitCtx.Err()
 	}
 }
 
@@ -134,7 +165,7 @@ func (e *workspaceJobExecutor) dispatch() {
 	defer e.clearQueueDepths()
 
 	queue := make([]workspaceJobEnqueueRequest, 0, e.queueCapacity)
-	idleWorkers := make([]chan workspaceJobTask, 0)
+	idleWorkers := make([]workspaceWorkerHandle, 0)
 
 	for {
 		if len(idleWorkers) > 0 && len(queue) > 0 {
@@ -158,9 +189,6 @@ func (e *workspaceJobExecutor) dispatch() {
 			e.drainEnqueueRequests()
 			return
 		case worker := <-e.workerReady:
-			if worker == nil {
-				continue
-			}
 			idleWorkers = append(idleWorkers, worker)
 		case request := <-e.enqueue:
 			if e.ctx.Err() != nil {
@@ -194,9 +222,6 @@ func (e *workspaceJobExecutor) dispatch() {
 					e.drainEnqueueRequests()
 					return
 				case worker := <-e.workerReady:
-					if worker == nil {
-						continue
-					}
 					oldest := queue[0]
 					queue = queue[1:]
 					e.adjustTenantQueueDepth(oldest.task.tenantID, -1)
@@ -223,7 +248,7 @@ func (e *workspaceJobExecutor) dispatch() {
 	}
 }
 
-func (e *workspaceJobExecutor) assignTask(worker chan workspaceJobTask, request workspaceJobEnqueueRequest) bool {
+func (e *workspaceJobExecutor) assignTask(worker workspaceWorkerHandle, request workspaceJobEnqueueRequest) bool {
 	if e == nil {
 		request.task.cleanup()
 		request.respond(fmt.Errorf("workspace job executor is not configured"))
@@ -235,7 +260,11 @@ func (e *workspaceJobExecutor) assignTask(worker chan workspaceJobTask, request 
 		request.task.cleanup()
 		request.respond(ErrExecutorShuttingDown)
 		return false
-	case worker <- request.task:
+	case <-worker.exit:
+		request.task.cleanup()
+		request.respond(ErrExecutorShuttingDown)
+		return false
+	case worker.tasks <- request.task:
 		request.respond(nil)
 		return true
 	}
@@ -272,11 +301,14 @@ func (e *workspaceJobExecutor) worker() {
 	}
 
 	tasks := make(chan workspaceJobTask)
+	workerExit := make(chan struct{})
+	defer close(workerExit)
+	handle := workspaceWorkerHandle{tasks: tasks, exit: workerExit}
 	for {
 		select {
 		case <-e.ctx.Done():
 			return
-		case e.workerReady <- tasks:
+		case e.workerReady <- handle:
 		}
 
 		select {
