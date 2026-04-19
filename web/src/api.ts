@@ -780,7 +780,11 @@ async function toAPIError(response: Response): Promise<Error> {
 					fieldErrors: payload.error.field_errors ?? [],
 				});
 			}
-		} catch {
+		} catch (error) {
+			console.warn("failed to parse structured API error payload", {
+				error,
+				status: response.status,
+			});
 			// Fall through to the raw response body.
 		}
 	}
@@ -835,7 +839,11 @@ function formatDetailValue(value: unknown): string {
 
 	try {
 		return JSON.stringify(value);
-	} catch {
+	} catch (error) {
+		console.warn("failed to serialize API error detail", {
+			error,
+			value,
+		});
 		if (value instanceof Error) {
 			return value.message;
 		}

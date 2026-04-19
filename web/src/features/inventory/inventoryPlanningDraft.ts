@@ -56,7 +56,11 @@ export function loadInventoryPlanningDraft(): InventoryPlanningDraft | null {
 					: draft.workloads.map((vm) => getVirtualMachineIdentity(vm)),
 			workloads: draft.workloads,
 		};
-	} catch {
+	} catch (error) {
+		console.warn("failed to parse saved inventory planning draft, clearing it", {
+			error,
+			storageKey: inventoryPlanningDraftKey,
+		});
 		window.sessionStorage.removeItem(inventoryPlanningDraftKey);
 		return null;
 	}
