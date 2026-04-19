@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"fmt"
 	"regexp"
 	"strings"
 	"testing"
@@ -211,19 +212,18 @@ func TestMigrateStoredCredentials_RewritesLegacyPlaintext_Expected(t *testing.T)
 	mock.ExpectBegin()
 	mock.ExpectExec(regexp.QuoteMeta(`DELETE FROM credential_hashes`)).
 		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectQuery(regexp.QuoteMeta(`INSERT INTO credential_hashes (credential_hash, tenant_id, owner_type, service_account_id)
+			 VALUES ($1, $2, $3, $4)
+			 RETURNING credential_hash`)).
+		WithArgs(HashAPIKey("tenant-secret"), "tenant-a", "tenant", "").
+		WillReturnRows(sqlmock.NewRows([]string{"credential_hash"}).AddRow(HashAPIKey("tenant-secret")))
+	mock.ExpectQuery(regexp.QuoteMeta(`INSERT INTO credential_hashes (credential_hash, tenant_id, owner_type, service_account_id)
+			 VALUES ($1, $2, $3, $4)
+			 RETURNING credential_hash`)).
+		WithArgs(HashAPIKey("service-secret"), "tenant-a", "service_account", "sa-1").
+		WillReturnRows(sqlmock.NewRows([]string{"credential_hash"}).AddRow(HashAPIKey("service-secret")))
 	mock.ExpectExec(regexp.QuoteMeta(`UPDATE tenants SET api_key = $2, api_key_hash = $3, service_accounts = $4 WHERE id = $1`)).
 		WithArgs("tenant-a", "", HashAPIKey("tenant-secret"), sqlmock.AnyArg()).
-		WillReturnResult(sqlmock.NewResult(0, 1))
-	mock.ExpectExec(regexp.QuoteMeta(`DELETE FROM credential_hashes WHERE tenant_id = $1`)).
-		WithArgs("tenant-a").
-		WillReturnResult(sqlmock.NewResult(0, 1))
-	mock.ExpectExec(regexp.QuoteMeta(`INSERT INTO credential_hashes (credential_hash, tenant_id, owner_type, service_account_id)
-			 VALUES ($1, $2, $3, $4)`)).
-		WithArgs(HashAPIKey("tenant-secret"), "tenant-a", "tenant", "").
-		WillReturnResult(sqlmock.NewResult(0, 1))
-	mock.ExpectExec(regexp.QuoteMeta(`INSERT INTO credential_hashes (credential_hash, tenant_id, owner_type, service_account_id)
-			 VALUES ($1, $2, $3, $4)`)).
-		WithArgs(HashAPIKey("service-secret"), "tenant-a", "service_account", "sa-1").
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
 
@@ -232,6 +232,61 @@ func TestMigrateStoredCredentials_RewritesLegacyPlaintext_Expected(t *testing.T)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("sql expectations = %v", err)
+	}
+}
+
+func TestMigrateStoredCredentials_InsertFailureRollsBackBeforeClearingPlaintext_Expected(t *testing.T) {
+	t.Parallel()
+
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock.New() error = %v", err)
+	}
+	defer db.Close()
+
+	createdAt := time.Date(2026, time.April, 17, 12, 0, 0, 0, time.UTC)
+	serviceAccountsPayload := []byte(`[{"id":"sa-1","name":"Automation","api_key":"service-secret","role":"operator","active":true,"created_at":"2026-04-17T12:00:00Z"}]`)
+	rows := sqlmock.NewRows([]string{"id", "name", "api_key", "api_key_hash", "created_at", "active", "settings", "quotas", "service_accounts"}).
+		AddRow("tenant-a", "Tenant A", "tenant-secret", "", createdAt, true, []byte(`{}`), []byte(`{}`), serviceAccountsPayload)
+
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT id, name, api_key, api_key_hash, created_at, active, settings, quotas, service_accounts FROM tenants ORDER BY created_at ASC`)).
+		WillReturnRows(rows)
+	mock.ExpectBegin()
+	mock.ExpectExec(regexp.QuoteMeta(`DELETE FROM credential_hashes`)).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectQuery(regexp.QuoteMeta(`INSERT INTO credential_hashes (credential_hash, tenant_id, owner_type, service_account_id)
+			 VALUES ($1, $2, $3, $4)
+			 RETURNING credential_hash`)).
+		WithArgs(HashAPIKey("tenant-secret"), "tenant-a", "tenant", "").
+		WillReturnRows(sqlmock.NewRows([]string{"credential_hash"}).AddRow(HashAPIKey("tenant-secret")))
+	mock.ExpectQuery(regexp.QuoteMeta(`INSERT INTO credential_hashes (credential_hash, tenant_id, owner_type, service_account_id)
+			 VALUES ($1, $2, $3, $4)
+			 RETURNING credential_hash`)).
+		WithArgs(HashAPIKey("service-secret"), "tenant-a", "service_account", "sa-1").
+		WillReturnError(fmt.Errorf("insert failure"))
+	mock.ExpectRollback()
+
+	if err := migrateStoredCredentials(context.Background(), db); err == nil {
+		t.Fatal("migrateStoredCredentials() error = nil, want insert failure")
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("sql expectations = %v", err)
+	}
+}
+
+func TestReadStoreMigrationFile_ReadsBundledSQLAndRejectsTraversal_Expected(t *testing.T) {
+	t.Parallel()
+
+	payload, err := readStoreMigrationFile("008_credential_hash_unique.sql")
+	if err != nil {
+		t.Fatalf("readStoreMigrationFile(valid) error = %v", err)
+	}
+	if !strings.Contains(payload, "CREATE UNIQUE INDEX CONCURRENTLY") {
+		t.Fatalf("readStoreMigrationFile(valid) payload = %q, want migration SQL", payload)
+	}
+
+	if _, err := readStoreMigrationFile("../postgres.go"); err == nil {
+		t.Fatal("readStoreMigrationFile(traversal) error = nil, want root-bounded rejection")
 	}
 }
 

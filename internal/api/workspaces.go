@@ -490,11 +490,27 @@ func (s *Server) enqueueWorkspaceJob(ctx context.Context, job models.WorkspaceJo
 	if s == nil || s.workspaceJobExecutor == nil {
 		return fmt.Errorf("workspace job executor is not configured")
 	}
-	return s.workspaceJobExecutor.Enqueue(ctx, workspaceJobTask{
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	parentCtx := context.WithoutCancel(ctx)
+	var release context.CancelFunc
+	if s != nil && s.workspaceJobTimeout > 0 {
+		timeoutCtx, cancel := context.WithTimeout(parentCtx, s.workspaceJobTimeout)
+		parentCtx = timeoutCtx
+		release = cancel
+	}
+	err := s.workspaceJobExecutor.Enqueue(ctx, workspaceJobTask{
 		tenantID:    job.TenantID,
 		workspaceID: job.WorkspaceID,
 		jobID:       job.ID,
+		ctx:         parentCtx,
+		release:     release,
 	})
+	if err != nil && release != nil {
+		release()
+	}
+	return err
 }
 
 func (s *Server) runWorkspaceJob(ctx context.Context, tenantID, workspaceID, jobID string) {
@@ -546,10 +562,6 @@ func (s *Server) runWorkspaceJob(ctx context.Context, tenantID, workspaceID, job
 		message string
 	)
 	execCtx, cancel := context.WithCancel(storeCtx)
-	if s != nil && s.workspaceJobTimeout > 0 {
-		cancel()
-		execCtx, cancel = context.WithTimeout(storeCtx, s.workspaceJobTimeout)
-	}
 	execCtx = contextWithConnectorRequestID(execCtx, job.CorrelationID)
 	defer cancel()
 	switch job.Type {

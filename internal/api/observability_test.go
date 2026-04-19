@@ -218,3 +218,43 @@ func TestServer_HandleMetrics_OperationalMetricsIncluded_Expected(t *testing.T) 
 		t.Fatalf("metrics missing migration phase gauge: %s", body)
 	}
 }
+
+func TestServer_HandleMetrics_IncludesWorkspaceQueueDepth_Expected(t *testing.T) {
+	t.Parallel()
+
+	server := mustNewServer(t, store.NewMemoryStore())
+	server.workspaceJobExecutor = workspaceQueueDepthStub{
+		depths: map[string]int{
+			"tenant-a": 2,
+			"tenant-b": 1,
+		},
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/metrics", nil)
+	recorder := httptest.NewRecorder()
+
+	server.handleMetrics(recorder, req)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusOK)
+	}
+
+	body := recorder.Body.String()
+	if !strings.Contains(body, `viaduct_workspace_queue_depth{tenant="tenant-a"} 2`) {
+		t.Fatalf("metrics missing tenant-a queue depth: %s", body)
+	}
+	if !strings.Contains(body, `viaduct_workspace_queue_depth{tenant="tenant-b"} 1`) {
+		t.Fatalf("metrics missing tenant-b queue depth: %s", body)
+	}
+}
+
+type workspaceQueueDepthStub struct {
+	depths map[string]int
+}
+
+func (s workspaceQueueDepthStub) Enqueue(context.Context, workspaceJobTask) error {
+	return nil
+}
+
+func (s workspaceQueueDepthStub) QueueDepthByTenant() map[string]int {
+	return s.depths
+}

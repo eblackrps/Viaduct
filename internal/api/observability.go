@@ -272,21 +272,30 @@ func TenantRateLimitMiddleware(limiter *tenantRateLimiter, next http.Handler) ht
 
 // ClientRateLimitMiddleware enforces a stricter pre-auth rate limit keyed by client IP.
 func ClientRateLimitMiddleware(limiter *tenantRateLimiter, next http.Handler) http.Handler {
+	return clientRateLimitMiddleware(limiter, func(r *http.Request) string {
+		if ip, ok := remoteAddrIP(strings.TrimSpace(r.RemoteAddr)); ok {
+			return ip.String()
+		}
+		return strings.TrimSpace(r.RemoteAddr)
+	}, next)
+}
+
+func (s *Server) clientRateLimitMiddleware(limiter *tenantRateLimiter, next http.Handler) http.Handler {
+	return clientRateLimitMiddleware(limiter, func(r *http.Request) string {
+		if ip, ok := s.requestPeerIP(r); ok {
+			return ip.String()
+		}
+		return strings.TrimSpace(r.RemoteAddr)
+	}, next)
+}
+
+func clientRateLimitMiddleware(limiter *tenantRateLimiter, peerKey func(*http.Request) string, next http.Handler) http.Handler {
 	if limiter == nil {
 		return next
 	}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		clientIP := strings.TrimSpace(r.Header.Get("X-Forwarded-For"))
-		if clientIP != "" {
-			clientIP = strings.TrimSpace(strings.Split(clientIP, ",")[0])
-		}
-		if clientIP == "" {
-			clientIP = strings.TrimSpace(r.Header.Get("X-Real-IP"))
-		}
-		if clientIP == "" {
-			clientIP = strings.TrimSpace(r.RemoteAddr)
-		}
+		clientIP := strings.TrimSpace(peerKey(r))
 
 		allowed, retryAfter := limiter.allow(clientIP, time.Now().UTC(), 0)
 		if !allowed {
@@ -386,6 +395,8 @@ func (s *Server) renderOperationalMetrics(ctx context.Context) string {
 		"# TYPE viaduct_tenant_migrations gauge",
 		"# HELP viaduct_tenant_quota_remaining Remaining tenant quota budget by resource.",
 		"# TYPE viaduct_tenant_quota_remaining gauge",
+		"# HELP viaduct_workspace_queue_depth Queued workspace jobs by tenant.",
+		"# TYPE viaduct_workspace_queue_depth gauge",
 	}
 
 	if provider, ok := s.store.(store.DiagnosticsProvider); ok {
@@ -486,6 +497,18 @@ func (s *Server) renderOperationalMetrics(ctx context.Context) string {
 				remaining = 0
 			}
 			lines = append(lines, fmt.Sprintf(`viaduct_tenant_quota_remaining{tenant=%q,resource="migrations"} %d`, tenant.ID, remaining))
+		}
+	}
+
+	if reporter, ok := s.workspaceJobExecutor.(workspaceQueueDepthReporter); ok {
+		queueDepths := reporter.QueueDepthByTenant()
+		tenantIDs := make([]string, 0, len(queueDepths))
+		for tenantID := range queueDepths {
+			tenantIDs = append(tenantIDs, tenantID)
+		}
+		sort.Strings(tenantIDs)
+		for _, tenantID := range tenantIDs {
+			lines = append(lines, fmt.Sprintf(`viaduct_workspace_queue_depth{tenant=%q} %d`, tenantID, queueDepths[tenantID]))
 		}
 	}
 
