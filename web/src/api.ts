@@ -213,7 +213,9 @@ export function createRequestController(
 		controller.abort(new DOMException("Timed out", "AbortError"));
 	}, timeoutMs);
 	const forwardAbort = () =>
-		controller.abort(new DOMException("Canceled", "AbortError"));
+		controller.abort(
+			options?.signal?.reason ?? new DOMException("Canceled", "AbortError"),
+		);
 	options?.signal?.addEventListener("abort", forwardAbort, { once: true });
 
 	return {
@@ -240,8 +242,13 @@ export function getActiveRequestControllerCount(): number {
 class RequestManager {
 	private readonly inflight = new Map<
 		string,
-		{ controller: AbortController; promise: Promise<Response> }
+		{
+			controller: AbortController;
+			promise: Promise<Response>;
+			dedupeKey: string;
+		}
 	>();
+	private readonly inflightByDedupeKey = new Map<string, string>();
 
 	async fetch(
 		input: RequestInfo | URL,
@@ -251,21 +258,27 @@ class RequestManager {
 		const method = (init?.method ?? "GET").toUpperCase();
 		const requestURL = toRequestURL(input);
 		const dedupeKey =
-			options?.dedupe === false || method !== "GET"
-				? ""
-				: `${method}:${requestURL.toString()}`;
-		if (dedupeKey && this.inflight.has(dedupeKey)) {
-			return this.inflight
-				.get(dedupeKey)!
-				.promise.then((response) => response.clone());
+			options?.dedupe === true && method === "GET"
+				? `${method}:${requestURL.toString()}`
+				: "";
+		if (dedupeKey) {
+			const inflightID = this.inflightByDedupeKey.get(dedupeKey);
+			const entry = inflightID ? this.inflight.get(inflightID) : undefined;
+			if (entry) {
+				return entry.promise.then((response) => response.clone());
+			}
+			if (inflightID) {
+				this.inflightByDedupeKey.delete(dedupeKey);
+			}
 		}
 
+		const inflightID = globalThis.crypto.randomUUID();
 		const requestController = createRequestController(options);
 		const timeoutMs = options?.timeoutMs ?? defaultRequestTimeoutMs;
 
 		const promise = (async () => {
 			try {
-				return await fetch(input, {
+				return await fetch(requestURL, {
 					...init,
 					credentials: "same-origin",
 					headers: options?.skipAuth
@@ -280,20 +293,22 @@ class RequestManager {
 				throw reason;
 			} finally {
 				requestController.cleanup();
-				if (dedupeKey) {
-					this.inflight.delete(dedupeKey);
+				this.inflight.delete(inflightID);
+				if (dedupeKey && this.inflightByDedupeKey.get(dedupeKey) === inflightID) {
+					this.inflightByDedupeKey.delete(dedupeKey);
 				}
 			}
 		})();
 
+		this.inflight.set(inflightID, {
+			controller: requestController.controller,
+			promise,
+			dedupeKey,
+		});
 		if (dedupeKey) {
-			this.inflight.set(dedupeKey, {
-				controller: requestController.controller,
-				promise,
-			});
-			return promise.then((response) => response.clone());
+			this.inflightByDedupeKey.set(dedupeKey, inflightID);
 		}
-		return promise;
+		return dedupeKey ? promise.then((response) => response.clone()) : promise;
 	}
 
 	cancel(key: string) {
@@ -302,12 +317,18 @@ class RequestManager {
 			return;
 		}
 		entry.controller.abort(new DOMException("Canceled", "AbortError"));
+		if (entry.dedupeKey) {
+			this.inflightByDedupeKey.delete(entry.dedupeKey);
+		}
 		this.inflight.delete(key);
 	}
 
 	cancelAll() {
 		for (const [key, entry] of this.inflight.entries()) {
 			entry.controller.abort(new DOMException("Canceled", "AbortError"));
+			if (entry.dedupeKey) {
+				this.inflightByDedupeKey.delete(entry.dedupeKey);
+			}
 			this.inflight.delete(key);
 		}
 	}
@@ -316,17 +337,18 @@ class RequestManager {
 export const requestManager = new RequestManager();
 
 function toRequestURL(input: RequestInfo | URL): URL {
+	const baseURL = getRequestBaseURL();
 	if (typeof input === "string") {
-		return new URL(input, window.location.origin);
+		return new URL(normalizeBaseRelativePath(input, baseURL), baseURL);
 	}
 	if (input instanceof URL) {
 		return input;
 	}
-	return new URL(input.url, window.location.origin);
+	return new URL(input.url, baseURL);
 }
 
 function withListParams(path: string, options?: ListRequestOptions): string {
-	const url = new URL(path, window.location.origin);
+	const url = new URL(normalizeBaseRelativePath(path, getRequestBaseURL()), getRequestBaseURL());
 	if (options?.page) {
 		url.searchParams.set("page", String(options.page));
 	}
@@ -340,7 +362,7 @@ function withSearchParams(
 	path: string,
 	params: Record<string, string | number | undefined>,
 ): string {
-	const url = new URL(path, window.location.origin);
+	const url = new URL(normalizeBaseRelativePath(path, getRequestBaseURL()), getRequestBaseURL());
 	for (const [key, value] of Object.entries(params)) {
 		if (value === undefined) {
 			continue;
@@ -348,6 +370,29 @@ function withSearchParams(
 		url.searchParams.set(key, String(value));
 	}
 	return `${url.pathname}${url.search}`;
+}
+
+function getRequestBaseURL(): URL {
+	const baseHref =
+		document.querySelector("base")?.href ?? window.location.origin;
+	return new URL(baseHref);
+}
+
+function normalizeBaseRelativePath(path: string, baseURL: URL): string {
+	const trimmed = path.trim();
+	if (
+		trimmed === "" ||
+		/^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(trimmed) ||
+		trimmed.startsWith("//")
+	) {
+		return trimmed;
+	}
+	if (!trimmed.startsWith("/")) {
+		return trimmed;
+	}
+	const basePath =
+		baseURL.pathname === "/" ? "" : baseURL.pathname.replace(/\/$/, "");
+	return `${basePath}${trimmed}`;
 }
 
 async function request<T>(
