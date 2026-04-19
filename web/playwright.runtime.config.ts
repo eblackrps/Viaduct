@@ -22,9 +22,9 @@ export default defineConfig({
 	webServer: {
 		command: "npm run build && node scripts/start-runtime-smoke.mjs",
 		cwd: __dirname,
-		url: "http://127.0.0.1:4174/api/v1/health",
+		url: "http://127.0.0.1:4175/readyz",
 		reuseExistingServer: false,
-		timeout: 180_000,
+		timeout: 60_000,
 	},
 	projects: [
 		{

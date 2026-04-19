@@ -15,11 +15,11 @@ func TestAuthSessionManager_SweepExpired_RemovesExpiredSessions_Expected(t *test
 	expired := manager.CreateCredential("tenant", AuthenticatedPrincipal{
 		Tenant: models.Tenant{ID: "tenant-expired"},
 		Role:   models.TenantRoleAdmin,
-	}, "hash-expired", false)
+	}, hashCredential(context.Background(), "hash-expired"), false)
 	active := manager.CreateCredential("tenant", AuthenticatedPrincipal{
 		Tenant: models.Tenant{ID: "tenant-active"},
 		Role:   models.TenantRoleAdmin,
-	}, "hash-active", false)
+	}, hashCredential(context.Background(), "hash-active"), false)
 
 	manager.mu.Lock()
 	expiredRecord := manager.sessions[expired.Secret]
@@ -49,7 +49,7 @@ func TestAuthSessionManager_StartSweeper_RemovesExpiredSessions_Expected(t *test
 	record := manager.CreateCredential("tenant", AuthenticatedPrincipal{
 		Tenant: models.Tenant{ID: "tenant-swept"},
 		Role:   models.TenantRoleAdmin,
-	}, "hash-swept", false)
+	}, hashCredential(context.Background(), "hash-swept"), false)
 
 	manager.mu.Lock()
 	expiredRecord := manager.sessions[record.Secret]
@@ -70,4 +70,13 @@ func TestAuthSessionManager_StartSweeper_RemovesExpiredSessions_Expected(t *test
 	}
 
 	t.Fatal("session sweeper did not remove expired session before timeout")
+}
+
+func TestAuthSessionManager_DefaultPersistentTTL_CappedToSevenDays_Expected(t *testing.T) {
+	t.Parallel()
+
+	manager := newAuthSessionManager(0, 0)
+	if manager.persistentTTL != 7*24*time.Hour {
+		t.Fatalf("persistentTTL = %s, want %s", manager.persistentTTL, 7*24*time.Hour)
+	}
 }

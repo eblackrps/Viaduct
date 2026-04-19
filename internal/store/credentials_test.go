@@ -2,14 +2,23 @@ package store
 
 import (
 	"context"
+	"database/sql"
+	"database/sql/driver"
+	"fmt"
+	"io"
 	"regexp"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/eblackrps/viaduct/internal/models"
+	"github.com/lib/pq"
 )
+
+var credentialHashRaceDriverCounter uint64
 
 func TestPrepareTenantCredentials_HashesAndRedactsWithoutMutatingCaller_Expected(t *testing.T) {
 	t.Parallel()
@@ -211,19 +220,18 @@ func TestMigrateStoredCredentials_RewritesLegacyPlaintext_Expected(t *testing.T)
 	mock.ExpectBegin()
 	mock.ExpectExec(regexp.QuoteMeta(`DELETE FROM credential_hashes`)).
 		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectQuery(regexp.QuoteMeta(`INSERT INTO credential_hashes (credential_hash, tenant_id, owner_type, service_account_id)
+			 VALUES ($1, $2, $3, $4)
+			 RETURNING credential_hash`)).
+		WithArgs(HashAPIKey("tenant-secret"), "tenant-a", "tenant", "").
+		WillReturnRows(sqlmock.NewRows([]string{"credential_hash"}).AddRow(HashAPIKey("tenant-secret")))
+	mock.ExpectQuery(regexp.QuoteMeta(`INSERT INTO credential_hashes (credential_hash, tenant_id, owner_type, service_account_id)
+			 VALUES ($1, $2, $3, $4)
+			 RETURNING credential_hash`)).
+		WithArgs(HashAPIKey("service-secret"), "tenant-a", "service_account", "sa-1").
+		WillReturnRows(sqlmock.NewRows([]string{"credential_hash"}).AddRow(HashAPIKey("service-secret")))
 	mock.ExpectExec(regexp.QuoteMeta(`UPDATE tenants SET api_key = $2, api_key_hash = $3, service_accounts = $4 WHERE id = $1`)).
 		WithArgs("tenant-a", "", HashAPIKey("tenant-secret"), sqlmock.AnyArg()).
-		WillReturnResult(sqlmock.NewResult(0, 1))
-	mock.ExpectExec(regexp.QuoteMeta(`DELETE FROM credential_hashes WHERE tenant_id = $1`)).
-		WithArgs("tenant-a").
-		WillReturnResult(sqlmock.NewResult(0, 1))
-	mock.ExpectExec(regexp.QuoteMeta(`INSERT INTO credential_hashes (credential_hash, tenant_id, owner_type, service_account_id)
-			 VALUES ($1, $2, $3, $4)`)).
-		WithArgs(HashAPIKey("tenant-secret"), "tenant-a", "tenant", "").
-		WillReturnResult(sqlmock.NewResult(0, 1))
-	mock.ExpectExec(regexp.QuoteMeta(`INSERT INTO credential_hashes (credential_hash, tenant_id, owner_type, service_account_id)
-			 VALUES ($1, $2, $3, $4)`)).
-		WithArgs(HashAPIKey("service-secret"), "tenant-a", "service_account", "sa-1").
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
 
@@ -232,6 +240,132 @@ func TestMigrateStoredCredentials_RewritesLegacyPlaintext_Expected(t *testing.T)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("sql expectations = %v", err)
+	}
+}
+
+func TestMigrateStoredCredentials_InsertFailureRollsBackBeforeClearingPlaintext_Expected(t *testing.T) {
+	t.Parallel()
+
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock.New() error = %v", err)
+	}
+	defer db.Close()
+	mock.MatchExpectationsInOrder(false)
+
+	createdAt := time.Date(2026, time.April, 17, 12, 0, 0, 0, time.UTC)
+	serviceAccountsPayload := []byte(`[{"id":"sa-1","name":"Automation","api_key":"service-secret","role":"operator","active":true,"created_at":"2026-04-17T12:00:00Z"}]`)
+	rows := sqlmock.NewRows([]string{"id", "name", "api_key", "api_key_hash", "created_at", "active", "settings", "quotas", "service_accounts"}).
+		AddRow("tenant-a", "Tenant A", "tenant-secret", "", createdAt, true, []byte(`{}`), []byte(`{}`), serviceAccountsPayload)
+
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT id, name, api_key, api_key_hash, created_at, active, settings, quotas, service_accounts FROM tenants ORDER BY created_at ASC`)).
+		WillReturnRows(rows)
+	mock.ExpectBegin()
+	mock.ExpectExec(regexp.QuoteMeta(`DELETE FROM credential_hashes`)).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectQuery(regexp.QuoteMeta(`INSERT INTO credential_hashes (credential_hash, tenant_id, owner_type, service_account_id)
+			 VALUES ($1, $2, $3, $4)
+			 RETURNING credential_hash`)).
+		WithArgs(HashAPIKey("tenant-secret"), "tenant-a", "tenant", "").
+		WillReturnRows(sqlmock.NewRows([]string{"credential_hash"}).AddRow(HashAPIKey("tenant-secret")))
+	mock.ExpectQuery(regexp.QuoteMeta(`INSERT INTO credential_hashes (credential_hash, tenant_id, owner_type, service_account_id)
+			 VALUES ($1, $2, $3, $4)
+			 RETURNING credential_hash`)).
+		WithArgs(HashAPIKey("service-secret"), "tenant-a", "service_account", "sa-1").
+		WillReturnError(fmt.Errorf("insert failure"))
+	mock.ExpectRollback()
+
+	if err := migrateStoredCredentials(context.Background(), db); err == nil {
+		t.Fatal("migrateStoredCredentials() error = nil, want insert failure")
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("sql expectations = %v", err)
+	}
+}
+
+func TestInsertTenantCredentialHashes_ConcurrentDuplicate_ReturnsSingleConflict_Expected(t *testing.T) {
+	t.Parallel()
+
+	driverName := fmt.Sprintf("credential-hash-race-%d", atomic.AddUint64(&credentialHashRaceDriverCounter, 1))
+	sql.Register(driverName, &credentialHashRaceDriver{
+		state: &credentialHashRaceState{
+			inserted: make(map[string]struct{}),
+		},
+	})
+
+	db, err := sql.Open(driverName, "")
+	if err != nil {
+		t.Fatalf("sql.Open() error = %v", err)
+	}
+	defer db.Close()
+	db.SetMaxOpenConns(2)
+
+	tenant := models.Tenant{
+		ID:         "tenant-a",
+		Name:       "Tenant A",
+		APIKeyHash: HashAPIKey("shared-secret"),
+		Active:     true,
+	}
+
+	const workerCount = 2
+	results := make(chan error, workerCount)
+	var wg sync.WaitGroup
+	wg.Add(workerCount)
+
+	for index := 0; index < workerCount; index++ {
+		go func() {
+			defer wg.Done()
+
+			tx, txErr := db.BeginTx(context.Background(), nil)
+			if txErr != nil {
+				results <- txErr
+				return
+			}
+
+			if insertErr := insertTenantCredentialHashes(context.Background(), tx, tenant); insertErr != nil {
+				// Rollback is best effort after the simulated unique-constraint failure.
+				_ = tx.Rollback()
+				results <- insertErr
+				return
+			}
+
+			results <- tx.Commit()
+		}()
+	}
+
+	wg.Wait()
+	close(results)
+
+	var successCount, conflictCount int
+	for err := range results {
+		switch {
+		case err == nil:
+			successCount++
+		case IsCredentialConflict(err):
+			conflictCount++
+		default:
+			t.Fatalf("insertTenantCredentialHashes() error = %v, want nil or credential conflict", err)
+		}
+	}
+
+	if successCount != 1 || conflictCount != 1 {
+		t.Fatalf("successes/conflicts = %d/%d, want 1/1", successCount, conflictCount)
+	}
+}
+
+func TestReadStoreMigrationFile_ReadsBundledSQLAndRejectsTraversal_Expected(t *testing.T) {
+	t.Parallel()
+
+	payload, err := readStoreMigrationFile("008_credential_hash_unique.sql")
+	if err != nil {
+		t.Fatalf("readStoreMigrationFile(valid) error = %v", err)
+	}
+	if !strings.Contains(payload, "CREATE UNIQUE INDEX CONCURRENTLY") {
+		t.Fatalf("readStoreMigrationFile(valid) payload = %q, want migration SQL", payload)
+	}
+
+	if _, err := readStoreMigrationFile("../postgres.go"); err == nil {
+		t.Fatal("readStoreMigrationFile(traversal) error = nil, want root-bounded rejection")
 	}
 }
 
@@ -260,4 +394,101 @@ func TestCreateStoreSchemaSQL_CredentialHashesRegistryDurablyUnique_Expected(t *
 	if !strings.Contains(createStoreSchemaSQL, "credential_hash TEXT PRIMARY KEY") {
 		t.Fatal("createStoreSchemaSQL is missing durable credential hash primary key")
 	}
+}
+
+type credentialHashRaceDriver struct {
+	state *credentialHashRaceState
+}
+
+type credentialHashRaceState struct {
+	mu       sync.Mutex
+	inserted map[string]struct{}
+}
+
+type credentialHashRaceConn struct {
+	state *credentialHashRaceState
+}
+
+type credentialHashRaceTx struct{}
+
+type credentialHashRaceRows struct {
+	columns []string
+	values  [][]driver.Value
+	index   int
+}
+
+func (d *credentialHashRaceDriver) Open(_ string) (driver.Conn, error) {
+	return &credentialHashRaceConn{state: d.state}, nil
+}
+
+func (c *credentialHashRaceConn) Prepare(_ string) (driver.Stmt, error) {
+	return nil, fmt.Errorf("credential hash race driver does not support prepared statements")
+}
+
+func (c *credentialHashRaceConn) Close() error {
+	return nil
+}
+
+func (c *credentialHashRaceConn) Begin() (driver.Tx, error) {
+	return credentialHashRaceTx{}, nil
+}
+
+func (c *credentialHashRaceConn) BeginTx(_ context.Context, _ driver.TxOptions) (driver.Tx, error) {
+	return credentialHashRaceTx{}, nil
+}
+
+func (c *credentialHashRaceConn) QueryContext(_ context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+	if !strings.Contains(query, "INSERT INTO credential_hashes") || !strings.Contains(query, "RETURNING credential_hash") {
+		return nil, fmt.Errorf("credential hash race driver received unexpected query: %s", query)
+	}
+	if len(args) == 0 {
+		return nil, fmt.Errorf("credential hash race driver requires the credential hash argument")
+	}
+
+	hash, ok := args[0].Value.(string)
+	if !ok {
+		return nil, fmt.Errorf("credential hash race driver hash arg type = %T, want string", args[0].Value)
+	}
+
+	c.state.mu.Lock()
+	defer c.state.mu.Unlock()
+
+	if _, exists := c.state.inserted[hash]; exists {
+		return nil, &pq.Error{
+			Code:       "23505",
+			Table:      "credential_hashes",
+			Constraint: "credential_hashes_hash_unique",
+		}
+	}
+	c.state.inserted[hash] = struct{}{}
+
+	return &credentialHashRaceRows{
+		columns: []string{"credential_hash"},
+		values:  [][]driver.Value{{hash}},
+	}, nil
+}
+
+func (credentialHashRaceTx) Commit() error {
+	return nil
+}
+
+func (credentialHashRaceTx) Rollback() error {
+	return nil
+}
+
+func (r *credentialHashRaceRows) Columns() []string {
+	return r.columns
+}
+
+func (r *credentialHashRaceRows) Close() error {
+	return nil
+}
+
+func (r *credentialHashRaceRows) Next(dest []driver.Value) error {
+	if r.index >= len(r.values) {
+		return io.EOF
+	}
+	copy(dest, r.values[r.index])
+	r.index++
+	return nil
 }

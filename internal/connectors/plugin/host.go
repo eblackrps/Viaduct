@@ -452,6 +452,7 @@ func (h *PluginHost) startPlugin(path string) (*PluginProcess, error) {
 	if err != nil {
 		// The child process may already be exiting; terminate and reap it on a best-effort basis before returning.
 		_ = command.Process.Kill()
+		// Wait is best effort here because the process may already have been reaped while we unwind the failed launch.
 		_, _ = command.Process.Wait()
 		return nil, err
 	}

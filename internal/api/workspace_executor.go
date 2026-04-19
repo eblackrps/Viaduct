@@ -2,19 +2,35 @@ package api
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
+	"sync"
 )
 
 const defaultWorkspaceJobConcurrency = 4
+
+var (
+	// ErrExecutorShuttingDown reports that the workspace executor stopped accepting work because the server is shutting down.
+	ErrExecutorShuttingDown = errors.New("workspace job executor is shutting down")
+	// ErrTenantQueueFull reports that a single tenant exhausted its fair-share of the queued workspace capacity.
+	ErrTenantQueueFull = errors.New("workspace job executor tenant queue share is full")
+)
 
 type workspaceJobTask struct {
 	tenantID    string
 	workspaceID string
 	jobID       string
+	ctx         context.Context
+	release     context.CancelFunc
 }
 
 type workspaceJobEnqueuer interface {
 	Enqueue(ctx context.Context, task workspaceJobTask) error
+}
+
+type workspaceQueueDepthReporter interface {
+	QueueDepthByTenant() map[string]int
 }
 
 type workspaceJobEnqueueRequest struct {
@@ -29,6 +45,9 @@ type workspaceJobExecutor struct {
 	workerReady   chan chan workspaceJobTask
 	queueCapacity int
 	run           func(context.Context, workspaceJobTask)
+
+	queueMu        sync.RWMutex
+	queuedByTenant map[string]int
 }
 
 func newWorkspaceJobExecutor(ctx context.Context, concurrency int, run func(context.Context, workspaceJobTask)) *workspaceJobExecutor {
@@ -40,12 +59,13 @@ func newWorkspaceJobExecutor(ctx context.Context, concurrency int, run func(cont
 	}
 
 	executor := &workspaceJobExecutor{
-		ctx:           ctx,
-		done:          make(chan struct{}),
-		enqueue:       make(chan workspaceJobEnqueueRequest),
-		workerReady:   make(chan chan workspaceJobTask),
-		queueCapacity: concurrency * 2,
-		run:           run,
+		ctx:            ctx,
+		done:           make(chan struct{}),
+		enqueue:        make(chan workspaceJobEnqueueRequest),
+		workerReady:    make(chan chan workspaceJobTask),
+		queueCapacity:  concurrency * 2,
+		run:            run,
+		queuedByTenant: make(map[string]int),
 	}
 	if executor.queueCapacity <= 0 {
 		executor.queueCapacity = concurrency
@@ -87,11 +107,31 @@ func (e *workspaceJobExecutor) Enqueue(ctx context.Context, task workspaceJobTas
 	}
 }
 
+func (e *workspaceJobExecutor) QueueDepthByTenant() map[string]int {
+	if e == nil {
+		return nil
+	}
+
+	e.queueMu.RLock()
+	defer e.queueMu.RUnlock()
+
+	if len(e.queuedByTenant) == 0 {
+		return nil
+	}
+
+	items := make(map[string]int, len(e.queuedByTenant))
+	for tenantID, depth := range e.queuedByTenant {
+		items[tenantID] = depth
+	}
+	return items
+}
+
 func (e *workspaceJobExecutor) dispatch() {
 	if e == nil {
 		return
 	}
 	defer close(e.done)
+	defer e.clearQueueDepths()
 
 	queue := make([]workspaceJobEnqueueRequest, 0, e.queueCapacity)
 	idleWorkers := make([]chan workspaceJobTask, 0)
@@ -102,9 +142,11 @@ func (e *workspaceJobExecutor) dispatch() {
 			idleWorkers = idleWorkers[1:]
 			request := queue[0]
 			queue = queue[1:]
+			e.adjustTenantQueueDepth(request.task.tenantID, -1)
 
 			if !e.assignTask(worker, request) {
 				e.rejectPending(queue)
+				e.drainEnqueueRequests()
 				return
 			}
 			continue
@@ -113,6 +155,7 @@ func (e *workspaceJobExecutor) dispatch() {
 		select {
 		case <-e.ctx.Done():
 			e.rejectPending(queue)
+			e.drainEnqueueRequests()
 			return
 		case worker := <-e.workerReady:
 			if worker == nil {
@@ -120,9 +163,10 @@ func (e *workspaceJobExecutor) dispatch() {
 			}
 			idleWorkers = append(idleWorkers, worker)
 		case request := <-e.enqueue:
-			if err := e.ctx.Err(); err != nil {
-				request.respond(err)
+			if e.ctx.Err() != nil {
+				request.respond(ErrExecutorShuttingDown)
 				e.rejectPending(queue)
+				e.drainEnqueueRequests()
 				return
 			}
 
@@ -131,16 +175,23 @@ func (e *workspaceJobExecutor) dispatch() {
 				idleWorkers = idleWorkers[1:]
 				if !e.assignTask(worker, request) {
 					e.rejectPending(queue)
+					e.drainEnqueueRequests()
 					return
 				}
+				continue
+			}
+
+			if e.tenantQueueLimitExceeded(request.task.tenantID) {
+				request.respond(ErrTenantQueueFull)
 				continue
 			}
 
 			for len(queue) >= e.queueCapacity {
 				select {
 				case <-e.ctx.Done():
-					request.respond(e.executorErr())
+					request.respond(ErrExecutorShuttingDown)
 					e.rejectPending(queue)
+					e.drainEnqueueRequests()
 					return
 				case worker := <-e.workerReady:
 					if worker == nil {
@@ -148,23 +199,25 @@ func (e *workspaceJobExecutor) dispatch() {
 					}
 					oldest := queue[0]
 					queue = queue[1:]
+					e.adjustTenantQueueDepth(oldest.task.tenantID, -1)
 					if !e.assignTask(worker, oldest) {
-						request.respond(e.executorErr())
+						request.respond(ErrExecutorShuttingDown)
 						e.rejectPending(queue)
+						e.drainEnqueueRequests()
 						return
 					}
 				}
 			}
 
-			select {
-			case <-e.ctx.Done():
-				request.respond(e.executorErr())
+			if e.ctx.Err() != nil {
+				request.respond(ErrExecutorShuttingDown)
 				e.rejectPending(queue)
+				e.drainEnqueueRequests()
 				return
-			default:
 			}
 
 			queue = append(queue, request)
+			e.adjustTenantQueueDepth(request.task.tenantID, 1)
 			request.respond(nil)
 		}
 	}
@@ -172,13 +225,15 @@ func (e *workspaceJobExecutor) dispatch() {
 
 func (e *workspaceJobExecutor) assignTask(worker chan workspaceJobTask, request workspaceJobEnqueueRequest) bool {
 	if e == nil {
+		request.task.cleanup()
 		request.respond(fmt.Errorf("workspace job executor is not configured"))
 		return false
 	}
 
 	select {
 	case <-e.ctx.Done():
-		request.respond(e.executorErr())
+		request.task.cleanup()
+		request.respond(ErrExecutorShuttingDown)
 		return false
 	case worker <- request.task:
 		request.respond(nil)
@@ -190,9 +245,24 @@ func (e *workspaceJobExecutor) rejectPending(queue []workspaceJobEnqueueRequest)
 	if e == nil {
 		return
 	}
-	err := e.executorErr()
+	e.clearQueueDepths()
 	for _, request := range queue {
-		request.respond(err)
+		request.task.cleanup()
+		request.respond(ErrExecutorShuttingDown)
+	}
+}
+
+func (e *workspaceJobExecutor) drainEnqueueRequests() {
+	if e == nil {
+		return
+	}
+	for {
+		select {
+		case request := <-e.enqueue:
+			request.respond(ErrExecutorShuttingDown)
+		default:
+			return
+		}
 	}
 }
 
@@ -214,11 +284,15 @@ func (e *workspaceJobExecutor) worker() {
 			return
 		case task := <-tasks:
 			if e.ctx.Err() != nil {
+				task.cleanup()
 				return
 			}
 			if e.run != nil {
-				e.run(e.ctx, task)
+				runCtx, cancel := e.taskContext(task)
+				e.run(runCtx, task)
+				cancel()
 			}
+			task.cleanup()
 			if e.ctx.Err() != nil {
 				return
 			}
@@ -226,14 +300,76 @@ func (e *workspaceJobExecutor) worker() {
 	}
 }
 
+func (e *workspaceJobExecutor) taskContext(task workspaceJobTask) (context.Context, context.CancelFunc) {
+	baseCtx := task.ctx
+	if baseCtx == nil {
+		baseCtx = context.Background()
+	}
+
+	runCtx, cancel := context.WithCancel(baseCtx)
+	go func() {
+		select {
+		case <-e.ctx.Done():
+			cancel()
+		case <-runCtx.Done():
+		}
+	}()
+	return runCtx, cancel
+}
+
+func (e *workspaceJobExecutor) tenantQueueLimitExceeded(tenantID string) bool {
+	tenantID = strings.TrimSpace(tenantID)
+	if tenantID == "" || e.queueCapacity <= 0 {
+		return false
+	}
+
+	maxTenantDepth := e.queueCapacity / 2
+	if maxTenantDepth <= 0 {
+		maxTenantDepth = 1
+	}
+
+	e.queueMu.RLock()
+	defer e.queueMu.RUnlock()
+	return e.queuedByTenant[tenantID]+1 > maxTenantDepth
+}
+
+func (e *workspaceJobExecutor) adjustTenantQueueDepth(tenantID string, delta int) {
+	tenantID = strings.TrimSpace(tenantID)
+	if tenantID == "" || delta == 0 {
+		return
+	}
+
+	e.queueMu.Lock()
+	defer e.queueMu.Unlock()
+
+	next := e.queuedByTenant[tenantID] + delta
+	if next <= 0 {
+		delete(e.queuedByTenant, tenantID)
+		return
+	}
+	e.queuedByTenant[tenantID] = next
+}
+
+func (e *workspaceJobExecutor) clearQueueDepths() {
+	e.queueMu.Lock()
+	defer e.queueMu.Unlock()
+	clear(e.queuedByTenant)
+}
+
 func (e *workspaceJobExecutor) executorErr() error {
 	if e == nil {
 		return fmt.Errorf("workspace job executor is not configured")
 	}
-	if err := e.ctx.Err(); err != nil {
-		return err
+	if e.ctx.Err() != nil {
+		return ErrExecutorShuttingDown
 	}
 	return fmt.Errorf("workspace job executor is not accepting new work")
+}
+
+func (t workspaceJobTask) cleanup() {
+	if t.release != nil {
+		t.release()
+	}
 }
 
 func (r workspaceJobEnqueueRequest) respond(err error) {

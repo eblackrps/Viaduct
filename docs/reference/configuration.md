@@ -61,7 +61,9 @@ Fields:
 - `VIADUCT_WORKSPACE_JOB_TIMEOUT`: per-job server-side timeout for pilot workspace discovery, graph, simulation, and plan generation; defaults to `2m`
 - `VIADUCT_WORKSPACE_JOB_CONCURRENCY`: bounded worker count for queued and recovered workspace jobs; defaults to `4`
 - `VIADUCT_AUTH_SESSION_TTL`: dashboard runtime auth-session lifetime for non-persistent browser sessions; defaults to `12h`
-- `VIADUCT_AUTH_REMEMBER_TTL`: dashboard runtime auth-session lifetime for remembered browser sessions; defaults to `720h` (30 days)
+- `VIADUCT_AUTH_REMEMBER_TTL`: dashboard runtime auth-session lifetime for remembered browser sessions; defaults to `168h` (7 days) and is capped there unless `VIADUCT_LONG_SESSION_DAYS` is set
+- `VIADUCT_LONG_SESSION_DAYS`: explicit override that permits remembered dashboard sessions longer than 7 days when you intentionally accept the larger persistence window
+- `VIADUCT_TRUSTED_PROXIES`: comma-separated CIDR list of reverse proxies allowed to supply forwarded scheme and client-IP headers; when empty, Viaduct trusts only the direct peer address and TLS state
 - `VIADUCT_API_CSP`: override the default API response Content Security Policy
 - `VIADUCT_DASHBOARD_CSP`: override the default bundled-dashboard Content Security Policy
 - `VIADUCT_DB_READ_TIMEOUT`: PostgreSQL read-query timeout; defaults to `5s`

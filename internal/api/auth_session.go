@@ -17,7 +17,7 @@ type authSessionRecord struct {
 	PublicID         string
 	Secret           string
 	Mode             string
-	CredentialHash   string
+	CredentialHash   [32]byte
 	TenantID         string
 	ServiceAccountID string
 	Role             models.TenantRole
@@ -38,7 +38,7 @@ func newAuthSessionManager(sessionTTL, persistentTTL time.Duration) *authSession
 		sessionTTL = 12 * time.Hour
 	}
 	if persistentTTL <= 0 {
-		persistentTTL = 30 * 24 * time.Hour
+		persistentTTL = 7 * 24 * time.Hour
 	}
 	return &authSessionManager{
 		sessionTTL:    sessionTTL,
@@ -47,14 +47,14 @@ func newAuthSessionManager(sessionTTL, persistentTTL time.Duration) *authSession
 	}
 }
 
-func (m *authSessionManager) CreateCredential(mode string, principal AuthenticatedPrincipal, credentialHash string, persistent bool) authSessionRecord {
+func (m *authSessionManager) CreateCredential(mode string, principal AuthenticatedPrincipal, credentialHash [32]byte, persistent bool) authSessionRecord {
 	serviceAccountID := ""
 	if principal.ServiceAccount != nil {
 		serviceAccountID = principal.ServiceAccount.ID
 	}
 	return m.createRecord(authSessionRecord{
 		Mode:             strings.TrimSpace(mode),
-		CredentialHash:   strings.TrimSpace(credentialHash),
+		CredentialHash:   credentialHash,
 		TenantID:         strings.TrimSpace(principal.Tenant.ID),
 		ServiceAccountID: strings.TrimSpace(serviceAccountID),
 		Role:             principal.Role,
@@ -86,7 +86,7 @@ func (m *authSessionManager) createRecord(seed authSessionRecord) authSessionRec
 		PublicID:         uuid.NewString(),
 		Secret:           uuid.NewString(),
 		Mode:             strings.TrimSpace(seed.Mode),
-		CredentialHash:   strings.TrimSpace(seed.CredentialHash),
+		CredentialHash:   seed.CredentialHash,
 		TenantID:         strings.TrimSpace(seed.TenantID),
 		ServiceAccountID: strings.TrimSpace(seed.ServiceAccountID),
 		Role:             seed.Role,
@@ -129,6 +129,32 @@ func (m *authSessionManager) Delete(secret string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	delete(m.sessions, strings.TrimSpace(secret))
+}
+
+func (m *authSessionManager) LookupByPublicID(publicID string) (authSessionRecord, string, bool) {
+	if m == nil {
+		return authSessionRecord{}, "", false
+	}
+
+	publicID = strings.TrimSpace(publicID)
+	if publicID == "" {
+		return authSessionRecord{}, "", false
+	}
+
+	now := time.Now().UTC()
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for secret, record := range m.sessions {
+		if record.PublicID != publicID {
+			continue
+		}
+		if !record.ExpiresAt.IsZero() && now.After(record.ExpiresAt) {
+			delete(m.sessions, secret)
+			return authSessionRecord{}, "", false
+		}
+		return record, secret, true
+	}
+	return authSessionRecord{}, "", false
 }
 
 func (m *authSessionManager) StartSweeper(ctx context.Context, interval time.Duration) {
@@ -187,7 +213,7 @@ func readAuthSessionSecret(r *http.Request) string {
 	return strings.TrimSpace(cookie.Value)
 }
 
-func setAuthSessionCookie(w http.ResponseWriter, r *http.Request, record authSessionRecord) {
+func setAuthSessionCookie(w http.ResponseWriter, record authSessionRecord, secure bool) {
 	if w == nil {
 		return
 	}
@@ -198,7 +224,7 @@ func setAuthSessionCookie(w http.ResponseWriter, r *http.Request, record authSes
 		Path:     "/",
 		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
-		Secure:   requestScheme(r) == "https",
+		Secure:   secure,
 	}
 	if record.Persistent {
 		cookie.Expires = record.ExpiresAt
@@ -207,7 +233,7 @@ func setAuthSessionCookie(w http.ResponseWriter, r *http.Request, record authSes
 	http.SetCookie(w, cookie)
 }
 
-func clearAuthSessionCookie(w http.ResponseWriter, r *http.Request) {
+func clearAuthSessionCookie(w http.ResponseWriter, secure bool) {
 	if w == nil {
 		return
 	}
@@ -218,6 +244,6 @@ func clearAuthSessionCookie(w http.ResponseWriter, r *http.Request) {
 		MaxAge:   -1,
 		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
-		Secure:   requestScheme(r) == "https",
+		Secure:   secure,
 	})
 }

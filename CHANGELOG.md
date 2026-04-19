@@ -6,7 +6,34 @@ This changelog tracks published releases and the major implementation milestones
 
 ## [Unreleased]
 
+## [2.5.0] - 2026-04-19
+
+### Security And Session Hardening
+
+- normalized remote-address loopback checks so direct local runtime bootstrap accepts `127.0.0.1`, `::1`, and IPv4-mapped `::ffff:127.0.0.1` while rejecting unparseable or non-loopback peers
+- stopped trusting forwarded client IP and scheme headers by default; `VIADUCT_TRUSTED_PROXIES` now gates `X-Forwarded-For` and `X-Forwarded-Proto`, loopback-bound runtimes stay on strict direct-peer trust, and dashboard session cookies only mark `Secure` when the effective request scheme is actually trusted as HTTPS
+- tightened local-runtime CSRF protection so mutating bootstrap requests require a same-listener `Origin` or `Referer` instead of accepting headerless POSTs
+- moved API credential comparisons onto fixed-size SHA-256 digests, capped remembered dashboard sessions to seven days unless `VIADUCT_LONG_SESSION_DAYS` is explicitly set, and added durable dashboard-session revocation for self sign-out plus admin-triggered revoke requests
+
+### API, Store, And Runtime Reliability
+
+- added a startup-applied credential-hash unique-index migration artifact for PostgreSQL, plus preflight duplicate detection that keeps the existing remediation guidance when legacy credentials still collide
+- reordered PostgreSQL credential migration so durable hash rows are inserted and verified before plaintext API keys are cleared, with rollback coverage for mid-migration failures
+- rebuilt the workspace executor around explicit enqueue acknowledgements, typed shutdown and tenant-share errors, per-tenant queue accounting, queue-depth metrics, and request-derived job contexts that still observe server shutdown cancellation
+- exposed unauthenticated `/api/v1/ping` runtime smoke readiness, preserved the legacy `/api/v1/inventory` list shape alongside `/api/v2` pagination, and documented that loopback-only local runtime protections are TCP-only
+
+### Dashboard, Tests, And Release Workflow
+
+- restored focus to the original drawer trigger on mobile navigation close, added a container-focus fallback when a dialog has no focusable descendants, and covered both behaviors with Testing Library
+- normalized dashboard request dedupe keys to the full request URL, added request-controller leak coverage around synchronous URL normalization failures, and strengthened runtime Playwright coverage for readiness plus legacy inventory compatibility
+- changed the runtime smoke harness to synthesize a `/readyz` gate that waits for `/readyz`, `/api/v1/ping`, and an authenticated `/api/v2/inventory?per_page=1` check before browser tests begin
+- hardened the release workflow so every `cosign sign-blob` result is immediately verified, `SHA256SUMS` is regenerated after sidecars exist, and the final checksum manifest is signed last
+
 ## [2.4.2] - 2026-04-18
+
+### Corrective Note
+
+- the original v2.4.2 wording about "global credential uniqueness" described the startup validation path and credential-hash registry behavior that shipped in that patch; v2.5.0 adds an explicit concurrent unique-index migration artifact for the registry as a follow-through hardening step
 
 ### Upgrading From v2.4.1
 

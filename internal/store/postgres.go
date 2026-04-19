@@ -6,7 +6,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -16,7 +19,7 @@ import (
 	pq "github.com/lib/pq"
 )
 
-const currentStoreSchemaVersion = 7
+const currentStoreSchemaVersion = 8
 
 type storeSchemaVersion struct {
 	version     int
@@ -31,6 +34,7 @@ var storeSchemaHistory = []storeSchemaVersion{
 	{version: 5, description: "schema version tracking and operator diagnostics"},
 	{version: 6, description: "pilot workspaces and persisted workspace background jobs"},
 	{version: 7, description: "hashed tenant credentials and durable credential uniqueness registry"},
+	{version: 8, description: "dashboard session revocation registry"},
 }
 
 const createStoreSchemaSQL = `
@@ -144,6 +148,13 @@ ALTER TABLE audit_events ADD COLUMN IF NOT EXISTS details JSONB NOT NULL DEFAULT
 ALTER TABLE audit_events ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT to_timestamp(0);
 CREATE INDEX IF NOT EXISTS idx_audit_events_tenant_created_at ON audit_events(tenant_id, created_at DESC);
 
+CREATE TABLE IF NOT EXISTS revoked_sessions (
+	session_id TEXT PRIMARY KEY,
+	expires_at TIMESTAMPTZ NOT NULL,
+	revoked_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_revoked_sessions_expires_at ON revoked_sessions(expires_at);
+
 CREATE TABLE IF NOT EXISTS workspaces (
 	tenant_id TEXT NOT NULL DEFAULT 'default',
 	id TEXT NOT NULL,
@@ -214,8 +225,14 @@ func NewPostgresStore(ctx context.Context, dsn string) (*PostgresStore, error) {
 		return nil, fmt.Errorf("postgres store: record schema history: %w", err)
 	}
 	if err := migrateStoredCredentials(recordCtx, db); err != nil {
+		// Close is best effort while unwinding a failed credential migration.
 		_ = db.Close()
 		return nil, fmt.Errorf("postgres store: migrate credentials: %w", annotateCredentialMigrationError(err))
+	}
+	if err := applyCredentialHashUniqueIndexMigration(recordCtx, db); err != nil {
+		// Close is best effort while unwinding a failed credential-index migration.
+		_ = db.Close()
+		return nil, fmt.Errorf("postgres store: credential hash unique index: %w", annotateCredentialMigrationError(err))
 	}
 
 	return &PostgresStore{
@@ -731,6 +748,7 @@ func (s *PostgresStore) CreateTenant(ctx context.Context, tenant models.Tenant) 
 	if err != nil {
 		return fmt.Errorf("postgres store: create tenant %s: begin transaction: %w", tenant.ID, err)
 	}
+	// Rollback is best effort after commit or terminal transaction failure.
 	defer func() { _ = tx.Rollback() }()
 
 	if _, err := tx.ExecContext(
@@ -806,6 +824,7 @@ func (s *PostgresStore) UpdateTenant(ctx context.Context, tenant models.Tenant) 
 	if err != nil {
 		return fmt.Errorf("postgres store: update tenant %s: begin transaction: %w", tenant.ID, err)
 	}
+	// Rollback is best effort after commit or terminal transaction failure.
 	defer func() { _ = tx.Rollback() }()
 
 	result, err := tx.ExecContext(
@@ -1105,6 +1124,60 @@ func (s *PostgresStore) ListAuditEvents(ctx context.Context, tenantID string, li
 	}
 
 	return items, nil
+}
+
+// RevokeAuthSession persists an auth session revocation to PostgreSQL until the original session expires.
+func (s *PostgresStore) RevokeAuthSession(ctx context.Context, sessionID string, expiresAt time.Time) error {
+	ctx, cancel := s.writeContext(ctx)
+	defer cancel()
+
+	sessionID = strings.TrimSpace(sessionID)
+	if sessionID == "" {
+		return fmt.Errorf("postgres store: revoke auth session: session ID is empty")
+	}
+	if expiresAt.IsZero() {
+		return fmt.Errorf("postgres store: revoke auth session: expires at is required")
+	}
+
+	if _, err := s.db.ExecContext(
+		ctx,
+		`INSERT INTO revoked_sessions (session_id, expires_at, revoked_at)
+		 VALUES ($1, $2, NOW())
+		 ON CONFLICT (session_id) DO UPDATE SET expires_at = EXCLUDED.expires_at, revoked_at = NOW()`,
+		sessionID,
+		expiresAt.UTC(),
+	); err != nil {
+		return fmt.Errorf("postgres store: revoke auth session %s: %w", sessionID, err)
+	}
+
+	return nil
+}
+
+// IsAuthSessionRevoked reports whether a non-expired auth session revocation exists in PostgreSQL.
+func (s *PostgresStore) IsAuthSessionRevoked(ctx context.Context, sessionID string) (bool, error) {
+	ctx, cancel := s.readContext(ctx)
+	defer cancel()
+
+	sessionID = strings.TrimSpace(sessionID)
+	if sessionID == "" {
+		return false, nil
+	}
+
+	var revoked bool
+	if err := s.db.QueryRowContext(
+		ctx,
+		`SELECT EXISTS (
+			SELECT 1
+			FROM revoked_sessions
+			WHERE session_id = $1
+			  AND expires_at > NOW()
+		)`,
+		sessionID,
+	).Scan(&revoked); err != nil {
+		return false, fmt.Errorf("postgres store: read auth session revocation %s: %w", sessionID, err)
+	}
+
+	return revoked, nil
 }
 
 // CreateWorkspace persists a pilot workspace to PostgreSQL.
@@ -1612,20 +1685,70 @@ func replaceTenantCredentialHashes(ctx context.Context, tx *sql.Tx, tenant model
 	if _, err := tx.ExecContext(ctx, `DELETE FROM credential_hashes WHERE tenant_id = $1`, tenant.ID); err != nil {
 		return fmt.Errorf("delete credential hashes for tenant %s: %w", tenant.ID, err)
 	}
-	for hash, owner := range tenantCredentialOwners(tenant) {
-		if _, err := tx.ExecContext(
+	return insertTenantCredentialHashes(ctx, tx, tenant)
+}
+
+func insertTenantCredentialHashes(ctx context.Context, tx *sql.Tx, tenant models.Tenant) error {
+	if tx == nil {
+		return fmt.Errorf("insert credential hashes: transaction is nil")
+	}
+	for _, entry := range orderedTenantCredentialHashes(tenant) {
+		var insertedHash string
+		if err := tx.QueryRowContext(
 			ctx,
 			`INSERT INTO credential_hashes (credential_hash, tenant_id, owner_type, service_account_id)
-			 VALUES ($1, $2, $3, $4)`,
-			hash,
+			 VALUES ($1, $2, $3, $4)
+			 RETURNING credential_hash`,
+			entry.hash,
 			tenant.ID,
-			credentialOwnerType(owner),
-			owner.serviceAccountID,
-		); err != nil {
+			credentialOwnerType(entry.owner),
+			entry.owner.serviceAccountID,
+		).Scan(&insertedHash); err != nil {
 			return translateCredentialConstraintError(err)
+		}
+		if strings.TrimSpace(insertedHash) == "" {
+			return fmt.Errorf("insert credential hash for tenant %s returned an empty identifier", tenant.ID)
 		}
 	}
 	return nil
+}
+
+type tenantCredentialHashInsert struct {
+	hash  string
+	owner credentialOwner
+}
+
+func orderedTenantCredentialHashes(tenant models.Tenant) []tenantCredentialHashInsert {
+	ordered := make([]tenantCredentialHashInsert, 0, 1+len(tenant.ServiceAccounts))
+	seen := make(map[string]struct{}, 1+len(tenant.ServiceAccounts))
+
+	if hash := strings.TrimSpace(tenant.APIKeyHash); hash != "" {
+		ordered = append(ordered, tenantCredentialHashInsert{
+			hash:  hash,
+			owner: credentialOwner{tenantID: tenant.ID},
+		})
+		seen[hash] = struct{}{}
+	}
+
+	for _, account := range tenant.ServiceAccounts {
+		hash := strings.TrimSpace(account.APIKeyHash)
+		if hash == "" {
+			continue
+		}
+		if _, exists := seen[hash]; exists {
+			continue
+		}
+		ordered = append(ordered, tenantCredentialHashInsert{
+			hash: hash,
+			owner: credentialOwner{
+				tenantID:         tenant.ID,
+				serviceAccountID: account.ID,
+			},
+		})
+		seen[hash] = struct{}{}
+	}
+
+	return ordered
 }
 
 func credentialOwnerType(owner credentialOwner) string {
@@ -1696,12 +1819,16 @@ func migrateStoredCredentials(ctx context.Context, db *sql.DB) error {
 	if err != nil {
 		return err
 	}
+	// Rollback is best effort after commit or terminal transaction failure.
 	defer func() { _ = tx.Rollback() }()
 
 	if _, err := tx.ExecContext(ctx, `DELETE FROM credential_hashes`); err != nil {
 		return err
 	}
 	for _, tenant := range tenants {
+		if err := insertTenantCredentialHashes(ctx, tx, tenant); err != nil {
+			return err
+		}
 		serviceAccountsPayload, err := marshalServiceAccounts(tenant.ServiceAccounts)
 		if err != nil {
 			return err
@@ -1715,9 +1842,6 @@ func migrateStoredCredentials(ctx context.Context, db *sql.DB) error {
 			serviceAccountsPayload,
 		); err != nil {
 			return translateCredentialConstraintError(err)
-		}
-		if err := replaceTenantCredentialHashes(ctx, tx, tenant); err != nil {
-			return err
 		}
 	}
 
@@ -1787,4 +1911,71 @@ func recordStoreSchemaHistory(ctx context.Context, db *sql.DB) error {
 		}
 	}
 	return nil
+}
+
+func applyCredentialHashUniqueIndexMigration(ctx context.Context, db *sql.DB) error {
+	if db == nil {
+		return fmt.Errorf("apply credential hash unique index migration: database is nil")
+	}
+
+	var duplicateHash string
+	if err := db.QueryRowContext(
+		ctx,
+		`SELECT credential_hash
+		 FROM credential_hashes
+		 GROUP BY credential_hash
+		 HAVING COUNT(*) > 1
+		 LIMIT 1`,
+	).Scan(&duplicateHash); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("preflight credential hash uniqueness: %w", err)
+	}
+	if strings.TrimSpace(duplicateHash) != "" {
+		return &CredentialConflictError{}
+	}
+
+	migrationSQL, err := readStoreMigrationFile("008_credential_hash_unique.sql")
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(migrationSQL) == "" {
+		return nil
+	}
+	if _, err := db.ExecContext(ctx, migrationSQL); err != nil {
+		return fmt.Errorf("apply credential hash unique index migration: %w", err)
+	}
+	return nil
+}
+
+func readStoreMigrationFile(name string) (string, error) {
+	if strings.TrimSpace(name) == "" {
+		return "", fmt.Errorf("read store migration file: migration name is empty")
+	}
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		return "", fmt.Errorf("read store migration file: caller path unavailable")
+	}
+	root, err := os.OpenRoot(filepath.Dir(file))
+	if err != nil {
+		return "", fmt.Errorf("read store migration file: open store root: %w", err)
+	}
+	defer root.Close()
+
+	migrationsRoot, err := root.OpenRoot("migrations")
+	if err != nil {
+		return "", fmt.Errorf("read store migration file: open migrations root: %w", err)
+	}
+	defer migrationsRoot.Close()
+
+	migrationFile, err := migrationsRoot.Open(name)
+	if err != nil {
+		return "", fmt.Errorf("read store migration file %s: %w", name, err)
+	}
+	defer migrationFile.Close()
+
+	payload, err := io.ReadAll(migrationFile)
+	if err != nil {
+		return "", fmt.Errorf("read store migration file %s: %w", name, err)
+	}
+
+	return string(payload), nil
 }

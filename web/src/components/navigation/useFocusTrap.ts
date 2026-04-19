@@ -11,10 +11,15 @@ export function useFocusTrap(
 			return;
 		}
 
+		const previousActiveElement = document.activeElement as HTMLElement | null;
 		const previousOverflow = document.body.style.overflow;
 		document.body.style.overflow = "hidden";
 		const focusable = getFocusableElements(containerRef.current);
-		focusable[0]?.focus();
+		if (focusable.length > 0) {
+			focusable[0].focus();
+		} else {
+			containerRef.current?.focus();
+		}
 
 		function handleKeyDown(event: KeyboardEvent) {
 			if (!containerRef.current) {
@@ -57,6 +62,7 @@ export function useFocusTrap(
 		return () => {
 			document.body.style.overflow = previousOverflow;
 			document.removeEventListener("keydown", handleKeyDown);
+			previousActiveElement?.focus();
 		};
 	}, [containerRef, enabled, onEscape]);
 }

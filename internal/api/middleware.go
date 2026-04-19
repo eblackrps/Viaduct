@@ -2,7 +2,9 @@ package api
 
 import (
 	"context"
+	"crypto/sha256"
 	"crypto/subtle"
+	"encoding/hex"
 	"fmt"
 	"net"
 	"net/http"
@@ -17,10 +19,18 @@ const (
 	tenantCredentialHeader         = "X-API-Key"             // #nosec G101 -- this is an HTTP header name, not an embedded credential.
 	serviceAccountCredentialHeader = "X-Service-Account-Key" // #nosec G101 -- this is an HTTP header name, not an embedded credential.
 	adminCredentialHeader          = "X-Admin-Key"
+	credentialHashPrefix           = "sha256:"
 )
 
 type tenantContextKey struct{}
 type principalContextKey struct{}
+
+var zeroCredentialHash [sha256.Size]byte
+
+// API authentication always hashes presented and persisted credentials into fixed-size
+// SHA-256 digests before comparing them so every constant-time comparison operates on
+// equal-length 32-byte inputs, including legacy plaintext records that are normalized
+// into digests at comparison time.
 
 // AuthenticatedPrincipal captures the tenant-scoped caller identity attached to a request.
 type AuthenticatedPrincipal struct {
@@ -65,27 +75,35 @@ func tenantAuthMiddleware(stateStore store.Store, sessions *authSessionManager, 
 		var sessionPrincipal *AuthenticatedPrincipal
 		if apiKey == "" && serviceAccountKey == "" && sessions != nil {
 			if sessionRecord, ok := sessions.Lookup(readAuthSessionSecret(r)); ok {
-				switch sessionRecord.Mode {
-				case "tenant":
-					if principal, tenantFound := principalFromTenantSession(tenants, sessionRecord); tenantFound {
-						sessionPrincipal = &principal
-						authMethod = "runtime-session"
-					}
-				case "service-account":
-					if principal, accountFound := principalFromServiceAccountSession(tenants, sessionRecord); accountFound {
-						sessionPrincipal = &principal
-						authMethod = "runtime-session"
-					}
-				case "local":
-					if tenant, tenantFound := findTenantByID(tenants, sessionRecord.TenantID); tenantFound {
-						principal := AuthenticatedPrincipal{
-							Tenant:     tenant,
-							Role:       sessionRecord.Role,
-							AuthMethod: firstNonEmpty(sessionRecord.AuthMethod, "local-runtime-session"),
+				revoked, revokeErr := stateStore.IsAuthSessionRevoked(r.Context(), sessionRecord.PublicID)
+				if revokeErr != nil {
+					writeAPIError(w, r, http.StatusInternalServerError, "internal_error", revokeErr.Error(), apiErrorOptions{Retryable: true})
+					return
+				}
+				if revoked {
+					sessions.Delete(sessionRecord.Secret)
+				} else {
+					switch sessionRecord.Mode {
+					case "tenant":
+						if principal, tenantFound := principalFromTenantSession(r.Context(), tenants, sessionRecord); tenantFound {
+							sessionPrincipal = &principal
+							authMethod = "runtime-session"
 						}
-						sessionPrincipal = &principal
+					case "service-account":
+						if principal, accountFound := principalFromServiceAccountSession(r.Context(), tenants, sessionRecord); accountFound {
+							sessionPrincipal = &principal
+							authMethod = "runtime-session"
+						}
+					case "local":
+						authMethod = firstNonEmpty(sessionRecord.AuthMethod, "local-runtime-session")
+						if tenant, tenantFound := findTenantByID(tenants, sessionRecord.TenantID); tenantFound {
+							principal := AuthenticatedPrincipal{
+								Tenant: tenant,
+								Role:   sessionRecord.Role,
+							}
+							sessionPrincipal = &principal
+						}
 					}
-					authMethod = firstNonEmpty(sessionRecord.AuthMethod, "local-runtime-session")
 				}
 			}
 		}
@@ -98,11 +116,14 @@ func tenantAuthMiddleware(stateStore store.Store, sessions *authSessionManager, 
 			if tenant, tenantFound := findTenantByID(tenants, sessionPrincipal.Tenant.ID); tenantFound {
 				principal = *sessionPrincipal
 				principal.Tenant = tenant
+				if authMethod != "" {
+					principal.AuthMethod = authMethod
+				}
 				ok = true
 			}
 		}
 		if !ok {
-			principal, ok = authenticateTenantPrincipal(tenants, apiKey, serviceAccountKey)
+			principal, ok = authenticateTenantPrincipal(r.Context(), tenants, apiKey, serviceAccountKey)
 		}
 		if !ok {
 			if apiKey == "" && serviceAccountKey == "" {
@@ -116,7 +137,7 @@ func tenantAuthMiddleware(stateStore store.Store, sessions *authSessionManager, 
 		if authMethod != "" {
 			principal.AuthMethod = authMethod
 		}
-		credentialTenantIDs := lookupCredentialTenantIDs(tenants, apiKey, serviceAccountKey)
+		credentialTenantIDs := lookupCredentialTenantIDs(r.Context(), tenants, apiKey, serviceAccountKey)
 		if mismatch := tenantAuthMismatch(store.TenantIDFromContext(r.Context()), principal.Tenant.ID, credentialTenantIDs); mismatch {
 			packageLogger.Warn(
 				"tenant auth mismatch rejected",
@@ -157,16 +178,37 @@ func localRuntimeRequestAllowed(r *http.Request, bindHost string) bool {
 	if !bindHostIsLoopbackOnly(bindHost) || !requestFromLoopback(r) || !requestHostIsLoopback(r) || requestUsesForwardingHeaders(r) {
 		return false
 	}
+
+	_, originPresent := r.Header["Origin"]
 	origin := strings.TrimSpace(r.Header.Get("Origin"))
-	return origin == "" || sameOriginRequest(r, origin)
+	referer := strings.TrimSpace(r.Header.Get("Referer"))
+	if isMutatingMethod(r.Method) {
+		if originPresent && origin == "" {
+			return false
+		}
+		if origin == "" {
+			if referer == "" {
+				return false
+			}
+			return sameOriginRequest(r, referer)
+		}
+		return sameOriginRequest(r, origin)
+	}
+	if origin != "" {
+		return sameOriginRequest(r, origin)
+	}
+	if referer != "" {
+		return sameOriginRequest(r, referer)
+	}
+	return true
 }
 
-func principalFromTenantSession(tenants []models.Tenant, record authSessionRecord) (AuthenticatedPrincipal, bool) {
+func principalFromTenantSession(ctx context.Context, tenants []models.Tenant, record authSessionRecord) (AuthenticatedPrincipal, bool) {
 	tenant, ok := findTenantByID(tenants, record.TenantID)
 	if !ok {
 		return AuthenticatedPrincipal{}, false
 	}
-	if !storedCredentialHashMatches(tenant.APIKeyHash, tenant.APIKey, record.CredentialHash) {
+	if !storedCredentialHashMatches(ctx, tenant.APIKeyHash, tenant.APIKey, record.CredentialHash) {
 		return AuthenticatedPrincipal{}, false
 	}
 	return AuthenticatedPrincipal{
@@ -176,7 +218,7 @@ func principalFromTenantSession(tenants []models.Tenant, record authSessionRecor
 	}, true
 }
 
-func principalFromServiceAccountSession(tenants []models.Tenant, record authSessionRecord) (AuthenticatedPrincipal, bool) {
+func principalFromServiceAccountSession(ctx context.Context, tenants []models.Tenant, record authSessionRecord) (AuthenticatedPrincipal, bool) {
 	now := time.Now().UTC()
 	for _, tenant := range tenants {
 		if !tenant.Active || tenant.ID != record.TenantID {
@@ -187,7 +229,7 @@ func principalFromServiceAccountSession(tenants []models.Tenant, record authSess
 			if account.ID != record.ServiceAccountID || !serviceAccountUsable(account, now) {
 				continue
 			}
-			if !storedCredentialHashMatches(account.APIKeyHash, account.APIKey, record.CredentialHash) {
+			if !storedCredentialHashMatches(ctx, account.APIKeyHash, account.APIKey, record.CredentialHash) {
 				return AuthenticatedPrincipal{}, false
 			}
 			role := account.Role
@@ -205,25 +247,20 @@ func principalFromServiceAccountSession(tenants []models.Tenant, record authSess
 	return AuthenticatedPrincipal{}, false
 }
 
-func storedCredentialHashMatches(storedHash, legacyRaw, expectedHash string) bool {
-	expectedHash = strings.TrimSpace(expectedHash)
-	if expectedHash == "" {
-		return false
-	}
-	current := strings.TrimSpace(storedHash)
-	if current == "" && strings.TrimSpace(legacyRaw) != "" {
-		current = store.HashAPIKey(legacyRaw)
-	}
-	if current == "" {
-		return false
-	}
-	return subtle.ConstantTimeCompare([]byte(current), []byte(expectedHash)) == 1
+func storedCredentialHashMatches(ctx context.Context, storedHash, legacyRaw string, expectedHash [32]byte) bool {
+	current, ok := storedCredentialHash(ctx, storedHash, legacyRaw)
+	return ok &&
+		!isZeroCredentialHash(current) &&
+		!isZeroCredentialHash(expectedHash) &&
+		subtle.ConstantTimeCompare(current[:], expectedHash[:]) == 1
 }
 
 func constantTimeEqual(left, right string) bool {
-	left = strings.TrimSpace(left)
-	right = strings.TrimSpace(right)
-	return left != "" && right != "" && subtle.ConstantTimeCompare([]byte(left), []byte(right)) == 1
+	leftHash := hashCredential(context.Background(), left)
+	rightHash := hashCredential(context.Background(), right)
+	return !isZeroCredentialHash(leftHash) &&
+		!isZeroCredentialHash(rightHash) &&
+		subtle.ConstantTimeCompare(leftHash[:], rightHash[:]) == 1
 }
 
 // AdminAuthMiddleware authenticates administrative API requests.
@@ -242,34 +279,69 @@ func AdminAuthMiddleware(adminAPIKey string, next http.Handler) http.Handler {
 	})
 }
 
-func authenticateTenantPrincipal(tenants []models.Tenant, tenantAPIKey, serviceAccountKey string) (AuthenticatedPrincipal, bool) {
-	if principal, ok := findTenantPrincipalByAPIKey(tenants, tenantAPIKey); ok {
+func authenticateTenantPrincipal(ctx context.Context, tenants []models.Tenant, tenantAPIKey, serviceAccountKey string) (AuthenticatedPrincipal, bool) {
+	if principal, ok := findTenantPrincipalByAPIKey(ctx, tenants, tenantAPIKey); ok {
 		return principal, true
 	}
-	if principal, ok := findServiceAccountPrincipalByAPIKey(tenants, serviceAccountKey); ok {
+	if principal, ok := findServiceAccountPrincipalByAPIKey(ctx, tenants, serviceAccountKey); ok {
 		return principal, true
 	}
 	if serviceAccountKey == "" {
-		if principal, ok := findServiceAccountPrincipalByAPIKey(tenants, tenantAPIKey); ok {
+		if principal, ok := findServiceAccountPrincipalByAPIKey(ctx, tenants, tenantAPIKey); ok {
 			return principal, true
 		}
 	}
 	return AuthenticatedPrincipal{}, false
 }
 
-func lookupCredentialTenantIDs(tenants []models.Tenant, tenantAPIKey, serviceAccountKey string) map[string]struct{} {
+func lookupCredentialTenantIDs(ctx context.Context, tenants []models.Tenant, tenantAPIKey, serviceAccountKey string) map[string]struct{} {
 	tenantIDs := make(map[string]struct{})
 	addMatches := func(apiKey string) {
-		if principal, ok := findTenantPrincipalByAPIKey(tenants, apiKey); ok {
+		if principal, ok := findTenantPrincipalByAPIKey(ctx, tenants, apiKey); ok {
 			tenantIDs[principal.Tenant.ID] = struct{}{}
 		}
-		if principal, ok := findServiceAccountPrincipalByAPIKey(tenants, apiKey); ok {
+		if principal, ok := findServiceAccountPrincipalByAPIKey(ctx, tenants, apiKey); ok {
 			tenantIDs[principal.Tenant.ID] = struct{}{}
 		}
 	}
 	addMatches(tenantAPIKey)
 	addMatches(serviceAccountKey)
 	return tenantIDs
+}
+
+func hashCredential(_ context.Context, key string) [32]byte {
+	trimmed := strings.TrimSpace(key)
+	if trimmed == "" {
+		return [32]byte{}
+	}
+	return sha256.Sum256([]byte(trimmed))
+}
+
+func storedCredentialHash(ctx context.Context, storedHash, legacyRaw string) ([32]byte, bool) {
+	normalizedHash := strings.TrimSpace(storedHash)
+	if normalizedHash != "" {
+		return parseCredentialHash(normalizedHash)
+	}
+	return hashCredential(ctx, legacyRaw), strings.TrimSpace(legacyRaw) != ""
+}
+
+func parseCredentialHash(value string) ([32]byte, bool) {
+	trimmed := strings.TrimSpace(value)
+	trimmed = strings.TrimPrefix(trimmed, credentialHashPrefix)
+	if trimmed == "" {
+		return [32]byte{}, false
+	}
+	decoded, err := hex.DecodeString(trimmed)
+	if err != nil || len(decoded) != sha256.Size {
+		return [32]byte{}, false
+	}
+	var digest [32]byte
+	copy(digest[:], decoded)
+	return digest, true
+}
+
+func isZeroCredentialHash(value [32]byte) bool {
+	return subtle.ConstantTimeCompare(value[:], zeroCredentialHash[:]) == 1
 }
 
 func tenantAuthMismatch(contextTenantID, principalTenantID string, credentialTenantIDs map[string]struct{}) bool {
@@ -317,14 +389,15 @@ func defaultTenantFallback(tenants []models.Tenant) (models.Tenant, bool) {
 	return models.Tenant{}, false
 }
 
-func findTenantPrincipalByAPIKey(tenants []models.Tenant, apiKey string) (AuthenticatedPrincipal, bool) {
+func findTenantPrincipalByAPIKey(ctx context.Context, tenants []models.Tenant, apiKey string) (AuthenticatedPrincipal, bool) {
 	apiKey = strings.TrimSpace(apiKey)
 	if apiKey == "" {
 		return AuthenticatedPrincipal{}, false
 	}
 
+	digest := hashCredential(ctx, apiKey)
 	for _, tenant := range tenants {
-		if tenant.Active && store.APIKeyMatches(apiKey, tenant.APIKeyHash, tenant.APIKey) {
+		if tenant.Active && storedCredentialHashMatches(ctx, tenant.APIKeyHash, tenant.APIKey, digest) {
 			return AuthenticatedPrincipal{
 				Tenant:     tenant,
 				Role:       models.TenantRoleAdmin,
@@ -335,20 +408,21 @@ func findTenantPrincipalByAPIKey(tenants []models.Tenant, apiKey string) (Authen
 	return AuthenticatedPrincipal{}, false
 }
 
-func findServiceAccountPrincipalByAPIKey(tenants []models.Tenant, apiKey string) (AuthenticatedPrincipal, bool) {
+func findServiceAccountPrincipalByAPIKey(ctx context.Context, tenants []models.Tenant, apiKey string) (AuthenticatedPrincipal, bool) {
 	apiKey = strings.TrimSpace(apiKey)
 	if apiKey == "" {
 		return AuthenticatedPrincipal{}, false
 	}
 
 	now := time.Now().UTC()
+	digest := hashCredential(ctx, apiKey)
 	for _, tenant := range tenants {
 		if !tenant.Active {
 			continue
 		}
 		for index := range tenant.ServiceAccounts {
 			account := tenant.ServiceAccounts[index]
-			if !store.APIKeyMatches(apiKey, account.APIKeyHash, account.APIKey) || !serviceAccountUsable(account, now) {
+			if !storedCredentialHashMatches(ctx, account.APIKeyHash, account.APIKey, digest) || !serviceAccountUsable(account, now) {
 				continue
 			}
 			role := account.Role
@@ -365,6 +439,7 @@ func findServiceAccountPrincipalByAPIKey(tenants []models.Tenant, apiKey string)
 	}
 	return AuthenticatedPrincipal{}, false
 }
+
 func findTenantByID(tenants []models.Tenant, tenantID string) (models.Tenant, bool) {
 	tenantID = strings.TrimSpace(tenantID)
 	if tenantID == "" {
@@ -382,16 +457,8 @@ func requestFromLoopback(r *http.Request) bool {
 	if r == nil {
 		return false
 	}
-	host := strings.TrimSpace(r.RemoteAddr)
-	if host == "" {
-		return false
-	}
-	if parsedHost, _, err := net.SplitHostPort(host); err == nil {
-		host = parsedHost
-	}
-	host = strings.Trim(host, "[]")
-	ip := net.ParseIP(host)
-	return ip != nil && ip.IsLoopback()
+	ip, ok := remoteAddrIP(r.RemoteAddr)
+	return ok && ip.IsLoopback()
 }
 
 func requestHostIsLoopback(r *http.Request) bool {
@@ -412,6 +479,15 @@ func requestHostIsLoopback(r *http.Request) bool {
 	}
 	ip := net.ParseIP(host)
 	return ip != nil && ip.IsLoopback()
+}
+
+func isMutatingMethod(method string) bool {
+	switch strings.ToUpper(strings.TrimSpace(method)) {
+	case http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete:
+		return true
+	default:
+		return false
+	}
 }
 
 func requestUsesForwardingHeaders(r *http.Request) bool {
