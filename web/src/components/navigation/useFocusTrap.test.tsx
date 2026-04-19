@@ -50,7 +50,9 @@ describe("useFocusTrap", () => {
 
 		fireEvent.click(trigger);
 
-		const closeButton = screen.getByRole("button", { name: "Close navigation" });
+		const closeButton = screen.getByRole("button", {
+			name: "Close navigation",
+		});
 		expect(closeButton).toHaveFocus();
 
 		fireEvent.click(closeButton);

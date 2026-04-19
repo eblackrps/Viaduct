@@ -207,6 +207,28 @@
         },
         "type": "object"
       },
+      "AuthSessionRevokeRequest": {
+        "properties": {
+          "session_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id"
+        ],
+        "type": "object"
+      },
+      "AuthSessionRevokeResponse": {
+        "properties": {
+          "session_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "CheckResult": {
         "properties": {
           "duration": {
@@ -1493,6 +1515,9 @@
               }
             },
             "description": "Dashboard auth session cleared"
+          },
+          "500": {
+            "$ref": "#/components/responses/ErrorResponse"
           }
         },
         "summary": "Clear the current dashboard auth session"
@@ -1534,6 +1559,50 @@
           }
         },
         "summary": "Create a dashboard auth session"
+      }
+    },
+    "/api/v1/auth/session/revoke": {
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthSessionRevokeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthSessionRevokeResponse"
+                }
+              }
+            },
+            "description": "Dashboard auth session revoked"
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "AdminAPIKey": []
+          }
+        ],
+        "summary": "Revoke a dashboard auth session"
       }
     },
     "/api/v1/health": {
@@ -1908,6 +1977,29 @@
           }
         ],
         "summary": "Roll back a migration run"
+      }
+    },
+    "/api/v1/ping": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "status": {
+                      "example": "ok",
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "API is reachable without authentication"
+          }
+        },
+        "summary": "Unauthenticated API reachability probe"
       }
     },
     "/api/v1/preflight": {

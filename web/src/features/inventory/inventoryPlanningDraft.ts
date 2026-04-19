@@ -57,10 +57,13 @@ export function loadInventoryPlanningDraft(): InventoryPlanningDraft | null {
 			workloads: draft.workloads,
 		};
 	} catch (error) {
-		console.warn("failed to parse saved inventory planning draft, clearing it", {
-			error,
-			storageKey: inventoryPlanningDraftKey,
-		});
+		console.warn(
+			"failed to parse saved inventory planning draft, clearing it",
+			{
+				error,
+				storageKey: inventoryPlanningDraftKey,
+			},
+		);
 		window.sessionStorage.removeItem(inventoryPlanningDraftKey);
 		return null;
 	}

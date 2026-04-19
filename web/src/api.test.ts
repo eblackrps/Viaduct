@@ -198,7 +198,9 @@ describe("api", () => {
 	it("does not dedupe concurrent GET requests with different query strings", async () => {
 		const fetchMock = vi
 			.fn()
-			.mockResolvedValue(new Response(JSON.stringify({ items: [] }), { status: 200 }));
+			.mockResolvedValue(
+				new Response(JSON.stringify({ items: [] }), { status: 200 }),
+			);
 		vi.stubGlobal("fetch", fetchMock);
 
 		const pageOnePromise = requestManager.fetch("/api/v2/inventory?page=1");
