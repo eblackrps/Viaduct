@@ -68,3 +68,29 @@ test("boots the real viaduct runtime and completes the first local operator flow
 		cookies.some((cookie) => cookie.name === "viaduct_dashboard_session"),
 	).toBeTruthy();
 });
+
+test("keeps the legacy v1 inventory response shape available", async ({ page }) => {
+	await page.goto("/");
+
+	const localSessionButton = page.getByRole("button", {
+		name: "Use local operator session",
+	});
+	if (await localSessionButton.isVisible()) {
+		await localSessionButton.click();
+	}
+	await expect
+		.poll(async () => {
+			const response = await page.request.get("/api/v1/tenants/current");
+			return response.status();
+		})
+		.toBe(200);
+
+	const response = await page.request.get("/api/v1/inventory");
+	expect(response.ok()).toBeTruthy();
+
+	const payload = await response.json();
+	expect(Array.isArray(payload)).toBeFalsy();
+	expect(Array.isArray(payload?.vms)).toBeTruthy();
+	expect(payload?.inventory).toBeUndefined();
+	expect(payload?.pagination).toBeUndefined();
+});
