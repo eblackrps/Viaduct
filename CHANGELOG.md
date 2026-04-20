@@ -6,7 +6,7 @@ This changelog tracks published releases and the major implementation milestones
 
 ## [Unreleased]
 
-## [2.6.0] - 2026-04-19
+## [2.6.0] - 2026-04-20
 
 ### Security Follow-Up Hardening
 
