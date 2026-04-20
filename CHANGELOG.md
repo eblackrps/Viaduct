@@ -6,6 +6,27 @@ This changelog tracks published releases and the major implementation milestones
 
 ## [Unreleased]
 
+## [2.7.0] - 2026-04-20
+
+### Security And Session Hardening
+
+- tightened dashboard-session revocation so the in-memory cache is only cleared after the durable revocation write succeeds under the session-manager write lock, and added coverage for failed revocation writes plus concurrent lookup pressure
+- normalized credential-hash comparison inputs onto the same fixed-width sentinel-backed constant-time path, audited rotation-driven session invalidation with old and new hash prefixes, and rejected malformed stored-hash bytes without short-circuiting the compare flow
+- hardened loopback request trust again by rejecting zoned or otherwise non-canonical forwarded client IPs without falling back to `X-Real-IP`, and now emit explicit `AUDIT` loopback rejection lines for rejected `GET` requests as well as mutating verbs
+- switched admin-route authentication onto the same hashed credential-compare path as tenant and service-account credentials, so `VIADUCT_ADMIN_KEY` now stores the persisted `sha256:<hex>` digest instead of the plaintext secret
+
+### Store, Executor, And Runtime Reliability
+
+- split PostgreSQL credential migration into a two-phase flow that seeds durable credential-hash rows first and clears legacy plaintext only after verifying the expected hash rows are present, with rollback coverage for missing preconditions
+- made bounded workspace enqueue acknowledgements explicit and typed, removed the direct handoff race from the dispatch loop, and added regression coverage so timed-out enqueue attempts do not linger in the queued-work accounting
+- wired the dashboard auth-session sweeper into the server lifecycle with an explicit stop path so shutdown waits for the pruning goroutine instead of leaving it behind
+
+### Dashboard And Release Engineering
+
+- updated the focus trap so Escape always uses the latest callback, cleanup restores focus through a previous-element → trap-root → `document.body` fallback chain, and the body fallback warns once when it is reached
+- tightened dashboard request dedupe bookkeeping with per-key reference counting so identical opt-in GETs share one fetch while still releasing the in-flight map cleanly after the last waiter settles
+- hardened the release workflow around explicit expected bundle manifests, exact tag-pinned cosign certificate identities for both tag pushes and manual dispatch, and a published-bundle checksum verification pass before the Docker image build consumes the release binaries
+
 ## [2.6.0] - 2026-04-20
 
 ### Security Follow-Up Hardening

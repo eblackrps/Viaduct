@@ -76,8 +76,9 @@ func (c requestTrustConfig) peerIP(r *http.Request) (net.IP, bool) {
 		return nil, false
 	}
 	if c.forwardedHeadersTrusted(r) {
-		if forwarded, ok := forwardedForIP(r.Header.Get("X-Forwarded-For")); ok {
-			return forwarded, true
+		forwardedFor := strings.TrimSpace(r.Header.Get("X-Forwarded-For"))
+		if forwardedFor != "" {
+			return forwardedForIP(forwardedFor)
 		}
 		if forwarded, ok := parseConcreteIP(r.Header.Get("X-Real-IP")); ok {
 			return forwarded, true
@@ -131,14 +132,14 @@ func parseConcreteIP(value string) (net.IP, bool) {
 		return nil, false
 	}
 	base, hadZone := splitIPZone(trimmed)
+	if hadZone {
+		return nil, false
+	}
 	ip := net.ParseIP(base)
 	if ip == nil {
 		return nil, false
 	}
 	if ipv4 := ip.To4(); ipv4 != nil {
-		if hadZone {
-			return nil, false
-		}
 		return ipv4, true
 	}
 	return ip, true
@@ -147,6 +148,23 @@ func parseConcreteIP(value string) (net.IP, bool) {
 func splitIPZone(value string) (string, bool) {
 	base, _, found := strings.Cut(strings.TrimSpace(value), "%")
 	return base, found
+}
+
+func rejectedForwardingHeader(r *http.Request) string {
+	if r == nil {
+		return ""
+	}
+	if forwardedFor := strings.TrimSpace(r.Header.Get("X-Forwarded-For")); forwardedFor != "" {
+		if _, ok := forwardedForIP(forwardedFor); !ok {
+			return "X-Forwarded-For"
+		}
+	}
+	if realIP := strings.TrimSpace(r.Header.Get("X-Real-IP")); realIP != "" {
+		if _, ok := parseConcreteIP(realIP); !ok {
+			return "X-Real-IP"
+		}
+	}
+	return ""
 }
 
 func sameOriginRequest(r *http.Request, origin string) bool {

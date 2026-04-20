@@ -10,7 +10,7 @@ insecure: false
 state_store_dsn: "postgres://viaduct:change-me@localhost:5432/viaduct?sslmode=disable"
 
 # Admin API authentication is read from the process environment.
-# Example: export VIADUCT_ADMIN_KEY="replace-me"
+# Example: export VIADUCT_ADMIN_KEY="sha256:<admin-key-hash>"
 
 # Optional reusable credential references for migration specs.
 # Use these keys from source.credential_ref and target.credential_ref.

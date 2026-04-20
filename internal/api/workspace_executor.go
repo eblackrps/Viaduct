@@ -19,6 +19,8 @@ var (
 	ErrTenantQueueFull = errors.New("workspace job executor tenant queue share is full")
 	// ErrEnqueueTimeout reports that a caller waited too long for the executor to acknowledge queue admission.
 	ErrEnqueueTimeout = errors.New("workspace job executor enqueue timed out")
+	// ErrResultChannelFull reports that executor bookkeeping could not deliver an enqueue result to the waiting caller.
+	ErrResultChannelFull = errors.New("workspace job executor result channel is not accepting values")
 )
 
 type workspaceJobTask struct {
@@ -38,8 +40,9 @@ type workspaceQueueDepthReporter interface {
 }
 
 type workspaceJobEnqueueRequest struct {
-	task   workspaceJobTask
-	result chan error
+	task    workspaceJobTask
+	waitCtx context.Context
+	result  chan error
 }
 
 type workspaceWorkerHandle struct {
@@ -103,12 +106,13 @@ func (e *workspaceJobExecutor) Enqueue(ctx context.Context, task workspaceJobTas
 		ctx = context.Background()
 	}
 
-	request := workspaceJobEnqueueRequest{
-		task:   task,
-		result: make(chan error, 1),
-	}
 	waitCtx, cancel := context.WithTimeout(ctx, e.enqueueTimeout)
 	defer cancel()
+	request := workspaceJobEnqueueRequest{
+		task:    task,
+		waitCtx: waitCtx,
+		result:  make(chan error),
+	}
 
 	select {
 	case <-e.done:
@@ -192,41 +196,44 @@ func (e *workspaceJobExecutor) dispatch() {
 			idleWorkers = append(idleWorkers, worker)
 		case request := <-e.enqueue:
 			if e.ctx.Err() != nil {
-				request.respond(ErrExecutorShuttingDown)
+				if err := request.respond(ErrExecutorShuttingDown); err != nil {
+					// The caller may already have timed out or closed its receive path.
+				}
 				e.rejectPending(queue)
 				e.drainEnqueueRequests()
 				return
 			}
 
-			if len(idleWorkers) > 0 {
-				worker := idleWorkers[0]
-				idleWorkers = idleWorkers[1:]
-				if !e.assignTask(worker, request) {
-					e.rejectPending(queue)
-					e.drainEnqueueRequests()
-					return
-				}
-				continue
-			}
-
 			if e.tenantQueueLimitExceeded(request.task.tenantID) {
-				request.respond(ErrTenantQueueFull)
+				request.task.cleanup()
+				if err := request.respond(ErrTenantQueueFull); err != nil {
+					// The caller may already have timed out or closed its receive path.
+				}
 				continue
 			}
 
 			for len(queue) >= e.queueCapacity {
 				select {
 				case <-e.ctx.Done():
-					request.respond(ErrExecutorShuttingDown)
+					request.task.cleanup()
+					if err := request.respond(ErrExecutorShuttingDown); err != nil {
+						// The caller may already have timed out or closed its receive path.
+					}
 					e.rejectPending(queue)
 					e.drainEnqueueRequests()
 					return
+				case <-request.waitCtx.Done():
+					request.task.cleanup()
+					continue
 				case worker := <-e.workerReady:
 					oldest := queue[0]
 					queue = queue[1:]
 					e.adjustTenantQueueDepth(oldest.task.tenantID, -1)
 					if !e.assignTask(worker, oldest) {
-						request.respond(ErrExecutorShuttingDown)
+						request.task.cleanup()
+						if err := request.respond(ErrExecutorShuttingDown); err != nil {
+							// The caller may already have timed out or closed its receive path.
+						}
 						e.rejectPending(queue)
 						e.drainEnqueueRequests()
 						return
@@ -235,7 +242,10 @@ func (e *workspaceJobExecutor) dispatch() {
 			}
 
 			if e.ctx.Err() != nil {
-				request.respond(ErrExecutorShuttingDown)
+				request.task.cleanup()
+				if err := request.respond(ErrExecutorShuttingDown); err != nil {
+					// The caller may already have timed out or closed its receive path.
+				}
 				e.rejectPending(queue)
 				e.drainEnqueueRequests()
 				return
@@ -243,7 +253,16 @@ func (e *workspaceJobExecutor) dispatch() {
 
 			queue = append(queue, request)
 			e.adjustTenantQueueDepth(request.task.tenantID, 1)
-			request.respond(nil)
+			if err := request.respond(nil); err != nil {
+				queue = queue[:len(queue)-1]
+				e.adjustTenantQueueDepth(request.task.tenantID, -1)
+				request.task.cleanup()
+				continue
+			}
+			// Queue admission is the only result delivered back to the caller. Clear the
+			// queued copy's result channel so later shutdown cleanup cannot block trying
+			// to send a second terminal status to a caller that already returned.
+			queue[len(queue)-1].result = nil
 		}
 	}
 }
@@ -251,21 +270,26 @@ func (e *workspaceJobExecutor) dispatch() {
 func (e *workspaceJobExecutor) assignTask(worker workspaceWorkerHandle, request workspaceJobEnqueueRequest) bool {
 	if e == nil {
 		request.task.cleanup()
-		request.respond(fmt.Errorf("workspace job executor is not configured"))
+		if err := request.respond(fmt.Errorf("workspace job executor is not configured")); err != nil {
+			// The caller may already have timed out or closed its receive path.
+		}
 		return false
 	}
 
 	select {
 	case <-e.ctx.Done():
 		request.task.cleanup()
-		request.respond(ErrExecutorShuttingDown)
+		if err := request.respond(ErrExecutorShuttingDown); err != nil {
+			// The caller may already have timed out or closed its receive path.
+		}
 		return false
 	case <-worker.exit:
 		request.task.cleanup()
-		request.respond(ErrExecutorShuttingDown)
+		if err := request.respond(ErrExecutorShuttingDown); err != nil {
+			// The caller may already have timed out or closed its receive path.
+		}
 		return false
 	case worker.tasks <- request.task:
-		request.respond(nil)
 		return true
 	}
 }
@@ -277,7 +301,9 @@ func (e *workspaceJobExecutor) rejectPending(queue []workspaceJobEnqueueRequest)
 	e.clearQueueDepths()
 	for _, request := range queue {
 		request.task.cleanup()
-		request.respond(ErrExecutorShuttingDown)
+		if err := request.respond(ErrExecutorShuttingDown); err != nil {
+			// The caller may already have timed out or closed its receive path.
+		}
 	}
 }
 
@@ -288,7 +314,10 @@ func (e *workspaceJobExecutor) drainEnqueueRequests() {
 	for {
 		select {
 		case request := <-e.enqueue:
-			request.respond(ErrExecutorShuttingDown)
+			request.task.cleanup()
+			if err := request.respond(ErrExecutorShuttingDown); err != nil {
+				// The caller may already have timed out or closed its receive path.
+			}
 		default:
 			return
 		}
@@ -404,9 +433,19 @@ func (t workspaceJobTask) cleanup() {
 	}
 }
 
-func (r workspaceJobEnqueueRequest) respond(err error) {
+func (r workspaceJobEnqueueRequest) respond(err error) (sendErr error) {
+	if r.result == nil {
+		return ErrResultChannelFull
+	}
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			sendErr = ErrResultChannelFull
+		}
+	}()
 	select {
+	case <-r.waitCtx.Done():
+		return r.waitCtx.Err()
 	case r.result <- err:
-	default:
+		return nil
 	}
 }

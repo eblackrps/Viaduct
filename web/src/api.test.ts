@@ -18,6 +18,8 @@ import {
 	getAbout,
 	getCosts,
 	getDrift,
+	getInflightDedupeCount,
+	getInflightRequestCount,
 	getRemediation,
 	getSnapshots,
 	requestManager,
@@ -220,6 +222,39 @@ describe("api", () => {
 
 		await Promise.all([pageOnePromise, pageTwoPromise]);
 		expect(fetchMock).toHaveBeenCalledTimes(2);
+	});
+
+	it("dedupes identical GET requests and releases the inflight entry when they settle", async () => {
+		let resolveFetch: ((response: Response) => void) | undefined;
+		const fetchMock = vi.fn().mockImplementation(
+			() =>
+				new Promise<Response>((resolve) => {
+					resolveFetch = resolve;
+				}),
+		);
+		vi.stubGlobal("fetch", fetchMock);
+
+		const firstPromise = requestManager.fetch("/api/v1/about", undefined, {
+			dedupe: true,
+		});
+		const secondPromise = requestManager.fetch("/api/v1/about", undefined, {
+			dedupe: true,
+		});
+		const thirdPromise = requestManager.fetch("/api/v1/about", undefined, {
+			dedupe: true,
+		});
+
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+		expect(getInflightRequestCount()).toBe(1);
+		expect(getInflightDedupeCount()).toBe(1);
+
+		resolveFetch?.(
+			new Response(JSON.stringify({ version: "2.7.0" }), { status: 200 }),
+		);
+
+		await Promise.all([thirdPromise, secondPromise, firstPromise]);
+		expect(getInflightRequestCount()).toBe(0);
+		expect(getInflightDedupeCount()).toBe(0);
 	});
 
 	it("resolves request URLs against the base tag when present", async () => {

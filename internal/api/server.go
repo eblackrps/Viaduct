@@ -394,7 +394,8 @@ func (s *Server) Start(ctx context.Context) error {
 		}
 	}()
 	if s.authSessions != nil {
-		s.authSessions.StartSweeper(ctx, 5*time.Minute)
+		stopSweeper := s.authSessions.StartSweeper(ctx, 5*time.Minute)
+		defer stopSweeper()
 	}
 	if err := s.recoverWorkspaceJobs(ctx); err != nil {
 		packageLogger.Warn("failed to recover workspace jobs", "error", err.Error())

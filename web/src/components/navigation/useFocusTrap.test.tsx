@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { useRef, useState } from "react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { MobileSidebarDrawer } from "./MobileSidebarDrawer";
 import { useFocusTrap } from "./useFocusTrap";
 
@@ -66,6 +66,50 @@ function RemovedTriggerHarness() {
 	);
 }
 
+function EscapeCallbackHarness({
+	onEscape,
+	open,
+}: {
+	onEscape: () => void;
+	open: boolean;
+}) {
+	const dialogRef = useRef<HTMLDivElement | null>(null);
+	useFocusTrap(dialogRef, open, onEscape);
+
+	return open ? (
+		<div ref={dialogRef} role="dialog" tabIndex={-1}>
+			<button type="button">Focusable control</button>
+		</div>
+	) : null;
+}
+
+function DetachedFallbackHarness() {
+	const [open, setOpen] = useState(false);
+	const [showTrigger, setShowTrigger] = useState(true);
+	const dialogRef = useRef<HTMLDivElement | null>(null);
+	useFocusTrap(dialogRef, open, () => setOpen(false));
+
+	return (
+		<>
+			{showTrigger ? (
+				<button type="button" onClick={() => setOpen(true)}>
+					Open detached dialog
+				</button>
+			) : null}
+			{open ? (
+				<div ref={dialogRef} role="dialog" tabIndex={-1}>
+					<button type="button" onClick={() => setShowTrigger(false)}>
+						Remove detached trigger
+					</button>
+					<button type="button" onClick={() => setOpen(false)}>
+						Close detached dialog
+					</button>
+				</div>
+			) : null}
+		</>
+	);
+}
+
 describe("useFocusTrap", () => {
 	afterEach(() => {
 		cleanup();
@@ -123,5 +167,35 @@ describe("useFocusTrap", () => {
 		);
 		expect(dialog).toHaveFocus();
 		expect(document.body).not.toHaveFocus();
+	});
+
+	it("falls back to document.body and warns once when neither trigger nor trap root remain", () => {
+		const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+		render(<DetachedFallbackHarness />);
+
+		const trigger = screen.getByRole("button", {
+			name: "Open detached dialog",
+		});
+		trigger.focus();
+		fireEvent.click(trigger);
+		fireEvent.click(screen.getByRole("button", { name: "Remove detached trigger" }));
+		fireEvent.click(screen.getByRole("button", { name: "Close detached dialog" }));
+
+		expect(document.body).toHaveFocus();
+		expect(warnSpy).toHaveBeenCalledTimes(1);
+	});
+
+	it("uses the latest escape callback without re-registering the trap", () => {
+		const firstEscape = vi.fn();
+		const secondEscape = vi.fn();
+		const { rerender } = render(
+			<EscapeCallbackHarness open={true} onEscape={firstEscape} />,
+		);
+
+		rerender(<EscapeCallbackHarness open={true} onEscape={secondEscape} />);
+
+		fireEvent.keyDown(document, { key: "Escape" });
+		expect(firstEscape).not.toHaveBeenCalled();
+		expect(secondEscape).toHaveBeenCalledTimes(1);
 	});
 });

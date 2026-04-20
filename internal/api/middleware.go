@@ -25,6 +25,12 @@ type tenantContextKey struct{}
 type principalContextKey struct{}
 
 var zeroCredentialHash [sha256.Size]byte
+var invalidCredentialHash = [sha256.Size]byte{
+	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+}
 var credentialHashHexDecode = newCredentialHashHexDecodeTable()
 
 // API authentication always hashes presented and persisted credentials into fixed-size
@@ -87,7 +93,8 @@ func tenantAuthMiddleware(stateStore store.Store, sessions *authSessionManager, 
 						authMethod = "runtime-session"
 					} else if server != nil && !isZeroCredentialHash(sessionRecord.CredentialHash) {
 						staleCredentialSession = true
-						server.revokeCredentialBoundSession(r, sessionRecord, sessionSecret, "tenant_credential_changed")
+						currentHash, _ := currentCredentialHashForSession(r.Context(), tenants, sessionRecord)
+						server.revokeCredentialBoundSession(r, sessionRecord, sessionSecret, "credential_rotated", currentHash)
 					}
 				case "service-account":
 					if principal, accountFound := principalFromServiceAccountSession(r.Context(), tenants, sessionRecord); accountFound {
@@ -95,7 +102,8 @@ func tenantAuthMiddleware(stateStore store.Store, sessions *authSessionManager, 
 						authMethod = "runtime-session"
 					} else if server != nil && !isZeroCredentialHash(sessionRecord.CredentialHash) {
 						staleCredentialSession = true
-						server.revokeCredentialBoundSession(r, sessionRecord, sessionSecret, "service_account_credential_changed")
+						currentHash, _ := currentCredentialHashForSession(r.Context(), tenants, sessionRecord)
+						server.revokeCredentialBoundSession(r, sessionRecord, sessionSecret, "credential_rotated", currentHash)
 					}
 				case "local":
 					authMethod = firstNonEmpty(sessionRecord.AuthMethod, "local-runtime-session")
@@ -168,7 +176,7 @@ func tenantAuthMiddleware(stateStore store.Store, sessions *authSessionManager, 
 	})
 }
 
-func (s *Server) revokeCredentialBoundSession(r *http.Request, record authSessionRecord, secret, reason string) {
+func (s *Server) revokeCredentialBoundSession(r *http.Request, record authSessionRecord, secret, reason string, currentHash [32]byte) {
 	if s == nil || s.authSessions == nil || s.store == nil {
 		return
 	}
@@ -181,16 +189,18 @@ func (s *Server) revokeCredentialBoundSession(r *http.Request, record authSessio
 			"error", err.Error(),
 		)
 	}
-	s.recordAuditEvent(r, models.AuditEvent{
+	s.recordAuditEvent(r.WithContext(withAwaitAudit(r.Context())), models.AuditEvent{
 		Category: "tenant",
 		Action:   "revoke-auth-session",
 		Resource: record.PublicID,
 		Outcome:  models.AuditOutcomeSuccess,
 		Message:  "dashboard auth session revoked after credential mismatch",
 		Details: map[string]string{
-			"session_id": record.PublicID,
-			"auth_mode":  record.Mode,
-			"reason":     reason,
+			"session_id":       record.PublicID,
+			"auth_mode":        record.Mode,
+			"reason":           reason,
+			"old_hash_prefix":  credentialHashPrefix8(record.CredentialHash),
+			"new_hash_prefix":  credentialHashPrefix8(currentHash),
 		},
 	})
 }
@@ -212,15 +222,7 @@ func localRuntimeRequestAllowed(r *http.Request, bindHost string) bool {
 	if reason == "" {
 		return true
 	}
-	if r != nil && !strings.EqualFold(strings.TrimSpace(r.Method), http.MethodGet) {
-		packageLogger.Warn(
-			"AUDIT",
-			"event", "loopback_rejection",
-			"reason", reason,
-			"peer", loopbackRejectionPeer(r),
-			"forwarded_headers_present", requestUsesForwardingHeaders(r),
-		)
-	}
+	logLoopbackRejection(r, reason)
 	return false
 }
 
@@ -270,19 +272,13 @@ func principalFromServiceAccountSession(ctx context.Context, tenants []models.Te
 
 func storedCredentialHashMatches(ctx context.Context, storedHash, legacyRaw string, expectedHash [32]byte) bool {
 	current, ok := storedCredentialHash(ctx, storedHash, legacyRaw)
-	currentValid := boolToConstantTime(ok) & boolToConstantTime(!isZeroCredentialHash(current))
-	expectedValid := boolToConstantTime(!isZeroCredentialHash(expectedHash))
-	compareResult := subtle.ConstantTimeCompare(current[:], expectedHash[:])
-	validResult := subtle.ConstantTimeEq(currentValid&expectedValid, 1)
-	return compareResult&validResult == 1
+	return constantTimeCredentialHashMatch(current, ok, expectedHash, true)
 }
 
-func constantTimeEqual(left, right string) bool {
-	leftHash := hashCredential(context.Background(), left)
-	rightHash := hashCredential(context.Background(), right)
-	return !isZeroCredentialHash(leftHash) &&
-		!isZeroCredentialHash(rightHash) &&
-		subtle.ConstantTimeCompare(leftHash[:], rightHash[:]) == 1
+func constantTimeEqual(leftStoredHash, rightPresented string) bool {
+	leftHash, leftOK := storedCredentialHash(context.Background(), leftStoredHash, "")
+	rightHash := hashCredential(context.Background(), rightPresented)
+	return constantTimeCredentialHashMatch(leftHash, leftOK, rightHash, !isZeroCredentialHash(rightHash))
 }
 
 // AdminAuthMiddleware authenticates administrative API requests.
@@ -292,7 +288,7 @@ func AdminAuthMiddleware(adminAPIKey string, next http.Handler) http.Handler {
 			writeAPIError(w, r, http.StatusServiceUnavailable, "internal_error", "admin API key is not configured", apiErrorOptions{Retryable: true})
 			return
 		}
-		if !constantTimeEqual(r.Header.Get(adminCredentialHeader), adminAPIKey) {
+		if !constantTimeEqual(adminAPIKey, r.Header.Get(adminCredentialHeader)) {
 			writeAPIError(w, r, http.StatusUnauthorized, "invalid_credentials", "invalid admin API key", apiErrorOptions{})
 			return
 		}
@@ -363,26 +359,14 @@ func parseCredentialHash(value string) ([32]byte, bool) {
 	for index := 0; index < sha256.Size; index++ {
 		high := credentialHashHexDecode[normalized[index*2]]
 		low := credentialHashHexDecode[normalized[index*2+1]]
-		valid &= boolToConstantTime(high != 0xff)
-		valid &= boolToConstantTime(low != 0xff)
+		valid &= boolToConstantTime(high < 16)
+		valid &= boolToConstantTime(low < 16)
 		digest[index] = (high << 4) | low
 	}
 
-	// Keep invalid stored-hash inputs on a comparable fixed-cost path so
-	// malformed records do not short-circuit noticeably faster than valid ones.
-	paddingDigest := sha256.Sum256(normalized[:])
-	paddingDigest = sha256.Sum256(paddingDigest[:])
-	paddingDigest = sha256.Sum256(paddingDigest[:])
-	paddingDigest = sha256.Sum256(paddingDigest[:])
-	paddingDigest = sha256.Sum256(paddingDigest[:])
-	paddingDigest = sha256.Sum256(paddingDigest[:])
-	paddingDigest = sha256.Sum256(paddingDigest[:])
-	paddingDigest = sha256.Sum256(paddingDigest[:])
-	paddingDigest = sha256.Sum256(paddingDigest[:])
-	paddingDigest = sha256.Sum256(paddingDigest[:])
 	invalidMask := byte((1 - subtle.ConstantTimeEq(valid, 1)) * 0xff)
 	for index := range digest {
-		digest[index] ^= paddingDigest[index] & invalidMask
+		digest[index] = (digest[index] &^ invalidMask) | (invalidCredentialHash[index] & invalidMask)
 	}
 	return digest, subtle.ConstantTimeEq(valid, 1) == 1
 }
@@ -411,6 +395,80 @@ func newCredentialHashHexDecodeTable() [256]byte {
 		table['A'+index] = 10 + index
 	}
 	return table
+}
+
+func normalizeCredentialHashForCompare(value [32]byte, valid bool) ([32]byte, int32) {
+	var normalized [32]byte
+	validResult := boolToConstantTime(valid) & boolToConstantTime(!isZeroCredentialHash(value))
+	invalidMask := byte((1 - subtle.ConstantTimeEq(validResult, 1)) * 0xff)
+	for index := range normalized {
+		normalized[index] = (value[index] &^ invalidMask) | (invalidCredentialHash[index] & invalidMask)
+	}
+	return normalized, validResult
+}
+
+func constantTimeCredentialHashMatch(current [32]byte, currentValid bool, expected [32]byte, expectedValid bool) bool {
+	currentBuffer, normalizedCurrentValid := normalizeCredentialHashForCompare(current, currentValid)
+	expectedBuffer, normalizedExpectedValid := normalizeCredentialHashForCompare(expected, expectedValid)
+	return constantTimeNormalizedCredentialHashMatch(currentBuffer, normalizedCurrentValid, expectedBuffer, normalizedExpectedValid)
+}
+
+func constantTimeNormalizedCredentialHashMatch(currentBuffer [32]byte, currentValid int32, expectedBuffer [32]byte, expectedValid int32) bool {
+	compareResult := subtle.ConstantTimeCompare(currentBuffer[:], expectedBuffer[:])
+	validResult := subtle.ConstantTimeEq(currentValid&expectedValid, 1)
+	return compareResult&validResult == 1
+}
+
+func credentialHashPrefix8(value [32]byte) string {
+	if isZeroCredentialHash(value) {
+		return ""
+	}
+	return fmt.Sprintf("%x", value[:4])
+}
+
+func currentCredentialHashForSession(ctx context.Context, tenants []models.Tenant, record authSessionRecord) ([32]byte, bool) {
+	switch record.Mode {
+	case "tenant":
+		_, currentHash, ok := tenantSessionCredentialHash(ctx, tenants, record)
+		return currentHash, ok
+	case "service-account":
+		return serviceAccountSessionCredentialHash(ctx, tenants, record)
+	default:
+		return [32]byte{}, false
+	}
+}
+
+func tenantSessionCredentialHash(ctx context.Context, tenants []models.Tenant, record authSessionRecord) (models.Tenant, [32]byte, bool) {
+	tenant, ok := findTenantByID(tenants, record.TenantID)
+	if !ok {
+		return models.Tenant{}, [32]byte{}, false
+	}
+	currentHash, hashOK := storedCredentialHash(ctx, tenant.APIKeyHash, tenant.APIKey)
+	if !hashOK || isZeroCredentialHash(currentHash) {
+		return models.Tenant{}, [32]byte{}, false
+	}
+	return tenant, currentHash, true
+}
+
+func serviceAccountSessionCredentialHash(ctx context.Context, tenants []models.Tenant, record authSessionRecord) ([32]byte, bool) {
+	now := time.Now().UTC()
+	for _, tenant := range tenants {
+		if !tenant.Active || tenant.ID != record.TenantID {
+			continue
+		}
+		for index := range tenant.ServiceAccounts {
+			account := tenant.ServiceAccounts[index]
+			if account.ID != record.ServiceAccountID || !serviceAccountUsable(account, now) {
+				continue
+			}
+			currentHash, hashOK := storedCredentialHash(ctx, account.APIKeyHash, account.APIKey)
+			if !hashOK || isZeroCredentialHash(currentHash) {
+				return [32]byte{}, false
+			}
+			return currentHash, true
+		}
+	}
+	return [32]byte{}, false
 }
 
 func tenantAuthMismatch(contextTenantID, principalTenantID string, credentialTenantIDs map[string]struct{}) bool {
@@ -581,6 +639,10 @@ func localRuntimeRequestRejectionReason(r *http.Request, bindHost string) string
 	if !requestHostIsLoopback(r) {
 		return "host_not_loopback"
 	}
+	if header := rejectedForwardingHeader(r); header != "" {
+		logForwardedHeaderRejected(r, header)
+		return "forwarded_header_rejected"
+	}
 	if requestUsesForwardingHeaders(r) {
 		return "forwarded_headers_present"
 	}
@@ -627,6 +689,38 @@ func loopbackRejectionPeer(r *http.Request) string {
 		return ip.String()
 	}
 	return strings.TrimSpace(r.RemoteAddr)
+}
+
+func logLoopbackRejection(r *http.Request, reason string) {
+	if r == nil {
+		return
+	}
+	packageLogger.Warn(
+		"AUDIT",
+		"event", "loopback_rejection",
+		"method", strings.ToUpper(strings.TrimSpace(r.Method)),
+		"path", strings.TrimSpace(r.URL.Path),
+		"reason", reason,
+		"peer", loopbackRejectionPeer(r),
+		"forwarded_present", strings.TrimSpace(r.Header.Get("Forwarded")) != "",
+		"x_forwarded_for_present", strings.TrimSpace(r.Header.Get("X-Forwarded-For")) != "",
+		"x_forwarded_host_present", strings.TrimSpace(r.Header.Get("X-Forwarded-Host")) != "",
+		"x_forwarded_proto_present", strings.TrimSpace(r.Header.Get("X-Forwarded-Proto")) != "",
+		"x_real_ip_present", strings.TrimSpace(r.Header.Get("X-Real-IP")) != "",
+		"via_present", strings.TrimSpace(r.Header.Get("Via")) != "",
+	)
+}
+
+func logForwardedHeaderRejected(r *http.Request, header string) {
+	if r == nil || strings.TrimSpace(header) == "" {
+		return
+	}
+	packageLogger.Warn(
+		"AUDIT",
+		"event", "forwarded_header_rejected",
+		"header", header,
+		"peer", loopbackRejectionPeer(r),
+	)
 }
 
 // RequireTenant returns the authenticated tenant from a request context.

@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -71,7 +72,8 @@ func TestAuthSessionManager_StartSweeper_RemovesExpiredSessions_Expected(t *test
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	manager.StartSweeper(ctx, 5*time.Millisecond)
+	stopSweeper := manager.StartSweeper(ctx, 5*time.Millisecond)
+	defer stopSweeper()
 
 	deadline := time.Now().Add(250 * time.Millisecond)
 	for time.Now().Before(deadline) {
@@ -150,6 +152,11 @@ func TestAuthSessionManager_Revoke_ConcurrentLookupStaysRaceSafe_Expected(t *tes
 	if _, ok := manager.Lookup(record.Secret); ok {
 		t.Fatal("Lookup() = true, want false after revoke")
 	}
+	if _, ok, err := manager.LookupActive(context.Background(), stateStore, record.Secret); err != nil {
+		t.Fatalf("LookupActive() error = %v", err)
+	} else if ok {
+		t.Fatal("LookupActive() = true, want replayed secret rejected after revoke")
+	}
 	revoked, err := stateStore.IsAuthSessionRevoked(context.Background(), record.PublicID)
 	if err != nil {
 		t.Fatalf("IsAuthSessionRevoked() error = %v", err)
@@ -157,4 +164,40 @@ func TestAuthSessionManager_Revoke_ConcurrentLookupStaysRaceSafe_Expected(t *tes
 	if !revoked {
 		t.Fatal("IsAuthSessionRevoked() = false, want true")
 	}
+}
+
+func TestAuthSessionManager_Revoke_StoreFailureLeavesSessionActive_Expected(t *testing.T) {
+	t.Parallel()
+
+	manager := newAuthSessionManager(time.Hour, time.Hour)
+	record, err := manager.CreateCredential("tenant", AuthenticatedPrincipal{
+		Tenant: models.Tenant{ID: "tenant-retry"},
+		Role:   models.TenantRoleAdmin,
+	}, hashCredential(context.Background(), "hash-retry"), false)
+	if err != nil {
+		t.Fatalf("CreateCredential() error = %v", err)
+	}
+
+	revokeErr := manager.Revoke(context.Background(), failingAuthSessionRevocationStore{
+		err: fmt.Errorf("simulated transaction failure"),
+	}, record, record.Secret)
+	if revokeErr == nil {
+		t.Fatal("Revoke() error = nil, want store failure")
+	}
+
+	if _, ok := manager.Lookup(record.Secret); !ok {
+		t.Fatal("Lookup() = false, want session to remain active after failed revoke")
+	}
+}
+
+type failingAuthSessionRevocationStore struct {
+	err error
+}
+
+func (s failingAuthSessionRevocationStore) RevokeAuthSession(_ context.Context, _ string, _ time.Time) error {
+	return s.err
+}
+
+func (failingAuthSessionRevocationStore) IsAuthSessionRevoked(_ context.Context, _ string) (bool, error) {
+	return false, nil
 }

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import type { RefObject } from "react";
 
 export function useFocusTrap(
@@ -6,6 +6,13 @@ export function useFocusTrap(
 	enabled: boolean,
 	onEscape: () => void,
 ) {
+	const onEscapeRef = useRef(onEscape);
+	const warnedBodyFallbackRef = useRef(false);
+
+	useEffect(() => {
+		onEscapeRef.current = onEscape;
+	}, [onEscape]);
+
 	useEffect(() => {
 		if (!enabled) {
 			return;
@@ -29,7 +36,7 @@ export function useFocusTrap(
 
 			if (event.key === "Escape") {
 				event.preventDefault();
-				onEscape();
+				onEscapeRef.current();
 				return;
 			}
 
@@ -68,9 +75,17 @@ export function useFocusTrap(
 				previousActiveElement.focus();
 				return;
 			}
-			trapRoot?.focus();
+			if (trapRoot && document.contains(trapRoot)) {
+				trapRoot.focus();
+				return;
+			}
+			document.body.focus();
+			if (!warnedBodyFallbackRef.current) {
+				warnedBodyFallbackRef.current = true;
+				console.warn("useFocusTrap fell back to document.body during cleanup");
+			}
 		};
-	}, [containerRef, enabled, onEscape]);
+	}, [containerRef, enabled]);
 }
 
 function getFocusableElements(element: HTMLElement | null) {

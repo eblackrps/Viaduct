@@ -28,7 +28,7 @@ type authSessionRecord struct {
 }
 
 type authSessionManager struct {
-	mu            sync.Mutex
+	mu            sync.RWMutex
 	sessionTTL    time.Duration
 	persistentTTL time.Duration
 	sessions      map[string]authSessionRecord
@@ -149,7 +149,15 @@ func (m *authSessionManager) LookupActive(ctx context.Context, revocations authS
 		return record, ok, nil
 	}
 
+	now := time.Now().UTC()
+	m.mu.RLock()
+	if m.revokedActiveLocked(record.PublicID, now) {
+		m.mu.RUnlock()
+		m.MarkRevoked(record, secret)
+		return authSessionRecord{}, false, nil
+	}
 	revoked, err := revocations.IsAuthSessionRevoked(ctx, record.PublicID)
+	m.mu.RUnlock()
 	if err != nil {
 		return authSessionRecord{}, false, err
 	}
@@ -199,9 +207,9 @@ func (m *authSessionManager) LookupByPublicID(publicID string) (authSessionRecor
 	return authSessionRecord{}, "", false
 }
 
-func (m *authSessionManager) StartSweeper(ctx context.Context, interval time.Duration) {
+func (m *authSessionManager) StartSweeper(ctx context.Context, interval time.Duration) func() {
 	if m == nil {
-		return
+		return func() {}
 	}
 	if interval <= 0 {
 		interval = 5 * time.Minute
@@ -210,18 +218,29 @@ func (m *authSessionManager) StartSweeper(ctx context.Context, interval time.Dur
 		ctx = context.Background()
 	}
 
+	sweepCtx, cancel := context.WithCancel(ctx)
 	ticker := time.NewTicker(interval)
+	done := make(chan struct{})
 	go func() {
+		defer close(done)
 		defer ticker.Stop()
 		for {
 			select {
-			case <-ctx.Done():
+			case <-sweepCtx.Done():
 				return
 			case now := <-ticker.C:
 				m.SweepExpired(now.UTC())
 			}
 		}
 	}()
+
+	var once sync.Once
+	return func() {
+		once.Do(func() {
+			cancel()
+			<-done
+		})
+	}
 }
 
 func (m *authSessionManager) expirationFor(persistent bool) (time.Time, error) {
@@ -282,12 +301,13 @@ func (m *authSessionManager) Revoke(ctx context.Context, revocations authSession
 	if revocations == nil {
 		return fmt.Errorf("auth session revocation store is not configured")
 	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	if err := revocations.RevokeAuthSession(ctx, record.PublicID, record.ExpiresAt); err != nil {
 		return err
 	}
 
-	m.mu.Lock()
-	defer m.mu.Unlock()
 	m.markRevokedLocked(record, secret)
 	return nil
 }
@@ -310,6 +330,11 @@ func (m *authSessionManager) revokedLocked(publicID string, now time.Time) bool 
 		return false
 	}
 	return true
+}
+
+func (m *authSessionManager) revokedActiveLocked(publicID string, now time.Time) bool {
+	expiresAt, ok := m.revoked[strings.TrimSpace(publicID)]
+	return ok && expiresAt.After(now)
 }
 
 func readAuthSessionSecret(r *http.Request) string {

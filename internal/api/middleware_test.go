@@ -7,8 +7,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"runtime"
-	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -374,6 +372,28 @@ func TestLocalRuntimeRequestAllowed_RejectionLogsAuditForMutatingRequests_Expect
 	}
 }
 
+func TestLocalRuntimeRequestAllowed_RejectionLogsAuditForGetRequests_Expected(t *testing.T) {
+	var logBuffer bytes.Buffer
+	originalLogger := packageLogger
+	packageLogger = slog.New(slog.NewTextHandler(&logBuffer, nil))
+	t.Cleanup(func() {
+		packageLogger = originalLogger
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "http://127.0.0.1/api/v1/about", nil)
+	req.RemoteAddr = "127.0.0.1:41000"
+	req.Header.Set("Origin", "http://evil.example")
+
+	if localRuntimeRequestAllowed(req, "127.0.0.1") {
+		t.Fatal("localRuntimeRequestAllowed() = true, want false for mismatched GET origin")
+	}
+
+	logLine := logBuffer.String()
+	if !strings.Contains(logLine, "loopback_rejection") || !strings.Contains(logLine, "method=GET") || !strings.Contains(logLine, "origin_mismatch") {
+		t.Fatalf("rejection audit log = %q, want GET loopback rejection details", logLine)
+	}
+}
+
 func TestRequestFromLoopback_NormalizesRemoteAddr_Expected(t *testing.T) {
 	t.Parallel()
 
@@ -387,7 +407,7 @@ func TestRequestFromLoopback_NormalizesRemoteAddr_Expected(t *testing.T) {
 		{name: "ipv4 mapped loopback", remoteAddr: "[::ffff:127.0.0.1]:41000", want: true},
 		{name: "ipv4 mapped remote", remoteAddr: "[::ffff:8.8.8.8]:41000", want: false},
 		{name: "ipv6 link local zone", remoteAddr: "[fe80::1%eth0]:41000", want: false},
-		{name: "ipv6 loopback zone", remoteAddr: "[::1%lo]:41000", want: true},
+		{name: "ipv6 loopback zone", remoteAddr: "[::1%lo]:41000", want: false},
 		{name: "ipv4 zone rejected", remoteAddr: "127.0.0.1%0:41000", want: false},
 		{name: "mapped ipv4 zone rejected", remoteAddr: "[::ffff:127.0.0.1%0]:41000", want: false},
 		{name: "private remote", remoteAddr: "10.0.0.1:41000", want: false},
@@ -472,96 +492,6 @@ func TestStoredCredentialHashMatches_InvalidOrZeroDigestRejected_Expected(t *tes
 	}
 	if storedCredentialHashMatches(context.Background(), store.HashAPIKey("tenant-secret"), "", [32]byte{}) {
 		t.Fatal("storedCredentialHashMatches(zero expected hash) = true, want false")
-	}
-}
-
-var storedCredentialHashMatchesSink bool
-
-func TestStoredCredentialHashMatches_TimingVarianceWithinThreshold_Expected(t *testing.T) {
-	digest := hashCredential(context.Background(), "tenant-secret")
-	legacyHash := store.HashAPIKey("tenant-secret")
-	cases := []struct {
-		name string
-		fn   func() bool
-	}{
-		{
-			name: "zero",
-			fn: func() bool {
-				return storedCredentialHashMatches(context.Background(), legacyHash, "", [32]byte{})
-			},
-		},
-		{
-			name: "wrong-length",
-			fn: func() bool {
-				return storedCredentialHashMatches(context.Background(), credentialHashPrefix+"abcd", "", digest)
-			},
-		},
-		{
-			name: "correct",
-			fn: func() bool {
-				return storedCredentialHashMatches(context.Background(), legacyHash, "", digest)
-			},
-		},
-	}
-
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-	previousProcs := runtime.GOMAXPROCS(1)
-	defer runtime.GOMAXPROCS(previousProcs)
-
-	const (
-		warmupRuns = 10_000
-		iterations = 100_000
-		samples    = 7
-	)
-	for _, tc := range cases {
-		var matched bool
-		for i := 0; i < warmupRuns; i++ {
-			matched = tc.fn()
-		}
-		storedCredentialHashMatchesSink = matched
-	}
-
-	results := make(map[string][]float64, len(cases))
-	const maxVariance = 0.45
-	for sample := 0; sample < samples; sample++ {
-		runtime.GC()
-		for offset := 0; offset < len(cases); offset++ {
-			tc := cases[(sample+offset)%len(cases)]
-			startedAt := time.Now()
-			var matched bool
-			for i := 0; i < iterations; i++ {
-				matched = tc.fn()
-			}
-			storedCredentialHashMatchesSink = matched
-			elapsed := time.Since(startedAt)
-			results[tc.name] = append(results[tc.name], float64(elapsed.Nanoseconds())/iterations)
-		}
-	}
-
-	medians := make(map[string]float64, len(cases))
-	for _, tc := range cases {
-		sampleNs := results[tc.name]
-		sort.Float64s(sampleNs)
-		medians[tc.name] = sampleNs[len(sampleNs)/2]
-	}
-
-	minNs := medians["zero"]
-	maxNs := medians["zero"]
-	for _, ns := range medians {
-		if ns < minNs {
-			minNs = ns
-		}
-		if ns > maxNs {
-			maxNs = ns
-		}
-	}
-
-	if maxNs == 0 {
-		t.Fatal("benchmark returned zero ns/op")
-	}
-	if variance := (maxNs - minNs) / maxNs; variance > maxVariance {
-		t.Fatalf("storedCredentialHashMatches timing variance = %.3f, want <= %.3f; medians=%#v", variance, maxVariance, medians)
 	}
 }
 

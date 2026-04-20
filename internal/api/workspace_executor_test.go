@@ -177,6 +177,11 @@ func TestWorkspaceJobExecutor_CancelledExecutorRejectsQueuedWork_Expected(t *tes
 	}
 
 	close(release)
+	select {
+	case <-executor.done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("executor did not stop promptly after canceling queued work")
+	}
 }
 
 func TestWorkspaceJobExecutor_TenantQueueShareExceeded_ReturnsTypedError(t *testing.T) {
@@ -382,8 +387,109 @@ func TestWorkspaceJobExecutor_EnqueueDeadlineExceeded_ReturnsTypedError(t *testi
 	if err := executor.Enqueue(context.Background(), workspaceJobTask{tenantID: "tenant-b", jobID: "job-timeout"}); !errors.Is(err, ErrEnqueueTimeout) {
 		t.Fatalf("Enqueue(job-timeout) error = %v, want ErrEnqueueTimeout", err)
 	}
+	if queueDepths := executor.QueueDepthByTenant(); queueDepths["tenant-b"] != 0 || queueDepths["tenant-0"] != 1 || queueDepths["tenant-1"] != 1 {
+		t.Fatalf("QueueDepthByTenant() = %#v, want timed-out enqueue excluded from queued work", queueDepths)
+	}
 
 	close(release)
+}
+
+func TestWorkspaceJobExecutor_EnqueueDeadlineStress_DoesNotRetainTimedOutTasks_Expected(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	started := make(chan struct{})
+	release := make(chan struct{})
+	executor := newWorkspaceJobExecutorWithTimeout(ctx, 1, 50*time.Millisecond, func(_ context.Context, _ workspaceJobTask) {
+		close(started)
+		<-release
+	})
+
+	if err := executor.Enqueue(context.Background(), workspaceJobTask{tenantID: "tenant-running", jobID: "job-running"}); err != nil {
+		t.Fatalf("Enqueue(job-running) error = %v", err)
+	}
+	select {
+	case <-started:
+	case <-time.After(2 * time.Second):
+		t.Fatal("executor did not start the blocking job before timeout")
+	}
+
+	const callerCount = 1000
+	results := make(chan error, callerCount)
+	var wg sync.WaitGroup
+	wg.Add(callerCount)
+	for index := 0; index < callerCount; index++ {
+		tenantID := fmt.Sprintf("tenant-%d", index)
+		jobID := fmt.Sprintf("job-%d", index)
+		go func(tenantID, jobID string) {
+			defer wg.Done()
+			results <- executor.Enqueue(context.Background(), workspaceJobTask{tenantID: tenantID, jobID: jobID})
+		}(tenantID, jobID)
+	}
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		wg.Wait()
+	}()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("enqueue timeout stress callers did not resolve before timeout")
+	}
+	close(results)
+
+	successes := 0
+	timeouts := 0
+	for err := range results {
+		switch {
+		case err == nil:
+			successes++
+		case errors.Is(err, ErrEnqueueTimeout):
+			timeouts++
+		default:
+			t.Fatalf("Enqueue() error = %v, want nil or ErrEnqueueTimeout", err)
+		}
+	}
+	if timeouts == 0 {
+		t.Fatal("enqueue timeout stress produced zero timeout errors, want at least one")
+	}
+
+	totalQueued := 0
+	for _, depth := range executor.QueueDepthByTenant() {
+		totalQueued += depth
+	}
+	if totalQueued != successes {
+		t.Fatalf("queued depth total = %d, want %d admitted tasks with timed-out requests removed", totalQueued, successes)
+	}
+
+	cancel()
+	close(release)
+	select {
+	case <-executor.done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("executor did not stop after timeout stress cancellation")
+	}
+	if queueDepths := executor.QueueDepthByTenant(); len(queueDepths) != 0 {
+		t.Fatalf("QueueDepthByTenant() after shutdown = %#v, want empty", queueDepths)
+	}
+}
+
+func TestWorkspaceJobEnqueueRequest_ClosedResultChannelReturnsTypedError(t *testing.T) {
+	t.Parallel()
+
+	result := make(chan error)
+	close(result)
+
+	request := workspaceJobEnqueueRequest{
+		waitCtx: context.Background(),
+		result:  result,
+	}
+	if err := request.respond(nil); !errors.Is(err, ErrResultChannelFull) {
+		t.Fatalf("respond(nil) error = %v, want ErrResultChannelFull", err)
+	}
 }
 
 func TestWorkspaceJobExecutor_TaskContextCancelledOnShutdown_Expected(t *testing.T) {
