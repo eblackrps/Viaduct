@@ -219,18 +219,38 @@ func TestMigrateStoredCredentials_RewritesLegacyPlaintext_Expected(t *testing.T)
 	mock.ExpectQuery(regexp.QuoteMeta(`SELECT id, name, api_key, api_key_hash, created_at, active, settings, quotas, service_accounts FROM tenants ORDER BY created_at ASC`)).
 		WillReturnRows(rows)
 	mock.ExpectBegin()
-	mock.ExpectExec(regexp.QuoteMeta(`DELETE FROM credential_hashes`)).
-		WillReturnResult(sqlmock.NewResult(0, 1))
-	mock.ExpectQuery(regexp.QuoteMeta(`INSERT INTO credential_hashes (credential_hash, tenant_id, owner_type, service_account_id)
+	mock.ExpectExec(regexp.QuoteMeta(`INSERT INTO credential_hashes (credential_hash, tenant_id, owner_type, service_account_id)
 			 VALUES ($1, $2, $3, $4)
-			 RETURNING credential_hash`)).
+			 ON CONFLICT (credential_hash) DO NOTHING`)).
 		WithArgs(HashAPIKey("tenant-secret"), "tenant-a", "tenant", "").
-		WillReturnRows(sqlmock.NewRows([]string{"credential_hash"}).AddRow(HashAPIKey("tenant-secret")))
-	mock.ExpectQuery(regexp.QuoteMeta(`INSERT INTO credential_hashes (credential_hash, tenant_id, owner_type, service_account_id)
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec(regexp.QuoteMeta(`INSERT INTO credential_hashes (credential_hash, tenant_id, owner_type, service_account_id)
 			 VALUES ($1, $2, $3, $4)
-			 RETURNING credential_hash`)).
+			 ON CONFLICT (credential_hash) DO NOTHING`)).
 		WithArgs(HashAPIKey("service-secret"), "tenant-a", "service_account", "sa-1").
-		WillReturnRows(sqlmock.NewRows([]string{"credential_hash"}).AddRow(HashAPIKey("service-secret")))
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
+	mock.ExpectBegin()
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT EXISTS (
+				SELECT 1
+				FROM credential_hashes
+				WHERE credential_hash = $1
+				  AND tenant_id = $2
+				  AND owner_type = $3
+				  AND service_account_id = $4
+			)`)).
+		WithArgs(HashAPIKey("tenant-secret"), "tenant-a", "tenant", "").
+		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT EXISTS (
+				SELECT 1
+				FROM credential_hashes
+				WHERE credential_hash = $1
+				  AND tenant_id = $2
+				  AND owner_type = $3
+				  AND service_account_id = $4
+			)`)).
+		WithArgs(HashAPIKey("service-secret"), "tenant-a", "service_account", "sa-1").
+		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
 	mock.ExpectExec(regexp.QuoteMeta(`UPDATE tenants SET api_key = $2, api_key_hash = $3, service_accounts = $4 WHERE id = $1`)).
 		WithArgs("tenant-a", "", HashAPIKey("tenant-secret"), sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(0, 1))
@@ -262,22 +282,61 @@ func TestMigrateStoredCredentials_InsertFailureRollsBackBeforeClearingPlaintext_
 	mock.ExpectQuery(regexp.QuoteMeta(`SELECT id, name, api_key, api_key_hash, created_at, active, settings, quotas, service_accounts FROM tenants ORDER BY created_at ASC`)).
 		WillReturnRows(rows)
 	mock.ExpectBegin()
-	mock.ExpectExec(regexp.QuoteMeta(`DELETE FROM credential_hashes`)).
-		WillReturnResult(sqlmock.NewResult(0, 1))
-	mock.ExpectQuery(regexp.QuoteMeta(`INSERT INTO credential_hashes (credential_hash, tenant_id, owner_type, service_account_id)
+	mock.ExpectExec(regexp.QuoteMeta(`INSERT INTO credential_hashes (credential_hash, tenant_id, owner_type, service_account_id)
 			 VALUES ($1, $2, $3, $4)
-			 RETURNING credential_hash`)).
+			 ON CONFLICT (credential_hash) DO NOTHING`)).
 		WithArgs(HashAPIKey("tenant-secret"), "tenant-a", "tenant", "").
-		WillReturnRows(sqlmock.NewRows([]string{"credential_hash"}).AddRow(HashAPIKey("tenant-secret")))
-	mock.ExpectQuery(regexp.QuoteMeta(`INSERT INTO credential_hashes (credential_hash, tenant_id, owner_type, service_account_id)
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec(regexp.QuoteMeta(`INSERT INTO credential_hashes (credential_hash, tenant_id, owner_type, service_account_id)
 			 VALUES ($1, $2, $3, $4)
-			 RETURNING credential_hash`)).
+			 ON CONFLICT (credential_hash) DO NOTHING`)).
 		WithArgs(HashAPIKey("service-secret"), "tenant-a", "service_account", "sa-1").
 		WillReturnError(fmt.Errorf("insert failure"))
 	mock.ExpectRollback()
 
 	if err := migrateStoredCredentials(context.Background(), db); err == nil {
 		t.Fatal("migrateStoredCredentials() error = nil, want insert failure")
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("sql expectations = %v", err)
+	}
+}
+
+func TestClearStoredCredentialPlaintext_MissingHashPreconditionRollsBack_Expected(t *testing.T) {
+	t.Parallel()
+
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock.New() error = %v", err)
+	}
+	defer db.Close()
+
+	tenant := models.Tenant{
+		ID:         "tenant-a",
+		Name:       "Tenant A",
+		APIKeyHash: HashAPIKey("tenant-secret"),
+		Active:     true,
+	}
+
+	mock.ExpectBegin()
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT EXISTS (
+				SELECT 1
+				FROM credential_hashes
+				WHERE credential_hash = $1
+				  AND tenant_id = $2
+				  AND owner_type = $3
+				  AND service_account_id = $4
+			)`)).
+		WithArgs(HashAPIKey("tenant-secret"), "tenant-a", "tenant", "").
+		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+	mock.ExpectRollback()
+
+	err = clearStoredCredentialPlaintext(context.Background(), db, []models.Tenant{tenant})
+	if err == nil {
+		t.Fatal("clearStoredCredentialPlaintext() error = nil, want missing precondition")
+	}
+	if !strings.Contains(err.Error(), "docs/operations/credential-migration.md") {
+		t.Fatalf("clearStoredCredentialPlaintext() error = %q, want remediation document path", err)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("sql expectations = %v", err)

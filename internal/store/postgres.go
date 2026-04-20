@@ -1793,9 +1793,27 @@ func annotateCredentialMigrationError(err error) error {
 }
 
 func migrateStoredCredentials(ctx context.Context, db *sql.DB) error {
-	rows, err := db.QueryContext(ctx, `SELECT id, name, api_key, api_key_hash, created_at, active, settings, quotas, service_accounts FROM tenants ORDER BY created_at ASC`)
+	tenants, err := loadCredentialMigrationTenants(ctx, db)
 	if err != nil {
 		return err
+	}
+
+	for _, tenant := range tenants {
+		if err := validateCredentialUniqueness(tenants, tenant); err != nil {
+			return err
+		}
+	}
+
+	if err := seedStoredCredentialHashes(ctx, db, tenants); err != nil {
+		return err
+	}
+	return clearStoredCredentialPlaintext(ctx, db, tenants)
+}
+
+func loadCredentialMigrationTenants(ctx context.Context, db *sql.DB) ([]models.Tenant, error) {
+	rows, err := db.QueryContext(ctx, `SELECT id, name, api_key, api_key_hash, created_at, active, settings, quotas, service_accounts FROM tenants ORDER BY created_at ASC`)
+	if err != nil {
+		return nil, err
 	}
 	defer rows.Close()
 
@@ -1808,23 +1826,20 @@ func migrateStoredCredentials(ctx context.Context, db *sql.DB) error {
 			serviceAccountsPayload []byte
 		)
 		if err := rows.Scan(&tenant.ID, &tenant.Name, &tenant.APIKey, &tenant.APIKeyHash, &tenant.CreatedAt, &tenant.Active, &settingsPayload, &quotasPayload, &serviceAccountsPayload); err != nil {
-			return err
+			return nil, err
 		}
 		if err := decodeTenantComponents(&tenant, settingsPayload, quotasPayload, serviceAccountsPayload); err != nil {
-			return err
+			return nil, err
 		}
 		tenants = append(tenants, tenant)
 	}
 	if err := rows.Err(); err != nil {
-		return err
+		return nil, err
 	}
+	return tenants, nil
+}
 
-	for _, tenant := range tenants {
-		if err := validateCredentialUniqueness(tenants, tenant); err != nil {
-			return err
-		}
-	}
-
+func seedStoredCredentialHashes(ctx context.Context, db *sql.DB, tenants []models.Tenant) error {
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -1832,11 +1847,45 @@ func migrateStoredCredentials(ctx context.Context, db *sql.DB) error {
 	// Rollback is best effort after commit or terminal transaction failure.
 	defer func() { _ = tx.Rollback() }()
 
-	if _, err := tx.ExecContext(ctx, `DELETE FROM credential_hashes`); err != nil {
+	for _, tenant := range tenants {
+		if err := seedTenantCredentialHashes(ctx, tx, tenant); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+func seedTenantCredentialHashes(ctx context.Context, tx *sql.Tx, tenant models.Tenant) error {
+	if tx == nil {
+		return fmt.Errorf("seed credential hashes: transaction is nil")
+	}
+	for _, entry := range orderedTenantCredentialHashes(tenant) {
+		if _, err := tx.ExecContext(
+			ctx,
+			`INSERT INTO credential_hashes (credential_hash, tenant_id, owner_type, service_account_id)
+			 VALUES ($1, $2, $3, $4)
+			 ON CONFLICT (credential_hash) DO NOTHING`,
+			entry.hash,
+			tenant.ID,
+			credentialOwnerType(entry.owner),
+			entry.owner.serviceAccountID,
+		); err != nil {
+			return translateCredentialConstraintError(err)
+		}
+	}
+	return nil
+}
+
+func clearStoredCredentialPlaintext(ctx context.Context, db *sql.DB, tenants []models.Tenant) error {
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
 		return err
 	}
+	// Rollback is best effort after commit or terminal transaction failure.
+	defer func() { _ = tx.Rollback() }()
+
 	for _, tenant := range tenants {
-		if err := insertTenantCredentialHashes(ctx, tx, tenant); err != nil {
+		if err := ensureTenantCredentialHashesPresent(ctx, tx, tenant); err != nil {
 			return err
 		}
 		serviceAccountsPayload, err := marshalServiceAccounts(tenant.ServiceAccounts)
@@ -1856,6 +1905,36 @@ func migrateStoredCredentials(ctx context.Context, db *sql.DB) error {
 	}
 
 	return tx.Commit()
+}
+
+func ensureTenantCredentialHashesPresent(ctx context.Context, tx *sql.Tx, tenant models.Tenant) error {
+	if tx == nil {
+		return fmt.Errorf("ensure credential hashes present: transaction is nil")
+	}
+	for _, entry := range orderedTenantCredentialHashes(tenant) {
+		var exists bool
+		if err := tx.QueryRowContext(
+			ctx,
+			`SELECT EXISTS (
+				SELECT 1
+				FROM credential_hashes
+				WHERE credential_hash = $1
+				  AND tenant_id = $2
+				  AND owner_type = $3
+				  AND service_account_id = $4
+			)`,
+			entry.hash,
+			tenant.ID,
+			credentialOwnerType(entry.owner),
+			entry.owner.serviceAccountID,
+		).Scan(&exists); err != nil {
+			return err
+		}
+		if !exists {
+			return fmt.Errorf("credential hash precondition missing for tenant %s; see docs/operations/credential-migration.md", tenant.ID)
+		}
+	}
+	return nil
 }
 
 func nullTime(value time.Time) interface{} {
