@@ -20,7 +20,7 @@ kubectl apply -f service.yaml
 
 ## Notes
 
-- replace `change-me` in `secret.example.yaml` before applying it outside a throwaway lab
+- replace the placeholder in `secret.example.yaml` with the stored `sha256:<hex>` admin-key digest before applying it outside a throwaway lab
 - set `state_store_dsn` in the mounted config if you need persistent state
 - the stock image serves the bundled dashboard at `/` and the API under `/api/v1/` on the same listener
 - the same service also exposes live API docs at `/api/v1/docs`

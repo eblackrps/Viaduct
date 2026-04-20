@@ -53,7 +53,7 @@ Fields:
 ## CLI Environment Variables
 - `VIADUCT_USERNAME`: overrides config file username for CLI connector auth
 - `VIADUCT_PASSWORD`: overrides config file password for CLI connector auth
-- `VIADUCT_ADMIN_KEY`: admin API key used by the REST server for tenant administration
+- `VIADUCT_ADMIN_KEY`: hashed admin API key used by the REST server for tenant administration. Store the persisted `sha256:<hex>` digest here, not the plaintext secret presented in `X-Admin-Key`.
 - `VIADUCT_PLUGIN_ADDR`: plugin listener address used by community connector plugins
 - `VIADUCT_ALLOWED_ORIGINS`: comma-separated browser origins allowed to call the API from another origin; defaults to same-origin only when empty
 - `VIADUCT_ALLOW_UNAUTHENTICATED_REMOTE`: explicit dangerous override that permits a non-loopback `serve-api` bind without configured admin, tenant, or service-account credentials; leave this unset outside disposable break-glass scenarios

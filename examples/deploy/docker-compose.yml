@@ -6,7 +6,7 @@ services:
     ports:
       - "8080:8080"
     environment:
-      VIADUCT_ADMIN_KEY: ${VIADUCT_ADMIN_KEY:-change-me}
+      VIADUCT_ADMIN_KEY: ${VIADUCT_ADMIN_KEY:-sha256:replace-with-admin-key-hash}
     env_file:
       - ./viaduct.env.example
     volumes:

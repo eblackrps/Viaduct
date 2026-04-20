@@ -7,7 +7,7 @@ Wants=network-online.target
 Type=simple
 WorkingDirectory=/opt/viaduct
 EnvironmentFile=-/etc/viaduct/viaduct.env
-Environment=VIADUCT_ADMIN_KEY=change-me
+Environment=VIADUCT_ADMIN_KEY=sha256:replace-with-admin-key-hash
 ExecStart=/opt/viaduct/bin/viaduct serve-api --config /etc/viaduct/config.yaml --port 8080
 Restart=on-failure
 RestartSec=5
