@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"crypto/subtle"
-	"encoding/hex"
 	"fmt"
 	"net"
 	"net/http"
@@ -26,6 +25,7 @@ type tenantContextKey struct{}
 type principalContextKey struct{}
 
 var zeroCredentialHash [sha256.Size]byte
+var credentialHashHexDecode = newCredentialHashHexDecodeTable()
 
 // API authentication always hashes presented and persisted credentials into fixed-size
 // SHA-256 digests before comparing them so every constant-time comparison operates on
@@ -46,17 +46,17 @@ type AuthenticatedPrincipal struct {
 
 // TenantAuthMiddleware authenticates tenant API keys and injects tenant context.
 func TenantAuthMiddleware(stateStore store.Store, next http.Handler) http.Handler {
-	return tenantAuthMiddleware(stateStore, nil, next)
+	return tenantAuthMiddleware(stateStore, nil, nil, next)
 }
 
 func (s *Server) tenantAuthMiddleware(next http.Handler) http.Handler {
 	if s == nil {
 		return next
 	}
-	return tenantAuthMiddleware(s.store, s.authSessions, next)
+	return tenantAuthMiddleware(s.store, s.authSessions, s, next)
 }
 
-func tenantAuthMiddleware(stateStore store.Store, sessions *authSessionManager, next http.Handler) http.Handler {
+func tenantAuthMiddleware(stateStore store.Store, sessions *authSessionManager, server *Server, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if stateStore == nil {
 			writeAPIError(w, r, http.StatusInternalServerError, "internal_error", "tenant store is not configured", apiErrorOptions{Retryable: true})
@@ -73,36 +73,38 @@ func tenantAuthMiddleware(stateStore store.Store, sessions *authSessionManager, 
 		}
 
 		var sessionPrincipal *AuthenticatedPrincipal
+		staleCredentialSession := false
 		if apiKey == "" && serviceAccountKey == "" && sessions != nil {
-			if sessionRecord, ok := sessions.Lookup(readAuthSessionSecret(r)); ok {
-				revoked, revokeErr := stateStore.IsAuthSessionRevoked(r.Context(), sessionRecord.PublicID)
-				if revokeErr != nil {
-					writeAPIError(w, r, http.StatusInternalServerError, "internal_error", revokeErr.Error(), apiErrorOptions{Retryable: true})
-					return
-				}
-				if revoked {
-					sessions.Delete(sessionRecord.Secret)
-				} else {
-					switch sessionRecord.Mode {
-					case "tenant":
-						if principal, tenantFound := principalFromTenantSession(r.Context(), tenants, sessionRecord); tenantFound {
-							sessionPrincipal = &principal
-							authMethod = "runtime-session"
+			sessionSecret := readAuthSessionSecret(r)
+			if sessionRecord, ok, lookupErr := sessions.LookupActive(r.Context(), stateStore, sessionSecret); lookupErr != nil {
+				writeAPIError(w, r, http.StatusInternalServerError, "internal_error", lookupErr.Error(), apiErrorOptions{Retryable: true})
+				return
+			} else if ok {
+				switch sessionRecord.Mode {
+				case "tenant":
+					if principal, tenantFound := principalFromTenantSession(r.Context(), tenants, sessionRecord); tenantFound {
+						sessionPrincipal = &principal
+						authMethod = "runtime-session"
+					} else if server != nil && !isZeroCredentialHash(sessionRecord.CredentialHash) {
+						staleCredentialSession = true
+						server.revokeCredentialBoundSession(r, sessionRecord, sessionSecret, "tenant_credential_changed")
+					}
+				case "service-account":
+					if principal, accountFound := principalFromServiceAccountSession(r.Context(), tenants, sessionRecord); accountFound {
+						sessionPrincipal = &principal
+						authMethod = "runtime-session"
+					} else if server != nil && !isZeroCredentialHash(sessionRecord.CredentialHash) {
+						staleCredentialSession = true
+						server.revokeCredentialBoundSession(r, sessionRecord, sessionSecret, "service_account_credential_changed")
+					}
+				case "local":
+					authMethod = firstNonEmpty(sessionRecord.AuthMethod, "local-runtime-session")
+					if tenant, tenantFound := findTenantByID(tenants, sessionRecord.TenantID); tenantFound {
+						principal := AuthenticatedPrincipal{
+							Tenant: tenant,
+							Role:   sessionRecord.Role,
 						}
-					case "service-account":
-						if principal, accountFound := principalFromServiceAccountSession(r.Context(), tenants, sessionRecord); accountFound {
-							sessionPrincipal = &principal
-							authMethod = "runtime-session"
-						}
-					case "local":
-						authMethod = firstNonEmpty(sessionRecord.AuthMethod, "local-runtime-session")
-						if tenant, tenantFound := findTenantByID(tenants, sessionRecord.TenantID); tenantFound {
-							principal := AuthenticatedPrincipal{
-								Tenant: tenant,
-								Role:   sessionRecord.Role,
-							}
-							sessionPrincipal = &principal
-						}
+						sessionPrincipal = &principal
 					}
 				}
 			}
@@ -126,6 +128,10 @@ func tenantAuthMiddleware(stateStore store.Store, sessions *authSessionManager, 
 			principal, ok = authenticateTenantPrincipal(r.Context(), tenants, apiKey, serviceAccountKey)
 		}
 		if !ok {
+			if staleCredentialSession {
+				writeAPIError(w, r, http.StatusUnauthorized, "invalid_credentials", "dashboard auth session no longer matches the current tenant credential", apiErrorOptions{})
+				return
+			}
 			if apiKey == "" && serviceAccountKey == "" {
 				writeAPIError(w, r, http.StatusUnauthorized, "missing_credentials", "missing tenant API key", apiErrorOptions{})
 				return
@@ -162,6 +168,33 @@ func tenantAuthMiddleware(stateStore store.Store, sessions *authSessionManager, 
 	})
 }
 
+func (s *Server) revokeCredentialBoundSession(r *http.Request, record authSessionRecord, secret, reason string) {
+	if s == nil || s.authSessions == nil || s.store == nil {
+		return
+	}
+	if err := s.authSessions.Revoke(r.Context(), s.store, record, secret); err != nil {
+		packageLogger.Warn(
+			"failed to revoke stale dashboard auth session",
+			"request_id", responseRequestID(nil, r),
+			"session_id", record.PublicID,
+			"reason", reason,
+			"error", err.Error(),
+		)
+	}
+	s.recordAuditEvent(r, models.AuditEvent{
+		Category: "tenant",
+		Action:   "revoke-auth-session",
+		Resource: record.PublicID,
+		Outcome:  models.AuditOutcomeSuccess,
+		Message:  "dashboard auth session revoked after credential mismatch",
+		Details: map[string]string{
+			"session_id": record.PublicID,
+			"auth_mode":  record.Mode,
+			"reason":     reason,
+		},
+	})
+}
+
 func bindHostIsLoopbackOnly(host string) bool {
 	host = strings.TrimSpace(host)
 	switch strings.ToLower(host) {
@@ -175,32 +208,20 @@ func bindHostIsLoopbackOnly(host string) bool {
 }
 
 func localRuntimeRequestAllowed(r *http.Request, bindHost string) bool {
-	if !bindHostIsLoopbackOnly(bindHost) || !requestFromLoopback(r) || !requestHostIsLoopback(r) || requestUsesForwardingHeaders(r) {
-		return false
+	reason := localRuntimeRequestRejectionReason(r, bindHost)
+	if reason == "" {
+		return true
 	}
-
-	_, originPresent := r.Header["Origin"]
-	origin := strings.TrimSpace(r.Header.Get("Origin"))
-	referer := strings.TrimSpace(r.Header.Get("Referer"))
-	if isMutatingMethod(r.Method) {
-		if originPresent && origin == "" {
-			return false
-		}
-		if origin == "" {
-			if referer == "" {
-				return false
-			}
-			return sameOriginRequest(r, referer)
-		}
-		return sameOriginRequest(r, origin)
+	if r != nil && !strings.EqualFold(strings.TrimSpace(r.Method), http.MethodGet) {
+		packageLogger.Warn(
+			"AUDIT",
+			"event", "loopback_rejection",
+			"reason", reason,
+			"peer", loopbackRejectionPeer(r),
+			"forwarded_headers_present", requestUsesForwardingHeaders(r),
+		)
 	}
-	if origin != "" {
-		return sameOriginRequest(r, origin)
-	}
-	if referer != "" {
-		return sameOriginRequest(r, referer)
-	}
-	return true
+	return false
 }
 
 func principalFromTenantSession(ctx context.Context, tenants []models.Tenant, record authSessionRecord) (AuthenticatedPrincipal, bool) {
@@ -249,10 +270,11 @@ func principalFromServiceAccountSession(ctx context.Context, tenants []models.Te
 
 func storedCredentialHashMatches(ctx context.Context, storedHash, legacyRaw string, expectedHash [32]byte) bool {
 	current, ok := storedCredentialHash(ctx, storedHash, legacyRaw)
-	return ok &&
-		!isZeroCredentialHash(current) &&
-		!isZeroCredentialHash(expectedHash) &&
-		subtle.ConstantTimeCompare(current[:], expectedHash[:]) == 1
+	currentValid := boolToConstantTime(ok) & boolToConstantTime(!isZeroCredentialHash(current))
+	expectedValid := boolToConstantTime(!isZeroCredentialHash(expectedHash))
+	compareResult := subtle.ConstantTimeCompare(current[:], expectedHash[:])
+	validResult := subtle.ConstantTimeEq(currentValid&expectedValid, 1)
+	return compareResult&validResult == 1
 }
 
 func constantTimeEqual(left, right string) bool {
@@ -328,20 +350,67 @@ func storedCredentialHash(ctx context.Context, storedHash, legacyRaw string) ([3
 func parseCredentialHash(value string) ([32]byte, bool) {
 	trimmed := strings.TrimSpace(value)
 	trimmed = strings.TrimPrefix(trimmed, credentialHashPrefix)
-	if trimmed == "" {
-		return [32]byte{}, false
-	}
-	decoded, err := hex.DecodeString(trimmed)
-	if err != nil || len(decoded) != sha256.Size {
-		return [32]byte{}, false
-	}
 	var digest [32]byte
-	copy(digest[:], decoded)
-	return digest, true
+	valid := boolToConstantTime(trimmed != "") & boolToConstantTime(len(trimmed) == sha256.Size*2)
+
+	var normalized [sha256.Size * 2]byte
+	for index := 0; index < len(normalized); index++ {
+		if index < len(trimmed) {
+			normalized[index] = trimmed[index]
+		}
+	}
+
+	for index := 0; index < sha256.Size; index++ {
+		high := credentialHashHexDecode[normalized[index*2]]
+		low := credentialHashHexDecode[normalized[index*2+1]]
+		valid &= boolToConstantTime(high != 0xff)
+		valid &= boolToConstantTime(low != 0xff)
+		digest[index] = (high << 4) | low
+	}
+
+	// Keep invalid stored-hash inputs on a comparable fixed-cost path so
+	// malformed records do not short-circuit noticeably faster than valid ones.
+	paddingDigest := sha256.Sum256(normalized[:])
+	paddingDigest = sha256.Sum256(paddingDigest[:])
+	paddingDigest = sha256.Sum256(paddingDigest[:])
+	paddingDigest = sha256.Sum256(paddingDigest[:])
+	paddingDigest = sha256.Sum256(paddingDigest[:])
+	paddingDigest = sha256.Sum256(paddingDigest[:])
+	paddingDigest = sha256.Sum256(paddingDigest[:])
+	paddingDigest = sha256.Sum256(paddingDigest[:])
+	paddingDigest = sha256.Sum256(paddingDigest[:])
+	paddingDigest = sha256.Sum256(paddingDigest[:])
+	invalidMask := byte((1 - subtle.ConstantTimeEq(valid, 1)) * 0xff)
+	for index := range digest {
+		digest[index] ^= paddingDigest[index] & invalidMask
+	}
+	return digest, subtle.ConstantTimeEq(valid, 1) == 1
 }
 
 func isZeroCredentialHash(value [32]byte) bool {
 	return subtle.ConstantTimeCompare(value[:], zeroCredentialHash[:]) == 1
+}
+
+func boolToConstantTime(value bool) int32 {
+	if value {
+		return 1
+	}
+	return 0
+}
+
+func newCredentialHashHexDecodeTable() [256]byte {
+	var table [256]byte
+	for index := range table {
+		table[index] = 0xff
+	}
+	for index := byte(0); index < 10; index++ {
+		table['0'+index] = index
+	}
+	for index := byte(0); index < 6; index++ {
+		table['a'+index] = 10 + index
+		table['A'+index] = 10 + index
+	}
+	return table
 }
 
 func tenantAuthMismatch(contextTenantID, principalTenantID string, credentialTenantIDs map[string]struct{}) bool {
@@ -500,6 +569,64 @@ func requestUsesForwardingHeaders(r *http.Request) bool {
 		}
 	}
 	return false
+}
+
+func localRuntimeRequestRejectionReason(r *http.Request, bindHost string) string {
+	if !bindHostIsLoopbackOnly(bindHost) {
+		return "bind_host_not_loopback_only"
+	}
+	if !requestFromLoopback(r) {
+		return "peer_not_loopback"
+	}
+	if !requestHostIsLoopback(r) {
+		return "host_not_loopback"
+	}
+	if requestUsesForwardingHeaders(r) {
+		return "forwarded_headers_present"
+	}
+
+	if r == nil {
+		return "request_missing"
+	}
+
+	_, originPresent := r.Header["Origin"]
+	origin := strings.TrimSpace(r.Header.Get("Origin"))
+	referer := strings.TrimSpace(r.Header.Get("Referer"))
+	if isMutatingMethod(r.Method) {
+		if originPresent && origin == "" {
+			return "empty_origin"
+		}
+		if origin == "" {
+			if referer == "" {
+				return "missing_origin_or_referer"
+			}
+			if !sameOriginRequest(r, referer) {
+				return "referer_mismatch"
+			}
+			return ""
+		}
+		if !sameOriginRequest(r, origin) {
+			return "origin_mismatch"
+		}
+		return ""
+	}
+	if origin != "" && !sameOriginRequest(r, origin) {
+		return "origin_mismatch"
+	}
+	if referer != "" && !sameOriginRequest(r, referer) {
+		return "referer_mismatch"
+	}
+	return ""
+}
+
+func loopbackRejectionPeer(r *http.Request) string {
+	if r == nil {
+		return ""
+	}
+	if ip, ok := remoteAddrIP(r.RemoteAddr); ok {
+		return ip.String()
+	}
+	return strings.TrimSpace(r.RemoteAddr)
 }
 
 // RequireTenant returns the authenticated tenant from a request context.

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/eblackrps/viaduct/internal/store"
 	"github.com/spf13/cobra"
 )
 
@@ -60,6 +61,13 @@ func init() {
 func main() {
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		os.Exit(exitCodeForError(err))
 	}
+}
+
+func exitCodeForError(err error) int {
+	if store.IsCredentialConflict(err) {
+		return 78
+	}
+	return 1
 }

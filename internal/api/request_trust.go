@@ -109,7 +109,20 @@ func forwardedForIP(value string) (net.IP, bool) {
 	if first == "" {
 		return nil, false
 	}
-	return parseConcreteIP(first)
+	trimmed := strings.Trim(strings.TrimSpace(first), "[]")
+	base, hadZone := splitIPZone(trimmed)
+	if hadZone {
+		return nil, false
+	}
+
+	ip, ok := parseConcreteIP(base)
+	if !ok {
+		return nil, false
+	}
+	if ip.String() != strings.TrimSpace(base) {
+		return nil, false
+	}
+	return ip, true
 }
 
 func parseConcreteIP(value string) (net.IP, bool) {
@@ -117,14 +130,23 @@ func parseConcreteIP(value string) (net.IP, bool) {
 	if trimmed == "" {
 		return nil, false
 	}
-	ip := net.ParseIP(trimmed)
+	base, hadZone := splitIPZone(trimmed)
+	ip := net.ParseIP(base)
 	if ip == nil {
 		return nil, false
 	}
 	if ipv4 := ip.To4(); ipv4 != nil {
+		if hadZone {
+			return nil, false
+		}
 		return ipv4, true
 	}
 	return ip, true
+}
+
+func splitIPZone(value string) (string, bool) {
+	base, _, found := strings.Cut(strings.TrimSpace(value), "%")
+	return base, found
 }
 
 func sameOriginRequest(r *http.Request, origin string) bool {

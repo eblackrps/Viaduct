@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"errors"
 	"fmt"
 	"io"
 	"regexp"
@@ -372,7 +373,12 @@ func TestReadStoreMigrationFile_ReadsBundledSQLAndRejectsTraversal_Expected(t *t
 func TestAnnotateCredentialMigrationError_DuplicateCredentialConflictActionable_Expected(t *testing.T) {
 	t.Parallel()
 
-	err := annotateCredentialMigrationError(&CredentialConflictError{TenantID: "tenant-a"})
+	err := annotateCredentialMigrationError(&CredentialConflictError{
+		Owners: []CredentialConflictOwner{
+			{TenantID: "tenant-a"},
+			{TenantID: "tenant-b", ServiceAccountID: "sa-1"},
+		},
+	})
 	if err == nil {
 		t.Fatal("annotateCredentialMigrationError() error = nil, want actionable message")
 	}
@@ -382,6 +388,87 @@ func TestAnnotateCredentialMigrationError_DuplicateCredentialConflictActionable_
 	message := err.Error()
 	if !strings.Contains(message, "resolve duplicated tenant or service-account API keys before restarting") {
 		t.Fatalf("annotateCredentialMigrationError() message = %q, want remediation guidance", message)
+	}
+	if !strings.Contains(message, "tenant-a") || !strings.Contains(message, "tenant-b") {
+		t.Fatalf("annotateCredentialMigrationError() message = %q, want tenant identifiers", message)
+	}
+	if !strings.Contains(message, "docs/operations/credential-migration.md") {
+		t.Fatalf("annotateCredentialMigrationError() message = %q, want remediation document path", message)
+	}
+}
+
+func TestStoreMigrationSkipsTransaction_ConcurrentIndexPragma_Expected(t *testing.T) {
+	t.Parallel()
+
+	if !storeMigrationSkipsTransaction("-- MUST NOT be wrapped in a transaction; uses CREATE INDEX CONCURRENTLY.\nCREATE UNIQUE INDEX CONCURRENTLY foo ON bar (id);") {
+		t.Fatal("storeMigrationSkipsTransaction() = false, want true for concurrent-index pragma")
+	}
+	if storeMigrationSkipsTransaction("CREATE TABLE example (id TEXT);") {
+		t.Fatal("storeMigrationSkipsTransaction() = true, want false without pragma")
+	}
+}
+
+func TestExecuteStoreMigration_SkipTransactionPragma_Expected(t *testing.T) {
+	t.Parallel()
+
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock.New() error = %v", err)
+	}
+	defer db.Close()
+
+	payload, err := readStoreMigrationFile("008_credential_hash_unique.sql")
+	if err != nil {
+		t.Fatalf("readStoreMigrationFile() error = %v", err)
+	}
+
+	mock.ExpectExec(regexp.QuoteMeta(payload)).
+		WillReturnResult(sqlmock.NewResult(0, 0))
+
+	if err := executeStoreMigration(context.Background(), db, "008_credential_hash_unique.sql"); err != nil {
+		t.Fatalf("executeStoreMigration() error = %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("sql expectations = %v", err)
+	}
+}
+
+func TestApplyCredentialHashUniqueIndexMigration_PreflightDuplicatesListsTenantIDs_Expected(t *testing.T) {
+	t.Parallel()
+
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock.New() error = %v", err)
+	}
+	defer db.Close()
+
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT DISTINCT tenant_id, service_account_id
+		 FROM credential_hashes
+		 WHERE credential_hash IN (
+		 	SELECT credential_hash
+		 	FROM credential_hashes
+		 	GROUP BY credential_hash
+		 	HAVING COUNT(*) > 1
+		 )
+		 ORDER BY tenant_id ASC, service_account_id ASC`)).
+		WillReturnRows(sqlmock.NewRows([]string{"tenant_id", "service_account_id"}).
+			AddRow("tenant-a", "").
+			AddRow("tenant-b", "sa-1"))
+
+	err = applyCredentialHashUniqueIndexMigration(context.Background(), db)
+	if !IsCredentialConflict(err) {
+		t.Fatalf("applyCredentialHashUniqueIndexMigration() error = %v, want credential conflict", err)
+	}
+
+	var conflictErr *CredentialConflictError
+	if !errors.As(err, &conflictErr) {
+		t.Fatalf("applyCredentialHashUniqueIndexMigration() error = %v, want credential conflict details", err)
+	}
+	if got := conflictErr.TenantIDs(); strings.Join(got, ",") != "tenant-a,tenant-b" {
+		t.Fatalf("conflictErr.TenantIDs() = %v, want [tenant-a tenant-b]", got)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("sql expectations = %v", err)
 	}
 }
 

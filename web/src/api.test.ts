@@ -49,8 +49,10 @@ describe("api", () => {
 
 		await getSnapshots({ page: 2, perPage: 25 });
 
-		const [input, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-		expect(input).toBe("/api/v2/snapshots?page=2&per_page=25");
+		const [input, init] = fetchMock.mock.calls[0] as [URL, RequestInit];
+		expect(`${input.pathname}${input.search}`).toBe(
+			"/api/v2/snapshots?page=2&per_page=25",
+		);
 		expect(init.credentials).toBe("same-origin");
 		expect(new Headers(init.headers).get("X-API-Key")).toBe("tenant-key");
 	});
@@ -138,8 +140,8 @@ describe("api", () => {
 
 		await createDashboardAuthSession("local", "ignored-key", true);
 
-		const [input, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-		expect(input).toBe("/api/v1/auth/session");
+		const [input, init] = fetchMock.mock.calls[0] as [URL, RequestInit];
+		expect(`${input.pathname}${input.search}`).toBe("/api/v1/auth/session");
 		expect(JSON.parse(typeof init.body === "string" ? init.body : "")).toEqual({
 			mode: "local",
 			remember: true,
@@ -203,13 +205,71 @@ describe("api", () => {
 			);
 		vi.stubGlobal("fetch", fetchMock);
 
-		const pageOnePromise = requestManager.fetch("/api/v2/inventory?page=1");
-		const pageTwoPromise = requestManager.fetch("/api/v2/inventory?page=2");
+		const pageOnePromise = requestManager.fetch(
+			"/api/v2/inventory?page=1",
+			undefined,
+			{ dedupe: true },
+		);
+		const pageTwoPromise = requestManager.fetch(
+			"/api/v2/inventory?page=2",
+			undefined,
+			{ dedupe: true },
+		);
 
 		expect(pageOnePromise).not.toBe(pageTwoPromise);
 
 		await Promise.all([pageOnePromise, pageTwoPromise]);
 		expect(fetchMock).toHaveBeenCalledTimes(2);
+	});
+
+	it("resolves request URLs against the base tag when present", async () => {
+		const fetchMock = vi
+			.fn()
+			.mockResolvedValue(
+				new Response(JSON.stringify({ version: "2.6.0" }), { status: 200 }),
+			);
+		vi.stubGlobal("fetch", fetchMock);
+
+		const base = document.createElement("base");
+		base.href = "https://viaduct.example.com/operator/";
+		document.head.appendChild(base);
+
+		try {
+			await getAbout();
+		} finally {
+			base.remove();
+		}
+
+		const [input] = fetchMock.mock.calls[0] as [URL, RequestInit];
+		expect(input.toString()).toBe(
+			"https://viaduct.example.com/operator/api/v1/about",
+		);
+	});
+
+	it("forwards an external abort signal reason to fetch", async () => {
+		const externalController = new AbortController();
+		const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+			return new Promise<Response>((_resolve, reject) => {
+				init?.signal?.addEventListener(
+					"abort",
+					() =>
+						reject(
+							(init?.signal?.reason ??
+								new DOMException("request aborted", "AbortError")) as Error,
+						),
+					{ once: true },
+				);
+			});
+		});
+		vi.stubGlobal("fetch", fetchMock);
+
+		const abortReason = new DOMException("Canceled", "AbortError");
+		const promise = requestManager.fetch("/api/v1/about", undefined, {
+			signal: externalController.signal,
+		});
+		externalController.abort(abortReason);
+
+		await expect(promise).rejects.toBe(abortReason);
 	});
 
 	it("does not leak request controllers when request URL normalization throws", async () => {

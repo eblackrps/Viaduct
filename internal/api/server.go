@@ -108,39 +108,40 @@ type readinessResponse struct {
 
 // Server serves Viaduct REST API endpoints for discovery, migration, and lifecycle workflows.
 type Server struct {
-	engine                *discovery.Engine
-	store                 store.Store
-	port                  int
-	adminAPIKey           string
-	catalog               *connectorcatalog.Catalog
-	metrics               *apiMetrics
-	clientRateLimiter     *tenantRateLimiter
-	rateLimiter           *tenantRateLimiter
-	authRateLimiter       *tenantRateLimiter
-	build                 buildInfo
-	backups               *models.BackupDiscoveryResult
-	costEngine            *lifecycle.CostEngine
-	policyEngine          *lifecycle.PolicyEngine
-	recommendationEngine  *lifecycle.RecommendationEngine
-	driftDetector         *lifecycle.DriftDetector
-	resolveConfig         func(platform models.Platform, address, credentialRef string) connectors.Config
-	dashboardDir          string
-	bindHost              string
-	allowedOrigins        map[string]struct{}
-	trustedProxies        []*net.IPNet
-	backgroundTaskTimeout time.Duration
-	workspaceJobTimeout   time.Duration
-	workspaceJobExecutor  workspaceJobEnqueuer
-	workspaceJobWorkers   int
-	authSessions          *authSessionManager
-	localRuntimeMode      bool
-	allowUnauthRemote     bool
-	connectorCircuits     *connectorCircuitRegistry
-	apiCSP                string
-	dashboardCSP          string
-	backgroundTaskCtx     context.Context
-	backgroundTaskCancel  context.CancelFunc
-	logger                *slog.Logger
+	engine                  *discovery.Engine
+	store                   store.Store
+	port                    int
+	adminAPIKey             string
+	catalog                 *connectorcatalog.Catalog
+	metrics                 *apiMetrics
+	clientRateLimiter       *tenantRateLimiter
+	rateLimiter             *tenantRateLimiter
+	authRateLimiter         *tenantRateLimiter
+	build                   buildInfo
+	backups                 *models.BackupDiscoveryResult
+	costEngine              *lifecycle.CostEngine
+	policyEngine            *lifecycle.PolicyEngine
+	recommendationEngine    *lifecycle.RecommendationEngine
+	driftDetector           *lifecycle.DriftDetector
+	resolveConfig           func(platform models.Platform, address, credentialRef string) connectors.Config
+	dashboardDir            string
+	bindHost                string
+	allowedOrigins          map[string]struct{}
+	trustedProxies          []*net.IPNet
+	backgroundTaskTimeout   time.Duration
+	workspaceJobTimeout     time.Duration
+	workspaceEnqueueTimeout time.Duration
+	workspaceJobExecutor    workspaceJobEnqueuer
+	workspaceJobWorkers     int
+	authSessions            *authSessionManager
+	localRuntimeMode        bool
+	allowUnauthRemote       bool
+	connectorCircuits       *connectorCircuitRegistry
+	apiCSP                  string
+	dashboardCSP            string
+	backgroundTaskCtx       context.Context
+	backgroundTaskCancel    context.CancelFunc
+	logger                  *slog.Logger
 
 	mu    sync.RWMutex
 	specs map[string]*migratepkg.MigrationSpec
@@ -207,29 +208,30 @@ func NewServer(engine *discovery.Engine, stateStore store.Store, port int, catal
 	backgroundTaskCtx, backgroundTaskCancel := context.WithCancel(context.Background())
 
 	server := &Server{
-		engine:                engine,
-		store:                 stateStore,
-		port:                  port,
-		adminAPIKey:           os.Getenv("VIADUCT_ADMIN_KEY"),
-		catalog:               catalog,
-		metrics:               newAPIMetrics(),
-		clientRateLimiter:     newTenantRateLimiter(300, time.Minute),
-		rateLimiter:           newTenantRateLimiter(300, time.Minute),
-		authRateLimiter:       newTenantRateLimiter(20, time.Minute),
-		build:                 buildInfo{version: "dev", commit: "none", date: "unknown"},
-		costEngine:            costEngine,
-		policyEngine:          policyEngine,
-		recommendationEngine:  lifecycle.NewRecommendationEngine(costEngine, policyEngine),
-		driftDetector:         lifecycle.NewDriftDetector(stateStore, policyEngine, lifecycle.DriftConfig{}),
-		dashboardDir:          resolveDashboardAssetDir(""),
-		allowedOrigins:        allowedOrigins,
-		trustedProxies:        trustedProxies,
-		backgroundTaskTimeout: durationEnv("VIADUCT_BACKGROUND_TASK_TIMEOUT", 24*time.Hour),
-		workspaceJobTimeout:   durationEnv("VIADUCT_WORKSPACE_JOB_TIMEOUT", 2*time.Minute),
-		workspaceJobWorkers:   intEnv("VIADUCT_WORKSPACE_JOB_CONCURRENCY", defaultWorkspaceJobConcurrency),
-		authSessions:          newAuthSessionManager(durationEnv("VIADUCT_AUTH_SESSION_TTL", 12*time.Hour), persistentAuthSessionTTL()),
-		connectorCircuits:     newConnectorCircuitRegistry(loadConnectorCircuitConfig()),
-		apiCSP:                configuredSecurityHeader("VIADUCT_API_CSP", "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"),
+		engine:                  engine,
+		store:                   stateStore,
+		port:                    port,
+		adminAPIKey:             os.Getenv("VIADUCT_ADMIN_KEY"),
+		catalog:                 catalog,
+		metrics:                 newAPIMetrics(),
+		clientRateLimiter:       newTenantRateLimiter(300, time.Minute),
+		rateLimiter:             newTenantRateLimiter(300, time.Minute),
+		authRateLimiter:         newTenantRateLimiter(20, time.Minute),
+		build:                   buildInfo{version: "dev", commit: "none", date: "unknown"},
+		costEngine:              costEngine,
+		policyEngine:            policyEngine,
+		recommendationEngine:    lifecycle.NewRecommendationEngine(costEngine, policyEngine),
+		driftDetector:           lifecycle.NewDriftDetector(stateStore, policyEngine, lifecycle.DriftConfig{}),
+		dashboardDir:            resolveDashboardAssetDir(""),
+		allowedOrigins:          allowedOrigins,
+		trustedProxies:          trustedProxies,
+		backgroundTaskTimeout:   durationEnv("VIADUCT_BACKGROUND_TASK_TIMEOUT", 24*time.Hour),
+		workspaceJobTimeout:     durationEnv("VIADUCT_WORKSPACE_JOB_TIMEOUT", 2*time.Minute),
+		workspaceEnqueueTimeout: durationEnv("VIADUCT_WORKSPACE_ENQUEUE_TIMEOUT", defaultWorkspaceEnqueueTimeout),
+		workspaceJobWorkers:     intEnv("VIADUCT_WORKSPACE_JOB_CONCURRENCY", defaultWorkspaceJobConcurrency),
+		authSessions:            newAuthSessionManager(durationEnv("VIADUCT_AUTH_SESSION_TTL", 12*time.Hour), persistentAuthSessionTTL()),
+		connectorCircuits:       newConnectorCircuitRegistry(loadConnectorCircuitConfig()),
+		apiCSP:                  configuredSecurityHeader("VIADUCT_API_CSP", "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"),
 		dashboardCSP: configuredSecurityHeader(
 			"VIADUCT_DASHBOARD_CSP",
 			"default-src 'self'; base-uri 'none'; connect-src 'self'; font-src 'self' data:; form-action 'self'; frame-ancestors 'none'; img-src 'self' data:; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'",
@@ -246,7 +248,7 @@ func NewServer(engine *discovery.Engine, stateStore store.Store, port int, catal
 		},
 		specs: make(map[string]*migratepkg.MigrationSpec),
 	}
-	server.workspaceJobExecutor = newWorkspaceJobExecutor(backgroundTaskCtx, server.workspaceJobWorkers, func(ctx context.Context, task workspaceJobTask) {
+	server.workspaceJobExecutor = newWorkspaceJobExecutorWithTimeout(backgroundTaskCtx, server.workspaceJobWorkers, server.workspaceEnqueueTimeout, func(ctx context.Context, task workspaceJobTask) {
 		server.runWorkspaceJob(ctx, task.tenantID, task.workspaceID, task.jobID)
 	})
 	return server, nil

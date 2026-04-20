@@ -29,6 +29,7 @@ jobs:
         id: release_meta
         shell: bash
         run: |
+          set -euo pipefail
           RELEASE_TAG="${GITHUB_REF_NAME}"
           if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
             RELEASE_TAG="$(python -c "import json, os; print(json.load(open(os.environ['GITHUB_EVENT_PATH'], encoding='utf-8')).get('inputs', {}).get('release_tag', ''), end='')")"
@@ -37,9 +38,11 @@ jobs:
             echo "release tag is required" >&2
             exit 1
           fi
+          REPOSITORY_SLUG="$(printf '%s' "${GITHUB_REPOSITORY}" | tr '[:upper:]' '[:lower:]')"
           echo "RELEASE_TAG=${RELEASE_TAG}" >> "$GITHUB_ENV"
           echo "PACKAGE_VERSION=${RELEASE_TAG#v}" >> "$GITHUB_ENV"
           echo "RELEASE_NOTES_PATH=docs/releases/${RELEASE_TAG}.md" >> "$GITHUB_ENV"
+          echo "COSIGN_CERTIFICATE_IDENTITY=https://github.com/${REPOSITORY_SLUG}/.github/workflows/release.yml@refs/tags/${RELEASE_TAG}" >> "$GITHUB_ENV"
           echo "release_tag=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
           echo "package_version=${RELEASE_TAG#v}" >> "$GITHUB_OUTPUT"
 
@@ -54,11 +57,15 @@ jobs:
           cache-dependency-path: web/package-lock.json
 
       - name: Build Cross-Platform Release Bundles
-        run: make package-release-matrix VERSION="${RELEASE_TAG}"
+        shell: bash
+        run: |
+          set -euo pipefail
+          make package-release-matrix VERSION="${RELEASE_TAG}"
 
       - name: Extract Release Notes
         shell: bash
         run: |
+          set -euo pipefail
           if [[ -f "${RELEASE_NOTES_PATH}" ]]; then
             cp "${RELEASE_NOTES_PATH}" dist/release-notes.md
           else
@@ -90,6 +97,7 @@ jobs:
       - name: Generate CycloneDX SBOM
         shell: bash
         run: |
+          set -euo pipefail
           VERSION="${PACKAGE_VERSION}"
           syft dir:. -o cyclonedx-json="dist/viaduct_${VERSION}_sbom.cdx.json"
 
@@ -100,7 +108,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for artifact in dist/*.tar.gz dist/*.cdx.json; do
+          for artifact in dist/*.tar.gz dist/*.zip dist/*.cdx.json; do
             bundle="${artifact}.sigstore.json"
             cosign sign-blob --yes \
               --bundle "${bundle}" \
@@ -109,12 +117,12 @@ jobs:
             cosign verify-blob \
               --certificate "${artifact}.pem" \
               --signature "${artifact}.sig" \
-              --certificate-identity-regexp '^https://github.com/eblackrps/viaduct' \
+              --certificate-identity "${COSIGN_CERTIFICATE_IDENTITY}" \
               --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
               "${artifact}"
             rm -f "${bundle}"
           done
-          sha256sum dist/*.tar.gz dist/*.cdx.json dist/*.sig dist/*.pem | sed 's#  dist/#  #' > dist/SHA256SUMS
+          sha256sum dist/*.tar.gz dist/*.zip dist/*.cdx.json dist/*.sig dist/*.pem | sed 's#  dist/#  #' > dist/SHA256SUMS
           bundle="dist/SHA256SUMS.sigstore.json"
           cosign sign-blob --yes \
             --bundle "${bundle}" \
@@ -123,7 +131,7 @@ jobs:
           cosign verify-blob \
             --certificate dist/SHA256SUMS.pem \
             --signature dist/SHA256SUMS.sig \
-            --certificate-identity-regexp '^https://github.com/eblackrps/viaduct' \
+            --certificate-identity "${COSIGN_CERTIFICATE_IDENTITY}" \
             --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
             dist/SHA256SUMS
           rm -f "${bundle}"
@@ -135,11 +143,13 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
+          set -euo pipefail
           gh release create "${RELEASE_TAG}" \
             --title "Viaduct ${RELEASE_TAG}" \
             --latest \
             --notes-file dist/release-notes.md \
             dist/viaduct_*.tar.gz \
+            dist/viaduct_*.zip \
             dist/SHA256SUMS \
             dist/*.cdx.json \
             dist/*.sig \
