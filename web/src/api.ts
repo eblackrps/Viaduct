@@ -248,7 +248,10 @@ class RequestManager {
 			dedupeKey: string;
 		}
 	>();
-	private readonly inflightByDedupeKey = new Map<string, string>();
+	private readonly inflightByDedupeKey = new Map<
+		string,
+		{ inflightID: string; count: number }
+	>();
 
 	async fetch(
 		input: RequestInfo | URL,
@@ -262,13 +265,10 @@ class RequestManager {
 				? `${method}:${requestURL.toString()}`
 				: "";
 		if (dedupeKey) {
-			const inflightID = this.inflightByDedupeKey.get(dedupeKey);
+			const inflightID = this.retainDedupeKey(dedupeKey);
 			const entry = inflightID ? this.inflight.get(inflightID) : undefined;
-			if (entry) {
-				return entry.promise.then((response) => response.clone());
-			}
-			if (inflightID) {
-				this.inflightByDedupeKey.delete(dedupeKey);
+			if (entry && inflightID) {
+				return this.cloneDedupedResponse(dedupeKey, entry.promise, inflightID);
 			}
 		}
 
@@ -294,12 +294,6 @@ class RequestManager {
 			} finally {
 				requestController.cleanup();
 				this.inflight.delete(inflightID);
-				if (
-					dedupeKey &&
-					this.inflightByDedupeKey.get(dedupeKey) === inflightID
-				) {
-					this.inflightByDedupeKey.delete(dedupeKey);
-				}
 			}
 		})();
 
@@ -309,9 +303,11 @@ class RequestManager {
 			dedupeKey,
 		});
 		if (dedupeKey) {
-			this.inflightByDedupeKey.set(dedupeKey, inflightID);
+			this.inflightByDedupeKey.set(dedupeKey, { inflightID, count: 1 });
 		}
-		return dedupeKey ? promise.then((response) => response.clone()) : promise;
+		return dedupeKey
+			? this.cloneDedupedResponse(dedupeKey, promise, inflightID)
+			: promise;
 	}
 
 	cancel(key: string) {
@@ -321,7 +317,10 @@ class RequestManager {
 		}
 		entry.controller.abort(new DOMException("Canceled", "AbortError"));
 		if (entry.dedupeKey) {
-			this.inflightByDedupeKey.delete(entry.dedupeKey);
+			const dedupeEntry = this.inflightByDedupeKey.get(entry.dedupeKey);
+			if (dedupeEntry?.inflightID === key) {
+				this.inflightByDedupeKey.delete(entry.dedupeKey);
+			}
 		}
 		this.inflight.delete(key);
 	}
@@ -330,14 +329,72 @@ class RequestManager {
 		for (const [key, entry] of this.inflight.entries()) {
 			entry.controller.abort(new DOMException("Canceled", "AbortError"));
 			if (entry.dedupeKey) {
-				this.inflightByDedupeKey.delete(entry.dedupeKey);
+				const dedupeEntry = this.inflightByDedupeKey.get(entry.dedupeKey);
+				if (dedupeEntry?.inflightID === key) {
+					this.inflightByDedupeKey.delete(entry.dedupeKey);
+				}
 			}
 			this.inflight.delete(key);
 		}
 	}
+
+	debugInflightCount(): number {
+		return this.inflight.size;
+	}
+
+	debugDedupeCount(): number {
+		return this.inflightByDedupeKey.size;
+	}
+
+	private retainDedupeKey(dedupeKey: string): string | undefined {
+		const entry = this.inflightByDedupeKey.get(dedupeKey);
+		if (!entry) {
+			return undefined;
+		}
+		if (!this.inflight.has(entry.inflightID)) {
+			this.inflightByDedupeKey.delete(dedupeKey);
+			return undefined;
+		}
+		entry.count += 1;
+		this.inflightByDedupeKey.set(dedupeKey, entry);
+		return entry.inflightID;
+	}
+
+	private releaseDedupeKey(dedupeKey: string, inflightID: string) {
+		const entry = this.inflightByDedupeKey.get(dedupeKey);
+		if (!entry || entry.inflightID !== inflightID) {
+			return;
+		}
+		entry.count -= 1;
+		if (entry.count <= 0) {
+			this.inflightByDedupeKey.delete(dedupeKey);
+			return;
+		}
+		this.inflightByDedupeKey.set(dedupeKey, entry);
+	}
+
+	private cloneDedupedResponse(
+		dedupeKey: string,
+		promise: Promise<Response>,
+		inflightID: string,
+	): Promise<Response> {
+		return promise
+			.then((response) => response.clone())
+			.finally(() => {
+				this.releaseDedupeKey(dedupeKey, inflightID);
+			});
+	}
 }
 
 export const requestManager = new RequestManager();
+
+export function getInflightRequestCount(): number {
+	return requestManager.debugInflightCount();
+}
+
+export function getInflightDedupeCount(): number {
+	return requestManager.debugDedupeCount();
+}
 
 function toRequestURL(input: RequestInfo | URL): URL {
 	const baseURL = getRequestBaseURL();
