@@ -74,6 +74,38 @@ jobs:
             python -c "import os, re; from pathlib import Path; version = os.environ['PACKAGE_VERSION']; changelog = Path('CHANGELOG.md').read_text(encoding='utf-8'); match = re.search(rf'## \\[{re.escape(version)}\\][^\\n]*\\n(.*?)(?=\\n## \\[|\\Z)', changelog, re.S); notes = match.group(1).strip() if match else 'See CHANGELOG.md for release details.'; Path('dist/release-notes.md').write_text(notes + '\\n', encoding='utf-8')"
           fi
 
+      - name: Write Release Image Dockerfile
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > .github/release-image.Dockerfile <<'EOF'
+          FROM alpine:3.20 AS release-binary
+          ARG TARGETARCH
+          COPY bin/ /out/bin/
+          RUN cp "/out/bin/viaduct-linux-${TARGETARCH}" /out/viaduct
+
+          FROM debian:bookworm-slim
+          RUN apt-get update \
+            && apt-get install -y --no-install-recommends ca-certificates curl \
+            && rm -rf /var/lib/apt/lists/*
+          RUN useradd --create-home --home-dir /home/viaduct --shell /usr/sbin/nologin viaduct
+          WORKDIR /opt/viaduct
+
+          COPY --from=release-binary /out/viaduct /usr/local/bin/viaduct
+          COPY web/dist /opt/viaduct/web
+          COPY configs /opt/viaduct/configs
+          COPY docs /opt/viaduct/docs
+          COPY examples /opt/viaduct/examples
+
+          ENV HOME=/home/viaduct
+          EXPOSE 8080
+          HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 CMD ["/usr/bin/curl", "-fsS", "http://127.0.0.1:8080/readyz"]
+          USER viaduct
+
+          ENTRYPOINT ["viaduct"]
+          CMD ["serve-api", "--port", "8080"]
+          EOF
+
       - uses: docker/setup-buildx-action@v4
 
       - uses: docker/login-action@v4
@@ -86,6 +118,7 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: .
+          file: .github/release-image.Dockerfile
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |
@@ -155,8 +188,16 @@ jobs:
           set -euo pipefail
           shopt -s nullglob
           release_assets=(dist/viaduct_*.tar.gz dist/viaduct_*.zip dist/SHA256SUMS dist/*.cdx.json dist/*.sig dist/*.pem)
-          gh release create "${RELEASE_TAG}" \
-            --title "Viaduct ${RELEASE_TAG}" \
-            --latest \
-            --notes-file dist/release-notes.md \
-            "${release_assets[@]}"
+          if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
+            gh release edit "${RELEASE_TAG}" \
+              --title "Viaduct ${RELEASE_TAG}" \
+              --latest \
+              --notes-file dist/release-notes.md
+            gh release upload "${RELEASE_TAG}" --clobber "${release_assets[@]}"
+          else
+            gh release create "${RELEASE_TAG}" \
+              --title "Viaduct ${RELEASE_TAG}" \
+              --latest \
+              --notes-file dist/release-notes.md \
+              "${release_assets[@]}"
+          fi
