@@ -24,6 +24,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref }}
 
       - name: Derive Release Metadata
         id: release_meta
@@ -38,11 +41,10 @@ jobs:
             echo "release tag is required" >&2
             exit 1
           fi
-          REPOSITORY_SLUG="$(printf '%s' "${GITHUB_REPOSITORY}" | tr '[:upper:]' '[:lower:]')"
           echo "RELEASE_TAG=${RELEASE_TAG}" >> "$GITHUB_ENV"
           echo "PACKAGE_VERSION=${RELEASE_TAG#v}" >> "$GITHUB_ENV"
           echo "RELEASE_NOTES_PATH=docs/releases/${RELEASE_TAG}.md" >> "$GITHUB_ENV"
-          echo "COSIGN_CERTIFICATE_IDENTITY=https://github.com/${REPOSITORY_SLUG}/.github/workflows/release.yml@refs/tags/${RELEASE_TAG}" >> "$GITHUB_ENV"
+          echo "COSIGN_CERTIFICATE_IDENTITY=https://github.com/${GITHUB_REPOSITORY}/.github/workflows/release.yml@refs/tags/${RELEASE_TAG}" >> "$GITHUB_ENV"
           echo "release_tag=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
           echo "package_version=${RELEASE_TAG#v}" >> "$GITHUB_OUTPUT"
 
