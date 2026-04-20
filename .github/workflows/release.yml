@@ -74,15 +74,24 @@ jobs:
             python -c "import os, re; from pathlib import Path; version = os.environ['PACKAGE_VERSION']; changelog = Path('CHANGELOG.md').read_text(encoding='utf-8'); match = re.search(rf'## \\[{re.escape(version)}\\][^\\n]*\\n(.*?)(?=\\n## \\[|\\Z)', changelog, re.S); notes = match.group(1).strip() if match else 'See CHANGELOG.md for release details.'; Path('dist/release-notes.md').write_text(notes + '\\n', encoding='utf-8')"
           fi
 
-      - name: Write Release Image Dockerfile
+      - name: Prepare Release Image Context
         shell: bash
         run: |
           set -euo pipefail
-          cat > .github/release-image.Dockerfile <<'EOF'
+          rm -rf .release-image
+          mkdir -p .release-image
+          cp bin/viaduct-linux-amd64 .release-image/viaduct-linux-amd64
+          cp bin/viaduct-linux-arm64 .release-image/viaduct-linux-arm64
+          cp -R web/dist .release-image/web
+          cp -R configs .release-image/configs
+          cp -R docs .release-image/docs
+          cp -R examples .release-image/examples
+          cat > .release-image/Dockerfile <<'EOF'
           FROM alpine:3.20 AS release-binary
           ARG TARGETARCH
-          COPY bin/ /out/bin/
-          RUN cp "/out/bin/viaduct-linux-${TARGETARCH}" /out/viaduct
+          COPY viaduct-linux-amd64 /out/viaduct-linux-amd64
+          COPY viaduct-linux-arm64 /out/viaduct-linux-arm64
+          RUN cp "/out/viaduct-linux-${TARGETARCH}" /out/viaduct
 
           FROM debian:bookworm-slim
           RUN apt-get update \
@@ -92,7 +101,7 @@ jobs:
           WORKDIR /opt/viaduct
 
           COPY --from=release-binary /out/viaduct /usr/local/bin/viaduct
-          COPY web/dist /opt/viaduct/web
+          COPY web /opt/viaduct/web
           COPY configs /opt/viaduct/configs
           COPY docs /opt/viaduct/docs
           COPY examples /opt/viaduct/examples
@@ -117,8 +126,8 @@ jobs:
       - name: Build And Push Docker Image
         uses: docker/build-push-action@v7
         with:
-          context: .
-          file: .github/release-image.Dockerfile
+          context: .release-image
+          file: .release-image/Dockerfile
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |
