@@ -1,8 +1,11 @@
 package api
 
-import "testing"
+import (
+	"net/http/httptest"
+	"testing"
+)
 
-func TestParseConcreteIP_DropsIPv6ZonesAndRejectsInvalidZoneForms_Expected(t *testing.T) {
+func TestParseConcreteIP_RejectsZoneQualifiedInputs_Expected(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
@@ -13,8 +16,8 @@ func TestParseConcreteIP_DropsIPv6ZonesAndRejectsInvalidZoneForms_Expected(t *te
 	}{
 		{name: "plain ipv4", value: "127.0.0.1", want: "127.0.0.1", ok: true},
 		{name: "plain ipv6", value: "::1", want: "::1", ok: true},
-		{name: "ipv6 zone dropped", value: "fe80::1%eth0", want: "fe80::1", ok: true},
-		{name: "ipv6 loopback zone dropped", value: "::1%lo", want: "::1", ok: true},
+		{name: "ipv6 zone rejected", value: "fe80::1%eth0", ok: false},
+		{name: "ipv6 loopback zone rejected", value: "::1%lo", ok: false},
 		{name: "ipv4 zone rejected", value: "127.0.0.1%0", ok: false},
 	}
 
@@ -71,5 +74,17 @@ func TestForwardedForIP_RejectsNonCanonicalEntries_Expected(t *testing.T) {
 				t.Fatalf("forwardedForIP(%q) = %q, want %q", tc.value, got.String(), tc.want)
 			}
 		})
+	}
+}
+
+func TestRejectedForwardingHeader_PrefersInvalidForwardedForOverRealIP_Expected(t *testing.T) {
+	t.Parallel()
+
+	req := httptest.NewRequest("GET", "http://127.0.0.1/api/v1/about", nil)
+	req.Header.Set("X-Forwarded-For", "::1%lo")
+	req.Header.Set("X-Real-IP", "127.0.0.1")
+
+	if got := rejectedForwardingHeader(req); got != "X-Forwarded-For" {
+		t.Fatalf("rejectedForwardingHeader() = %q, want X-Forwarded-For", got)
 	}
 }
