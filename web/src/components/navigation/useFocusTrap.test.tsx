@@ -178,8 +178,12 @@ describe("useFocusTrap", () => {
 		});
 		trigger.focus();
 		fireEvent.click(trigger);
-		fireEvent.click(screen.getByRole("button", { name: "Remove detached trigger" }));
-		fireEvent.click(screen.getByRole("button", { name: "Close detached dialog" }));
+		fireEvent.click(
+			screen.getByRole("button", { name: "Remove detached trigger" }),
+		);
+		fireEvent.click(
+			screen.getByRole("button", { name: "Close detached dialog" }),
+		);
 
 		expect(document.body).toHaveFocus();
 		expect(warnSpy).toHaveBeenCalledTimes(1);
