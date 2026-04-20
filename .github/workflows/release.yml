@@ -110,7 +110,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for artifact in dist/*.tar.gz dist/*.zip dist/*.cdx.json; do
+          shopt -s nullglob
+          artifacts=(dist/*.tar.gz dist/*.zip dist/*.cdx.json)
+          if [[ ${#artifacts[@]} -eq 0 ]]; then
+            echo "no release artifacts found in dist/" >&2
+            exit 1
+          fi
+          for artifact in "${artifacts[@]}"; do
             bundle="${artifact}.sigstore.json"
             cosign sign-blob --yes \
               --bundle "${bundle}" \
@@ -124,7 +130,8 @@ jobs:
               "${artifact}"
             rm -f "${bundle}"
           done
-          sha256sum dist/*.tar.gz dist/*.zip dist/*.cdx.json dist/*.sig dist/*.pem | sed 's#  dist/#  #' > dist/SHA256SUMS
+          checksum_inputs=("${artifacts[@]}" dist/*.sig dist/*.pem)
+          sha256sum "${checksum_inputs[@]}" | sed 's#  dist/#  #' > dist/SHA256SUMS
           bundle="dist/SHA256SUMS.sigstore.json"
           cosign sign-blob --yes \
             --bundle "${bundle}" \
@@ -146,13 +153,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          shopt -s nullglob
+          release_assets=(dist/viaduct_*.tar.gz dist/viaduct_*.zip dist/SHA256SUMS dist/*.cdx.json dist/*.sig dist/*.pem)
           gh release create "${RELEASE_TAG}" \
             --title "Viaduct ${RELEASE_TAG}" \
             --latest \
             --notes-file dist/release-notes.md \
-            dist/viaduct_*.tar.gz \
-            dist/viaduct_*.zip \
-            dist/SHA256SUMS \
-            dist/*.cdx.json \
-            dist/*.sig \
-            dist/*.pem
+            "${release_assets[@]}"
