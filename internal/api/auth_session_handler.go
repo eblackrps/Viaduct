@@ -81,6 +81,20 @@ func (s *Server) handleAuthSessionRevoke(w http.ResponseWriter, r *http.Request)
 		writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 		return
 	}
+	auditRequest := r.WithContext(withAwaitAudit(r.Context()))
+	s.recordAuditEvent(auditRequest, models.AuditEvent{
+		Actor:    "admin",
+		Category: "tenant",
+		Action:   "revoke-auth-session",
+		Resource: record.PublicID,
+		Outcome:  models.AuditOutcomeSuccess,
+		Message:  "dashboard auth session revoked by administrator",
+		Details: map[string]string{
+			"session_id": record.PublicID,
+			"auth_mode":  record.Mode,
+			"reason":     "admin_revocation",
+		},
+	})
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "revoked", "session_id": record.PublicID})
 }
@@ -182,6 +196,19 @@ func (s *Server) deleteAuthSession(w http.ResponseWriter, r *http.Request) {
 				writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 				return
 			}
+			auditRequest := r.WithContext(withAwaitAudit(r.Context()))
+			s.recordAuditEvent(auditRequest, models.AuditEvent{
+				Category: "tenant",
+				Action:   "revoke-auth-session",
+				Resource: record.PublicID,
+				Outcome:  models.AuditOutcomeSuccess,
+				Message:  "dashboard auth session revoked by current session holder",
+				Details: map[string]string{
+					"session_id": record.PublicID,
+					"auth_mode":  record.Mode,
+					"reason":     "self_revocation",
+				},
+			})
 		} else {
 			s.authSessions.Delete(secret)
 		}

@@ -495,7 +495,7 @@ func TestServer_Handler_OpenAPIDocsRedirectAndJSON_Expected(t *testing.T) {
 }
 
 func TestServer_Handler_MetricsRouteRequiresAdmin_Expected(t *testing.T) {
-	t.Setenv("VIADUCT_ADMIN_KEY", "admin-key")
+	t.Setenv("VIADUCT_ADMIN_KEY", store.HashAPIKey("admin-key"))
 	server := mustNewServer(t, store.NewMemoryStore())
 	handler := server.Handler()
 
@@ -732,6 +732,28 @@ func TestServer_Handler_LocalRuntimeAuthSession_RejectsForwardedProxyRequest_Exp
 	}
 }
 
+func TestServer_Handler_LocalRuntimeAuthSession_RejectsInvalidForwardedHeaderWithoutRealIPFallback_Expected(t *testing.T) {
+	t.Parallel()
+
+	server := mustNewServer(t, store.NewMemoryStore())
+	server.SetLocalRuntimeMode(true)
+	server.SetBindHost("127.0.0.1")
+	handler := server.Handler()
+
+	request := httptest.NewRequest(http.MethodPost, "http://127.0.0.1/api/v1/auth/session", bytes.NewBufferString(`{"mode":"local"}`))
+	request.RemoteAddr = "127.0.0.1:41000"
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Origin", "http://127.0.0.1")
+	request.Header.Set("X-Forwarded-For", "::1%eth0")
+	request.Header.Set("X-Real-IP", "127.0.0.1")
+	recorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want %d: %s", recorder.Code, http.StatusForbidden, recorder.Body.String())
+	}
+}
+
 func TestTrustedProxiesNoEffectOnLoopback_Expected(t *testing.T) {
 	t.Setenv("VIADUCT_TRUSTED_PROXIES", "0.0.0.0/0")
 
@@ -906,6 +928,21 @@ func TestServer_Handler_DeleteAuthSession_RevokesCurrentSession_Expected(t *test
 	if currentTenantRecorder.Code != http.StatusUnauthorized {
 		t.Fatalf("current tenant status = %d, want %d: %s", currentTenantRecorder.Code, http.StatusUnauthorized, currentTenantRecorder.Body.String())
 	}
+
+	events, err := stateStore.ListAuditEvents(context.Background(), store.DefaultTenantID, 10)
+	if err != nil {
+		t.Fatalf("ListAuditEvents() error = %v", err)
+	}
+	found := false
+	for _, event := range events {
+		if event.Action == "revoke-auth-session" && event.Resource != "" && event.Details["reason"] == "self_revocation" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("self revocation audit event not found: %#v", events)
+	}
 }
 
 func TestServer_Handler_TenantCredentialRotation_RevokesBoundSession_Expected(t *testing.T) {
@@ -973,7 +1010,10 @@ func TestServer_Handler_TenantCredentialRotation_RevokesBoundSession_Expected(t 
 	}
 	found := false
 	for _, event := range events {
-		if event.Action == "revoke-auth-session" && event.Resource == sessionResponse.SessionID && event.Details["reason"] == "tenant_credential_changed" {
+		if event.Action == "revoke-auth-session" && event.Resource == sessionResponse.SessionID && event.Details["reason"] == "credential_rotated" {
+			if event.Details["old_hash_prefix"] == "" || event.Details["new_hash_prefix"] == "" {
+				t.Fatalf("rotation audit event missing hash prefixes: %#v", event)
+			}
 			found = true
 			break
 		}
@@ -984,7 +1024,7 @@ func TestServer_Handler_TenantCredentialRotation_RevokesBoundSession_Expected(t 
 }
 
 func TestServer_Handler_AdminAuthSessionRevoke_BlocksSessionLookup_Expected(t *testing.T) {
-	t.Setenv("VIADUCT_ADMIN_KEY", "admin-secret")
+	t.Setenv("VIADUCT_ADMIN_KEY", store.HashAPIKey("admin-secret"))
 
 	stateStore := store.NewMemoryStore()
 	if err := stateStore.CreateTenant(context.Background(), models.Tenant{
@@ -1032,6 +1072,21 @@ func TestServer_Handler_AdminAuthSessionRevoke_BlocksSessionLookup_Expected(t *t
 	handler.ServeHTTP(currentTenantRecorder, currentTenantRequest)
 	if currentTenantRecorder.Code != http.StatusUnauthorized {
 		t.Fatalf("current tenant status = %d, want %d: %s", currentTenantRecorder.Code, http.StatusUnauthorized, currentTenantRecorder.Body.String())
+	}
+
+	events, err := stateStore.ListAuditEvents(context.Background(), store.DefaultTenantID, 10)
+	if err != nil {
+		t.Fatalf("ListAuditEvents() error = %v", err)
+	}
+	found := false
+	for _, event := range events {
+		if event.Action == "revoke-auth-session" && event.Resource == sessionResponse.SessionID && event.Details["reason"] == "admin_revocation" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("admin revocation audit event not found: %#v", events)
 	}
 }
 
@@ -1469,7 +1524,7 @@ func TestServer_Handler_ExplicitAllowedCORSOrigin_CaseInsensitive_Expected(t *te
 }
 
 func TestNewServer_WildcardAllowedOriginsWithAuthEnabled_ReturnsError(t *testing.T) {
-	t.Setenv("VIADUCT_ADMIN_KEY", "admin-key")
+	t.Setenv("VIADUCT_ADMIN_KEY", store.HashAPIKey("admin-key"))
 	t.Setenv("VIADUCT_ALLOWED_ORIGINS", "*")
 
 	_, err := NewServer(nil, store.NewMemoryStore(), 0, nil)

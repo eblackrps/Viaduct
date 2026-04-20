@@ -16,6 +16,8 @@ import (
 	"github.com/google/uuid"
 )
 
+type awaitAuditContextKey struct{}
+
 func (s *Server) handleAudit(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writeAPIError(w, r, http.StatusMethodNotAllowed, "invalid_request", "method not allowed", apiErrorOptions{})
@@ -180,8 +182,12 @@ func (s *Server) writeAuditReport(w http.ResponseWriter, r *http.Request, format
 	writeJSON(w, http.StatusOK, items)
 }
 
+// Audit writes default to best-effort asynchronous persistence so routine
+// request latency does not depend on the backing store. Callers handling
+// regulatory events can opt into durable writes by setting awaitAudit on the
+// request context before recording the event.
 func (s *Server) recordAuditEvent(r *http.Request, event models.AuditEvent) {
-	if s == nil || s.store == nil {
+	if s == nil || s.store == nil || r == nil {
 		return
 	}
 
@@ -200,9 +206,22 @@ func (s *Server) recordAuditEvent(r *http.Request, event models.AuditEvent) {
 	if event.Actor == "" {
 		event.Actor = actorFromContext(r.Context())
 	}
-	if err := s.store.SaveAuditEvent(r.Context(), event); err != nil {
-		log.Printf("component=api category=audit action=save outcome=failure message=%q", err.Error())
+
+	saveEvent := func(ctx context.Context) {
+		if err := s.store.SaveAuditEvent(ctx, event); err != nil {
+			log.Printf("component=api category=audit action=save outcome=failure message=%q", err.Error())
+		}
 	}
+	if awaitAuditRequested(r.Context()) {
+		saveEvent(r.Context())
+		return
+	}
+
+	go func(parentCtx context.Context, tenantID, requestID string) {
+		ctx, cancel := s.backgroundTaskContext(context.WithoutCancel(parentCtx), tenantID, requestID)
+		defer cancel()
+		saveEvent(ctx)
+	}(r.Context(), event.TenantID, event.RequestID)
 }
 
 func actorFromContext(ctx context.Context) string {
@@ -214,6 +233,21 @@ func actorFromContext(ctx context.Context) string {
 		return "service-account:" + principal.ServiceAccount.ID
 	}
 	return "tenant:" + principal.Tenant.ID
+}
+
+func withAwaitAudit(ctx context.Context) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return context.WithValue(ctx, awaitAuditContextKey{}, true)
+}
+
+func awaitAuditRequested(ctx context.Context) bool {
+	if ctx == nil {
+		return false
+	}
+	await, _ := ctx.Value(awaitAuditContextKey{}).(bool)
+	return await
 }
 
 func writeCSV(w http.ResponseWriter, filename string, headers []string, rows [][]string) {
