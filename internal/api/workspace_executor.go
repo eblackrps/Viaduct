@@ -196,9 +196,7 @@ func (e *workspaceJobExecutor) dispatch() {
 			idleWorkers = append(idleWorkers, worker)
 		case request := <-e.enqueue:
 			if e.ctx.Err() != nil {
-				if err := request.respond(ErrExecutorShuttingDown); err != nil {
-					// The caller may already have timed out or closed its receive path.
-				}
+				_ = request.respond(ErrExecutorShuttingDown) // Best effort: the caller may already have timed out or closed its receive path.
 				e.rejectPending(queue)
 				e.drainEnqueueRequests()
 				return
@@ -206,9 +204,7 @@ func (e *workspaceJobExecutor) dispatch() {
 
 			if e.tenantQueueLimitExceeded(request.task.tenantID) {
 				request.task.cleanup()
-				if err := request.respond(ErrTenantQueueFull); err != nil {
-					// The caller may already have timed out or closed its receive path.
-				}
+				_ = request.respond(ErrTenantQueueFull) // Best effort: the caller may already have timed out or closed its receive path.
 				continue
 			}
 
@@ -216,9 +212,7 @@ func (e *workspaceJobExecutor) dispatch() {
 				select {
 				case <-e.ctx.Done():
 					request.task.cleanup()
-					if err := request.respond(ErrExecutorShuttingDown); err != nil {
-						// The caller may already have timed out or closed its receive path.
-					}
+					_ = request.respond(ErrExecutorShuttingDown) // Best effort: the caller may already have timed out or closed its receive path.
 					e.rejectPending(queue)
 					e.drainEnqueueRequests()
 					return
@@ -231,9 +225,7 @@ func (e *workspaceJobExecutor) dispatch() {
 					e.adjustTenantQueueDepth(oldest.task.tenantID, -1)
 					if !e.assignTask(worker, oldest) {
 						request.task.cleanup()
-						if err := request.respond(ErrExecutorShuttingDown); err != nil {
-							// The caller may already have timed out or closed its receive path.
-						}
+						_ = request.respond(ErrExecutorShuttingDown) // Best effort: the caller may already have timed out or closed its receive path.
 						e.rejectPending(queue)
 						e.drainEnqueueRequests()
 						return
@@ -243,9 +235,7 @@ func (e *workspaceJobExecutor) dispatch() {
 
 			if e.ctx.Err() != nil {
 				request.task.cleanup()
-				if err := request.respond(ErrExecutorShuttingDown); err != nil {
-					// The caller may already have timed out or closed its receive path.
-				}
+				_ = request.respond(ErrExecutorShuttingDown) // Best effort: the caller may already have timed out or closed its receive path.
 				e.rejectPending(queue)
 				e.drainEnqueueRequests()
 				return
@@ -270,24 +260,18 @@ func (e *workspaceJobExecutor) dispatch() {
 func (e *workspaceJobExecutor) assignTask(worker workspaceWorkerHandle, request workspaceJobEnqueueRequest) bool {
 	if e == nil {
 		request.task.cleanup()
-		if err := request.respond(fmt.Errorf("workspace job executor is not configured")); err != nil {
-			// The caller may already have timed out or closed its receive path.
-		}
+		_ = request.respond(fmt.Errorf("workspace job executor is not configured")) // Best effort: the caller may already have timed out or closed its receive path.
 		return false
 	}
 
 	select {
 	case <-e.ctx.Done():
 		request.task.cleanup()
-		if err := request.respond(ErrExecutorShuttingDown); err != nil {
-			// The caller may already have timed out or closed its receive path.
-		}
+		_ = request.respond(ErrExecutorShuttingDown) // Best effort: the caller may already have timed out or closed its receive path.
 		return false
 	case <-worker.exit:
 		request.task.cleanup()
-		if err := request.respond(ErrExecutorShuttingDown); err != nil {
-			// The caller may already have timed out or closed its receive path.
-		}
+		_ = request.respond(ErrExecutorShuttingDown) // Best effort: the caller may already have timed out or closed its receive path.
 		return false
 	case worker.tasks <- request.task:
 		return true
@@ -301,9 +285,7 @@ func (e *workspaceJobExecutor) rejectPending(queue []workspaceJobEnqueueRequest)
 	e.clearQueueDepths()
 	for _, request := range queue {
 		request.task.cleanup()
-		if err := request.respond(ErrExecutorShuttingDown); err != nil {
-			// The caller may already have timed out or closed its receive path.
-		}
+		_ = request.respond(ErrExecutorShuttingDown) // Best effort: the caller may already have timed out or closed its receive path.
 	}
 }
 
@@ -315,9 +297,7 @@ func (e *workspaceJobExecutor) drainEnqueueRequests() {
 		select {
 		case request := <-e.enqueue:
 			request.task.cleanup()
-			if err := request.respond(ErrExecutorShuttingDown); err != nil {
-				// The caller may already have timed out or closed its receive path.
-			}
+			_ = request.respond(ErrExecutorShuttingDown) // Best effort: the caller may already have timed out or closed its receive path.
 		default:
 			return
 		}

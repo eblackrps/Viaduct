@@ -196,11 +196,11 @@ func (s *Server) revokeCredentialBoundSession(r *http.Request, record authSessio
 		Outcome:  models.AuditOutcomeSuccess,
 		Message:  "dashboard auth session revoked after credential mismatch",
 		Details: map[string]string{
-			"session_id":       record.PublicID,
-			"auth_mode":        record.Mode,
-			"reason":           reason,
-			"old_hash_prefix":  credentialHashPrefix8(record.CredentialHash),
-			"new_hash_prefix":  credentialHashPrefix8(currentHash),
+			"session_id":      record.PublicID,
+			"auth_mode":       record.Mode,
+			"reason":          reason,
+			"old_hash_prefix": credentialHashPrefix8(record.CredentialHash),
+			"new_hash_prefix": credentialHashPrefix8(currentHash),
 		},
 	})
 }
