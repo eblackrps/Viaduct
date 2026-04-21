@@ -15,7 +15,7 @@ permissions:
 
 env:
   IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/viaduct
-  DOCKERHUB_IMAGE_NAME: docker.io/${{ github.repository_owner }}/viaduct
+  DOCKERHUB_IMAGE_NAME: docker.io/emb079/viaduct
   DOCKER_METADATA_SHORT_SHA_LENGTH: 12
 
 jobs:
