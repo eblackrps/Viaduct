@@ -3,9 +3,13 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -172,4 +176,105 @@ func TestServer_HandleReports_UnknownReport_ReturnsStructuredError(t *testing.T)
 	if response.Error.Code != "report_not_found" || response.Error.RequestID == "" {
 		t.Fatalf("unexpected error response: %#v", response)
 	}
+}
+
+func TestServer_PersistAuditEvent_RetriesBeforeQueueFallback_Expected(t *testing.T) {
+	t.Parallel()
+
+	stateStore := &flakyAuditStore{
+		MemoryStore:       store.NewMemoryStore(),
+		failuresRemaining: 1,
+	}
+	server := mustNewServer(t, stateStore)
+	server.auditRetryPath = filepath.Join(t.TempDir(), "audit-retry.log")
+
+	event := server.normalizeAuditEvent(
+		store.ContextWithTenantID(context.Background(), store.DefaultTenantID),
+		models.AuditEvent{
+			Category: "tenant",
+			Action:   "retry-audit",
+			Message:  "retry path",
+			Outcome:  models.AuditOutcomeSuccess,
+		},
+	)
+	if err := server.persistAuditEvent(context.Background(), event); err != nil {
+		t.Fatalf("persistAuditEvent() error = %v", err)
+	}
+	if stateStore.saveAuditCalls != 2 {
+		t.Fatalf("saveAuditCalls = %d, want 2", stateStore.saveAuditCalls)
+	}
+	if _, err := stateStore.ListAuditEvents(context.Background(), store.DefaultTenantID, 10); err != nil {
+		t.Fatalf("ListAuditEvents() error = %v", err)
+	}
+	if _, err := os.Stat(server.auditRetryPath); !os.IsNotExist(err) {
+		t.Fatalf("audit retry queue exists after successful retry: err=%v", err)
+	}
+}
+
+func TestServer_PersistAuditEvent_QueuesAfterRetryFailure_Expected(t *testing.T) {
+	t.Parallel()
+
+	stateStore := &flakyAuditStore{
+		MemoryStore:       store.NewMemoryStore(),
+		failuresRemaining: 3,
+	}
+	server := mustNewServer(t, stateStore)
+	server.auditRetryPath = filepath.Join(t.TempDir(), "audit-retry.log")
+
+	event := server.normalizeAuditEvent(
+		store.ContextWithTenantID(context.Background(), store.DefaultTenantID),
+		models.AuditEvent{
+			Category: "tenant",
+			Action:   "queue-audit",
+			Message:  "queue path",
+			Outcome:  models.AuditOutcomeSuccess,
+		},
+	)
+	if err := server.persistAuditEvent(context.Background(), event); err != nil {
+		t.Fatalf("persistAuditEvent() error = %v", err)
+	}
+	if stateStore.saveAuditCalls != 2 {
+		t.Fatalf("saveAuditCalls = %d, want 2", stateStore.saveAuditCalls)
+	}
+	payload, err := os.ReadFile(server.auditRetryPath)
+	if err != nil {
+		t.Fatalf("ReadFile(audit retry queue) error = %v", err)
+	}
+	if !strings.Contains(string(payload), "queue-audit") {
+		t.Fatalf("audit retry queue payload = %q, want queued event", string(payload))
+	}
+
+	stateStore.mu.Lock()
+	stateStore.failuresRemaining = 0
+	stateStore.mu.Unlock()
+	server.cancelBackgroundTasks()
+
+	events, err := stateStore.ListAuditEvents(context.Background(), store.DefaultTenantID, 10)
+	if err != nil {
+		t.Fatalf("ListAuditEvents() error = %v", err)
+	}
+	if len(events) != 1 || events[0].Action != "queue-audit" {
+		t.Fatalf("ListAuditEvents() = %#v, want queued audit flushed after shutdown", events)
+	}
+	if _, err := os.Stat(server.auditRetryPath); !os.IsNotExist(err) {
+		t.Fatalf("audit retry queue exists after shutdown flush: err=%v", err)
+	}
+}
+
+type flakyAuditStore struct {
+	*store.MemoryStore
+	mu                sync.Mutex
+	failuresRemaining int
+	saveAuditCalls    int
+}
+
+func (s *flakyAuditStore) SaveAuditEvent(ctx context.Context, event models.AuditEvent) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.saveAuditCalls++
+	if s.failuresRemaining > 0 {
+		s.failuresRemaining--
+		return fmt.Errorf("simulated audit failure")
+	}
+	return s.MemoryStore.SaveAuditEvent(ctx, event)
 }

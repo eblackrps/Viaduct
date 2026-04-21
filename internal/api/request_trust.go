@@ -150,21 +150,30 @@ func splitIPZone(value string) (string, bool) {
 	return base, found
 }
 
-func rejectedForwardingHeader(r *http.Request) string {
+func rejectedForwardingHeaders(r *http.Request) []string {
 	if r == nil {
-		return ""
+		return nil
 	}
+	headers := make([]string, 0, 2)
 	if forwardedFor := strings.TrimSpace(r.Header.Get("X-Forwarded-For")); forwardedFor != "" {
 		if _, ok := forwardedForIP(forwardedFor); !ok {
-			return "X-Forwarded-For"
+			headers = append(headers, "X-Forwarded-For")
 		}
 	}
 	if realIP := strings.TrimSpace(r.Header.Get("X-Real-IP")); realIP != "" {
 		if _, ok := parseConcreteIP(realIP); !ok {
-			return "X-Real-IP"
+			headers = append(headers, "X-Real-IP")
 		}
 	}
-	return ""
+	return headers
+}
+
+func rejectedForwardingHeader(r *http.Request) string {
+	headers := rejectedForwardingHeaders(r)
+	if len(headers) == 0 {
+		return ""
+	}
+	return headers[0]
 }
 
 func sameOriginRequest(r *http.Request, origin string) bool {

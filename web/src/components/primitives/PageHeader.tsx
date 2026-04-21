@@ -31,10 +31,10 @@ export function PageHeader({
 			<div className="relative flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
 				<div className="min-w-0 max-w-4xl">
 					{eyebrow && <p className="operator-kicker">{eyebrow}</p>}
-					<TitleTag className="mt-3 font-display text-[2rem] leading-tight tracking-[-0.03em] text-ink lg:text-[2.5rem]">
+					<TitleTag className="mt-3 font-display text-title text-ink lg:text-display">
 						{title}
 					</TitleTag>
-					<p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600 lg:text-[0.98rem]">
+					<p className="mt-3 max-w-3xl text-body-sm text-slate-600 lg:text-body">
 						{description}
 					</p>
 					{badges && badges.length > 0 && (

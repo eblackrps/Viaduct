@@ -5,6 +5,7 @@ interface EmptyStateProps {
 	title: string;
 	message: string;
 	actions?: ReactNode;
+	className?: string;
 	titleAs?: "h1" | "h2" | "h3";
 }
 
@@ -12,21 +13,28 @@ export function EmptyState({
 	title,
 	message,
 	actions,
+	className,
 	titleAs = "h2",
 }: EmptyStateProps) {
 	const TitleTag = titleAs;
 
 	return (
-		<section className="state-shell border-dashed border-slate-300/90 bg-white/78">
+		<section
+			className={
+				className
+					? `state-shell border-dashed border-slate-300/90 bg-white/78 ${className}`
+					: "state-shell border-dashed border-slate-300/90 bg-white/78"
+			}
+		>
 			<div className="flex items-start gap-4">
 				<div className="state-icon bg-slate-100/90 text-slate-600">
 					<FolderOpenDot className="h-5 w-5" />
 				</div>
 				<div>
-					<TitleTag className="font-display text-[1.8rem] leading-tight tracking-[-0.03em] text-ink">
+					<TitleTag className="font-display text-title text-ink">
 						{title}
 					</TitleTag>
-					<p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
+					<p className="mt-3 max-w-2xl text-body-sm text-slate-600">
 						{message}
 					</p>
 					{actions && (

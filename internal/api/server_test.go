@@ -8,6 +8,8 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -15,6 +17,7 @@ import (
 	migratepkg "github.com/eblackrps/viaduct/internal/migrate"
 	"github.com/eblackrps/viaduct/internal/models"
 	"github.com/eblackrps/viaduct/internal/store"
+	"go.uber.org/goleak"
 )
 
 type paginationProbeStore struct {
@@ -1681,6 +1684,50 @@ func TestServer_BackgroundTaskContext_ServerLifetimeAndMetadata_Expected(t *test
 	case <-ctx.Done():
 	case <-time.After(time.Second):
 		t.Fatal("background task context not canceled by server shutdown")
+	}
+}
+
+func TestServer_CancelBackgroundTasks_ShutsDownSweeperAndAuditFlusher_Expected(t *testing.T) {
+	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
+
+	stateStore := &flakyAuditStore{
+		MemoryStore:       store.NewMemoryStore(),
+		failuresRemaining: 3,
+	}
+	server := mustNewServer(t, stateStore)
+	server.auditRetryPath = filepath.Join(t.TempDir(), "audit-retry.log")
+
+	stopSweeper := server.authSessions.StartSweeper(server.backgroundTaskCtx, 5*time.Millisecond)
+	event := server.normalizeAuditEvent(
+		store.ContextWithTenantID(context.Background(), store.DefaultTenantID),
+		models.AuditEvent{
+			Category: "tenant",
+			Action:   "shutdown-audit",
+			Message:  "shutdown flush",
+			Outcome:  models.AuditOutcomeSuccess,
+		},
+	)
+	if err := server.persistAuditEvent(context.Background(), event); err != nil {
+		stopSweeper()
+		t.Fatalf("persistAuditEvent() error = %v", err)
+	}
+
+	stateStore.mu.Lock()
+	stateStore.failuresRemaining = 0
+	stateStore.mu.Unlock()
+
+	server.cancelBackgroundTasks()
+	stopSweeper()
+
+	if _, err := os.Stat(server.auditRetryPath); !os.IsNotExist(err) {
+		t.Fatalf("audit retry queue exists after shutdown flush: err=%v", err)
+	}
+	events, err := stateStore.ListAuditEvents(context.Background(), store.DefaultTenantID, 10)
+	if err != nil {
+		t.Fatalf("ListAuditEvents() error = %v", err)
+	}
+	if len(events) != 1 || events[0].Action != "shutdown-audit" {
+		t.Fatalf("ListAuditEvents() = %#v, want shutdown audit persisted", events)
 	}
 }
 

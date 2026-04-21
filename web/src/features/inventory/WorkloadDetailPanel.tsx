@@ -85,10 +85,8 @@ export function WorkloadDetailPanel({
 				<div className="panel-muted px-4 py-4">
 					<div className="flex flex-wrap items-start justify-between gap-3">
 						<div>
-							<h3 className="font-display text-[1.7rem] tracking-[-0.03em] text-ink">
-								{vm.name}
-							</h3>
-							<p className="mt-2 text-sm leading-6 text-slate-600">
+							<h3 className="font-display text-subtitle text-ink">{vm.name}</h3>
+							<p className="mt-2 text-body-sm text-slate-600">
 								{vm.guest_os || "Guest OS unavailable"}
 								{vm.folder ? ` • ${vm.folder}` : ""}
 							</p>

@@ -140,7 +140,7 @@ func TestAuthSessionManager_Revoke_ConcurrentLookupStaysRaceSafe_Expected(t *tes
 		}()
 	}
 
-	if err := manager.Revoke(context.Background(), stateStore, record, record.Secret); err != nil {
+	if err := manager.Revoke(context.Background(), stateStore, record, record.Secret, nil); err != nil {
 		close(done)
 		wg.Wait()
 		t.Fatalf("Revoke() error = %v", err)
@@ -180,7 +180,7 @@ func TestAuthSessionManager_Revoke_StoreFailureLeavesSessionActive_Expected(t *t
 
 	revokeErr := manager.Revoke(context.Background(), failingAuthSessionRevocationStore{
 		err: fmt.Errorf("simulated transaction failure"),
-	}, record, record.Secret)
+	}, record, record.Secret, nil)
 	if revokeErr == nil {
 		t.Fatal("Revoke() error = nil, want store failure")
 	}
@@ -222,7 +222,7 @@ func TestRevocationAtomicity_RaceOnDBCrash(t *testing.T) {
 
 	revokeErr := manager.Revoke(context.Background(), failingAuthSessionRevocationStore{
 		err: fmt.Errorf("simulated transaction failure"),
-	}, record, record.Secret)
+	}, record, record.Secret, nil)
 	close(done)
 	wg.Wait()
 

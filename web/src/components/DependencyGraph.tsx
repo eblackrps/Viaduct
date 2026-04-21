@@ -2,7 +2,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import * as d3 from "d3";
 import { Search } from "lucide-react";
 import { getGraph } from "../api";
+import { EmptyState } from "./primitives/EmptyState";
+import { ErrorState } from "./primitives/ErrorState";
 import { InlineNotice } from "./primitives/InlineNotice";
+import { LoadingState } from "./primitives/LoadingState";
 import { StatusBadge } from "./primitives/StatusBadge";
 import type {
 	DependencyGraph as DependencyGraphModel,
@@ -346,7 +349,7 @@ export function DependencyGraph({
 					</div>
 
 					<div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_auto_auto]">
-						<label className="flex items-center gap-3 rounded-[18px] border border-slate-200/80 bg-white px-4 py-3 text-sm text-slate-500 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
+						<label className="flex items-center gap-3 rounded-lg border border-slate-200/80 bg-white px-4 py-3 text-body-sm text-slate-500 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
 							<Search className="h-4 w-4 text-slate-400" />
 							<input
 								className="w-full border-none bg-transparent text-ink outline-none"
@@ -406,30 +409,34 @@ export function DependencyGraph({
 				</div>
 
 				{error ? (
-					<InlineNotice message={error} tone="danger" className="mt-4" />
+					<ErrorState
+						title="Dependency graph unavailable"
+						message={error}
+						className="mt-5"
+					/>
 				) : null}
 
 				{loading ? (
-					<InlineNotice
-						message="Loading dependency graph..."
-						tone="neutral"
+					<LoadingState
+						title="Loading dependency graph"
+						message="Collecting normalized workload, storage, network, and backup relationships for the current operator scope."
 						className="mt-5"
 					/>
 				) : visibleGraph.nodes.length === 0 ? (
-					<InlineNotice
-						message="No dependency nodes match the current filters."
-						tone="neutral"
+					<EmptyState
+						title="No dependency nodes match the current scope"
+						message="Adjust the current platform or search filters, or wait for a graph payload to populate the operator analysis surface."
 						className="mt-5"
 					/>
 				) : (
 					<div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_260px]">
 						<svg
 							ref={svgRef}
-							className="h-[560px] w-full rounded-[24px] border border-slate-200/80 bg-slate-50/90"
+							className="h-[560px] w-full rounded-2xl border border-slate-200/80 bg-slate-50/90"
 							role="img"
 							aria-label={graphSummaryLabel}
 						/>
-						<div className="space-y-3 rounded-[24px] border border-slate-200/80 bg-slate-50/90 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]">
+						<div className="space-y-3 rounded-2xl border border-slate-200/80 bg-slate-50/90 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]">
 							<p className="font-semibold text-ink">Most connected workloads</p>
 							<p className="text-sm text-slate-500">
 								Use the graph plus this list to focus on workloads with the most
@@ -441,7 +448,7 @@ export function DependencyGraph({
 										key={node.id}
 										type="button"
 										onClick={() => setSelectedNodeId(node.id)}
-										className={`w-full rounded-[20px] px-3 py-3 text-left text-sm transition ${
+										className={`w-full rounded-lg px-3 py-3 text-left text-body-sm transition ${
 											selectedNodeId === node.id
 												? "bg-white text-ink shadow-sm"
 												: "bg-white/70 text-slate-700 hover:bg-white"
@@ -467,16 +474,16 @@ export function DependencyGraph({
 			<div className="panel p-5">
 				<h2 className="font-display text-2xl text-ink">Dependency detail</h2>
 				{loading ? (
-					<InlineNotice
-						message="Loading dependency metadata..."
-						tone="neutral"
+					<LoadingState
+						title="Loading dependency detail"
+						message="Relationship detail will appear once the graph payload is available."
 						className="mt-4"
 					/>
 				) : null}
 				{!loading && visibleGraph.nodes.length === 0 ? (
-					<InlineNotice
-						message="No nodes are available to inspect."
-						tone="neutral"
+					<EmptyState
+						title="No dependency detail available"
+						message="Select a broader graph scope or change the current filters to restore relationship detail."
 						className="mt-4"
 					/>
 				) : null}

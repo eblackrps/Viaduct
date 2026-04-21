@@ -6,27 +6,47 @@ This changelog tracks published releases and the major implementation milestones
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-04-21
+
+### Release Model And Packaging
+
+- shifted Viaduct to a Docker-canonical release model: the signed multi-arch GHCR image is now the primary release artifact, while native binary bundles remain published as an alternative path for operators who cannot run containers
+- added a dedicated `image.yml` workflow that builds, signs, attests, scans, and publishes OCI images on merges to `main` and on release tags, while keeping native bundles as secondary tag assets
+- documented the new v3 release cadence, deprecation policy, and roadmap so forward-looking platform work lives outside the changelog
+
+### Security And Runtime Hardening
+
+- extended admin-key compatibility so `VIADUCT_ADMIN_KEY` accepts either plaintext or `sha256:<hex>` storage formats, always compares against the SHA-256 of the presented header in constant time, and warns operators to migrate off plaintext storage
+- tightened malformed credential-hash decoding, forwarded-header rejection logging, durable audit retry handling, and session-revocation lifecycle coverage so strict local-runtime trust and shutdown behavior stay explicit
+- hardened workspace enqueue accounting and release-workflow regression coverage around queue depth, artifact manifests, checksum reuse, and pinned signing identity
+
+### Dashboard Polish And Accessibility
+
+- standardized dashboard typography, radius, and neutral-color tokens so the operator console reads as one coherent application instead of page-local styling islands
+- expanded focus-trap coverage, route-state accessibility checks, and visual-regression snapshots across the top operator routes, including mobile drawer restoration and keyboard-only navigation
+- removed dead frontend exports, stale re-export shims, and unused package surface while keeping the dashboard request dedupe path and shared state primitives aligned with the current shell
+
 ## [2.7.0] - 2026-04-21
 
 ### Security And Session Hardening
 
-- tightened dashboard-session revocation so the in-memory cache is only cleared after the durable revocation write succeeds under the session-manager write lock, and added coverage for failed revocation writes plus concurrent lookup pressure
-- normalized credential-hash comparison inputs onto the same fixed-width sentinel-backed constant-time path, audited rotation-driven session invalidation with old and new hash prefixes, and rejected malformed stored-hash bytes without short-circuiting the compare flow
-- hardened loopback request trust again by rejecting zoned or otherwise non-canonical forwarded client IPs without falling back to `X-Real-IP`, and now emit explicit `AUDIT` loopback rejection lines for rejected `GET` requests as well as mutating verbs
+- tightened dashboard-session revocation coordination with the session-manager lock and added concurrent lookup coverage around revocation and replay handling
+- continued hardening credential-hash comparison and rotation-driven session invalidation, including additional malformed-hash handling and audit coverage
+- hardened loopback request trust around malformed or zone-qualified forwarded client IPs and expanded local-runtime rejection auditing across more operator paths
 - switched admin-route authentication onto the same hashed credential-compare path as tenant and service-account credentials, so `VIADUCT_ADMIN_KEY` now stores the persisted `sha256:<hex>` digest instead of the plaintext secret
 
 ### Store, Executor, And Runtime Reliability
 
 - split PostgreSQL credential migration into a two-phase flow that seeds durable credential-hash rows first and clears legacy plaintext only after verifying the expected hash rows are present, with rollback coverage for missing preconditions
-- made bounded workspace enqueue acknowledgements explicit and typed, removed the direct handoff race from the dispatch loop, and added regression coverage so timed-out enqueue attempts do not linger in the queued-work accounting
+- made bounded workspace enqueue acknowledgements explicit and typed, removed the direct handoff race from the dispatch loop, and strengthened queued-work timeout coverage
 - wired the dashboard auth-session sweeper into the server lifecycle with an explicit stop path so shutdown waits for the pruning goroutine instead of leaving it behind
 
 ### Dashboard And Release Engineering
 
-- updated the focus trap so Escape always uses the latest callback, cleanup restores focus through a previous-element → trap-root → `document.body` fallback chain, and the body fallback warns once when it is reached
-- tightened dashboard request dedupe bookkeeping with per-key reference counting so identical opt-in GETs share one fetch while still releasing the in-flight map cleanly after the last waiter settles
-- hardened the release workflow around explicit expected bundle manifests, exact tag-pinned cosign certificate identities for both tag pushes and manual dispatch, and a published-bundle checksum verification pass before the Docker image build consumes the release binaries
-- closed the post-merge hardening review gaps with named regression coverage for revocation atomicity, forwarded-header spoof rejection, enqueue orphan cleanup, rotation audit prefixes, migration 008 crash behavior, and the release workflow manifest contract
+- updated the focus trap so Escape handling, trigger restoration, and trap-root fallback behavior were more resilient on drawer and dialog teardown
+- tightened dashboard request dedupe bookkeeping so identical opt-in GETs shared one fetch while still cleaning up the in-flight tracking map after requests settled
+- hardened the release workflow around explicit expected bundle manifests, stronger signing-identity validation, and published-bundle checksum verification before the Docker image build reused release binaries
+- deferred broader platform items discussed during the v2.7.0 cycle to [`docs/releases/roadmap.md`](docs/releases/roadmap.md) so the published release notes reflected only shipped work
 
 ## [2.6.0] - 2026-04-20
 

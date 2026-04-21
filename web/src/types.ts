@@ -442,11 +442,6 @@ export interface MigrationSpec {
 	};
 }
 
-export interface GraphFilters {
-	nodeTypes: Record<string, boolean>;
-	platform: string;
-}
-
 export interface RemediationRecommendation {
 	vm: VirtualMachine;
 	type: "placement" | "policy" | "drift";

@@ -29,7 +29,7 @@ export function MobileSidebarDrawer({
 		<>
 			<div
 				aria-hidden="true"
-				className="fixed inset-0 z-40 bg-ink/35 backdrop-blur-sm 2xl:hidden"
+				className="fixed inset-0 z-40 bg-ink/35 backdrop-blur-sm lg:hidden"
 				onClick={onClose}
 			/>
 
@@ -40,13 +40,13 @@ export function MobileSidebarDrawer({
 				aria-modal="true"
 				aria-labelledby={titleID}
 				tabIndex={-1}
-				className="fixed inset-y-0 left-0 z-50 flex w-[88vw] max-w-[320px] flex-col gap-4 bg-transparent p-4 2xl:hidden"
+				className="fixed inset-y-0 left-0 z-50 flex w-[88vw] max-w-[320px] flex-col gap-4 bg-transparent p-4 lg:hidden"
 			>
 				<div className="panel flex h-full min-h-0 flex-col px-4 py-4">
 					<p id={titleID} className="sr-only">
 						Primary navigation
 					</p>
-					<div className="rounded-[24px] bg-gradient-to-br from-ink via-steel to-slate-900 px-4 py-4 text-white">
+					<div className="rounded-2xl bg-gradient-to-br from-ink via-steel to-slate-900 px-4 py-4 text-white">
 						<div className="flex items-start justify-between gap-3">
 							<div>
 								<p className="operator-kicker !text-slate-300">

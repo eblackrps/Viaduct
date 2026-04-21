@@ -53,7 +53,7 @@ Fields:
 ## CLI Environment Variables
 - `VIADUCT_USERNAME`: overrides config file username for CLI connector auth
 - `VIADUCT_PASSWORD`: overrides config file password for CLI connector auth
-- `VIADUCT_ADMIN_KEY`: hashed admin API key used by the REST server for tenant administration. Store the persisted `sha256:<hex>` digest here, not the plaintext secret presented in `X-Admin-Key`.
+- `VIADUCT_ADMIN_KEY`: admin API key used by the REST server for tenant administration. Viaduct accepts either the preferred persisted `sha256:<hex>` digest or the legacy plaintext secret. The request header still carries the plaintext `X-Admin-Key`; see [`../operations/admin-key.md`](../operations/admin-key.md).
 - `VIADUCT_PLUGIN_ADDR`: plugin listener address used by community connector plugins
 - `VIADUCT_ALLOWED_ORIGINS`: comma-separated browser origins allowed to call the API from another origin; defaults to same-origin only when empty
 - `VIADUCT_ALLOW_UNAUTHENTICATED_REMOTE`: explicit dangerous override that permits a non-loopback `serve-api` bind without configured admin, tenant, or service-account credentials; leave this unset outside disposable break-glass scenarios
@@ -93,7 +93,7 @@ Tenant and service-account credentials are persisted as non-recoverable hashes i
 ## API Authentication Headers
 - `X-API-Key`: tenant-scoped API key for inventory, migration, lifecycle, and summary routes
 - `X-Service-Account-Key`: scoped machine credential for tenant service accounts
-- `X-Admin-Key`: admin-only API key for tenant creation and deletion
+- `X-Admin-Key`: admin-only plaintext API key for tenant creation and deletion; the stored server-side `VIADUCT_ADMIN_KEY` may be either plaintext or `sha256:<hex>`
 - `X-Request-ID`: optional caller-supplied request correlation ID; when absent, the API generates one
 
 ## Tenant Defaults

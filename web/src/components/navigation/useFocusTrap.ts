@@ -71,7 +71,11 @@ export function useFocusTrap(
 		return () => {
 			document.body.style.overflow = previousOverflow;
 			document.removeEventListener("keydown", handleKeyDown);
-			if (previousActiveElement && document.contains(previousActiveElement)) {
+			const shouldRestorePrevious =
+				previousActiveElement !== null &&
+				previousActiveElement !== trapRoot &&
+				document.contains(previousActiveElement);
+			if (shouldRestorePrevious) {
 				previousActiveElement.focus();
 				return;
 			}
@@ -79,10 +83,15 @@ export function useFocusTrap(
 				trapRoot.focus();
 				return;
 			}
-			document.body.focus();
+			if (document.body && document.contains(document.body)) {
+				document.body.focus();
+				return;
+			}
 			if (!warnedBodyFallbackRef.current) {
 				warnedBodyFallbackRef.current = true;
-				console.warn("useFocusTrap fell back to document.body during cleanup");
+				console.warn(
+					"useFocusTrap could not restore focus because both trap root and document.body were unavailable",
+				);
 			}
 		};
 	}, [containerRef, enabled]);

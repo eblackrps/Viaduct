@@ -105,7 +105,7 @@ export function isAPIError(reason: unknown): reason is APIError {
 	return reason instanceof APIError;
 }
 
-export function isTimeoutError(reason: unknown): reason is TimeoutError {
+function isTimeoutError(reason: unknown): reason is TimeoutError {
 	return reason instanceof TimeoutError;
 }
 
@@ -192,7 +192,7 @@ const defaultRequestTimeoutMs =
 	Number.parseInt(configuredTimeoutValue, 10) || 30000;
 let activeRequestControllerCount = 0;
 
-export interface RequestController {
+interface RequestController {
 	controller: AbortController;
 	signal: AbortSignal;
 	cancel: () => void;
@@ -240,6 +240,10 @@ export function getActiveRequestControllerCount(): number {
 }
 
 class RequestManager {
+	private static frozenDedupeEntry(inflightID: string, count: number) {
+		return Object.freeze({ inflightID, count });
+	}
+
 	private readonly inflight = new Map<
 		string,
 		{
@@ -250,7 +254,7 @@ class RequestManager {
 	>();
 	private readonly inflightByDedupeKey = new Map<
 		string,
-		{ inflightID: string; count: number }
+		Readonly<{ inflightID: string; count: number }>
 	>();
 
 	async fetch(
@@ -264,50 +268,65 @@ class RequestManager {
 			options?.dedupe === true && method === "GET"
 				? `${method}:${requestURL.toString()}`
 				: "";
+		const inflightID = globalThis.crypto.randomUUID();
 		if (dedupeKey) {
-			const inflightID = this.retainDedupeKey(dedupeKey);
-			const entry = inflightID ? this.inflight.get(inflightID) : undefined;
-			if (entry && inflightID) {
-				return this.cloneDedupedResponse(dedupeKey, entry.promise, inflightID);
+			const retainedInflightID = this.retainDedupeKey(dedupeKey);
+			const entry = retainedInflightID
+				? this.inflight.get(retainedInflightID)
+				: undefined;
+			if (entry && retainedInflightID) {
+				return this.cloneDedupedResponse(
+					dedupeKey,
+					entry.promise,
+					retainedInflightID,
+				);
 			}
+			this.inflightByDedupeKey.set(
+				dedupeKey,
+				RequestManager.frozenDedupeEntry(inflightID, 1),
+			);
 		}
 
-		const inflightID = globalThis.crypto.randomUUID();
 		const requestController = createRequestController(options);
 		const timeoutMs = options?.timeoutMs ?? defaultRequestTimeoutMs;
-
-		const promise = (async () => {
-			try {
-				return await fetch(requestURL, {
-					...init,
-					credentials: "same-origin",
-					headers: options?.skipAuth
-						? new Headers(init?.headers)
-						: buildHeaders(init?.headers, init?.body !== undefined),
-					signal: requestController.signal,
-				});
-			} catch (reason) {
-				if (requestController.timedOut()) {
-					throw new TimeoutError(timeoutMs);
+		try {
+			const promise = (async () => {
+				try {
+					return await fetch(requestURL, {
+						...init,
+						credentials: "same-origin",
+						headers: options?.skipAuth
+							? new Headers(init?.headers)
+							: buildHeaders(init?.headers, init?.body !== undefined),
+						signal: requestController.signal,
+					});
+				} catch (reason) {
+					if (requestController.timedOut()) {
+						throw new TimeoutError(timeoutMs);
+					}
+					throw reason;
+				} finally {
+					requestController.cleanup();
+					this.inflight.delete(inflightID);
 				}
-				throw reason;
-			} finally {
-				requestController.cleanup();
-				this.inflight.delete(inflightID);
-			}
-		})();
+			})();
 
-		this.inflight.set(inflightID, {
-			controller: requestController.controller,
-			promise,
-			dedupeKey,
-		});
-		if (dedupeKey) {
-			this.inflightByDedupeKey.set(dedupeKey, { inflightID, count: 1 });
+			this.inflight.set(inflightID, {
+				controller: requestController.controller,
+				promise,
+				dedupeKey,
+			});
+			return dedupeKey
+				? this.cloneDedupedResponse(dedupeKey, promise, inflightID)
+				: promise;
+		} catch (error) {
+			requestController.cleanup();
+			this.inflight.delete(inflightID);
+			if (dedupeKey) {
+				this.releaseDedupeKey(dedupeKey, inflightID);
+			}
+			throw error;
 		}
-		return dedupeKey
-			? this.cloneDedupedResponse(dedupeKey, promise, inflightID)
-			: promise;
 	}
 
 	cancel(key: string) {
@@ -355,8 +374,10 @@ class RequestManager {
 			this.inflightByDedupeKey.delete(dedupeKey);
 			return undefined;
 		}
-		entry.count += 1;
-		this.inflightByDedupeKey.set(dedupeKey, entry);
+		this.inflightByDedupeKey.set(
+			dedupeKey,
+			RequestManager.frozenDedupeEntry(entry.inflightID, entry.count + 1),
+		);
 		return entry.inflightID;
 	}
 
@@ -365,12 +386,15 @@ class RequestManager {
 		if (!entry || entry.inflightID !== inflightID) {
 			return;
 		}
-		entry.count -= 1;
-		if (entry.count <= 0) {
+		const nextCount = entry.count - 1;
+		if (nextCount <= 0) {
 			this.inflightByDedupeKey.delete(dedupeKey);
 			return;
 		}
-		this.inflightByDedupeKey.set(dedupeKey, entry);
+		this.inflightByDedupeKey.set(
+			dedupeKey,
+			RequestManager.frozenDedupeEntry(entry.inflightID, nextCount),
+		);
 	}
 
 	private cloneDedupedResponse(
@@ -813,15 +837,6 @@ export function createWorkspaceJob(
 		method: "POST",
 		body: JSON.stringify(payload),
 	});
-}
-
-export function getWorkspaceJob(
-	workspaceID: string,
-	jobID: string,
-): Promise<WorkspaceJob> {
-	return request<WorkspaceJob>(
-		`/api/v1/workspaces/${workspaceID}/jobs/${jobID}`,
-	);
 }
 
 export async function exportWorkspaceReport(

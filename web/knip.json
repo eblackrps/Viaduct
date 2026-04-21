@@ -1,0 +1,17 @@
+{
+  "$schema": "https://unpkg.com/knip@latest/schema.json",
+  "entry": [
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "tests/e2e/**/*.ts",
+    "scripts/**/*.mjs"
+  ],
+  "project": [
+    "src/**/*.{ts,tsx}",
+    "tests/e2e/**/*.ts",
+    "scripts/**/*.mjs"
+  ],
+  "ignoreBinaries": [
+    "go"
+  ]
+}

@@ -21,7 +21,7 @@ This matrix reflects what is implemented and what is currently validated in the 
 | Migration soak | Tagged local and CI coverage | `make soak-test` exercises large-wave orchestration behavior without requiring external hypervisors. |
 | API contract | Local and CI contract check | `make contract-check` verifies the published OpenAPI reference plus `/api/v1/docs/swagger.json` coverage for documented routes. |
 | Plugin compatibility | Local and CI manifest validation | `make plugin-check` validates manifest protocol and host-version compatibility markers. |
-| CLI packaging | Local and CI packaging checks | `make package-release-matrix` and the tag workflow both publish `tar.gz` bundles for `linux/amd64`, `linux/arm64`, `darwin/arm64`, and `windows/amd64`, plus `dist/SHA256SUMS`. |
+| Release packaging | Local and CI packaging checks | `.github/workflows/image.yml` publishes the canonical signed multi-arch OCI image, while `make package-release-matrix` and the tag workflow attach native bundles for `linux/amd64`, `linux/arm64`, `darwin/arm64`, and `windows/amd64` plus `dist/SHA256SUMS` as an alternative path. |
 | Dashboard build | CI and local | `npm run build` is part of the release gate. |
 
 ## Connectors

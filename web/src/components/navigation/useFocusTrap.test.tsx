@@ -169,7 +169,7 @@ describe("useFocusTrap", () => {
 		expect(document.body).not.toHaveFocus();
 	});
 
-	it("falls back to document.body and warns once when neither trigger nor trap root remain", () => {
+	it("falls back to document.body without warning when neither trigger nor trap root remain", () => {
 		const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 		render(<DetachedFallbackHarness />);
 
@@ -186,7 +186,7 @@ describe("useFocusTrap", () => {
 		);
 
 		expect(document.body).toHaveFocus();
-		expect(warnSpy).toHaveBeenCalledTimes(1);
+		expect(warnSpy).not.toHaveBeenCalled();
 	});
 
 	it("uses the latest escape callback without re-registering the trap", () => {

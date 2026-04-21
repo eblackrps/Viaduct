@@ -13,7 +13,7 @@ interface SettingsDataErrors {
 	currentTenant?: ErrorDisplay;
 }
 
-export interface SettingsDataState {
+interface SettingsDataState {
 	about: AboutResponse | null;
 	currentTenant: CurrentTenant | null;
 	loading: boolean;

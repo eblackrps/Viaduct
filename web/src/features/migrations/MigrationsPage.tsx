@@ -3,6 +3,7 @@ import { getRouteHref } from "../../app/navigation";
 import { DiscoverySnapshotsPanel } from "../../components/DiscoverySnapshotsPanel";
 import { MigrationHistory } from "../../components/MigrationHistory";
 import { MigrationWizard } from "../../components/MigrationWizard";
+import { EmptyState } from "../../components/primitives/EmptyState";
 import { ErrorState } from "../../components/primitives/ErrorState";
 import { InlineNotice } from "../../components/primitives/InlineNotice";
 import { LoadingState } from "../../components/primitives/LoadingState";
@@ -122,6 +123,12 @@ export function MigrationsPage({
 		0,
 		(planningDraft?.workloads.length ?? 0) - planningRows.length,
 	);
+	const showEmptyState =
+		!loading &&
+		!historyError &&
+		!planningDraft &&
+		migrations.length === 0 &&
+		snapshots.length === 0;
 
 	function handleClearPlanningDraft() {
 		clearInventoryPlanningDraft();
@@ -386,6 +393,13 @@ export function MigrationsPage({
 				<ErrorState
 					title="Migration history unavailable"
 					message={historyError}
+				/>
+			) : null}
+
+			{showEmptyState ? (
+				<EmptyState
+					title="No migration activity recorded"
+					message="Start from inventory to prepare a planning draft, or save a migration plan so execution history and discovery baselines have an operator record to display."
 				/>
 			) : null}
 

@@ -25,7 +25,7 @@ interface InventoryAssessmentErrors {
 	remediation?: string;
 }
 
-export interface InventoryAssessmentState {
+interface InventoryAssessmentState {
 	rows: InventoryAssessmentRow[];
 	loading: boolean;
 	errors: InventoryAssessmentErrors;

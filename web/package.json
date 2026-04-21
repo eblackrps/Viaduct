@@ -2,7 +2,7 @@
   "name": "viaduct-dashboard",
   "description": "React dashboard for Viaduct migration, lifecycle, and multi-tenant operations.",
   "private": true,
-  "version": "2.7.0",
+  "version": "3.0.0",
   "type": "module",
   "engines": {
     "node": ">=20.19.0"
@@ -25,8 +25,7 @@
     "d3": "^7.9.0",
     "lucide-react": "^1.8.0",
     "react": "^19.2.5",
-    "react-dom": "^19.2.5",
-    "recharts": "^3.8.1"
+    "react-dom": "^19.2.5"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.11.2",
@@ -39,6 +38,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
     "autoprefixer": "^10.5.0",
+    "axe-core": "^4.11.3",
     "concurrently": "^9.0.1",
     "eslint": "^9.39.4",
     "eslint-config-prettier": "^10.1.8",

@@ -125,7 +125,7 @@ export function InventoryTable({
 				<div className="grid gap-3 xl:grid-cols-[minmax(0,1.2fr)_repeat(4,minmax(160px,1fr))]">
 					<label className="metric-surface">
 						<span className="operator-kicker">Search</span>
-						<span className="mt-2 flex items-center gap-3 rounded-[18px] border border-slate-200/80 bg-white px-4 py-3 text-sm text-slate-500 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
+						<span className="mt-2 flex items-center gap-3 rounded-lg border border-slate-200/80 bg-white px-4 py-3 text-body-sm text-slate-500 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
 							<Search className="h-4 w-4 text-slate-400" />
 							<input
 								className="w-full border-none bg-transparent text-ink outline-none"
@@ -387,7 +387,7 @@ export function InventoryTable({
 							})}
 						</div>
 
-						<div className="hidden overflow-hidden rounded-[26px] border border-slate-200/80 bg-white/80 shadow-[0_12px_28px_rgba(15,23,42,0.05)] lg:block">
+						<div className="hidden overflow-hidden rounded-2xl border border-slate-200/80 bg-white/80 shadow-[0_12px_28px_rgba(15,23,42,0.05)] lg:block">
 							<div className="overflow-x-auto">
 								<table className="min-w-full table-fixed border-collapse text-left text-sm">
 									<thead className="bg-slate-50/95 text-xs uppercase tracking-[0.2em] text-slate-500 backdrop-blur">

@@ -9,6 +9,26 @@ This is the top-level installation entrypoint for Viaduct. Use it with [QUICKSTA
 - `make` for the standard workflow
 - `golangci-lint` for local linting
 
+## Canonical Install From Docker
+
+Viaduct `v3.0.0` uses the signed OCI image as the primary install path.
+
+```bash
+docker pull ghcr.io/eblackrps/viaduct:3.0.0
+```
+
+Verify the image before rollout:
+
+```bash
+cosign verify ghcr.io/eblackrps/viaduct:3.0.0 \
+  --certificate-identity \
+  'https://github.com/eblackrps/viaduct/.github/workflows/image.yml@refs/tags/v3.0.0' \
+  --certificate-oidc-issuer \
+  'https://token.actions.githubusercontent.com'
+```
+
+Then follow the container guidance in [docs/operations/docker.md](docs/operations/docker.md) or the production sample in [deploy/docker-compose.prod.yml](deploy/docker-compose.prod.yml).
+
 ## Install From Source
 
 ```bash
@@ -31,9 +51,9 @@ On a fresh source checkout, `viaduct start` generates the default local lab conf
 The default local URL is [http://127.0.0.1:8080](http://127.0.0.1:8080).
 The same runtime also serves live API docs at [http://127.0.0.1:8080/api/v1/docs](http://127.0.0.1:8080/api/v1/docs).
 
-## Install From A Release Bundle
+## Install From A Native Release Bundle
 
-Tagged bundles are attached to [GitHub Releases](https://github.com/eblackrps/Viaduct/releases), and the same layout can be generated locally through `make package-release-matrix`.
+Tagged native bundles are attached to [GitHub Releases](https://github.com/eblackrps/Viaduct/releases) as an alternative path for operators who cannot run containers. The same layout can be generated locally through `make package-release-matrix`.
 
 Release bundles produced by `make package-release-matrix` include:
 - CLI binary

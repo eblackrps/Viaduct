@@ -43,7 +43,7 @@ export function StatusBadge({
 	className,
 }: StatusBadgeProps) {
 	const classes = [
-		"inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-[0.72rem] font-semibold leading-none tracking-[0.06em]",
+		"inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-caption leading-none tracking-[0.06em]",
 		toneClasses[tone],
 		className,
 	]

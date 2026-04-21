@@ -77,12 +77,8 @@ func (s *Server) handleAuthSessionRevoke(w http.ResponseWriter, r *http.Request)
 		})
 		return
 	}
-	if err := s.authSessions.Revoke(r.Context(), s.store, record, secret); err != nil {
-		writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
-		return
-	}
 	auditRequest := r.WithContext(withAwaitAudit(r.Context()))
-	s.recordAuditEvent(auditRequest, models.AuditEvent{
+	auditEvent := s.normalizeAuditEvent(auditRequest.Context(), models.AuditEvent{
 		Actor:    "admin",
 		Category: "tenant",
 		Action:   "revoke-auth-session",
@@ -95,6 +91,12 @@ func (s *Server) handleAuthSessionRevoke(w http.ResponseWriter, r *http.Request)
 			"reason":     "admin_revocation",
 		},
 	})
+	if err := s.authSessions.Revoke(r.Context(), s.store, record, secret, func(ctx context.Context) error {
+		return s.persistAuditEvent(ctx, auditEvent)
+	}); err != nil {
+		writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
+		return
+	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "revoked", "session_id": record.PublicID})
 }
@@ -192,12 +194,8 @@ func (s *Server) deleteAuthSession(w http.ResponseWriter, r *http.Request) {
 			writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 			return
 		} else if ok {
-			if err := s.authSessions.Revoke(r.Context(), s.store, record, secret); err != nil {
-				writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
-				return
-			}
 			auditRequest := r.WithContext(withAwaitAudit(r.Context()))
-			s.recordAuditEvent(auditRequest, models.AuditEvent{
+			auditEvent := s.normalizeAuditEvent(auditRequest.Context(), models.AuditEvent{
 				Category: "tenant",
 				Action:   "revoke-auth-session",
 				Resource: record.PublicID,
@@ -209,6 +207,12 @@ func (s *Server) deleteAuthSession(w http.ResponseWriter, r *http.Request) {
 					"reason":     "self_revocation",
 				},
 			})
+			if err := s.authSessions.Revoke(r.Context(), s.store, record, secret, func(ctx context.Context) error {
+				return s.persistAuditEvent(ctx, auditEvent)
+			}); err != nil {
+				writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
+				return
+			}
 		} else {
 			s.authSessions.Delete(secret)
 		}

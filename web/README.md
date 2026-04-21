@@ -38,7 +38,7 @@ npm ci
 npm run build
 ```
 
-Release bundles for the dashboard are produced through `make package-release-matrix`, and `make release-gate` is the canonical local release-owner verification path. CI adds Playwright end-to-end coverage plus `gosec` and `trivy` on top of that same source-controlled flow.
+The dashboard ships inside the canonical OCI image published by `.github/workflows/image.yml`. `make package-release-matrix` still produces native bundles as an alternative path, and `make release-gate` remains the canonical local release-owner verification path. CI adds Playwright end-to-end coverage plus `gosec` and `trivy` on top of that same source-controlled flow.
 
 For the packaged local operator path from the repo root:
 
@@ -74,5 +74,5 @@ Current README and release-facing dashboard screenshots can be regenerated with 
 - The Vite dev server is for local development only.
 - The dashboard depends on the same backend state as the CLI and API; avoid frontend-only assumptions about migration or policy state.
 - The default route is the pilot workspace flow in `web/src/features/workspaces/WorkspacePage.tsx`.
-- The app shell groups pages into pilot, operate, govern, admin, and analysis sections so the workspace-first route stays prominent without hiding the rest of the operator surfaces.
+- The app shell groups pages into Operate, Govern, Observe, and Admin sections so the workspace-first route stays prominent without hiding the rest of the operator surfaces.
 - Live runtime API docs are served by the backend at `/api/v1/docs`.

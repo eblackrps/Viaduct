@@ -1832,11 +1832,11 @@ function WorkflowStepCard({
 }) {
 	return (
 		<div
-			className={`rounded-[24px] border px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)] ${workflowStepClasses(step.status)}`}
+			className={`rounded-2xl border px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)] ${workflowStepClasses(step.status)}`}
 		>
 			<div className="flex items-start gap-3">
 				<span
-					className={`inline-flex h-11 w-11 items-center justify-center rounded-[18px] text-sm font-semibold shadow-[0_10px_20px_rgba(15,23,42,0.12)] ${workflowIndexClasses(step.status)}`}
+					className={`inline-flex h-11 w-11 items-center justify-center rounded-lg text-body-sm font-semibold shadow-[0_10px_20px_rgba(15,23,42,0.12)] ${workflowIndexClasses(step.status)}`}
 				>
 					{String(index).padStart(2, "0")}
 				</span>
