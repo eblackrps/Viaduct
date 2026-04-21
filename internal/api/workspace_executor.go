@@ -40,9 +40,10 @@ type workspaceQueueDepthReporter interface {
 }
 
 type workspaceJobEnqueueRequest struct {
-	task    workspaceJobTask
-	waitCtx context.Context
-	result  chan error
+	task       workspaceJobTask
+	waitCtx    context.Context
+	result     chan error
+	enqueuedAt int64
 }
 
 type workspaceWorkerHandle struct {
@@ -177,7 +178,7 @@ func (e *workspaceJobExecutor) dispatch() {
 			idleWorkers = idleWorkers[1:]
 			request := queue[0]
 			queue = queue[1:]
-			e.adjustTenantQueueDepth(request.task.tenantID, -1)
+			e.removeQueuedRequest(request)
 
 			if !e.assignTask(worker, request) {
 				e.rejectPending(queue)
@@ -222,7 +223,7 @@ func (e *workspaceJobExecutor) dispatch() {
 				case worker := <-e.workerReady:
 					oldest := queue[0]
 					queue = queue[1:]
-					e.adjustTenantQueueDepth(oldest.task.tenantID, -1)
+					e.removeQueuedRequest(oldest)
 					if !e.assignTask(worker, oldest) {
 						request.task.cleanup()
 						_ = request.respond(ErrExecutorShuttingDown) // Best effort: the caller may already have timed out or closed its receive path.
@@ -241,11 +242,13 @@ func (e *workspaceJobExecutor) dispatch() {
 				return
 			}
 
+			request.enqueuedAt = time.Now().UTC().UnixNano()
 			queue = append(queue, request)
 			e.adjustTenantQueueDepth(request.task.tenantID, 1)
 			if err := request.respond(nil); err != nil {
+				removed := queue[len(queue)-1]
 				queue = queue[:len(queue)-1]
-				e.adjustTenantQueueDepth(request.task.tenantID, -1)
+				e.removeQueuedRequest(removed)
 				request.task.cleanup()
 				continue
 			}
@@ -282,11 +285,12 @@ func (e *workspaceJobExecutor) rejectPending(queue []workspaceJobEnqueueRequest)
 	if e == nil {
 		return
 	}
-	e.clearQueueDepths()
 	for _, request := range queue {
+		e.removeQueuedRequest(request)
 		request.task.cleanup()
 		_ = request.respond(ErrExecutorShuttingDown) // Best effort: the caller may already have timed out or closed its receive path.
 	}
+	e.clearQueueDepths()
 }
 
 func (e *workspaceJobExecutor) drainEnqueueRequests() {
@@ -395,6 +399,13 @@ func (e *workspaceJobExecutor) clearQueueDepths() {
 	e.queueMu.Lock()
 	defer e.queueMu.Unlock()
 	clear(e.queuedByTenant)
+}
+
+func (e *workspaceJobExecutor) removeQueuedRequest(request workspaceJobEnqueueRequest) {
+	if e == nil || request.enqueuedAt == 0 {
+		return
+	}
+	e.adjustTenantQueueDepth(request.task.tenantID, -1)
 }
 
 func (e *workspaceJobExecutor) executorErr() error {

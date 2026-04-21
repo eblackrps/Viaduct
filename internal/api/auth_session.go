@@ -294,18 +294,26 @@ func (m *authSessionManager) MarkRevoked(record authSessionRecord, secret string
 	m.markRevokedLocked(record, secret)
 }
 
-func (m *authSessionManager) Revoke(ctx context.Context, revocations authSessionRevocationStore, record authSessionRecord, secret string) error {
+func (m *authSessionManager) Revoke(ctx context.Context, revocations authSessionRevocationStore, record authSessionRecord, secret string, recordAudit func(context.Context) error) error {
 	if m == nil {
 		return fmt.Errorf("auth session manager is not configured")
 	}
 	if revocations == nil {
 		return fmt.Errorf("auth session revocation store is not configured")
 	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if err := revocations.RevokeAuthSession(ctx, record.PublicID, record.ExpiresAt); err != nil {
 		return err
+	}
+	if recordAudit != nil {
+		if err := recordAudit(ctx); err != nil {
+			return err
+		}
 	}
 
 	m.markRevokedLocked(record, secret)

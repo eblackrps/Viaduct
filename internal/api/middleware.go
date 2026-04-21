@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/eblackrps/viaduct/internal/models"
@@ -180,16 +181,8 @@ func (s *Server) revokeCredentialBoundSession(r *http.Request, record authSessio
 	if s == nil || s.authSessions == nil || s.store == nil {
 		return
 	}
-	if err := s.authSessions.Revoke(r.Context(), s.store, record, secret); err != nil {
-		packageLogger.Warn(
-			"failed to revoke stale dashboard auth session",
-			"request_id", responseRequestID(nil, r),
-			"session_id", record.PublicID,
-			"reason", reason,
-			"error", err.Error(),
-		)
-	}
-	s.recordAuditEvent(r.WithContext(withAwaitAudit(r.Context())), models.AuditEvent{
+	auditRequest := r.WithContext(withAwaitAudit(r.Context()))
+	auditEvent := s.normalizeAuditEvent(auditRequest.Context(), models.AuditEvent{
 		Category: "tenant",
 		Action:   "revoke-auth-session",
 		Resource: record.PublicID,
@@ -203,6 +196,17 @@ func (s *Server) revokeCredentialBoundSession(r *http.Request, record authSessio
 			"new_hash_prefix": credentialHashPrefix8(currentHash),
 		},
 	})
+	if err := s.authSessions.Revoke(r.Context(), s.store, record, secret, func(ctx context.Context) error {
+		return s.persistAuditEvent(ctx, auditEvent)
+	}); err != nil {
+		packageLogger.Warn(
+			"failed to revoke stale dashboard auth session",
+			"request_id", responseRequestID(nil, r),
+			"session_id", record.PublicID,
+			"reason", reason,
+			"error", err.Error(),
+		)
+	}
 }
 
 func bindHostIsLoopbackOnly(host string) bool {
@@ -276,24 +280,65 @@ func storedCredentialHashMatches(ctx context.Context, storedHash, legacyRaw stri
 }
 
 func constantTimeEqual(leftStoredHash, rightPresented string) bool {
+	matched, _ := adminCredentialMatches(leftStoredHash, rightPresented)
+	return matched
+}
+
+func adminCredentialMatches(leftStoredHash, rightPresented string) (bool, bool) {
 	if strings.TrimSpace(leftStoredHash) == "" || strings.TrimSpace(rightPresented) == "" {
-		return false
+		return false, false
 	}
-	leftHash, leftOK := storedCredentialHash(context.Background(), leftStoredHash, "")
+	leftHash, leftOK, plaintextFormat := adminStoredCredentialHash(context.Background(), leftStoredHash)
 	rightHash := hashCredential(context.Background(), rightPresented)
-	return constantTimeCredentialHashMatch(leftHash, leftOK, rightHash, !isZeroCredentialHash(rightHash))
+	matched := constantTimeCredentialHashMatch(leftHash, leftOK, rightHash, !isZeroCredentialHash(rightHash))
+	return matched, matched && plaintextFormat
+}
+
+func adminStoredCredentialHash(ctx context.Context, stored string) ([32]byte, bool, bool) {
+	trimmed := strings.TrimSpace(stored)
+	if trimmed == "" {
+		return [32]byte{}, false, false
+	}
+	if hasCredentialHashPrefix(trimmed) {
+		digest, ok := parseCredentialHash(trimmed)
+		return digest, ok, false
+	}
+	return hashCredential(ctx, trimmed), true, true
+}
+
+func hasCredentialHashPrefix(value string) bool {
+	trimmed := strings.TrimSpace(value)
+	return len(trimmed) >= len(credentialHashPrefix) && strings.EqualFold(trimmed[:len(credentialHashPrefix)], credentialHashPrefix)
+}
+
+func trimCredentialHashPrefix(value string) string {
+	trimmed := strings.TrimSpace(value)
+	if hasCredentialHashPrefix(trimmed) {
+		return trimmed[len(credentialHashPrefix):]
+	}
+	return trimmed
 }
 
 // AdminAuthMiddleware authenticates administrative API requests.
 func AdminAuthMiddleware(adminAPIKey string, next http.Handler) http.Handler {
+	var plaintextWarningOnce sync.Once
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.TrimSpace(adminAPIKey) == "" {
 			writeAPIError(w, r, http.StatusServiceUnavailable, "internal_error", "admin API key is not configured", apiErrorOptions{Retryable: true})
 			return
 		}
-		if !constantTimeEqual(adminAPIKey, r.Header.Get(adminCredentialHeader)) {
+		matched, plaintextMatch := adminCredentialMatches(adminAPIKey, r.Header.Get(adminCredentialHeader))
+		if !matched {
 			writeAPIError(w, r, http.StatusUnauthorized, "invalid_credentials", "invalid admin API key", apiErrorOptions{})
 			return
+		}
+		if plaintextMatch {
+			plaintextWarningOnce.Do(func() {
+				packageLogger.Warn(
+					"legacy plaintext VIADUCT_ADMIN_KEY accepted; migrate to sha256:<hex>",
+					"docs", "docs/operations/admin-key.md",
+				)
+			})
 		}
 
 		next.ServeHTTP(w, r)
@@ -347,11 +392,7 @@ func storedCredentialHash(ctx context.Context, storedHash, legacyRaw string) ([3
 }
 
 func parseCredentialHash(value string) ([32]byte, bool) {
-	trimmed := strings.TrimSpace(value)
-	trimmed = strings.TrimPrefix(trimmed, credentialHashPrefix)
-	var digest [32]byte
-	valid := boolToConstantTime(trimmed != "") & boolToConstantTime(len(trimmed) == sha256.Size*2)
-
+	trimmed := trimCredentialHashPrefix(value)
 	var normalized [sha256.Size * 2]byte
 	for index := 0; index < len(normalized); index++ {
 		if index < len(trimmed) {
@@ -359,19 +400,21 @@ func parseCredentialHash(value string) ([32]byte, bool) {
 		}
 	}
 
+	valid := boolToConstantTime(trimmed != "") & boolToConstantTime(len(trimmed) == sha256.Size*2)
+	for index := 0; index < len(normalized); index++ {
+		valid &= credentialHashHexValid(normalized[index])
+	}
+	if subtle.ConstantTimeEq(valid, 1) != 1 {
+		return invalidCredentialHash, false
+	}
+
+	var digest [32]byte
 	for index := 0; index < sha256.Size; index++ {
 		high := credentialHashHexDecode[normalized[index*2]]
 		low := credentialHashHexDecode[normalized[index*2+1]]
-		valid &= boolToConstantTime(high < 16)
-		valid &= boolToConstantTime(low < 16)
 		digest[index] = (high << 4) | low
 	}
-
-	invalidMask := byte((1 - subtle.ConstantTimeEq(valid, 1)) * 0xff)
-	for index := range digest {
-		digest[index] = (digest[index] &^ invalidMask) | (invalidCredentialHash[index] & invalidMask)
-	}
-	return digest, subtle.ConstantTimeEq(valid, 1) == 1
+	return digest, true
 }
 
 func isZeroCredentialHash(value [32]byte) bool {
@@ -383,6 +426,13 @@ func boolToConstantTime(value bool) int32 {
 		return 1
 	}
 	return 0
+}
+
+func credentialHashHexValid(value byte) int32 {
+	lower := value | 0x20
+	digit := boolToConstantTime(value >= '0' && value <= '9')
+	alpha := boolToConstantTime(lower >= 'a' && lower <= 'f')
+	return digit | alpha
 }
 
 func newCredentialHashHexDecodeTable() [256]byte {
@@ -645,8 +695,10 @@ func localRuntimeRequestRejectionReason(r *http.Request, bindHost string) string
 	if !requestHostIsLoopback(r) {
 		return "host_not_loopback"
 	}
-	if header := rejectedForwardingHeader(r); header != "" {
-		logForwardedHeaderRejected(r, header)
+	if headers := rejectedForwardingHeaders(r); len(headers) > 0 {
+		for _, header := range headers {
+			logForwardedHeaderRejected(r, header)
+		}
 		return "forwarded_header_rejected"
 	}
 	if requestUsesForwardingHeaders(r) {

@@ -141,6 +141,11 @@ type Server struct {
 	dashboardCSP            string
 	backgroundTaskCtx       context.Context
 	backgroundTaskCancel    context.CancelFunc
+	auditRetryPath          string
+	auditFlusherWake        chan struct{}
+	auditFlusherOnce        sync.Once
+	auditFlusherWG          sync.WaitGroup
+	auditRetryMu            sync.Mutex
 	logger                  *slog.Logger
 
 	mu    sync.RWMutex
@@ -181,7 +186,8 @@ func NewServer(engine *discovery.Engine, stateStore store.Store, port int, catal
 		return nil, fmt.Errorf("api server: stat policies directory: %w", err)
 	}
 
-	authEnabled := hasConfiguredAPIKeys(context.Background(), stateStore, os.Getenv("VIADUCT_ADMIN_KEY"))
+	adminAPIKey := os.Getenv("VIADUCT_ADMIN_KEY")
+	authEnabled := hasConfiguredAPIKeys(context.Background(), stateStore, adminAPIKey)
 	allowedOrigins, err := configuredAllowedOrigins(os.Getenv("VIADUCT_ALLOWED_ORIGINS"), authEnabled)
 	if err != nil {
 		return nil, err
@@ -198,6 +204,12 @@ func NewServer(engine *discovery.Engine, stateStore store.Store, port int, catal
 	if len(trustedProxies) > 0 {
 		packageLogger.Info("api trusted proxy ranges configured", "trusted_proxies", trustedProxyStrings(trustedProxies))
 	}
+	if strings.TrimSpace(adminAPIKey) != "" && !hasCredentialHashPrefix(adminAPIKey) {
+		packageLogger.Warn(
+			"VIADUCT_ADMIN_KEY is configured in legacy plaintext mode; migrate to sha256:<hex>",
+			"docs", "docs/operations/admin-key.md",
+		)
+	}
 	if !authEnabled {
 		packageLogger.Warn(
 			"no API keys are configured; protected routes require explicit credentials or an explicit loopback local-runtime session bootstrap",
@@ -211,7 +223,7 @@ func NewServer(engine *discovery.Engine, stateStore store.Store, port int, catal
 		engine:                  engine,
 		store:                   stateStore,
 		port:                    port,
-		adminAPIKey:             os.Getenv("VIADUCT_ADMIN_KEY"),
+		adminAPIKey:             adminAPIKey,
 		catalog:                 catalog,
 		metrics:                 newAPIMetrics(),
 		clientRateLimiter:       newTenantRateLimiter(300, time.Minute),
@@ -238,6 +250,8 @@ func NewServer(engine *discovery.Engine, stateStore store.Store, port int, catal
 		),
 		backgroundTaskCtx:    backgroundTaskCtx,
 		backgroundTaskCancel: backgroundTaskCancel,
+		auditRetryPath:       defaultAuditRetryLogPath,
+		auditFlusherWake:     make(chan struct{}, 1),
 		logger:               packageLogger,
 		resolveConfig: func(platform models.Platform, address, credentialRef string) connectors.Config {
 			resolvedAddress := address
@@ -364,6 +378,7 @@ func (s *Server) cancelBackgroundTasks() {
 		return
 	}
 	s.backgroundTaskCancel()
+	s.auditFlusherWG.Wait()
 }
 
 // Start runs the HTTP server until the context is canceled.

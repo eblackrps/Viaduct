@@ -506,6 +506,61 @@ func TestConstantTimeEqual_EmptyInputsRejected_Expected(t *testing.T) {
 	}
 }
 
+func TestAdminAuthMiddleware_PlaintextKeyAcceptedAndWarnsOnce_Expected(t *testing.T) {
+	originalLogger := packageLogger
+	var logBuffer bytes.Buffer
+	packageLogger = slog.New(slog.NewTextHandler(&logBuffer, nil))
+	defer func() {
+		packageLogger = originalLogger
+	}()
+
+	handler := AdminAuthMiddleware("admin-secret", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+
+	for requestIndex := 0; requestIndex < 2; requestIndex++ {
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/tenants", nil)
+		req.Header.Set(adminCredentialHeader, "admin-secret")
+		recorder := httptest.NewRecorder()
+		handler.ServeHTTP(recorder, req)
+		if recorder.Code != http.StatusNoContent {
+			t.Fatalf("request %d status = %d, want %d", requestIndex, recorder.Code, http.StatusNoContent)
+		}
+	}
+
+	logOutput := logBuffer.String()
+	if strings.Count(logOutput, "legacy plaintext VIADUCT_ADMIN_KEY accepted") != 1 {
+		t.Fatalf("warning count = %d, want 1; log=%q", strings.Count(logOutput, "legacy plaintext VIADUCT_ADMIN_KEY accepted"), logOutput)
+	}
+	if !strings.Contains(logOutput, "docs/operations/admin-key.md") {
+		t.Fatalf("log output = %q, want admin-key migration guidance", logOutput)
+	}
+}
+
+func TestAdminAuthMiddleware_HashedKeyAcceptedWithoutPlaintextWarning_Expected(t *testing.T) {
+	originalLogger := packageLogger
+	var logBuffer bytes.Buffer
+	packageLogger = slog.New(slog.NewTextHandler(&logBuffer, nil))
+	defer func() {
+		packageLogger = originalLogger
+	}()
+
+	handler := AdminAuthMiddleware(store.HashAPIKey("admin-secret"), http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/tenants", nil)
+	req.Header.Set(adminCredentialHeader, "admin-secret")
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+	if recorder.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusNoContent)
+	}
+	if strings.Contains(logBuffer.String(), "legacy plaintext VIADUCT_ADMIN_KEY accepted") {
+		t.Fatalf("log output = %q, want no plaintext warning for hashed key", logBuffer.String())
+	}
+}
+
 func TestTenantAuthMiddleware_ContextTenantMismatch_ReturnsForbidden(t *testing.T) {
 	t.Parallel()
 

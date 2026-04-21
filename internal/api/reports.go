@@ -187,33 +187,22 @@ func (s *Server) writeAuditReport(w http.ResponseWriter, r *http.Request, format
 // regulatory events can opt into durable writes by setting awaitAudit on the
 // request context before recording the event.
 func (s *Server) recordAuditEvent(r *http.Request, event models.AuditEvent) {
-	if s == nil || s.store == nil || r == nil {
+	if s == nil || s.store == nil {
 		return
 	}
-
-	if event.ID == "" {
-		event.ID = uuid.NewString()
+	ctx := context.Background()
+	if r != nil {
+		ctx = r.Context()
 	}
-	if event.CreatedAt.IsZero() {
-		event.CreatedAt = time.Now().UTC()
-	}
-	if event.TenantID == "" {
-		event.TenantID = store.TenantIDFromContext(r.Context())
-	}
-	if event.RequestID == "" {
-		event.RequestID = RequestIDFromContext(r.Context())
-	}
-	if event.Actor == "" {
-		event.Actor = actorFromContext(r.Context())
-	}
+	event = s.normalizeAuditEvent(ctx, event)
 
 	saveEvent := func(ctx context.Context) {
-		if err := s.store.SaveAuditEvent(ctx, event); err != nil {
+		if err := s.persistAuditEvent(ctx, event); err != nil {
 			log.Printf("component=api category=audit action=save outcome=failure message=%q", err.Error())
 		}
 	}
-	if awaitAuditRequested(r.Context()) {
-		saveEvent(r.Context())
+	if awaitAuditRequested(ctx) {
+		saveEvent(ctx)
 		return
 	}
 
@@ -221,7 +210,52 @@ func (s *Server) recordAuditEvent(r *http.Request, event models.AuditEvent) {
 		ctx, cancel := s.backgroundTaskContext(context.WithoutCancel(parentCtx), tenantID, requestID)
 		defer cancel()
 		saveEvent(ctx)
-	}(r.Context(), event.TenantID, event.RequestID)
+	}(ctx, event.TenantID, event.RequestID)
+}
+
+func (s *Server) normalizeAuditEvent(ctx context.Context, event models.AuditEvent) models.AuditEvent {
+	if event.ID == "" {
+		event.ID = uuid.NewString()
+	}
+	if event.CreatedAt.IsZero() {
+		event.CreatedAt = time.Now().UTC()
+	}
+	if event.TenantID == "" {
+		event.TenantID = store.TenantIDFromContext(ctx)
+	}
+	if event.RequestID == "" {
+		event.RequestID = RequestIDFromContext(ctx)
+	}
+	if event.Actor == "" {
+		event.Actor = actorFromContext(ctx)
+	}
+	return event
+}
+
+func (s *Server) persistAuditEvent(ctx context.Context, event models.AuditEvent) error {
+	if s == nil || s.store == nil {
+		return nil
+	}
+
+	firstErr := s.store.SaveAuditEvent(ctx, event)
+	if firstErr == nil {
+		return nil
+	}
+
+	retryErr := s.store.SaveAuditEvent(ctx, event)
+	if retryErr == nil {
+		return nil
+	}
+	if queueErr := s.queueAuditRetryEvent(event); queueErr != nil {
+		return fmt.Errorf("save audit event: %w; retry: %v; queue: %w", firstErr, retryErr, queueErr)
+	}
+	s.backgroundLogger().Warn(
+		"audit event queued for retry after persistence failures",
+		"event_id", event.ID,
+		"tenant_id", event.TenantID,
+		"request_id", event.RequestID,
+	)
+	return nil
 }
 
 func actorFromContext(ctx context.Context) string {

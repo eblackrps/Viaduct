@@ -88,3 +88,43 @@ func TestRejectedForwardingHeader_PrefersInvalidForwardedForOverRealIP_Expected(
 		t.Fatalf("rejectedForwardingHeader() = %q, want X-Forwarded-For", got)
 	}
 }
+
+func TestRejectedForwardingHeaders_ReportsEveryInvalidHeader_Expected(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name      string
+		forwarded string
+		realIP    string
+		want      []string
+	}{
+		{name: "xff only", forwarded: "::1%lo", want: []string{"X-Forwarded-For"}},
+		{name: "x-real-ip only", realIP: "127.0.0.1%0", want: []string{"X-Real-IP"}},
+		{name: "both", forwarded: "::1%lo", realIP: "127.0.0.1%0", want: []string{"X-Forwarded-For", "X-Real-IP"}},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			req := httptest.NewRequest("GET", "http://127.0.0.1/api/v1/about", nil)
+			if tc.forwarded != "" {
+				req.Header.Set("X-Forwarded-For", tc.forwarded)
+			}
+			if tc.realIP != "" {
+				req.Header.Set("X-Real-IP", tc.realIP)
+			}
+
+			got := rejectedForwardingHeaders(req)
+			if len(got) != len(tc.want) {
+				t.Fatalf("rejectedForwardingHeaders() = %#v, want %#v", got, tc.want)
+			}
+			for index := range tc.want {
+				if got[index] != tc.want[index] {
+					t.Fatalf("rejectedForwardingHeaders() = %#v, want %#v", got, tc.want)
+				}
+			}
+		})
+	}
+}
