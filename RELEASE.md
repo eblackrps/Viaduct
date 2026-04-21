@@ -4,7 +4,7 @@ This document describes the current packaging and release process for Viaduct.
 
 ## Canonical Commands
 - `make release-gate`: canonical local release-owner verification for backend, CLI, dashboard lint/format/unit/build checks, certification coverage, soak coverage, packaging, and coverage enforcement
-- `make package-release-matrix`: produce release bundles in `dist/` for `linux/amd64`, `linux/arm64`, `darwin/arm64`, and `windows/amd64`
+- `make package-release-matrix`: produce secondary native bundles in `dist/` for `linux/amd64`, `linux/arm64`, `darwin/arm64`, and `windows/amd64`
 - `make certification-test`: run connector certification fixtures
 - `make soak-test`: run the tagged migration soak workflow
 - `make plugin-check`: validate plugin manifest compatibility against the host version
@@ -17,7 +17,7 @@ This document describes the current packaging and release process for Viaduct.
 
 On Windows, `make release-gate` still builds `bin/viaduct.exe`, but it validates the CLI smoke commands through a LocalAppData-staged `go run ./cmd/viaduct` helper because some operator workstations enforce Application Control policies that block freshly built unsigned binaries from direct execution or from `%TEMP%`. The Windows test helpers stage race and coverage artifacts under repo-local cache directories so the canonical gate remains reproducible on locked-down workstations.
 
-`make release-gate` is the authoritative local check, and the tag workflow in `.github/workflows/release.yml` reuses the same packaging path through `make package-release-matrix`. CI adds browser end-to-end coverage plus `gosec` and `trivy`; those checks are required for merges, but they stay outside the local release gate because they depend on extra browser or scanner setup.
+`make release-gate` is the authoritative local check. The canonical tag workflow now lives in `.github/workflows/image.yml`, which publishes the signed OCI image, SBOM attestations, provenance, image scan results, and the secondary native bundles. CI adds browser end-to-end coverage plus `gosec` and `trivy`; those checks are required for merges, but they stay outside the local release gate because they depend on extra browser or scanner setup.
 
 ## Release Checklist
 1. Ensure the working tree is in the intended state and public docs are current.
@@ -29,7 +29,7 @@ On Windows, `make release-gate` still builds `bin/viaduct.exe`, but it validates
 7. Refresh the checked-in README and demo screenshots, then confirm the root README embeds, release notes entry, changelog entry, and the `site/` latest-release badge and release-notes link resolve to the current release.
 8. Verify the plugin manifest check, OpenAPI contract check, and runtime Swagger UI (`/api/v1/docs`) remain aligned.
 9. Confirm there are no open release PRs left hanging if the release is being published directly from `main`.
-10. Tag and publish only after the verification and smoke checks are clean. The tag workflow should publish the `make package-release-matrix` tarballs, `dist/SHA256SUMS`, the CycloneDX SBOM, signatures, certificates, and the container tags `vX.Y.Z`, `X.Y.Z`, and `latest`.
+10. Tag and publish only after the verification and smoke checks are clean. The tag workflow should publish the signed OCI image first, attach SPDX plus CycloneDX attestations and provenance, run the image scan, and then attach the `make package-release-matrix` native bundles as alternative assets.
 
 ## Bundle Contents
 The release bundle should include:
@@ -43,7 +43,7 @@ The release bundle should include:
 - deployment reference assets
 
 The standalone public site under [`site/`](site/README.md) is published through GitHub Pages and is not bundled into the tagged release artifacts.
-Git tags keep the leading `v`, but bundle archive names use the numeric version label: `dist/viaduct_<version>_<goos>_<goarch>.tar.gz`.
+Git tags keep the leading `v`, but native-bundle archive names use the numeric version label: `dist/viaduct_<version>_<goos>_<goarch>.tar.gz`.
 
 ## Release Notes Guidance
 - summarize operator-visible changes

@@ -7,7 +7,7 @@
 
 Viaduct helps operators discover mixed virtualization estates, map dependencies, build migration plans, and manage controlled migration work from one shared backend model. The repository combines a Go backend, REST API, CLI, React dashboard, and standalone public site around the same persisted inventory, workspace, planning, and reporting surfaces.
 
-Latest operator-facing release notes live in [docs/releases/v2.7.0.md](docs/releases/v2.7.0.md), and the published release stream is tracked in [CHANGELOG.md](CHANGELOG.md).
+Versioned release notes live in [docs/releases/README.md](docs/releases/README.md), and the published release stream is tracked in [CHANGELOG.md](CHANGELOG.md).
 
 ## Current Focus
 
@@ -63,7 +63,22 @@ These are current seeded-product captures from the packaged operator shell. They
 | Veeam Backup & Replication | Implemented | Backup discovery, restore-point correlation, and portability planning support. |
 | Community plugins | Supported | gRPC plugin host with manifest and compatibility checks. |
 
-## First Run
+## Canonical Install
+
+Viaduct `v3.0.0` treats the signed OCI image as the canonical production artifact.
+
+```bash
+docker pull ghcr.io/eblackrps/viaduct:3.0.0
+cosign verify ghcr.io/eblackrps/viaduct:3.0.0 \
+  --certificate-identity \
+  'https://github.com/eblackrps/viaduct/.github/workflows/image.yml@refs/tags/v3.0.0' \
+  --certificate-oidc-issuer \
+  'https://token.actions.githubusercontent.com'
+```
+
+Detailed container guidance lives in [docs/operations/docker.md](docs/operations/docker.md). Native bundles remain available on GitHub Releases as an alternative path for environments that cannot run containers.
+
+## First Run From Source
 
 The cleanest path is the local lab in [examples/lab](examples/lab).
 
@@ -126,7 +141,7 @@ make contract-check
 make package-release-matrix
 ```
 
-`make package-release-matrix` produces the same tagged artifact matrix that `.github/workflows/release.yml` publishes: `linux/amd64`, `linux/arm64`, `darwin/arm64`, and `windows/amd64` tarballs plus `dist/SHA256SUMS`.
+`make package-release-matrix` produces the secondary native-bundle matrix that release tags attach beneath the canonical OCI image publication path: `linux/amd64`, `linux/arm64`, `darwin/arm64`, and `windows/amd64` archives plus `dist/SHA256SUMS`.
 
 ## Documentation
 

@@ -1,6 +1,19 @@
 # Installation
 
-Viaduct can be evaluated from source or from a packaged release bundle.
+Viaduct can be evaluated from the signed OCI image, from source, or from a native release bundle when containers are not an option.
+
+## Canonical OCI Install
+
+```bash
+docker pull ghcr.io/eblackrps/viaduct:3.0.0
+cosign verify ghcr.io/eblackrps/viaduct:3.0.0 \
+  --certificate-identity \
+  'https://github.com/eblackrps/viaduct/.github/workflows/image.yml@refs/tags/v3.0.0' \
+  --certificate-oidc-issuer \
+  'https://token.actions.githubusercontent.com'
+```
+
+For runtime flags, upgrade guidance, and SBOM verification, continue with [../operations/docker.md](../operations/docker.md).
 
 ## Source Build
 
@@ -24,9 +37,9 @@ On a fresh source checkout, `viaduct start` creates the default local lab config
 The browser-first flow starts on the runtime bootstrap screen, where the default local lab path offers a direct loopback-only `Use local operator session` action instead of requiring a pasted key.
 The same runtime also serves live operator API docs at `http://127.0.0.1:8080/api/v1/docs`.
 
-## Packaged Release Bundle
+## Native Release Bundle
 
-Tagged release bundles are attached to [GitHub Releases](https://github.com/eblackrps/Viaduct/releases). The same structure can also be generated locally through `make package-release-matrix`.
+Tagged native bundles are attached to [GitHub Releases](https://github.com/eblackrps/Viaduct/releases) as an alternative path. The same structure can also be generated locally through `make package-release-matrix`.
 
 Generate a self-contained local bundle:
 
@@ -56,9 +69,9 @@ Each bundle includes:
 - `dependency-manifest.json`
 - `SHA256SUMS`
 
-## Container Build
+## Local Container Build
 
-Build the container image:
+Build the container image locally when you want to validate the Docker path from source:
 
 ```bash
 make docker
