@@ -52,7 +52,7 @@ LINUX_ARM64_BINARY = bin/viaduct-linux-arm64
 DARWIN_ARM64_BINARY = bin/viaduct-darwin-arm64
 WINDOWS_BINARY = bin/viaduct.exe
 
-.PHONY: all build build-linux build-linux-amd64 build-linux-arm64 build-darwin-arm64 build-windows test lint proto docker dashboard serve web-build web-verify package-release package-release-host-bundle package-release-linux package-release-linux-amd64 package-release-linux-amd64-bundle package-release-linux-arm64 package-release-linux-arm64-bundle package-release-darwin-arm64 package-release-darwin-arm64-bundle package-release-windows package-release-windows-bundle package-release-matrix certification-test soak-test plugin-check openapi-generate contract-check release-gate clean
+.PHONY: all build build-linux build-linux-amd64 build-linux-arm64 build-darwin-arm64 build-windows test lint proto docker dashboard serve web-build web-verify package-release package-release-host-bundle package-release-linux package-release-linux-amd64 package-release-linux-amd64-bundle package-release-linux-arm64 package-release-linux-arm64-bundle package-release-darwin-arm64 package-release-darwin-arm64-bundle package-release-windows package-release-windows-bundle package-release-matrix certification-test soak-test plugin-check openapi-generate contract-check timing-check release-gate clean
 
 all: lint test build
 
@@ -184,6 +184,9 @@ contract-check:
 	$(MAKE) openapi-generate
 	go test ./tests/integration/... -run TestOpenAPISpec_ -count=1
 
+timing-check:
+	go test ./internal/api -run TestStoredCredentialHashMatches_TimingVarianceWithinThreshold_Expected -count=1
+
 release-gate:
 	$(RM_DIST)
 	$(RM_COVER)
@@ -206,6 +209,7 @@ release-gate:
 	$(RUN_BIN) plan --help
 	$(RUN_BIN) migrate --help
 	$(MAKE) web-verify
+	$(MAKE) timing-check
 	$(GO_TEST_COVER)
 	go tool cover $(COVERFUNC_ARG)
 	$(GO_RUN) ./scripts/coverage_gate.go coverage.out $(COVER_MIN)
