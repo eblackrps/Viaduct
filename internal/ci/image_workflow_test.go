@@ -65,6 +65,26 @@ func TestImageWorkflow_TagDerivationAndIdentity_Expected(t *testing.T) {
 	}
 }
 
+func TestImageWorkflow_ResolvesDigestFromBakeMetadata_Expected(t *testing.T) {
+	t.Parallel()
+
+	workflow := loadImageWorkflow(t)
+	resolveStep := workflow.stepNamed(t, "image", "Resolve pushed digest")
+	if !strings.Contains(resolveStep.Run, `metadata.get("containerimage.digest")`) {
+		t.Fatalf("resolve digest run = %q, want direct bake metadata digest lookup", resolveStep.Run)
+	}
+	if !strings.Contains(resolveStep.Run, `metadata.get("containerimage.descriptor")`) {
+		t.Fatalf("resolve digest run = %q, want descriptor digest fallback", resolveStep.Run)
+	}
+	metadata, ok := resolveStep.Env["BAKE_METADATA"].(string)
+	if !ok {
+		t.Fatalf("resolve digest env BAKE_METADATA = %#v, want string", resolveStep.Env["BAKE_METADATA"])
+	}
+	if metadata != "${{ steps.bake.outputs.metadata }}" {
+		t.Fatalf("resolve digest env BAKE_METADATA = %q, want ${{ steps.bake.outputs.metadata }}", metadata)
+	}
+}
+
 func TestImageWorkflow_ScanFailsClosedAndAttestationsExist_Expected(t *testing.T) {
 	t.Parallel()
 

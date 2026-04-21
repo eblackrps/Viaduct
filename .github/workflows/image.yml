@@ -169,15 +169,30 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          DIGEST="$(docker buildx imagetools inspect "${IMAGE_NAME}:${PRIMARY_TAG}" | awk '/Digest:/ { print $2; exit }')"
-          if [[ -z "${DIGEST}" ]]; then
-            echo "failed to resolve image digest" >&2
-            exit 1
-          fi
-          echo "digest=${DIGEST}" >> "${GITHUB_OUTPUT}"
+          python - <<'PY'
+          import json
+          import os
+          import sys
+
+          payload = os.environ.get("BAKE_METADATA", "")
+          if not payload.strip():
+              sys.stderr.write("missing bake metadata output\n")
+              raise SystemExit(1)
+
+          metadata = json.loads(payload)
+          digest = metadata.get("containerimage.digest")
+          if not digest:
+              descriptor = metadata.get("containerimage.descriptor") or {}
+              digest = descriptor.get("digest", "")
+          if not digest:
+              sys.stderr.write("missing containerimage.digest in bake metadata\n")
+              raise SystemExit(1)
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
+              handle.write(f"digest={digest}\n")
+          PY
         env:
-          IMAGE_NAME: ${{ env.IMAGE_NAME }}
-          PRIMARY_TAG: ${{ steps.meta.outputs.version }}
+          BAKE_METADATA: ${{ steps.bake.outputs.metadata }}
 
   sign:
     needs: image

@@ -24,6 +24,7 @@ type workflowStepEntry struct {
 	Run  string         `yaml:"run"`
 	Uses string         `yaml:"uses"`
 	With map[string]any `yaml:"with"`
+	Env  map[string]any `yaml:"env"`
 }
 
 func loadWorkflow(t *testing.T, fileName string) workflowDefinition {
