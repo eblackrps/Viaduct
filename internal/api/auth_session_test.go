@@ -190,6 +190,60 @@ func TestAuthSessionManager_Revoke_StoreFailureLeavesSessionActive_Expected(t *t
 	}
 }
 
+func TestRevocationAtomicity_RaceOnDBCrash(t *testing.T) {
+	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
+
+	manager := newAuthSessionManager(time.Hour, time.Hour)
+	record, err := manager.CreateCredential("tenant", AuthenticatedPrincipal{
+		Tenant: models.Tenant{ID: "tenant-race"},
+		Role:   models.TenantRoleAdmin,
+	}, hashCredential(context.Background(), "hash-race"), false)
+	if err != nil {
+		t.Fatalf("CreateCredential() error = %v", err)
+	}
+
+	done := make(chan struct{})
+	var wg sync.WaitGroup
+	for worker := 0; worker < 8; worker++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				select {
+				case <-done:
+					return
+				default:
+					manager.Lookup(record.Secret)
+					manager.LookupByPublicID(record.PublicID)
+				}
+			}
+		}()
+	}
+
+	revokeErr := manager.Revoke(context.Background(), failingAuthSessionRevocationStore{
+		err: fmt.Errorf("simulated transaction failure"),
+	}, record, record.Secret)
+	close(done)
+	wg.Wait()
+
+	if revokeErr == nil {
+		t.Fatal("Revoke() error = nil, want store failure")
+	}
+	if _, ok := manager.Lookup(record.Secret); !ok {
+		t.Fatal("Lookup() = false, want replayed secret to remain active after failed revoke")
+	}
+}
+
+func TestSweeperGoroutineShutsDown(t *testing.T) {
+	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
+
+	manager := newAuthSessionManager(time.Hour, time.Hour)
+	ctx, cancel := context.WithCancel(context.Background())
+	stopSweeper := manager.StartSweeper(ctx, 5*time.Millisecond)
+	cancel()
+	stopSweeper()
+}
+
 type failingAuthSessionRevocationStore struct {
 	err error
 }

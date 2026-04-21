@@ -754,6 +754,28 @@ func TestServer_Handler_LocalRuntimeAuthSession_RejectsInvalidForwardedHeaderWit
 	}
 }
 
+func TestForwardedHeaderSpoofWithRealIP(t *testing.T) {
+	t.Parallel()
+
+	server := mustNewServer(t, store.NewMemoryStore())
+	server.SetLocalRuntimeMode(true)
+	server.SetBindHost("127.0.0.1")
+	handler := server.Handler()
+
+	request := httptest.NewRequest(http.MethodPost, "http://127.0.0.1/api/v1/auth/session", bytes.NewBufferString(`{"mode":"local"}`))
+	request.RemoteAddr = "127.0.0.1:41000"
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Origin", "http://127.0.0.1")
+	request.Header.Set("X-Forwarded-For", "::1%eth0")
+	request.Header.Set("X-Real-IP", "127.0.0.1")
+	recorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want %d: %s", recorder.Code, http.StatusForbidden, recorder.Body.String())
+	}
+}
+
 func TestTrustedProxiesNoEffectOnLoopback_Expected(t *testing.T) {
 	t.Setenv("VIADUCT_TRUSTED_PROXIES", "0.0.0.0/0")
 
@@ -1021,6 +1043,72 @@ func TestServer_Handler_TenantCredentialRotation_RevokesBoundSession_Expected(t 
 	if !found {
 		t.Fatalf("revoke-auth-session audit event not found for rotated credential: %#v", events)
 	}
+}
+
+func TestRotationAuditIncludesBothHashPrefixes(t *testing.T) {
+	t.Parallel()
+
+	stateStore := store.NewMemoryStore()
+	if err := stateStore.CreateTenant(context.Background(), models.Tenant{
+		ID:     "tenant-a",
+		Name:   "Tenant A",
+		APIKey: "tenant-a-key",
+		Active: true,
+	}); err != nil {
+		t.Fatalf("CreateTenant() error = %v", err)
+	}
+
+	server := mustNewServer(t, stateStore)
+	handler := server.Handler()
+
+	createRequest := httptest.NewRequest(http.MethodPost, "/api/v1/auth/session", bytes.NewBufferString(`{"mode":"tenant","api_key":"tenant-a-key"}`))
+	createRequest.RemoteAddr = "203.0.113.10:41000"
+	createRequest.Header.Set("Content-Type", "application/json")
+	createRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(createRecorder, createRequest)
+	if createRecorder.Code != http.StatusCreated {
+		t.Fatalf("create status = %d, want %d: %s", createRecorder.Code, http.StatusCreated, createRecorder.Body.String())
+	}
+
+	tenant, err := stateStore.GetTenant(context.Background(), "tenant-a")
+	if err != nil {
+		t.Fatalf("GetTenant() error = %v", err)
+	}
+	oldPrefix := credentialHashPrefix8(hashCredential(context.Background(), "tenant-a-key"))
+	tenant.APIKey = "tenant-a-key-rotated"
+	tenant.APIKeyHash = ""
+	if err := stateStore.UpdateTenant(context.Background(), *tenant); err != nil {
+		t.Fatalf("UpdateTenant() error = %v", err)
+	}
+	newPrefix := credentialHashPrefix8(hashCredential(context.Background(), "tenant-a-key-rotated"))
+
+	currentTenantRequest := httptest.NewRequest(http.MethodGet, "/api/v1/tenants/current", nil)
+	currentTenantRequest.RemoteAddr = "203.0.113.10:41000"
+	for _, cookie := range createRecorder.Result().Cookies() {
+		currentTenantRequest.AddCookie(cookie)
+	}
+	currentTenantRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(currentTenantRecorder, currentTenantRequest)
+	if currentTenantRecorder.Code != http.StatusUnauthorized {
+		t.Fatalf("current tenant status = %d, want %d: %s", currentTenantRecorder.Code, http.StatusUnauthorized, currentTenantRecorder.Body.String())
+	}
+
+	events, err := stateStore.ListAuditEvents(context.Background(), store.DefaultTenantID, 10)
+	if err != nil {
+		t.Fatalf("ListAuditEvents() error = %v", err)
+	}
+	for _, event := range events {
+		if event.Action != "revoke-auth-session" {
+			continue
+		}
+		if event.Details["reason"] == "credential_rotated" &&
+			event.Details["old_hash_prefix"] == oldPrefix &&
+			event.Details["new_hash_prefix"] == newPrefix {
+			return
+		}
+	}
+
+	t.Fatalf("rotation audit with hash prefixes not found: %#v", events)
 }
 
 func TestServer_Handler_AdminAuthSessionRevoke_BlocksSessionLookup_Expected(t *testing.T) {

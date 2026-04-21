@@ -93,6 +93,8 @@ jobs:
             "dist/viaduct_${PACKAGE_VERSION}_windows_amd64.tar.gz"
           )
           actual_artifacts=(dist/viaduct_${PACKAGE_VERSION}_*.tar.gz)
+          expected_count=${#expected_artifacts[@]}
+          actual_count=${#actual_artifacts[@]}
           missing=0
           for artifact in "${expected_artifacts[@]}"; do
             if [[ ! -f "${artifact}" ]]; then
@@ -100,8 +102,8 @@ jobs:
               missing=1
             fi
           done
-          if [[ ${#actual_artifacts[@]} -ne ${#expected_artifacts[@]} ]]; then
-            echo "::error file=.github/workflows/release.yml::release artifact count ${#actual_artifacts[@]} did not match expected ${#expected_artifacts[@]}"
+          if [[ ${actual_count} -ne ${expected_count} ]]; then
+            echo "::error file=.github/workflows/release.yml::release artifact count ${actual_count} did not match expected ${expected_count}"
             printf 'actual artifacts:\n%s\n' "${actual_artifacts[@]}"
             missing=1
           fi

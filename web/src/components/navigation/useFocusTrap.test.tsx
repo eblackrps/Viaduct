@@ -202,4 +202,18 @@ describe("useFocusTrap", () => {
 		expect(firstEscape).not.toHaveBeenCalled();
 		expect(secondEscape).toHaveBeenCalledTimes(1);
 	});
+
+	it("TestFocusTrapStaleOnEscape", () => {
+		const firstEscape = vi.fn();
+		const secondEscape = vi.fn();
+		const { rerender } = render(
+			<EscapeCallbackHarness open={true} onEscape={firstEscape} />,
+		);
+
+		rerender(<EscapeCallbackHarness open={true} onEscape={secondEscape} />);
+
+		fireEvent.keyDown(document, { key: "Escape" });
+		expect(firstEscape).not.toHaveBeenCalled();
+		expect(secondEscape).toHaveBeenCalledTimes(1);
+	});
 });

@@ -257,6 +257,39 @@ describe("api", () => {
 		expect(getInflightDedupeCount()).toBe(0);
 	});
 
+	it("TestDedupeRefCountingClean", async () => {
+		let resolveFetch: ((response: Response) => void) | undefined;
+		const fetchMock = vi.fn().mockImplementation(
+			() =>
+				new Promise<Response>((resolve) => {
+					resolveFetch = resolve;
+				}),
+		);
+		vi.stubGlobal("fetch", fetchMock);
+
+		const firstPromise = requestManager.fetch("/api/v1/about", undefined, {
+			dedupe: true,
+		});
+		const secondPromise = requestManager.fetch("/api/v1/about", undefined, {
+			dedupe: true,
+		});
+		const thirdPromise = requestManager.fetch("/api/v1/about", undefined, {
+			dedupe: true,
+		});
+
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+		expect(getInflightRequestCount()).toBe(1);
+		expect(getInflightDedupeCount()).toBe(1);
+
+		resolveFetch?.(
+			new Response(JSON.stringify({ version: "2.7.0" }), { status: 200 }),
+		);
+
+		await Promise.all([thirdPromise, secondPromise, firstPromise]);
+		expect(getInflightRequestCount()).toBe(0);
+		expect(getInflightDedupeCount()).toBe(0);
+	});
+
 	it("resolves request URLs against the base tag when present", async () => {
 		const fetchMock = vi
 			.fn()

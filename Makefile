@@ -185,7 +185,7 @@ contract-check:
 	go test ./tests/integration/... -run TestOpenAPISpec_ -count=1
 
 timing-check:
-	go test ./internal/api -run TestStoredCredentialHashMatches_TimingVarianceWithinThreshold_Expected -count=1
+	go test ./internal/api -run TestCredentialHashConstantTime_Bench -count=1
 
 release-gate:
 	$(RM_DIST)

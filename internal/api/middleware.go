@@ -276,6 +276,9 @@ func storedCredentialHashMatches(ctx context.Context, storedHash, legacyRaw stri
 }
 
 func constantTimeEqual(leftStoredHash, rightPresented string) bool {
+	if strings.TrimSpace(leftStoredHash) == "" || strings.TrimSpace(rightPresented) == "" {
+		return false
+	}
 	leftHash, leftOK := storedCredentialHash(context.Background(), leftStoredHash, "")
 	rightHash := hashCredential(context.Background(), rightPresented)
 	return constantTimeCredentialHashMatch(leftHash, leftOK, rightHash, !isZeroCredentialHash(rightHash))
@@ -397,26 +400,29 @@ func newCredentialHashHexDecodeTable() [256]byte {
 	return table
 }
 
-func normalizeCredentialHashForCompare(value [32]byte, valid bool) ([32]byte, int32) {
+func normalizeCredentialHashForCompare(value [32]byte, valid bool) [32]byte {
 	var normalized [32]byte
-	validResult := boolToConstantTime(valid) & boolToConstantTime(!isZeroCredentialHash(value))
+	var nonZero byte
+	for _, element := range value {
+		nonZero |= element
+	}
+	nonZeroResult := int32(1 - subtle.ConstantTimeByteEq(nonZero, 0))
+	validResult := boolToConstantTime(valid) & nonZeroResult
 	invalidMask := byte((1 - subtle.ConstantTimeEq(validResult, 1)) * 0xff)
 	for index := range normalized {
 		normalized[index] = (value[index] &^ invalidMask) | (invalidCredentialHash[index] & invalidMask)
 	}
-	return normalized, validResult
+	return normalized
 }
 
 func constantTimeCredentialHashMatch(current [32]byte, currentValid bool, expected [32]byte, expectedValid bool) bool {
-	currentBuffer, normalizedCurrentValid := normalizeCredentialHashForCompare(current, currentValid)
-	expectedBuffer, normalizedExpectedValid := normalizeCredentialHashForCompare(expected, expectedValid)
-	return constantTimeNormalizedCredentialHashMatch(currentBuffer, normalizedCurrentValid, expectedBuffer, normalizedExpectedValid)
+	currentBuffer := normalizeCredentialHashForCompare(current, currentValid)
+	expectedBuffer := normalizeCredentialHashForCompare(expected, expectedValid)
+	return constantTimeNormalizedCredentialHashMatch(currentBuffer, expectedBuffer)
 }
 
-func constantTimeNormalizedCredentialHashMatch(currentBuffer [32]byte, currentValid int32, expectedBuffer [32]byte, expectedValid int32) bool {
-	compareResult := subtle.ConstantTimeCompare(currentBuffer[:], expectedBuffer[:])
-	validResult := subtle.ConstantTimeEq(currentValid&expectedValid, 1)
-	return compareResult&validResult == 1
+func constantTimeNormalizedCredentialHashMatch(currentBuffer, expectedBuffer [32]byte) bool {
+	return subtle.ConstantTimeCompare(currentBuffer[:], expectedBuffer[:]) == 1
 }
 
 func credentialHashPrefix8(value [32]byte) string {
