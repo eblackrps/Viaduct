@@ -174,16 +174,34 @@ jobs:
           import os
           import sys
 
+          def find_digest(value):
+              if isinstance(value, dict):
+                  direct = value.get("containerimage.digest")
+                  if isinstance(direct, str) and direct:
+                      return direct
+                  descriptor = value.get("containerimage.descriptor")
+                  if isinstance(descriptor, dict):
+                      digest = descriptor.get("digest")
+                      if isinstance(digest, str) and digest:
+                          return digest
+                  for nested in value.values():
+                      digest = find_digest(nested)
+                      if digest:
+                          return digest
+              elif isinstance(value, list):
+                  for nested in value:
+                      digest = find_digest(nested)
+                      if digest:
+                          return digest
+              return ""
+
           payload = os.environ.get("BAKE_METADATA", "")
           if not payload.strip():
               sys.stderr.write("missing bake metadata output\n")
               raise SystemExit(1)
 
           metadata = json.loads(payload)
-          digest = metadata.get("containerimage.digest")
-          if not digest:
-              descriptor = metadata.get("containerimage.descriptor") or {}
-              digest = descriptor.get("digest", "")
+          digest = find_digest(metadata)
           if not digest:
               sys.stderr.write("missing containerimage.digest in bake metadata\n")
               raise SystemExit(1)

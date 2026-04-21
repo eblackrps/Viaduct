@@ -70,11 +70,14 @@ func TestImageWorkflow_ResolvesDigestFromBakeMetadata_Expected(t *testing.T) {
 
 	workflow := loadImageWorkflow(t)
 	resolveStep := workflow.stepNamed(t, "image", "Resolve pushed digest")
-	if !strings.Contains(resolveStep.Run, `metadata.get("containerimage.digest")`) {
-		t.Fatalf("resolve digest run = %q, want direct bake metadata digest lookup", resolveStep.Run)
+	if !strings.Contains(resolveStep.Run, `def find_digest(value):`) {
+		t.Fatalf("resolve digest run = %q, want recursive digest lookup helper", resolveStep.Run)
 	}
-	if !strings.Contains(resolveStep.Run, `metadata.get("containerimage.descriptor")`) {
+	if !strings.Contains(resolveStep.Run, `descriptor = value.get("containerimage.descriptor")`) {
 		t.Fatalf("resolve digest run = %q, want descriptor digest fallback", resolveStep.Run)
+	}
+	if !strings.Contains(resolveStep.Run, `direct = value.get("containerimage.digest")`) {
+		t.Fatalf("resolve digest run = %q, want direct bake metadata digest lookup", resolveStep.Run)
 	}
 	metadata, ok := resolveStep.Env["BAKE_METADATA"].(string)
 	if !ok {
