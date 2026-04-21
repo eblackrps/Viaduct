@@ -214,8 +214,8 @@ jobs:
           mkdir -p .release-verify/extracted/linux-amd64 .release-verify/extracted/linux-arm64
           tar -xzf ".release-verify/viaduct_${PACKAGE_VERSION}_linux_amd64.tar.gz" -C .release-verify/extracted/linux-amd64
           tar -xzf ".release-verify/viaduct_${PACKAGE_VERSION}_linux_arm64.tar.gz" -C .release-verify/extracted/linux-arm64
-          AMD64_RELEASE_BINARY="$(find .release-verify/extracted/linux-amd64 -type f -name viaduct | head -n 1)"
-          ARM64_RELEASE_BINARY="$(find .release-verify/extracted/linux-arm64 -type f -name viaduct | head -n 1)"
+          AMD64_RELEASE_BINARY="$(find .release-verify/extracted/linux-amd64 -type f \( -name viaduct -o -name viaduct-linux-amd64 \) | head -n 1)"
+          ARM64_RELEASE_BINARY="$(find .release-verify/extracted/linux-arm64 -type f \( -name viaduct -o -name viaduct-linux-arm64 \) | head -n 1)"
           if [[ -z "${AMD64_RELEASE_BINARY}" || -z "${ARM64_RELEASE_BINARY}" ]]; then
             echo "failed to locate extracted release binaries for checksum verification" >&2
             exit 1
