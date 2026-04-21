@@ -17,8 +17,15 @@ Viaduct `v3.x` moves to milestone-based release management.
 ## Edge Image Policy
 
 - `ghcr.io/eblackrps/viaduct:edge` is published from merges to `main`
+- `docker.io/emb079/viaduct:edge` is mirrored from the same workflow when `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` are configured for the Viaduct repo or inherited from the organization
 - `:edge` is explicitly not for production use
 - production deployments should pin immutable semver tags
+
+## Release Tag Mirrors
+
+- GitHub release tags publish immutable semver images to `ghcr.io/eblackrps/viaduct`
+- the same tag workflow mirrors those semver tags to `docker.io/emb079/viaduct` when Docker Hub Actions secrets are available
+- GHCR remains the canonical signed verification source even when operators choose the Docker Hub mirror for pull locality
 
 ## Deprecation Policy
 

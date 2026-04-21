@@ -13,7 +13,9 @@ cosign verify ghcr.io/eblackrps/viaduct:3.0.0 \
   'https://token.actions.githubusercontent.com'
 ```
 
-For runtime flags, upgrade guidance, SBOM verification, the production compose sample, and the Helm chart defaults, continue with [../operations/docker.md](../operations/docker.md), [../../deploy/docker-compose.prod.yml](../../deploy/docker-compose.prod.yml), and [../../deploy/helm/viaduct](../../deploy/helm/viaduct).
+The signed canonical registry is `ghcr.io/eblackrps/viaduct`. The Docker Hub mirror is `docker.io/emb079/viaduct:3.0.0`.
+
+GitHub Actions mirrors release tags plus `main` branch `:edge` and `:sha-*` tags to Docker Hub whenever `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` are configured for this repo or inherited from an organization secret scope. For runtime flags, upgrade guidance, SBOM verification, the production compose sample, and the Helm chart defaults, continue with [../operations/docker.md](../operations/docker.md), [../../deploy/docker-compose.prod.yml](../../deploy/docker-compose.prod.yml), and [../../deploy/helm/viaduct](../../deploy/helm/viaduct).
 
 ## Source Build Alternative
 

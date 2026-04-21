@@ -27,7 +27,9 @@ cosign verify ghcr.io/eblackrps/viaduct:3.0.0 \
   'https://token.actions.githubusercontent.com'
 ```
 
-Then follow the container guidance in [docs/operations/docker.md](docs/operations/docker.md), the production compose sample in [deploy/docker-compose.prod.yml](deploy/docker-compose.prod.yml), or the Helm chart defaults in [deploy/helm/viaduct](deploy/helm/viaduct).
+The signed canonical registry is `ghcr.io/eblackrps/viaduct`. The Docker Hub mirror is `docker.io/emb079/viaduct:3.0.0`.
+
+GitHub Actions mirrors release tags plus `main` branch `:edge` and `:sha-*` image tags to Docker Hub whenever `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` are configured for this repo or exposed through organization-level Actions secrets. Then follow the container guidance in [docs/operations/docker.md](docs/operations/docker.md), the production compose sample in [deploy/docker-compose.prod.yml](deploy/docker-compose.prod.yml), or the Helm chart defaults in [deploy/helm/viaduct](deploy/helm/viaduct).
 
 ## Build From Source
 

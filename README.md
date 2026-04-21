@@ -76,7 +76,9 @@ cosign verify ghcr.io/eblackrps/viaduct:3.0.0 \
   'https://token.actions.githubusercontent.com'
 ```
 
-Detailed container guidance lives in [docs/operations/docker.md](docs/operations/docker.md). The production samples in [deploy/docker-compose.prod.yml](deploy/docker-compose.prod.yml) and [deploy/helm/viaduct](deploy/helm/viaduct) now reflect the canonical release path. Native bundles remain available on GitHub Releases as an alternative path for environments that cannot run containers.
+The signed canonical registry is `ghcr.io/eblackrps/viaduct`. The convenience mirror is `docker.io/emb079/viaduct:3.0.0`.
+
+GitHub Actions is configured to mirror release tags plus `main` branch `:edge` and `:sha-*` image tags to Docker Hub whenever `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` are configured as Actions secrets for this repo or as inherited organization secrets. Detailed container guidance lives in [docs/operations/docker.md](docs/operations/docker.md). The production samples in [deploy/docker-compose.prod.yml](deploy/docker-compose.prod.yml) and [deploy/helm/viaduct](deploy/helm/viaduct) now reflect the canonical release path. Native bundles remain available on GitHub Releases as an alternative path for environments that cannot run containers.
 
 ## Source Build And Local Lab
 

@@ -17,7 +17,7 @@ This document describes the current Docker-canonical packaging and release proce
 
 On Windows, `make release-gate` still builds `bin/viaduct.exe`, but it validates the CLI smoke commands through a LocalAppData-staged `go run ./cmd/viaduct` helper because some operator workstations enforce Application Control policies that block freshly built unsigned binaries from direct execution or from `%TEMP%`. The Windows test helpers stage race and coverage artifacts under repo-local cache directories so the canonical gate remains reproducible on locked-down workstations.
 
-`make release-gate` is the authoritative local check. The canonical tag workflow now lives in `.github/workflows/image.yml`, which publishes the signed OCI image, SBOM attestations, provenance, image scan results, and the secondary native bundles. CI adds browser end-to-end coverage plus `gosec` and `trivy`; those checks are required for merges, but they stay outside the local release gate because they depend on extra browser or scanner setup.
+`make release-gate` is the authoritative local check. The canonical tag workflow now lives in `.github/workflows/image.yml`, which publishes the signed OCI image to GHCR, mirrors it to `docker.io/emb079/viaduct` when Docker Hub secrets are available, attaches SBOM attestations and provenance, runs the image scan, and publishes the secondary native bundles. CI adds browser end-to-end coverage plus `gosec` and `trivy`; those checks are required for merges, but they stay outside the local release gate because they depend on extra browser or scanner setup.
 
 ## Release Checklist
 1. Ensure the working tree is in the intended state and public docs are current.
@@ -29,7 +29,8 @@ On Windows, `make release-gate` still builds `bin/viaduct.exe`, but it validates
 7. Refresh the checked-in README and demo screenshots, then confirm the root README, install docs, quickstarts, and the `site/` landing page all lead with the Docker-first install and verification path for the current release.
 8. Verify the plugin manifest check, OpenAPI contract check, and runtime Swagger UI (`/api/v1/docs`) remain aligned.
 9. Confirm there are no open release PRs left hanging if the release is being published directly from `main`.
-10. Tag and publish only after the verification and smoke checks are clean. The tag workflow should publish the signed OCI image first, attach SPDX plus CycloneDX attestations and provenance, run the image scan, and then attach the `make package-release-matrix` native bundles as alternative assets.
+10. Confirm `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` exist as Actions secrets on the Viaduct repo or as inherited organization secrets if Docker Hub mirroring is expected. Secrets stored in another repository are not visible here.
+11. Tag and publish only after the verification and smoke checks are clean. The tag workflow should publish the signed OCI image first, mirror the tag to Docker Hub when those secrets are present, attach SPDX plus CycloneDX attestations and provenance, run the image scan, and then attach the `make package-release-matrix` native bundles as alternative assets.
 
 ## Bundle Contents
 The release bundle should include:

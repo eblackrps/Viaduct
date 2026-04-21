@@ -2,6 +2,13 @@
 
 Viaduct `v3.0.0` treats the signed OCI image as the canonical release artifact.
 
+## Registries
+
+- Canonical signed registry: `ghcr.io/eblackrps/viaduct`
+- Docker Hub mirror: `docker.io/emb079/viaduct`
+
+GitHub Actions mirrors release tags plus `main` branch `:edge` and `:sha-*` image tags to Docker Hub whenever `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` are configured for the Viaduct repo or inherited from an organization-level Actions secret.
+
 ## Pull And Run
 
 ```bash
@@ -20,6 +27,14 @@ docker run --rm \
 Writable state must live under `/var/lib/viaduct`. The container is designed to run with a read-only root filesystem plus `--tmpfs /tmp`.
 
 `ghcr.io/eblackrps/viaduct:edge` is published from merges to `main` and is not for production use.
+
+If GHCR access is restricted in your environment, you can pull the mirrored image instead:
+
+```bash
+docker pull docker.io/emb079/viaduct:3.0.0
+```
+
+Treat GHCR as the verification source even when you deploy from the Docker Hub mirror.
 
 ## Verify The Image Signature
 
@@ -51,6 +66,7 @@ Download the SPDX or CycloneDX attestation payload from the GitHub Release or in
 2. Verify the cosign signature and SBOM attestation.
 3. Replace the running container with the new tag while preserving the mounted state volume and config mount.
 4. Keep `:latest` for evaluation only; pin semver tags in production.
+5. If you rely on the Docker Hub mirror, confirm the Viaduct repo still has `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` configured before the release tag is cut.
 
 ## Deployment References
 
