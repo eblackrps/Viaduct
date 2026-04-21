@@ -33,9 +33,9 @@ jobs:
             echo "workflow_dispatch inputs.tag is required" >&2
             exit 1
           fi
-          COSIGN_CERTIFICATE_IDENTITY="https://github.com/${GITHUB_REPOSITORY}/.github/workflows/release.yml@refs/tags/${RELEASE_TAG}"
+          COSIGN_CERTIFICATE_IDENTITY="https://github.com/${GITHUB_REPOSITORY}/.github/workflows/release.yml@refs/heads/${GITHUB_REF_NAME}"
           echo "COSIGN_CERTIFICATE_IDENTITY=${COSIGN_CERTIFICATE_IDENTITY}"
-          [[ "${COSIGN_CERTIFICATE_IDENTITY}" =~ ^https://github\.com/.+/.+/.github/workflows/release\.yml@refs/tags/v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ "${COSIGN_CERTIFICATE_IDENTITY}" =~ ^https://github\.com/.+/.+/.github/workflows/release\.yml@refs/heads/[A-Za-z0-9._/-]+$ ]]
 
   release:
     runs-on: ubuntu-latest
@@ -61,7 +61,11 @@ jobs:
           echo "RELEASE_TAG=${RELEASE_TAG}" >> "$GITHUB_ENV"
           echo "PACKAGE_VERSION=${RELEASE_TAG#v}" >> "$GITHUB_ENV"
           echo "RELEASE_NOTES_PATH=docs/releases/${RELEASE_TAG}.md" >> "$GITHUB_ENV"
-          echo "COSIGN_CERTIFICATE_IDENTITY=https://github.com/${GITHUB_REPOSITORY}/.github/workflows/release.yml@refs/tags/${RELEASE_TAG}" >> "$GITHUB_ENV"
+          CERTIFICATE_IDENTITY_REF="refs/tags/${RELEASE_TAG}"
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            CERTIFICATE_IDENTITY_REF="${GITHUB_REF}"
+          fi
+          echo "COSIGN_CERTIFICATE_IDENTITY=https://github.com/${GITHUB_REPOSITORY}/.github/workflows/release.yml@${CERTIFICATE_IDENTITY_REF}" >> "$GITHUB_ENV"
           echo "release_tag=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
           echo "package_version=${RELEASE_TAG#v}" >> "$GITHUB_OUTPUT"
 
