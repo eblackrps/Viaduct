@@ -7,6 +7,8 @@
 
 Viaduct helps operators discover mixed virtualization estates, map dependencies, build migration plans, and manage controlled migration work from one shared backend model. The repository combines a Go backend, REST API, CLI, React dashboard, and standalone public site around the same persisted inventory, workspace, planning, and reporting surfaces.
 
+Latest operator-facing release notes live in [docs/releases/v2.7.0.md](docs/releases/v2.7.0.md), and the published release stream is tracked in [CHANGELOG.md](CHANGELOG.md).
+
 ## Current Focus
 
 Viaduct is built for operators who need:

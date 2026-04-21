@@ -406,7 +406,7 @@ func normalizeCredentialHashForCompare(value [32]byte, valid bool) [32]byte {
 	for _, element := range value {
 		nonZero |= element
 	}
-	nonZeroResult := int32(1 - subtle.ConstantTimeByteEq(nonZero, 0))
+	nonZeroResult := boolToConstantTime(nonZero != 0)
 	validResult := boolToConstantTime(valid) & nonZeroResult
 	invalidMask := byte((1 - subtle.ConstantTimeEq(validResult, 1)) * 0xff)
 	for index := range normalized {

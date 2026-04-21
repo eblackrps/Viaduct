@@ -6,7 +6,7 @@ This changelog tracks published releases and the major implementation milestones
 
 ## [Unreleased]
 
-## [2.7.0] - 2026-04-20
+## [2.7.0] - 2026-04-21
 
 ### Security And Session Hardening
 
@@ -26,6 +26,7 @@ This changelog tracks published releases and the major implementation milestones
 - updated the focus trap so Escape always uses the latest callback, cleanup restores focus through a previous-element → trap-root → `document.body` fallback chain, and the body fallback warns once when it is reached
 - tightened dashboard request dedupe bookkeeping with per-key reference counting so identical opt-in GETs share one fetch while still releasing the in-flight map cleanly after the last waiter settles
 - hardened the release workflow around explicit expected bundle manifests, exact tag-pinned cosign certificate identities for both tag pushes and manual dispatch, and a published-bundle checksum verification pass before the Docker image build consumes the release binaries
+- closed the post-merge hardening review gaps with named regression coverage for revocation atomicity, forwarded-header spoof rejection, enqueue orphan cleanup, rotation audit prefixes, migration 008 crash behavior, and the release workflow manifest contract
 
 ## [2.6.0] - 2026-04-20
 

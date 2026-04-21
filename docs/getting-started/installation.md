@@ -45,7 +45,7 @@ The canonical packaging matrix is:
 - `darwin/arm64`
 - `windows/amd64`
 
-Git tags keep the leading `v`, but bundle names use the numeric release label. For example, `v2.6.0` publishes `dist/viaduct_2.6.0_linux_amd64.tar.gz`.
+Git tags keep the leading `v`, but bundle names use the numeric release label. For example, `v2.7.0` publishes `dist/viaduct_2.7.0_linux_amd64.tar.gz`.
 
 Each bundle includes:
 - the Viaduct CLI binary

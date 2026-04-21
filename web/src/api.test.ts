@@ -294,7 +294,7 @@ describe("api", () => {
 		const fetchMock = vi
 			.fn()
 			.mockResolvedValue(
-				new Response(JSON.stringify({ version: "2.6.0" }), { status: 200 }),
+				new Response(JSON.stringify({ version: "2.7.0" }), { status: 200 }),
 			);
 		vi.stubGlobal("fetch", fetchMock);
 
