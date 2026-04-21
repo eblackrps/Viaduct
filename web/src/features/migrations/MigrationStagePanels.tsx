@@ -206,7 +206,7 @@ export function MigrationScopeStage({ workspace }: StageProps) {
 										return (
 											<label
 												key={key}
-							className={`flex items-start gap-3 rounded-xl border px-4 py-4 text-body-sm transition ${selected ? "border-sky-200 bg-sky-50/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]" : "border-slate-200/80 bg-white/85 hover:bg-slate-50/90"}`}
+												className={`flex items-start gap-3 rounded-xl border px-4 py-4 text-body-sm transition ${selected ? "border-sky-200 bg-sky-50/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]" : "border-slate-200/80 bg-white/85 hover:bg-slate-50/90"}`}
 											>
 												<input
 													type="checkbox"

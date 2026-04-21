@@ -442,7 +442,6 @@ export interface MigrationSpec {
 	};
 }
 
-
 export interface RemediationRecommendation {
 	vm: VirtualMachine;
 	type: "placement" | "policy" | "drift";

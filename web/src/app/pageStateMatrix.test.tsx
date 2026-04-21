@@ -454,7 +454,9 @@ describe("page state matrix", () => {
 		await expectNoActionableViolations(workspaceLoading.container);
 		workspaceLoading.unmount();
 
-		mockListWorkspaces.mockRejectedValueOnce(new Error("forced workspace failure"));
+		mockListWorkspaces.mockRejectedValueOnce(
+			new Error("forced workspace failure"),
+		);
 		const workspaceError = render(<WorkspacePage />);
 		expect(
 			await screen.findByRole("heading", {
@@ -467,7 +469,9 @@ describe("page state matrix", () => {
 		mockListWorkspaces.mockResolvedValueOnce([]);
 		const workspaceEmpty = render(<WorkspacePage />);
 		expect(
-			await screen.findByRole("heading", { name: "Create the first workspace" }),
+			await screen.findByRole("heading", {
+				name: "Create the first workspace",
+			}),
 		).toBeVisible();
 		await expectNoActionableViolations(workspaceEmpty.container);
 	});

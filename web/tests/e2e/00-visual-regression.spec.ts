@@ -6,6 +6,11 @@ import {
 	operatorRoutes,
 } from "./auth";
 
+test.skip(
+	process.platform !== "linux",
+	"visual regression baselines are recorded against the Linux CI renderer",
+);
+
 const desktopRoutes = operatorRoutes;
 const mobileRoutes = operatorRoutes.slice(0, 5);
 

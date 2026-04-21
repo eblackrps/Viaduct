@@ -43,9 +43,7 @@ export function ErrorState({
 					<TitleTag className="font-display text-title text-ink">
 						{title}
 					</TitleTag>
-					<p className="mt-3 max-w-2xl text-body-sm text-rose-800">
-						{message}
-					</p>
+					<p className="mt-3 max-w-2xl text-body-sm text-rose-800">{message}</p>
 					{requestDetail && (
 						<div className="mt-5 rounded-xl border border-rose-200 bg-white/80 px-4 py-3 text-caption text-rose-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
 							<p className="font-semibold text-rose-900">
