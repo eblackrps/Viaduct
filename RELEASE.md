@@ -31,6 +31,7 @@ On Windows, `make release-gate` still builds `bin/viaduct.exe`, but it validates
 9. Confirm there are no open release PRs left hanging if the release is being published directly from `main`.
 10. Confirm `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` exist as Actions secrets on the Viaduct repo or as inherited organization secrets if Docker Hub mirroring is expected. Secrets stored in another repository are not visible here.
 11. Tag and publish only after the verification and smoke checks are clean. The tag workflow should publish the signed OCI image first, mirror the tag to Docker Hub when those secrets are present, attach SPDX plus CycloneDX attestations and provenance, run the image scan, and then attach the `make package-release-matrix` native bundles as alternative assets.
+12. If Docker Hub secrets were added after a release tag already existed, backfill the mirror without retagging by running `gh workflow run image.yml --ref main -f mirror_release_tag=vX.Y.Z`.
 
 ## Bundle Contents
 The release bundle should include:

@@ -184,6 +184,36 @@ func TestImageWorkflow_DockerHubMirrorIsOptional_Expected(t *testing.T) {
 	}
 }
 
+func TestImageWorkflow_ManualReleaseMirrorBackfill_Expected(t *testing.T) {
+	t.Parallel()
+
+	workflowPath := filepath.Join("..", "..", ".github", "workflows", "image.yml")
+	payload, err := os.ReadFile(workflowPath)
+	if err != nil {
+		t.Fatalf("ReadFile(image.yml) error = %v", err)
+	}
+	contents := string(payload)
+
+	if !strings.Contains(contents, "mirror_release_tag:") {
+		t.Fatal("image workflow missing workflow_dispatch mirror_release_tag input")
+	}
+	if !strings.Contains(contents, "mirror-existing-release-to-dockerhub:") {
+		t.Fatal("image workflow missing manual Docker Hub backfill job")
+	}
+	if !strings.Contains(contents, `if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.mirror_release_tag != '' }}`) {
+		t.Fatal("image workflow backfill job is not gated on workflow_dispatch mirror input")
+	}
+	if !strings.Contains(contents, `git fetch --force --tags origin "refs/tags/${RELEASE_TAG}:refs/tags/${RELEASE_TAG}"`) {
+		t.Fatal("image workflow backfill job does not fetch the requested release tag")
+	}
+	if !strings.Contains(contents, `docker buildx imagetools create "${CREATE_ARGS[@]}" "${SOURCE_IMAGE}"`) {
+		t.Fatal("image workflow backfill job does not mirror GHCR images to Docker Hub with imagetools create")
+	}
+	if !strings.Contains(contents, `"${DOCKERHUB_IMAGE_NAME}:sha-${SHORT_SHA}"`) {
+		t.Fatal("image workflow backfill job does not mirror the release sha tag")
+	}
+}
+
 func loadImageWorkflow(t *testing.T) workflowDefinition {
 	t.Helper()
 	return loadWorkflow(t, "image.yml")

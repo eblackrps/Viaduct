@@ -9,6 +9,12 @@ Viaduct `v3.0.0` treats the signed OCI image as the canonical release artifact.
 
 GitHub Actions mirrors release tags plus `main` branch `:edge` and `:sha-*` image tags to Docker Hub whenever `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` are configured for the Viaduct repo or inherited from an organization-level Actions secret.
 
+If those secrets are added after a GitHub release tag already exists, release owners can backfill the Docker Hub semver tags from the current workflow definition without retagging the repo:
+
+```bash
+gh workflow run image.yml --ref main -f mirror_release_tag=v3.0.0
+```
+
 ## Pull And Run
 
 ```bash
