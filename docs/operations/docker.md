@@ -26,7 +26,7 @@ Writable state must live under `/var/lib/viaduct`. The container is designed to 
 ```bash
 cosign verify ghcr.io/eblackrps/viaduct:3.0.0 \
   --certificate-identity \
-  'https://github.com/eblackrps/viaduct/.github/workflows/image.yml@refs/tags/v3.0.0' \
+  'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.0.0' \
   --certificate-oidc-issuer \
   'https://token.actions.githubusercontent.com'
 ```
@@ -36,7 +36,7 @@ cosign verify ghcr.io/eblackrps/viaduct:3.0.0 \
 ```bash
 cosign verify-attestation --type spdx ghcr.io/eblackrps/viaduct:3.0.0 \
   --certificate-identity \
-  'https://github.com/eblackrps/viaduct/.github/workflows/image.yml@refs/tags/v3.0.0' \
+  'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.0.0' \
   --certificate-oidc-issuer \
   'https://token.actions.githubusercontent.com'
 ```
@@ -51,3 +51,9 @@ Download the SPDX or CycloneDX attestation payload from the GitHub Release or in
 2. Verify the cosign signature and SBOM attestation.
 3. Replace the running container with the new tag while preserving the mounted state volume and config mount.
 4. Keep `:latest` for evaluation only; pin semver tags in production.
+
+## Deployment References
+
+- Compose sample: [../../deploy/docker-compose.prod.yml](../../deploy/docker-compose.prod.yml)
+- Helm chart: [../../deploy/helm/viaduct](../../deploy/helm/viaduct)
+- Release cadence and `:edge` policy: [../releases/cadence.md](../releases/cadence.md)

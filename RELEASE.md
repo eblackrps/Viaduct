@@ -1,6 +1,6 @@
 # Release
 
-This document describes the current packaging and release process for Viaduct.
+This document describes the current Docker-canonical packaging and release process for Viaduct.
 
 ## Canonical Commands
 - `make release-gate`: canonical local release-owner verification for backend, CLI, dashboard lint/format/unit/build checks, certification coverage, soak coverage, packaging, and coverage enforcement
@@ -26,7 +26,7 @@ On Windows, `make release-gate` still builds `bin/viaduct.exe`, but it validates
 4. Verify `release-manifest.json`, `dependency-manifest.json`, the bundle-local `SHA256SUMS.txt`, and the release-asset `dist/SHA256SUMS`.
 5. Smoke-test the packaged binary with `viaduct version`, `viaduct --help`, `viaduct doctor`, and the canonical local start flow (`viaduct start --config <installed-config> --detach --open-browser=false`) against the bundled dashboard assets when they are present.
 6. Confirm install docs, quickstarts, upgrade docs, rollback docs, deployment examples, and the pilot workspace guide still match the artifact layout and current auth behavior.
-7. Refresh the checked-in README and demo screenshots, then confirm the root README embeds, release notes entry, changelog entry, and the `site/` latest-release badge and release-notes link resolve to the current release.
+7. Refresh the checked-in README and demo screenshots, then confirm the root README, install docs, quickstarts, and the `site/` landing page all lead with the Docker-first install and verification path for the current release.
 8. Verify the plugin manifest check, OpenAPI contract check, and runtime Swagger UI (`/api/v1/docs`) remain aligned.
 9. Confirm there are no open release PRs left hanging if the release is being published directly from `main`.
 10. Tag and publish only after the verification and smoke checks are clean. The tag workflow should publish the signed OCI image first, attach SPDX plus CycloneDX attestations and provenance, run the image scan, and then attach the `make package-release-matrix` native bundles as alternative assets.

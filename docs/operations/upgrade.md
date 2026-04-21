@@ -1,6 +1,6 @@
 # Upgrade Guide
 
-This guide covers upgrading the Viaduct binary, dashboard assets, and persisted state.
+This guide covers upgrading the canonical Viaduct container deployment, plus the alternative native-bundle and source-build paths.
 
 ## Before You Upgrade
 - Record the current version with `viaduct version`
@@ -8,7 +8,15 @@ This guide covers upgrading the Viaduct binary, dashboard assets, and persisted 
 - If you use PostgreSQL, take a database backup or snapshot before replacing the binary
 - If you have an active migration, confirm whether it is safe to finish or explicitly pause before upgrading
 
-## Binary Upgrade
+## Docker And Kubernetes Upgrade
+
+1. Pull the new immutable semver image tag.
+2. Verify the image signature and SBOM attestation before rollout.
+3. Update your Compose file, Helm values, or workload manifest to the new tag.
+4. Preserve the mounted config path and writable state volume at `/var/lib/viaduct`.
+5. Restart the workload and verify `/healthz`, `/readyz`, `/api/v1/about`, and the dashboard shell.
+
+## Native Bundle Or Source Upgrade
 
 From source:
 
@@ -21,7 +29,7 @@ make web-build
 
 From a packaged release bundle:
 1. Unpack the new bundle.
-2. Verify `release-manifest.json` and `SHA256SUMS.txt`.
+2. Verify `release-manifest.json`, `dependency-manifest.json`, and `SHA256SUMS`.
 3. Replace the existing binary with the new one.
 4. Replace the packaged web assets if you keep a separate installed copy of `share/viaduct/web`.
 

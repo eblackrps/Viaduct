@@ -6,8 +6,9 @@ This directory holds the deeper Viaduct documentation set. The repo-root docs ar
 
 - [Installation](getting-started/installation.md)
 - [Quickstart](getting-started/quickstart.md)
+- [Docker Operations](operations/docker.md)
 
-The default local path now starts with `viaduct start`, opens the WebUI at `http://127.0.0.1:8080`, and uses the shipped lab fixtures when no local config exists yet.
+Viaduct `v3.0.0` treats the signed OCI image as the canonical install surface. The default local contributor path still starts with `viaduct start`, opens the WebUI at `http://127.0.0.1:8080`, and uses the shipped lab fixtures when no local config exists yet.
 
 ## Operator Workflows
 

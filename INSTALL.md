@@ -22,14 +22,14 @@ Verify the image before rollout:
 ```bash
 cosign verify ghcr.io/eblackrps/viaduct:3.0.0 \
   --certificate-identity \
-  'https://github.com/eblackrps/viaduct/.github/workflows/image.yml@refs/tags/v3.0.0' \
+  'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.0.0' \
   --certificate-oidc-issuer \
   'https://token.actions.githubusercontent.com'
 ```
 
-Then follow the container guidance in [docs/operations/docker.md](docs/operations/docker.md) or the production sample in [deploy/docker-compose.prod.yml](deploy/docker-compose.prod.yml).
+Then follow the container guidance in [docs/operations/docker.md](docs/operations/docker.md), the production compose sample in [deploy/docker-compose.prod.yml](deploy/docker-compose.prod.yml), or the Helm chart defaults in [deploy/helm/viaduct](deploy/helm/viaduct).
 
-## Install From Source
+## Build From Source
 
 ```bash
 git clone https://github.com/eblackrps/Viaduct.git
@@ -51,7 +51,9 @@ On a fresh source checkout, `viaduct start` generates the default local lab conf
 The default local URL is [http://127.0.0.1:8080](http://127.0.0.1:8080).
 The same runtime also serves live API docs at [http://127.0.0.1:8080/api/v1/docs](http://127.0.0.1:8080/api/v1/docs).
 
-## Install From A Native Release Bundle
+This is the contributor and local-lab path. For packaged environments, prefer the signed OCI image above.
+
+## Native Release Bundle Alternative
 
 Tagged native bundles are attached to [GitHub Releases](https://github.com/eblackrps/Viaduct/releases) as an alternative path for operators who cannot run containers. The same layout can be generated locally through `make package-release-matrix`.
 

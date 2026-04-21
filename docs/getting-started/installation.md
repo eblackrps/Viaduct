@@ -1,6 +1,6 @@
 # Installation
 
-Viaduct can be evaluated from the signed OCI image, from source, or from a native release bundle when containers are not an option.
+Viaduct can be evaluated from the signed OCI image, from source, or from a native release bundle when containers are not an option. The OCI image is the canonical install surface for packaged environments.
 
 ## Canonical OCI Install
 
@@ -8,14 +8,14 @@ Viaduct can be evaluated from the signed OCI image, from source, or from a nativ
 docker pull ghcr.io/eblackrps/viaduct:3.0.0
 cosign verify ghcr.io/eblackrps/viaduct:3.0.0 \
   --certificate-identity \
-  'https://github.com/eblackrps/viaduct/.github/workflows/image.yml@refs/tags/v3.0.0' \
+  'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.0.0' \
   --certificate-oidc-issuer \
   'https://token.actions.githubusercontent.com'
 ```
 
-For runtime flags, upgrade guidance, and SBOM verification, continue with [../operations/docker.md](../operations/docker.md).
+For runtime flags, upgrade guidance, SBOM verification, the production compose sample, and the Helm chart defaults, continue with [../operations/docker.md](../operations/docker.md), [../../deploy/docker-compose.prod.yml](../../deploy/docker-compose.prod.yml), and [../../deploy/helm/viaduct](../../deploy/helm/viaduct).
 
-## Source Build
+## Source Build Alternative
 
 ### Prerequisites
 - Go 1.25.9+
@@ -37,7 +37,7 @@ On a fresh source checkout, `viaduct start` creates the default local lab config
 The browser-first flow starts on the runtime bootstrap screen, where the default local lab path offers a direct loopback-only `Use local operator session` action instead of requiring a pasted key.
 The same runtime also serves live operator API docs at `http://127.0.0.1:8080/api/v1/docs`.
 
-## Native Release Bundle
+## Native Release Bundle Alternative
 
 Tagged native bundles are attached to [GitHub Releases](https://github.com/eblackrps/Viaduct/releases) as an alternative path. The same structure can also be generated locally through `make package-release-matrix`.
 

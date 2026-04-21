@@ -1,8 +1,10 @@
 # Quickstart
 
-This quickstart uses the local KVM fixture lab so you can evaluate Viaduct end to end without a live hypervisor.
+This quickstart uses the local KVM fixture lab so you can evaluate Viaduct end to end without a live hypervisor. The signed OCI image is the canonical packaged deployment path in `v3.0.0`, but this remains the fastest route from clone to a working operator console.
 
 The default dashboard path is now WebUI-first and workspace-first: `viaduct start`, open the browser, create a workspace, discover, inspect, simulate, save a plan, and export a report.
+
+If you are deploying rather than building from source, start with [../operations/docker.md](../operations/docker.md).
 
 ## Prerequisites
 - Go 1.25.9+

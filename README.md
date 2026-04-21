@@ -63,7 +63,7 @@ These are current seeded-product captures from the packaged operator shell. They
 | Veeam Backup & Replication | Implemented | Backup discovery, restore-point correlation, and portability planning support. |
 | Community plugins | Supported | gRPC plugin host with manifest and compatibility checks. |
 
-## Canonical Install
+## Canonical Docker Install
 
 Viaduct `v3.0.0` treats the signed OCI image as the canonical production artifact.
 
@@ -71,16 +71,16 @@ Viaduct `v3.0.0` treats the signed OCI image as the canonical production artifac
 docker pull ghcr.io/eblackrps/viaduct:3.0.0
 cosign verify ghcr.io/eblackrps/viaduct:3.0.0 \
   --certificate-identity \
-  'https://github.com/eblackrps/viaduct/.github/workflows/image.yml@refs/tags/v3.0.0' \
+  'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.0.0' \
   --certificate-oidc-issuer \
   'https://token.actions.githubusercontent.com'
 ```
 
-Detailed container guidance lives in [docs/operations/docker.md](docs/operations/docker.md). Native bundles remain available on GitHub Releases as an alternative path for environments that cannot run containers.
+Detailed container guidance lives in [docs/operations/docker.md](docs/operations/docker.md). The production samples in [deploy/docker-compose.prod.yml](deploy/docker-compose.prod.yml) and [deploy/helm/viaduct](deploy/helm/viaduct) now reflect the canonical release path. Native bundles remain available on GitHub Releases as an alternative path for environments that cannot run containers.
 
-## First Run From Source
+## Source Build And Local Lab
 
-The cleanest path is the local lab in [examples/lab](examples/lab).
+The cleanest contributor and offline-evaluation path is still the local lab in [examples/lab](examples/lab). Docker is the canonical production install, but the local workspace-first flow remains fastest from a fresh clone.
 
 ```bash
 make build

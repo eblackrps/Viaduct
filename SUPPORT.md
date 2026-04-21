@@ -6,6 +6,7 @@ Viaduct is maintained as an open-source project with best-effort community suppo
 
 - Project overview and status: [README.md](README.md)
 - Install and first run: [INSTALL.md](INSTALL.md), [QUICKSTART.md](QUICKSTART.md)
+- Docker-first deployment and verification: [docs/operations/docker.md](docs/operations/docker.md)
 - Full docs map: [docs/README.md](docs/README.md)
 - Local runtime health: `viaduct status --runtime`, `viaduct doctor`
 - Build metadata and diagnostics: `/api/v1/about`, `/api/v1/health`
@@ -22,6 +23,7 @@ Viaduct is maintained as an open-source project with best-effort community suppo
 ## Useful Context To Include
 
 - `viaduct version` output or commit SHA
+- Docker image tag or digest if you are running the canonical OCI image
 - `request_id` from the UI or API when available
 - `migration_id`, `workspace_id`, `job_id`, or `snapshot_id` when relevant
 - relevant structured log lines when request logging is enabled

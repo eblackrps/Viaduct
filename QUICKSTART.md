@@ -1,8 +1,10 @@
 # Quickstart
 
-This is the fastest source-based evaluation path for Viaduct. It uses the local lab so you can reach the workspace-to-report flow without a live hypervisor estate.
+The signed OCI image is the canonical production install for Viaduct `v3.0.0`, but this quickstart remains the fastest local lab path from a fresh clone. It uses the shipped KVM fixtures so you can reach the workspace-to-report flow without a live hypervisor estate.
 
 The default operator path is now browser-first: start the local runtime, open the WebUI, create a workspace, discover, inspect, simulate, save a plan, and export a report.
+
+If you are deploying rather than evaluating from source, start with [INSTALL.md](INSTALL.md) and [docs/operations/docker.md](docs/operations/docker.md).
 
 ## 1. Build Viaduct
 

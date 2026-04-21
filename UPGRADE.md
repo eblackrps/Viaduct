@@ -5,11 +5,12 @@ This is the top-level upgrade entrypoint. Use it with [docs/operations/upgrade.m
 ## Recommended Upgrade Flow
 
 1. Record the current version with `viaduct version`.
-2. Back up your config and database state before replacing binaries.
-3. Build or unpack the new release bundle.
-4. Compare your config against [configs/config.example.yaml](configs/config.example.yaml) for new optional fields.
-5. Start the new binary and verify health, auth, inventory reads, and the dashboard shell at `/` when bundled web assets are present.
-6. Run `make release-gate` in a staging or pre-release environment when practical.
+2. Back up your config and database state before replacing the running deployment.
+3. If you deploy with Docker or Kubernetes, pull the new immutable semver image, verify its cosign signature, and update your Compose or Helm tag while preserving `/var/lib/viaduct` and your config mount.
+4. If you rely on native bundles or source builds, build or unpack the new release bundle and replace the binary plus matching web assets together.
+5. Compare your config against [configs/config.example.yaml](configs/config.example.yaml) for new optional fields.
+6. Start the new runtime and verify health, auth, inventory reads, and the dashboard shell at `/` when bundled web assets are present.
+7. Run `make release-gate` in a staging or pre-release environment when practical.
 
 ## Upgrade Notes
 
@@ -28,4 +29,4 @@ This is the top-level upgrade entrypoint. Use it with [docs/operations/upgrade.m
 
 ## Rollback
 
-If an upgrade regresses operator workflows, follow [docs/operations/rollback.md](docs/operations/rollback.md) and reinstall the last known-good binary with matching web assets.
+If an upgrade regresses operator workflows, follow [docs/operations/rollback.md](docs/operations/rollback.md) and roll back to the last known-good image tag or reinstall the last known-good native bundle with matching web assets.

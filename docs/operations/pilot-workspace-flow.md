@@ -13,6 +13,8 @@ A pilot workspace is the persisted assessment record that ties together:
 
 Use this workflow when you want one durable operator-owned document instead of bouncing between disconnected discovery, graph, simulation, and reporting surfaces.
 
+Viaduct `v3.0.0` treats the signed OCI image as the canonical packaged deployment path. The source-based lab flow below remains the fastest way to evaluate the operator console from a fresh clone.
+
 ## Recommended Backends
 
 - Local evaluation and demos: in-memory store is acceptable and keeps the `examples/lab` flow fast.
@@ -22,7 +24,7 @@ Use this workflow when you want one durable operator-owned document instead of b
 
 This path is the default local evaluation route from a fresh clone.
 
-## 1. Build And Start Viaduct
+## 1. Build And Start Viaduct From Source
 
 ```bash
 make build

@@ -45,6 +45,7 @@ Cause:
 - no runtime key or pre-seeded dashboard key is available for tenant-protected routes
 
 Fix:
+- if you are deploying with Docker, confirm the container is running with `docker ps` and inspect logs with `docker logs`
 - start `viaduct start`
 - open `http://127.0.0.1:8080` for the default same-origin operator path
 - set `VIADUCT_WEB_DIR` only if the built dashboard assets live outside the standard packaged or installed paths
@@ -73,7 +74,8 @@ Fix:
 - run `make web-build` before `viaduct start` in a source checkout
 - use `viaduct doctor` to confirm the resolved dashboard asset path
 - set `VIADUCT_WEB_DIR` only when the built dashboard assets live outside the standard packaged or installed paths
-- reinstall from a complete release bundle if the packaged `web/` layout is missing
+- rebuild or redeploy the container image if `/opt/viaduct/web` is missing in a packaged container environment
+- reinstall from a complete native release bundle if the packaged `web/` layout is missing
 
 ## Workspace Job Fails With `context deadline exceeded`
 
