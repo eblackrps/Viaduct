@@ -73,19 +73,19 @@ export function AppShell({
 		<div className="min-h-screen bg-transparent px-4 py-4 md:px-6 md:py-6">
 			<div
 				ref={shellContentRef}
-				className="mx-auto grid max-w-[1600px] gap-6 2xl:grid-cols-[304px_minmax(0,1fr)]"
+				className="mx-auto grid max-w-[1600px] gap-6 lg:grid-cols-[304px_minmax(0,1fr)]"
 			>
-				<aside className="hidden 2xl:block">
+				<aside className="hidden lg:block">
 					<div className="sticky top-6 space-y-4">
 						<div className="panel px-4 py-4">
-							<div className="rounded-[26px] bg-gradient-to-br from-ink via-steel to-slate-900 px-5 py-5 text-white shadow-[0_20px_38px_rgba(15,23,42,0.24)]">
+							<div className="rounded-2xl bg-gradient-to-br from-ink via-steel to-slate-900 px-5 py-5 text-white shadow-[0_20px_38px_rgba(15,23,42,0.24)]">
 								<p className="operator-kicker !text-slate-300">
 									Operator console
 								</p>
-								<p className="mt-3 font-display text-[2rem] leading-none tracking-[-0.04em]">
+								<p className="mt-3 font-display text-title leading-none text-white lg:text-display">
 									Viaduct
 								</p>
-								<p className="mt-3 text-sm leading-6 text-slate-200">
+								<p className="mt-3 text-body-sm text-slate-200">
 									Workspace-first migration operations with tenant-scoped
 									discovery, planning, execution, and governance in one place.
 								</p>
@@ -107,7 +107,7 @@ export function AppShell({
 							</div>
 						</div>
 
-						<div className="panel-muted px-4 py-4 text-sm text-slate-600">
+						<div className="panel-muted px-4 py-4 text-body-sm text-slate-600">
 							<p className="operator-kicker">Operator Flow</p>
 							<p className="mt-2 font-semibold text-ink">
 								Intake, discover, inspect, simulate, plan, execute, report.
@@ -129,7 +129,7 @@ export function AppShell({
 							aria-controls={navigationDrawerID}
 							aria-expanded={mobileNavOpen}
 							onClick={() => setMobileNavOpen(true)}
-							className="operator-button-secondary h-11 w-11 shrink-0 rounded-full px-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 focus-visible:ring-offset-paper 2xl:hidden"
+							className="operator-button-secondary h-11 w-11 shrink-0 rounded-full px-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 focus-visible:ring-offset-paper lg:hidden"
 						>
 							<Menu className="h-4 w-4" />
 						</button>

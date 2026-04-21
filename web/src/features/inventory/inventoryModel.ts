@@ -92,7 +92,7 @@ export interface InventoryAssessmentSourceState {
 	remediation: boolean;
 }
 
-export interface InventoryAssessmentSummary {
+interface InventoryAssessmentSummary {
 	total: number;
 	ready: number;
 	needsReview: number;

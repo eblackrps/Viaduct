@@ -41,7 +41,7 @@ export const defaultRoute: AppRoutePath = "/workspaces";
 
 export const navigationGroups: NavigationGroup[] = [
 	{
-		label: "Pilot",
+		label: "Operate",
 		items: [
 			{
 				path: "/workspaces",
@@ -51,11 +51,6 @@ export const navigationGroups: NavigationGroup[] = [
 					"Guide the workspace-first operator flow from intake and discovery through simulation, plan review, and report export.",
 				icon: FolderKanban,
 			},
-		],
-	},
-	{
-		label: "Operate",
-		items: [
 			{
 				path: "/dashboard",
 				label: "Overview",
@@ -112,7 +107,7 @@ export const navigationGroups: NavigationGroup[] = [
 		],
 	},
 	{
-		label: "Admin",
+		label: "Observe",
 		items: [
 			{
 				path: "/reports",
@@ -123,19 +118,6 @@ export const navigationGroups: NavigationGroup[] = [
 				icon: FileText,
 			},
 			{
-				path: "/settings",
-				label: "Settings",
-				title: "Operator Settings",
-				description:
-					"Inspect tenant context, runtime authentication, and dashboard-side operator assumptions.",
-				icon: Settings,
-			},
-		],
-	},
-	{
-		label: "Analysis",
-		items: [
-			{
 				path: "/graph",
 				label: "Dependency Graph",
 				title: "Dependency Graph",
@@ -145,9 +127,22 @@ export const navigationGroups: NavigationGroup[] = [
 			},
 		],
 	},
+	{
+		label: "Admin",
+		items: [
+			{
+				path: "/settings",
+				label: "Settings",
+				title: "Operator Settings",
+				description:
+					"Inspect tenant context, runtime authentication, and dashboard-side operator assumptions.",
+				icon: Settings,
+			},
+		],
+	},
 ];
 
-export const navigationItems = navigationGroups.flatMap((group) => group.items);
+const navigationItems = navigationGroups.flatMap((group) => group.items);
 const knownPaths = new Set(navigationItems.map((item) => item.path));
 
 export function getRouteHref(path: AppRoutePath): string {

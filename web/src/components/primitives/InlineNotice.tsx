@@ -29,7 +29,7 @@ export function InlineNotice({
 	className,
 }: InlineNoticeProps) {
 	const classes = [
-		"rounded-[22px] border px-4 py-3.5 text-sm leading-6",
+		"rounded-xl border px-4 py-3.5 text-body-sm",
 		toneClasses[tone],
 		className,
 	]

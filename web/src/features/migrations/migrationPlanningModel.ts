@@ -5,7 +5,7 @@ import type {
 	VirtualMachine,
 } from "../../types";
 
-export interface ExecutionWindowState {
+interface ExecutionWindowState {
 	kind: "unset" | "open" | "not-started" | "closed";
 	label: string;
 	summary: string;

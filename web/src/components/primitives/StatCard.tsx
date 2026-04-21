@@ -24,8 +24,8 @@ export function StatCard({
 	const classes = ["metric-card", className].filter(Boolean).join(" ");
 	const valueClassName =
 		emphasis === "large"
-			? "mt-3 font-display text-[2rem] leading-none tracking-[-0.03em] text-ink lg:text-[2.25rem]"
-			: "mt-2 text-sm font-semibold text-ink";
+			? "mt-3 font-display text-title leading-none text-ink lg:text-display"
+			: "mt-2 text-body-sm font-semibold text-ink";
 
 	return (
 		<article className={classes}>
@@ -37,7 +37,7 @@ export function StatCard({
 			</div>
 			<div className={valueClassName}>{value}</div>
 			{detail ? (
-				<div className="mt-2 text-sm leading-6 text-slate-600">{detail}</div>
+				<div className="mt-2 text-body-sm text-slate-600">{detail}</div>
 			) : null}
 		</article>
 	);

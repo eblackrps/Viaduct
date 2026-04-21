@@ -7,10 +7,16 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
 	testDir: "./tests/e2e",
 	testIgnore: "**/runtime-operator.spec.ts",
+	snapshotPathTemplate: "{testDir}/__snapshots__/{testFilePath}/{arg}{ext}",
 	timeout: 60_000,
 	workers: 1,
 	expect: {
 		timeout: 10_000,
+		toHaveScreenshot: {
+			caret: "hide",
+			maxDiffPixelRatio: 0.01,
+			scale: "css",
+		},
 	},
 	fullyParallel: false,
 	retries: process.env.CI ? 1 : 0,
@@ -28,9 +34,19 @@ export default defineConfig({
 	},
 	projects: [
 		{
-			name: "chromium",
+			name: "setup",
+			testMatch: "**/auth.setup.ts",
 			use: {
 				...devices["Desktop Chrome"],
+			},
+		},
+		{
+			name: "chromium",
+			dependencies: ["setup"],
+			testIgnore: ["**/auth.setup.ts", "**/runtime-operator.spec.ts"],
+			use: {
+				...devices["Desktop Chrome"],
+				storageState: "playwright/.auth/dashboard-operator.json",
 			},
 		},
 	],

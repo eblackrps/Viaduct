@@ -1,24 +1,61 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
-import { login } from "./auth";
+import {
+	emptyStorageState,
+	login,
+	navigateToRoute,
+	openAuthenticatedApp,
+	operatorRoutes,
+} from "./auth";
 
-test("keeps the auth bootstrap screen free of critical accessibility violations", async ({
-	page,
-}) => {
-	await page.goto("/");
-	await expect(
-		page.getByRole("heading", { name: "Connect the Viaduct dashboard" }),
-	).toBeVisible();
+function expectNoSeriousOrCriticalViolations(
+	results: Awaited<ReturnType<AxeBuilder["analyze"]>>,
+) {
+	const actionableViolations = results.violations.filter(
+		(violation) =>
+			violation.impact === "critical" || violation.impact === "serious",
+	);
+	expect(actionableViolations).toEqual([]);
+}
 
-	const results = await new AxeBuilder({ page }).analyze();
-	expect(results.violations).toEqual([]);
+test.describe("unauthenticated accessibility", () => {
+	test.use({ storageState: emptyStorageState });
+
+	test("keeps the auth bootstrap screen free of critical accessibility violations", async ({
+		page,
+	}) => {
+		await page.goto("/");
+		await expect(
+			page.getByRole("heading", { name: "Connect the Viaduct dashboard" }),
+		).toBeVisible();
+
+		const results = await new AxeBuilder({ page }).analyze();
+		expectNoSeriousOrCriticalViolations(results);
+	});
 });
 
 test("keeps the authenticated workspace flow free of critical accessibility violations", async ({
 	page,
 }) => {
-	await login(page);
+	await openAuthenticatedApp(page);
 
 	const results = await new AxeBuilder({ page }).analyze();
-	expect(results.violations).toEqual([]);
+	expectNoSeriousOrCriticalViolations(results);
+});
+
+test("keeps the top-level operator routes free of serious accessibility violations", async ({
+	page,
+}) => {
+	await openAuthenticatedApp(page);
+
+	for (const route of operatorRoutes) {
+		await test.step(route.label, async () => {
+			await navigateToRoute(page, route);
+
+			const results = await new AxeBuilder({ page })
+				.include("main")
+				.analyze();
+			expectNoSeriousOrCriticalViolations(results);
+		});
+	}
 });

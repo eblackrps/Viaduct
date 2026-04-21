@@ -4,14 +4,14 @@
  * tab until the page reloads, the tab closes, or sign-out clears the session.
  */
 export type DashboardAuthMode = "local" | "tenant" | "service-account" | "none";
-export type DashboardAuthSource = "runtime" | "environment" | "none";
+type DashboardAuthSource = "runtime" | "environment" | "none";
 export type DashboardAuthPersistence =
 	| "session"
 	| "local"
 	| "environment"
 	| "none";
 
-export interface DashboardAuthSession {
+interface DashboardAuthSession {
 	mode: DashboardAuthMode;
 	apiKey: string;
 	source: DashboardAuthSource;

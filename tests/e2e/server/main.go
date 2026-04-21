@@ -79,7 +79,7 @@ func seedState(ctx context.Context, stateStore store.Store) error {
 		CreatedAt: now.Add(-2 * time.Hour),
 		Active:    true,
 		Quotas: models.TenantQuota{
-			RequestsPerMinute: 240,
+			RequestsPerMinute: 5000,
 			MaxSnapshots:      25,
 			MaxMigrations:     25,
 		},

@@ -263,7 +263,7 @@ export function AuthBootstrapScreen({ auth }: AuthBootstrapScreenProps) {
 										key={item.step}
 										className="metric-surface flex items-start gap-3"
 									>
-										<span className="inline-flex h-11 w-11 items-center justify-center rounded-[18px] bg-ink text-sm font-semibold text-white shadow-[0_10px_20px_rgba(15,23,42,0.18)]">
+							<span className="inline-flex h-11 w-11 items-center justify-center rounded-lg bg-ink text-body-sm font-semibold text-white shadow-[0_10px_20px_rgba(15,23,42,0.18)]">
 											{item.step}
 										</span>
 										<div>
@@ -329,7 +329,7 @@ export function AuthBootstrapScreen({ auth }: AuthBootstrapScreenProps) {
 							</div>
 							<div className="mt-5 metric-surface text-sm text-slate-600">
 								<div className="flex items-start gap-3">
-									<div className="state-icon h-10 w-10 rounded-[16px] bg-white text-slate-600">
+								<div className="state-icon h-10 w-10 rounded-md bg-white text-slate-600">
 										<ShieldCheck className="h-4 w-4" />
 									</div>
 									<div>

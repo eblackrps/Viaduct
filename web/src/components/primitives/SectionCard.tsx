@@ -39,12 +39,12 @@ export function SectionCard({
 					<div className="min-w-0 max-w-4xl">
 						{eyebrow && <p className="operator-kicker">{eyebrow}</p>}
 						{title && (
-							<TitleTag className="mt-2 font-display text-[1.55rem] leading-tight tracking-[-0.03em] text-ink lg:text-[1.75rem]">
+							<TitleTag className="mt-2 font-display text-subtitle text-ink lg:text-title">
 								{title}
 							</TitleTag>
 						)}
 						{description && (
-							<p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600">
+							<p className="mt-3 max-w-3xl text-body-sm text-slate-600">
 								{description}
 							</p>
 						)}

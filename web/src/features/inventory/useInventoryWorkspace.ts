@@ -18,7 +18,7 @@ const defaultFilters: InventoryFilterState = {
 	scope: "all",
 };
 
-export interface InventoryWorkspaceState {
+interface InventoryWorkspaceState {
 	filters: InventoryFilterState;
 	sortKey: InventorySortKey;
 	sortDirection: "asc" | "desc";

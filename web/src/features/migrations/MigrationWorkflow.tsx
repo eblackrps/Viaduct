@@ -127,7 +127,7 @@ export function MigrationWorkflow({
 							key={label}
 							type="button"
 							onClick={() => workspace.setStage(index)}
-							className={`rounded-[24px] border px-4 py-4 text-left transition duration-200 ${
+								className={`rounded-2xl border px-4 py-4 text-left transition duration-200 ${
 								workspace.stage === index
 									? "border-ink bg-ink text-white shadow-[0_18px_30px_rgba(15,23,42,0.22)]"
 									: index < workspace.stage

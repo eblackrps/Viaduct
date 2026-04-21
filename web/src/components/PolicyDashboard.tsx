@@ -52,7 +52,7 @@ export function PolicyDashboard({ report }: PolicyDashboardProps) {
 					{(report?.violations ?? []).map((violation, index) => (
 						<article
 							key={`${violation.vm.id}-${violation.rule.field}-${index}`}
-							className="rounded-[24px] border border-amber-200/90 bg-amber-50/80 px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]"
+								className="rounded-2xl border border-amber-200/90 bg-amber-50/80 px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]"
 						>
 							<div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
 								<div>

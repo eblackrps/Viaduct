@@ -7,7 +7,7 @@ import type {
 	PreflightReport,
 } from "../../types";
 
-export type MigrationWorkflowStatus =
+type MigrationWorkflowStatus =
 	| "draft"
 	| "ready"
 	| "warning"
@@ -17,7 +17,7 @@ export type MigrationWorkflowStatus =
 	| "completed"
 	| "rolled-back";
 
-export type PersistedMigrationListStatus =
+type PersistedMigrationListStatus =
 	| "planned"
 	| "running"
 	| "failed"
@@ -179,27 +179,6 @@ export function getLocalPlanningWorkflowStatus({
 	}
 
 	return "draft";
-}
-
-export function countMigrationsByWorkflowStatus(
-	migrations: MigrationMeta[],
-): Record<MigrationWorkflowStatus, number> {
-	const counts: Record<MigrationWorkflowStatus, number> = {
-		draft: 0,
-		ready: 0,
-		warning: 0,
-		blocked: 0,
-		running: 0,
-		failed: 0,
-		completed: 0,
-		"rolled-back": 0,
-	};
-
-	for (const migration of migrations) {
-		counts[getMigrationWorkflowStatus(migration)] += 1;
-	}
-
-	return counts;
 }
 
 export function getPersistedMigrationListStatus(

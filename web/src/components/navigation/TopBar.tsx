@@ -71,13 +71,13 @@ export function TopBar({
 
 				<div className="flex flex-wrap items-center gap-2 lg:justify-end">
 					{authSummary ? (
-						<div className="panel-muted inline-flex items-center gap-2 px-3.5 py-2.5 text-xs font-semibold text-slate-600">
+						<div className="panel-muted inline-flex items-center gap-2 px-3.5 py-2.5 text-caption text-slate-600">
 							<KeyRound className="h-3.5 w-3.5 text-slate-400" />
 							<div>
-								<p className="text-[0.72rem] text-slate-500">
+								<p className="text-caption text-slate-500">
 									{authSummary.modeLabel}
 								</p>
-								<p className="mt-0.5 text-slate-700">
+								<p className="mt-0.5 text-body-sm text-slate-700">
 									{authSummary.persistenceLabel}
 								</p>
 							</div>
@@ -87,7 +87,7 @@ export function TopBar({
 						<button
 							type="button"
 							onClick={onSignOut}
-							className="operator-button-secondary px-3.5 py-2.5 text-xs"
+							className="operator-button-secondary px-3.5 py-2.5 text-caption"
 						>
 							<LogOut className="h-3.5 w-3.5" />
 							Sign out
@@ -97,7 +97,7 @@ export function TopBar({
 						type="button"
 						onClick={() => void onRefresh()}
 						disabled={refreshing}
-						className="operator-button-secondary px-3.5 py-2.5 text-xs"
+						className="operator-button-secondary px-3.5 py-2.5 text-caption"
 					>
 						<RefreshCcw
 							className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`}

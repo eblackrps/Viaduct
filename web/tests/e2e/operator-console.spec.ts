@@ -1,24 +1,35 @@
 import { expect, test } from "@playwright/test";
-import { login, navigateTo } from "./auth";
+import {
+	emptyStorageState,
+	login,
+	navigateTo,
+	openAuthenticatedApp,
+} from "./auth";
 
-test("authenticates with the seeded service-account flow", async ({ page }) => {
-	await login(page);
+test.describe("explicit authentication flow", () => {
+	test.use({ storageState: emptyStorageState });
 
-	await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
-	await expect(
-		page.getByRole("heading", { name: "E2E Lab Workspace" }),
-	).toBeVisible();
+	test("authenticates with the seeded service-account flow", async ({
+		page,
+	}) => {
+		await login(page);
 
-	const cookies = await page.context().cookies();
-	expect(
-		cookies.some((cookie) => cookie.name === "viaduct_dashboard_session"),
-	).toBeTruthy();
+		await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
+		await expect(
+			page.getByRole("heading", { name: "E2E Lab Workspace" }),
+		).toBeVisible();
+
+		const cookies = await page.context().cookies();
+		expect(
+			cookies.some((cookie) => cookie.name === "viaduct_dashboard_session"),
+		).toBeTruthy();
+	});
 });
 
 test("loads the operational dashboard from the seeded API", async ({
 	page,
 }) => {
-	await login(page);
+	await openAuthenticatedApp(page);
 
 	await navigateTo(page, "Overview");
 
@@ -33,7 +44,8 @@ test("loads the operational dashboard from the seeded API", async ({
 test("supports keyboard dismissal and focus restoration for collapsed navigation", async ({
 	page,
 }) => {
-	await login(page);
+	await page.setViewportSize({ width: 390, height: 844 });
+	await openAuthenticatedApp(page);
 
 	const openNavigationButton = page.getByRole("button", {
 		name: "Open navigation",
@@ -59,7 +71,7 @@ test("supports keyboard dismissal and focus restoration for collapsed navigation
 test("renders seeded inventory rows in the workload table", async ({
 	page,
 }) => {
-	await login(page);
+	await openAuthenticatedApp(page);
 
 	await navigateTo(page, "Inventory");
 	await expect(
@@ -89,7 +101,7 @@ test("reveals workload detail from the mobile inventory card flow", async ({
 	page,
 }) => {
 	await page.setViewportSize({ width: 390, height: 844 });
-	await login(page);
+	await openAuthenticatedApp(page);
 
 	await navigateTo(page, "Inventory");
 	const detailHeading = page.getByRole("heading", { name: "Workload detail" });
@@ -104,7 +116,7 @@ test("reveals workload detail from the mobile inventory card flow", async ({
 test("creates a migration plan from the real offline KVM fixtures", async ({
 	page,
 }) => {
-	await login(page);
+	await openAuthenticatedApp(page);
 
 	await navigateTo(page, "Inventory");
 	await expect(
@@ -162,10 +174,10 @@ test("creates a migration plan from the real offline KVM fixtures", async ({
 	).toBeVisible();
 });
 
-	test("saves a focused workload from the workspace detail panel", async ({
+test("saves a focused workload from the workspace detail panel", async ({
 	page,
 }) => {
-	await login(page);
+	await openAuthenticatedApp(page);
 
 	await page.getByRole("row", { name: /ubuntu-web-01/i }).click();
 	const detailSaveButton = page
@@ -180,33 +192,37 @@ test("creates a migration plan from the real offline KVM fixtures", async ({
 	).toBeChecked();
 });
 
-test("shows the workspace error state when the workspace list fails", async ({
-	page,
-}) => {
-	await page.route("**/api/v1/workspaces", async (route) => {
-		await route.fulfill({
-			status: 500,
-			contentType: "application/json",
-			body: JSON.stringify({
-				error: {
-					code: "internal_error",
-					message: "forced workspace failure for E2E coverage",
-					request_id: "req-e2e-workspaces",
-					retryable: true,
-					details: {},
-					field_errors: [],
-				},
-			}),
+test.describe("workspace failure state", () => {
+	test.use({ storageState: emptyStorageState });
+
+	test("shows the workspace error state when the workspace list fails", async ({
+		page,
+	}) => {
+		await page.route("**/api/v1/workspaces", async (route) => {
+			await route.fulfill({
+				status: 500,
+				contentType: "application/json",
+				body: JSON.stringify({
+					error: {
+						code: "internal_error",
+						message: "forced workspace failure for E2E coverage",
+						request_id: "req-e2e-workspaces",
+						retryable: true,
+						details: {},
+						field_errors: [],
+					},
+				}),
+			});
 		});
+
+		await login(page, { landingHeading: "Pilot workspaces unavailable" });
+
+		await expect(
+			page.getByRole("heading", { name: "Pilot workspaces unavailable" }),
+		).toBeVisible();
+		await expect(
+			page.getByText(/forced workspace failure for E2E coverage/i),
+		).toBeVisible();
+		await expect(page.getByRole("button", { name: "Retry" })).toBeVisible();
 	});
-
-	await login(page, { landingHeading: "Pilot workspaces unavailable" });
-
-	await expect(
-		page.getByRole("heading", { name: "Pilot workspaces unavailable" }),
-	).toBeVisible();
-	await expect(
-		page.getByText(/forced workspace failure for E2E coverage/i),
-	).toBeVisible();
-	await expect(page.getByRole("button", { name: "Retry" })).toBeVisible();
 });

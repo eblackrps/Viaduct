@@ -206,7 +206,7 @@ export function MigrationScopeStage({ workspace }: StageProps) {
 										return (
 											<label
 												key={key}
-												className={`flex items-start gap-3 rounded-[22px] border px-4 py-4 text-sm transition ${selected ? "border-sky-200 bg-sky-50/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]" : "border-slate-200/80 bg-white/85 hover:bg-slate-50/90"}`}
+							className={`flex items-start gap-3 rounded-xl border px-4 py-4 text-body-sm transition ${selected ? "border-sky-200 bg-sky-50/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]" : "border-slate-200/80 bg-white/85 hover:bg-slate-50/90"}`}
 											>
 												<input
 													type="checkbox"
@@ -345,7 +345,7 @@ export function MigrationPrepareStage({ workspace }: StageProps) {
 							/>
 						</label>
 					</div>
-					<div className="mt-5 space-y-3 rounded-[22px] border border-slate-200/80 bg-slate-50/88 px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
+					<div className="mt-5 space-y-3 rounded-xl border border-slate-200/80 bg-slate-50/88 px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
 						<label className="flex items-center gap-3 text-sm font-semibold text-ink">
 							<input
 								type="checkbox"
