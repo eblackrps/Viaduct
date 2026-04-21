@@ -200,8 +200,8 @@ func TestServer_PersistAuditEvent_RetriesBeforeQueueFallback_Expected(t *testing
 	if err := server.persistAuditEvent(context.Background(), event); err != nil {
 		t.Fatalf("persistAuditEvent() error = %v", err)
 	}
-	if stateStore.saveAuditCalls != 2 {
-		t.Fatalf("saveAuditCalls = %d, want 2", stateStore.saveAuditCalls)
+	if got := stateStore.saveAuditCallCount(); got != 2 {
+		t.Fatalf("saveAuditCalls = %d, want 2", got)
 	}
 	if _, err := stateStore.ListAuditEvents(context.Background(), store.DefaultTenantID, 10); err != nil {
 		t.Fatalf("ListAuditEvents() error = %v", err)
@@ -220,6 +220,7 @@ func TestServer_PersistAuditEvent_QueuesAfterRetryFailure_Expected(t *testing.T)
 	}
 	server := mustNewServer(t, stateStore)
 	server.auditRetryPath = filepath.Join(t.TempDir(), "audit-retry.log")
+	server.auditFlusherWake = nil
 
 	event := server.normalizeAuditEvent(
 		store.ContextWithTenantID(context.Background(), store.DefaultTenantID),
@@ -233,8 +234,8 @@ func TestServer_PersistAuditEvent_QueuesAfterRetryFailure_Expected(t *testing.T)
 	if err := server.persistAuditEvent(context.Background(), event); err != nil {
 		t.Fatalf("persistAuditEvent() error = %v", err)
 	}
-	if stateStore.saveAuditCalls != 2 {
-		t.Fatalf("saveAuditCalls = %d, want 2", stateStore.saveAuditCalls)
+	if got := stateStore.saveAuditCallCount(); got != 2 {
+		t.Fatalf("saveAuditCalls = %d, want 2", got)
 	}
 	payload, err := os.ReadFile(server.auditRetryPath)
 	if err != nil {
@@ -244,9 +245,7 @@ func TestServer_PersistAuditEvent_QueuesAfterRetryFailure_Expected(t *testing.T)
 		t.Fatalf("audit retry queue payload = %q, want queued event", string(payload))
 	}
 
-	stateStore.mu.Lock()
-	stateStore.failuresRemaining = 0
-	stateStore.mu.Unlock()
+	stateStore.setFailuresRemaining(0)
 	server.cancelBackgroundTasks()
 
 	events, err := stateStore.ListAuditEvents(context.Background(), store.DefaultTenantID, 10)
@@ -277,4 +276,16 @@ func (s *flakyAuditStore) SaveAuditEvent(ctx context.Context, event models.Audit
 		return fmt.Errorf("simulated audit failure")
 	}
 	return s.MemoryStore.SaveAuditEvent(ctx, event)
+}
+
+func (s *flakyAuditStore) saveAuditCallCount() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.saveAuditCalls
+}
+
+func (s *flakyAuditStore) setFailuresRemaining(remaining int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.failuresRemaining = remaining
 }
