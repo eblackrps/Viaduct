@@ -47,6 +47,7 @@ func init() {
 	rootCmd.AddCommand(
 		newDiscoverCommand(),
 		newDoctorCommand(),
+		newHealthcheckCommand(),
 		newPlanCommand(),
 		newStartCommand(),
 		newMigrateCommand(),

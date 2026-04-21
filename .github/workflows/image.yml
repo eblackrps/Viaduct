@@ -1,0 +1,428 @@
+name: Image
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+  packages: write
+
+env:
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/viaduct
+  DOCKER_METADATA_SHORT_SHA_LENGTH: 12
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "20.20.0"
+          cache: "npm"
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install Gosec
+        shell: bash
+        run: |
+          set -euo pipefail
+          go install github.com/securego/gosec/v2/cmd/gosec@v2.22.9
+
+      - name: Install Web Dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd web
+          npm ci
+
+      - name: Install Playwright browsers
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd web
+          npx playwright install --with-deps chromium
+
+      - name: Run Go verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          go vet ./...
+          go test ./... -race -count=1 -timeout 15m
+
+      - name: Run Gosec
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$(go env GOPATH)/bin/gosec" -quiet ./...
+
+      - name: Run Trivy filesystem scan
+        uses: aquasecurity/trivy-action@v0.35.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+
+      - name: Run web verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd web
+          npm run lint -- --max-warnings=0
+          npm run format
+          npm run test -- --run
+          npm run build
+
+      - name: Run Playwright regression suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd web
+          npx playwright test --reporter=line
+
+  image:
+    needs: build-test
+    runs-on: ubuntu-latest
+    outputs:
+      build_date: ${{ steps.meta_vars.outputs.build_date }}
+      digest: ${{ steps.digest.outputs.digest }}
+      image_name: ${{ env.IMAGE_NAME }}
+      package_version: ${{ steps.meta_vars.outputs.package_version }}
+      primary_tag: ${{ steps.meta.outputs.version }}
+      release_tag: ${{ steps.meta_vars.outputs.release_tag }}
+      workflow_identity: ${{ steps.meta_vars.outputs.workflow_identity }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Derive image metadata
+        id: meta_vars
+        shell: bash
+        run: |
+          set -euo pipefail
+          WORKFLOW_REF="${GITHUB_REF}"
+          RELEASE_TAG=""
+          PACKAGE_VERSION="edge"
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            RELEASE_TAG="${GITHUB_REF_NAME}"
+            PACKAGE_VERSION="${RELEASE_TAG#v}"
+          fi
+          BUILD_DATE="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+          WORKFLOW_IDENTITY="https://github.com/${GITHUB_REPOSITORY}/.github/workflows/image.yml@${WORKFLOW_REF}"
+          echo "build_date=${BUILD_DATE}" >> "${GITHUB_OUTPUT}"
+          echo "package_version=${PACKAGE_VERSION}" >> "${GITHUB_OUTPUT}"
+          echo "release_tag=${RELEASE_TAG}" >> "${GITHUB_OUTPUT}"
+          echo "workflow_identity=${WORKFLOW_IDENTITY}" >> "${GITHUB_OUTPUT}"
+
+      - uses: docker/setup-qemu-action@v4.0.0
+
+      - uses: docker/setup-buildx-action@v4.0.0
+
+      - uses: docker/login-action@v4.1.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v6.0.0
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          flavor: |
+            latest=false
+          tags: |
+            type=edge,branch=main,enable=${{ github.ref == 'refs/heads/main' }}
+            type=semver,pattern={{version}},enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=semver,pattern={{major}}.{{minor}},enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=semver,pattern={{major}},enable=${{ startsWith(github.ref, 'refs/tags/v') && !startsWith(github.ref, 'refs/tags/v0.') }}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=sha,prefix=sha-
+
+      - name: Build and push OCI image
+        id: bake
+        uses: docker/bake-action@v7.1.0
+        with:
+          files: |
+            ./docker-bake.hcl
+            cwd://${{ steps.meta.outputs.bake-file-tags }}
+            cwd://${{ steps.meta.outputs.bake-file-labels }}
+          targets: image
+          push: true
+          set: |
+            *.args.VERSION=${{ steps.meta_vars.outputs.package_version }}
+            *.args.COMMIT=${{ github.sha }}
+            *.args.BUILD_DATE=${{ steps.meta_vars.outputs.build_date }}
+
+      - name: Resolve pushed digest
+        id: digest
+        shell: bash
+        run: |
+          set -euo pipefail
+          DIGEST="$(docker buildx imagetools inspect "${IMAGE_NAME}:${PRIMARY_TAG}" | awk '/Digest:/ { print $2; exit }')"
+          if [[ -z "${DIGEST}" ]]; then
+            echo "failed to resolve image digest" >&2
+            exit 1
+          fi
+          echo "digest=${DIGEST}" >> "${GITHUB_OUTPUT}"
+        env:
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+          PRIMARY_TAG: ${{ steps.meta.outputs.version }}
+
+  sign:
+    needs: image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: sigstore/cosign-installer@v4.1.1
+
+      - name: Sign published image
+        shell: bash
+        run: |
+          set -euo pipefail
+          cosign sign --yes "${IMAGE_NAME}@${DIGEST}"
+        env:
+          IMAGE_NAME: ${{ needs.image.outputs.image_name }}
+          DIGEST: ${{ needs.image.outputs.digest }}
+
+      - name: Verify published signature
+        shell: bash
+        run: |
+          set -euo pipefail
+          WORKFLOW_IDENTITY="${{ needs.image.outputs.workflow_identity }}"
+          cosign verify \
+            --certificate-identity "${WORKFLOW_IDENTITY}" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            "${IMAGE_NAME}@${DIGEST}"
+        env:
+          IMAGE_NAME: ${{ needs.image.outputs.image_name }}
+          DIGEST: ${{ needs.image.outputs.digest }}
+
+  sbom:
+    needs:
+      - image
+      - sign
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: docker/login-action@v4.1.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: anchore/sbom-action/download-syft@v0.24.0
+
+      - uses: sigstore/cosign-installer@v4.1.1
+
+      - name: Generate image SBOMs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          syft "${IMAGE_NAME}@${DIGEST}" -o spdx-json="dist/viaduct_${PACKAGE_VERSION}_image.spdx.json"
+          syft "${IMAGE_NAME}@${DIGEST}" -o cyclonedx-json="dist/viaduct_${PACKAGE_VERSION}_image.cdx.json"
+        env:
+          IMAGE_NAME: ${{ needs.image.outputs.image_name }}
+          DIGEST: ${{ needs.image.outputs.digest }}
+          PACKAGE_VERSION: ${{ needs.image.outputs.package_version }}
+
+      - name: Attest image SBOMs
+        shell: bash
+        run: |
+          set -euo pipefail
+          cosign attest --yes --type spdxjson --predicate "dist/viaduct_${PACKAGE_VERSION}_image.spdx.json" "${IMAGE_NAME}@${DIGEST}"
+          cosign attest --yes --type cyclonedx --predicate "dist/viaduct_${PACKAGE_VERSION}_image.cdx.json" "${IMAGE_NAME}@${DIGEST}"
+        env:
+          IMAGE_NAME: ${{ needs.image.outputs.image_name }}
+          DIGEST: ${{ needs.image.outputs.digest }}
+          PACKAGE_VERSION: ${{ needs.image.outputs.package_version }}
+
+      - name: Upload SBOM assets
+        uses: actions/upload-artifact@v7
+        with:
+          name: image-sbom-assets
+          path: dist/viaduct_*_image.*.json
+          if-no-files-found: error
+
+  provenance:
+    needs: image
+    permissions:
+      actions: read
+      id-token: write
+      packages: write
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.1.0
+    with:
+      image: ${{ needs.image.outputs.image_name }}
+      digest: ${{ needs.image.outputs.digest }}
+      registry-username: ${{ github.actor }}
+      compile-generator: true
+    secrets:
+      registry-password: ${{ secrets.GITHUB_TOKEN }}
+
+  scan:
+    needs:
+      - image
+      - sign
+    runs-on: ubuntu-latest
+    steps:
+      - name: Authenticate to GHCR for image scan
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "${GITHUB_TOKEN}" | docker login ghcr.io -u "${GITHUB_ACTOR}" --password-stdin
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run Trivy image scan
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            -v "${HOME}/.docker/config.json:/root/.docker/config.json:ro" \
+            aquasec/trivy:0.63.0 \
+            image --severity HIGH,CRITICAL --exit-code 1 "${IMAGE_NAME}@${DIGEST}"
+        env:
+          IMAGE_NAME: ${{ needs.image.outputs.image_name }}
+          DIGEST: ${{ needs.image.outputs.digest }}
+
+  native-bundles:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "20.20.0"
+          cache: "npm"
+          cache-dependency-path: web/package-lock.json
+
+      - uses: sigstore/cosign-installer@v4.1.1
+
+      - name: Build cross-platform release bundles
+        shell: bash
+        run: |
+          set -euo pipefail
+          make package-release-matrix VERSION="${GITHUB_REF_NAME}"
+
+      - name: Sign native bundle assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          artifacts=(dist/*.tar.gz dist/*.zip)
+          if [[ ${#artifacts[@]} -eq 0 ]]; then
+            echo "no native bundle artifacts found" >&2
+            exit 1
+          fi
+          for artifact in "${artifacts[@]}"; do
+            bundle="${artifact}.sigstore.json"
+            cosign sign-blob --yes --bundle "${bundle}" "${artifact}"
+            ARTIFACT_PATH="${artifact}" BUNDLE_PATH="${bundle}" python -c "import json, os, textwrap; from pathlib import Path; bundle = Path(os.environ['BUNDLE_PATH']); data = json.loads(bundle.read_text(encoding='utf-8')); Path(os.environ['ARTIFACT_PATH'] + '.sig').write_text(data['messageSignature']['signature'] + '\n', encoding='utf-8'); cert = data['verificationMaterial']['certificate']['rawBytes']; pem = '-----BEGIN CERTIFICATE-----\n' + '\n'.join(textwrap.wrap(cert, 64)) + '\n-----END CERTIFICATE-----\n'; Path(os.environ['ARTIFACT_PATH'] + '.pem').write_text(pem, encoding='utf-8')"
+            cosign verify-blob \
+              --certificate "${artifact}.pem" \
+              --signature "${artifact}.sig" \
+              --certificate-identity "https://github.com/${GITHUB_REPOSITORY}/.github/workflows/image.yml@${GITHUB_REF}" \
+              --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+              "${artifact}"
+            rm -f "${bundle}"
+          done
+          checksum_inputs=("${artifacts[@]}" dist/*.sig dist/*.pem)
+          sha256sum "${checksum_inputs[@]}" | sed 's#  dist/#  #' > dist/SHA256SUMS
+          bundle="dist/SHA256SUMS.sigstore.json"
+          cosign sign-blob --yes --bundle "${bundle}" dist/SHA256SUMS
+          ARTIFACT_PATH="dist/SHA256SUMS" BUNDLE_PATH="${bundle}" python -c "import json, os, textwrap; from pathlib import Path; bundle = Path(os.environ['BUNDLE_PATH']); data = json.loads(bundle.read_text(encoding='utf-8')); Path(os.environ['ARTIFACT_PATH'] + '.sig').write_text(data['messageSignature']['signature'] + '\n', encoding='utf-8'); cert = data['verificationMaterial']['certificate']['rawBytes']; pem = '-----BEGIN CERTIFICATE-----\n' + '\n'.join(textwrap.wrap(cert, 64)) + '\n-----END CERTIFICATE-----\n'; Path(os.environ['ARTIFACT_PATH'] + '.pem').write_text(pem, encoding='utf-8')"
+          cosign verify-blob \
+            --certificate dist/SHA256SUMS.pem \
+            --signature dist/SHA256SUMS.sig \
+            --certificate-identity "https://github.com/${GITHUB_REPOSITORY}/.github/workflows/image.yml@${GITHUB_REF}" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            dist/SHA256SUMS
+          rm -f "${bundle}"
+
+      - name: Upload native bundle assets
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-release-assets
+          path: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/*.sig
+            dist/*.pem
+            dist/SHA256SUMS
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs:
+      - image
+      - sign
+      - sbom
+      - provenance
+      - scan
+      - native-bundles
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Download native bundle assets
+        uses: actions/download-artifact@v5
+        with:
+          name: native-release-assets
+          path: dist
+
+      - name: Download image SBOM assets
+        uses: actions/download-artifact@v5
+        with:
+          name: image-sbom-assets
+          path: dist
+
+      - name: Create or update GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          release_notes="docs/releases/${GITHUB_REF_NAME}.md"
+          if [[ ! -f "${release_notes}" ]]; then
+            echo "missing release notes at ${release_notes}" >&2
+            exit 1
+          fi
+          release_assets=(dist/*)
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            gh release edit "${GITHUB_REF_NAME}" \
+              --title "Viaduct ${GITHUB_REF_NAME}" \
+              --latest \
+              --notes-file "${release_notes}"
+            gh release upload "${GITHUB_REF_NAME}" --clobber "${release_assets[@]}"
+          else
+            gh release create "${GITHUB_REF_NAME}" \
+              --title "Viaduct ${GITHUB_REF_NAME}" \
+              --latest \
+              --notes-file "${release_notes}" \
+              "${release_assets[@]}"
+          fi
