@@ -249,7 +249,7 @@ describe("api", () => {
 		expect(getInflightDedupeCount()).toBe(1);
 
 		resolveFetch?.(
-			new Response(JSON.stringify({ version: "2.7.0" }), { status: 200 }),
+			new Response(JSON.stringify({ version: "3.0.0" }), { status: 200 }),
 		);
 
 		await Promise.all([thirdPromise, secondPromise, firstPromise]);
@@ -276,7 +276,7 @@ describe("api", () => {
 		expect(getInflightDedupeCount()).toBe(1);
 
 		resolveFetch?.(
-			new Response(JSON.stringify({ version: "2.7.0" }), { status: 200 }),
+			new Response(JSON.stringify({ version: "3.0.0" }), { status: 200 }),
 		);
 
 		const secondBatch = Array.from({ length: 25 }, () =>
@@ -293,7 +293,7 @@ describe("api", () => {
 		const fetchMock = vi
 			.fn()
 			.mockResolvedValue(
-				new Response(JSON.stringify({ version: "2.7.0" }), { status: 200 }),
+				new Response(JSON.stringify({ version: "3.0.0" }), { status: 200 }),
 			);
 		vi.stubGlobal("fetch", fetchMock);
 

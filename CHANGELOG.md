@@ -6,6 +6,8 @@ This changelog tracks published releases and the major implementation milestones
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-04-21
+
 ### Release Model And Packaging
 
 - shifted Viaduct to a Docker-canonical release model: the signed multi-arch GHCR image is now the primary release artifact, while native binary bundles remain published as an alternative path for operators who cannot run containers
