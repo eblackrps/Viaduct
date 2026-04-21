@@ -1,6 +1,8 @@
 package ci
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -17,6 +19,14 @@ func TestImageWorkflow_UsesDockerMetadataAndBake_Expected(t *testing.T) {
 	buildStep := workflow.stepNamed(t, "image", "Build and push OCI image")
 	if buildStep.Uses != "docker/bake-action@v7.1.0" {
 		t.Fatalf("build step uses = %q, want docker/bake-action@v7.1.0", buildStep.Uses)
+	}
+
+	images, ok := metaStep.With["images"].(string)
+	if !ok {
+		t.Fatalf("metadata images = %#v, want string", metaStep.With["images"])
+	}
+	if images != "${{ steps.meta_vars.outputs.registry_images }}" {
+		t.Fatalf("metadata images = %q, want registry image list derived from metadata step", images)
 	}
 }
 
@@ -57,6 +67,18 @@ func TestImageWorkflow_TagDerivationAndIdentity_Expected(t *testing.T) {
 	}
 	if !strings.Contains(deriveStep.Run, `WORKFLOW_IDENTITY="https://github.com/${GITHUB_REPOSITORY}/.github/workflows/image.yml@${WORKFLOW_REF}"`) {
 		t.Fatalf("derive image metadata run = %q, want workflow identity pin", deriveStep.Run)
+	}
+	if !strings.Contains(deriveStep.Run, `REGISTRY_IMAGES="${IMAGE_NAME}"`) {
+		t.Fatalf("derive image metadata run = %q, want GHCR as the canonical registry image", deriveStep.Run)
+	}
+	if !strings.Contains(deriveStep.Run, `REGISTRY_IMAGES="${REGISTRY_IMAGES}"$'\n'"${DOCKERHUB_IMAGE_NAME}"`) {
+		t.Fatalf("derive image metadata run = %q, want Docker Hub mirror added to the metadata image list", deriveStep.Run)
+	}
+	if !strings.Contains(deriveStep.Run, `if [[ -n "${DOCKERHUB_USERNAME}" && -n "${DOCKERHUB_TOKEN}" ]]; then`) {
+		t.Fatalf("derive image metadata run = %q, want Docker Hub mirroring gated on configured secrets", deriveStep.Run)
+	}
+	if !strings.Contains(deriveStep.Run, `echo "registry_images<<EOF" >> "${GITHUB_OUTPUT}"`) {
+		t.Fatalf("derive image metadata run = %q, want registry image list exported for metadata-action", deriveStep.Run)
 	}
 
 	verifyStep := workflow.stepNamed(t, "sign", "Verify published signature")
@@ -120,6 +142,45 @@ func TestImageWorkflow_SignJobAuthenticatesToRegistry_Expected(t *testing.T) {
 	}
 	if !strings.Contains(authStep.Run, `--password-stdin`) {
 		t.Fatalf("sign auth step run = %q, want password-stdin login", authStep.Run)
+	}
+}
+
+func TestImageWorkflow_DockerHubMirrorIsOptional_Expected(t *testing.T) {
+	t.Parallel()
+
+	workflow := loadImageWorkflow(t)
+	imageJob, ok := workflow.Jobs["image"]
+	if !ok {
+		t.Fatal("image workflow missing image job")
+	}
+
+	foundDockerHubLogin := false
+	for _, step := range imageJob.Steps {
+		if step.Uses != "docker/login-action@v4.1.0" {
+			continue
+		}
+		registry, _ := step.With["registry"].(string)
+		if registry != "docker.io" {
+			continue
+		}
+		foundDockerHubLogin = true
+		username, _ := step.With["username"].(string)
+		password, _ := step.With["password"].(string)
+		if username != "${{ secrets.DOCKERHUB_USERNAME }}" || password != "${{ secrets.DOCKERHUB_TOKEN }}" {
+			t.Fatalf("docker hub login credentials = (%q, %q), want Docker Hub secrets", username, password)
+		}
+	}
+	if !foundDockerHubLogin {
+		t.Fatal("image workflow missing optional Docker Hub login step")
+	}
+
+	workflowPath := filepath.Join("..", "..", ".github", "workflows", "image.yml")
+	payload, err := os.ReadFile(workflowPath)
+	if err != nil {
+		t.Fatalf("ReadFile(image.yml) error = %v", err)
+	}
+	if !strings.Contains(string(payload), `if: ${{ steps.meta_vars.outputs.dockerhub_enabled == 'true' }}`) {
+		t.Fatal("image workflow does not gate Docker Hub publishing on configured secrets")
 	}
 }
 
