@@ -11,7 +11,7 @@ func TestPackageRelease_CreatesBundleAndArchive(t *testing.T) {
 	workspace := t.TempDir()
 
 	mustWriteFile(t, filepath.Join(workspace, "README.md"), "# Viaduct\n")
-	mustWriteFile(t, filepath.Join(workspace, "go.mod"), "module github.com/eblackrps/viaduct\n\ngo 1.24\n")
+	mustWriteFile(t, filepath.Join(workspace, "go.mod"), "module github.com/eblackrps/viaduct\n\ngo 1.25\n")
 	mustWriteFile(t, filepath.Join(workspace, "LICENSE"), "Apache License\n")
 	mustWriteFile(t, filepath.Join(workspace, "CHANGELOG.md"), "# Changelog\n")
 	mustWriteFile(t, filepath.Join(workspace, "CODE_OF_CONDUCT.md"), "# Code of Conduct\n")
@@ -89,14 +89,14 @@ func TestPackageRelease_CreatesBundleAndArchive(t *testing.T) {
 	if err != nil {
 		t.Fatalf("bundle module marker missing: %v", err)
 	}
-	if string(moduleMarker) != "module github.com/eblackrps/viaduct-release-bundle\n\ngo 1.24\n" {
+	if string(moduleMarker) != "module github.com/eblackrps/viaduct-release-bundle\n\ngo 1.25\n" {
 		t.Fatalf("unexpected bundle module marker contents: %q", string(moduleMarker))
 	}
 	exampleModuleMarker, err := os.ReadFile(filepath.Join(bundleDir, "examples", "plugin-example", "go.mod"))
 	if err != nil {
 		t.Fatalf("example module marker missing: %v", err)
 	}
-	if string(exampleModuleMarker) != "module github.com/eblackrps/viaduct-release-bundle/examples/plugin-example\n\ngo 1.24\n" {
+	if string(exampleModuleMarker) != "module github.com/eblackrps/viaduct-release-bundle/examples/plugin-example\n\ngo 1.25\n" {
 		t.Fatalf("unexpected example module marker contents: %q", string(exampleModuleMarker))
 	}
 
@@ -112,7 +112,7 @@ func TestPackageRelease_BundleTargetOverride_WritesManifestTarget(t *testing.T) 
 	workspace := t.TempDir()
 
 	mustWriteFile(t, filepath.Join(workspace, "README.md"), "# Viaduct\n")
-	mustWriteFile(t, filepath.Join(workspace, "go.mod"), "module github.com/eblackrps/viaduct\n\ngo 1.24\n")
+	mustWriteFile(t, filepath.Join(workspace, "go.mod"), "module github.com/eblackrps/viaduct\n\ngo 1.25\n")
 	mustWriteFile(t, filepath.Join(workspace, "LICENSE"), "Apache License\n")
 	mustWriteFile(t, filepath.Join(workspace, "CHANGELOG.md"), "# Changelog\n")
 	mustWriteFile(t, filepath.Join(workspace, "CODE_OF_CONDUCT.md"), "# Code of Conduct\n")

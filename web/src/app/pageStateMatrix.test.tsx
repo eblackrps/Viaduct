@@ -113,7 +113,7 @@ const sampleAbout = {
 	version: "3.0.0-dev",
 	commit: "abc1234",
 	built_at: "2026-04-21T12:00:00Z",
-	go_version: "go1.24.13",
+	go_version: "go1.25.9",
 	plugin_protocol: "v1",
 	supported_platforms: ["kvm", "vmware"],
 	supported_permissions: ["inventory.read", "reports.read"],

@@ -1,6 +1,6 @@
 module github.com/eblackrps/viaduct
 
-go 1.24.13
+go 1.25.9
 
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2

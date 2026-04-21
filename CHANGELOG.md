@@ -13,6 +13,7 @@ This changelog tracks published releases and the major implementation milestones
 - shifted Viaduct to a Docker-canonical release model: the signed multi-arch GHCR image is now the primary release artifact, while native binary bundles remain published as an alternative path for operators who cannot run containers
 - added a dedicated `image.yml` workflow that builds, signs, attests, scans, and publishes OCI images on merges to `main` and on release tags, while keeping native bundles as secondary tag assets
 - documented the new v3 release cadence, deprecation policy, and roadmap so forward-looking platform work lives outside the changelog
+- raised the supported source-build floor to Go `1.25.9+` so the Docker and release pipelines ship a Go toolchain line that clears the container vulnerability gate instead of baking known stdlib CVEs into the image
 
 ### Security And Runtime Hardening
 

@@ -7,7 +7,7 @@ RUN npm ci
 COPY web/ ./
 RUN npm run build && npm prune --production
 
-FROM golang:1.24-bookworm AS go-builder
+FROM golang:1.25.9-bookworm AS go-builder
 ARG VERSION=dev
 ARG COMMIT=none
 ARG BUILD_DATE=unknown

@@ -5,7 +5,7 @@ This quickstart uses the local KVM fixture lab so you can evaluate Viaduct end t
 The default dashboard path is now WebUI-first and workspace-first: `viaduct start`, open the browser, create a workspace, discover, inspect, simulate, save a plan, and export a report.
 
 ## Prerequisites
-- Go 1.24+
+- Go 1.25.9+
 - Node.js 20.19+ locally; CI and release packaging currently pin Node.js 20.20.x
 - `make` if you want the convenience targets
 

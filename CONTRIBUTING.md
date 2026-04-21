@@ -21,7 +21,7 @@ Open a GitHub issue that explains the operator or contributor problem first. Nar
 
 ## Development Setup
 
-- Go 1.24 or newer
+- Go 1.25.9 or newer
 - Node.js 20.19 or newer for the dashboard
 - `make` for the standard workflow
 - `golangci-lint`

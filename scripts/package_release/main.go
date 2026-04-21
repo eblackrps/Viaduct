@@ -22,7 +22,7 @@ import (
 
 const (
 	bundleModulePath = "github.com/eblackrps/viaduct-release-bundle"
-	bundleGoVersion  = "1.24"
+	bundleGoVersion  = "1.25"
 )
 
 type releaseOptions struct {

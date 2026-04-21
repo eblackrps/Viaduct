@@ -18,7 +18,7 @@ For runtime flags, upgrade guidance, and SBOM verification, continue with [../op
 ## Source Build
 
 ### Prerequisites
-- Go 1.24+
+- Go 1.25.9+
 - Node.js 20.19+ for the dashboard (`20.20.x` is what CI and release packaging currently pin)
 - `make` for the standard build flow
 - `qemu-img` if you want live disk-conversion execution outside tests
