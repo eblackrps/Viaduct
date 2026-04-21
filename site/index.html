@@ -254,7 +254,7 @@
             <p class="section-kicker"><span class="section-number">04</span> Get started</p>
             <h2 id="get-started-title">Pull, verify, run.</h2>
             <p class="section-intro">
-              Viaduct <code>v3.0.0</code> treats the signed GHCR OCI image as the canonical install. Docker Hub mirrors the same release tags at <code>docker.io/emb079/viaduct</code> when the GitHub Actions publish secrets are configured. Source builds remain available for contributors and offline lab work.
+              Viaduct <code>v3.0.0</code> treats the signed GHCR OCI image as the canonical install. Every GitHub release tag now mirrors the same semver image set to <code>docker.io/emb079/viaduct</code>, while merges to <code>main</code> continue to publish the non-production <code>:edge</code> stream. Source builds remain available for contributors and offline lab work.
             </p>
           </div>
 
@@ -268,7 +268,7 @@
               <p class="terminal-title">docker-first install</p>
             </div>
             <pre class="command-block"><code><span>docker pull ghcr.io/eblackrps/viaduct:3.0.0</span><span>cosign verify ghcr.io/eblackrps/viaduct:3.0.0 \</span><span>  --certificate-identity 'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.0.0' \</span><span>  --certificate-oidc-issuer 'https://token.actions.githubusercontent.com'</span><span>docker compose -f deploy/docker-compose.prod.yml up -d</span><span class="command-comment"># after setting VIADUCT_ADMIN_KEY and ./config/config.yaml</span></code></pre>
-            <p class="section-intro">Mirror pull: <code>docker pull docker.io/emb079/viaduct:3.0.0</code>. GHCR remains the signed verification source.</p>
+            <p class="section-intro">Mirror pull: <code>docker pull docker.io/emb079/viaduct:3.0.0</code>. Release tags automatically publish <code>:3.0.0</code>, <code>:3.0</code>, <code>:3</code>, and <code>:latest</code> to Docker Hub. GHCR remains the signed verification source.</p>
           </div>
 
           <p class="section-link">
