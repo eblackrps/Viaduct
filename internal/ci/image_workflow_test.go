@@ -110,6 +110,19 @@ func TestImageWorkflow_ScanFailsClosedAndAttestationsExist_Expected(t *testing.T
 	}
 }
 
+func TestImageWorkflow_SignJobAuthenticatesToRegistry_Expected(t *testing.T) {
+	t.Parallel()
+
+	workflow := loadImageWorkflow(t)
+	authStep := workflow.stepNamed(t, "sign", "Authenticate to GHCR for signing")
+	if !strings.Contains(authStep.Run, `docker login ghcr.io`) {
+		t.Fatalf("sign auth step run = %q, want docker login to ghcr.io", authStep.Run)
+	}
+	if !strings.Contains(authStep.Run, `--password-stdin`) {
+		t.Fatalf("sign auth step run = %q, want password-stdin login", authStep.Run)
+	}
+}
+
 func loadImageWorkflow(t *testing.T) workflowDefinition {
 	t.Helper()
 	return loadWorkflow(t, "image.yml")
