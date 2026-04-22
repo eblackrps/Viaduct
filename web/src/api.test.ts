@@ -14,6 +14,7 @@ import {
 	TimeoutError,
 	createRequestController,
 	createDashboardAuthSession,
+	downloadReport,
 	getActiveRequestControllerCount,
 	getAbout,
 	getCosts,
@@ -122,6 +123,7 @@ describe("api", () => {
 		const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
 		const headers = new Headers(init.headers);
 		expect(headers.get("X-API-Key")).toBeNull();
+		expect(headers.get("Content-Type")).toBe("application/json");
 		expect(JSON.parse(typeof init.body === "string" ? init.body : "")).toEqual({
 			mode: "tenant",
 			api_key: "new-key",
@@ -249,7 +251,7 @@ describe("api", () => {
 		expect(getInflightDedupeCount()).toBe(1);
 
 		resolveFetch?.(
-			new Response(JSON.stringify({ version: "3.0.0" }), { status: 200 }),
+			new Response(JSON.stringify({ version: "3.1.0" }), { status: 200 }),
 		);
 
 		await Promise.all([thirdPromise, secondPromise, firstPromise]);
@@ -276,7 +278,7 @@ describe("api", () => {
 		expect(getInflightDedupeCount()).toBe(1);
 
 		resolveFetch?.(
-			new Response(JSON.stringify({ version: "3.0.0" }), { status: 200 }),
+			new Response(JSON.stringify({ version: "3.1.0" }), { status: 200 }),
 		);
 
 		const secondBatch = Array.from({ length: 25 }, () =>
@@ -293,7 +295,7 @@ describe("api", () => {
 		const fetchMock = vi
 			.fn()
 			.mockResolvedValue(
-				new Response(JSON.stringify({ version: "3.0.0" }), { status: 200 }),
+				new Response(JSON.stringify({ version: "3.1.0" }), { status: 200 }),
 			);
 		vi.stubGlobal("fetch", fetchMock);
 
@@ -338,6 +340,54 @@ describe("api", () => {
 
 		await expect(promise).rejects.toBe(abortReason);
 	});
+
+	it("rejects without issuing fetch when the external signal is already aborted", async () => {
+		const externalController = new AbortController();
+		const abortReason = new DOMException("Canceled", "AbortError");
+		externalController.abort(abortReason);
+
+		const fetchMock = vi.fn();
+		vi.stubGlobal("fetch", fetchMock);
+
+		await expect(
+			requestManager.fetch("/api/v1/about", undefined, {
+				signal: externalController.signal,
+			}),
+		).rejects.toBe(abortReason);
+
+		expect(fetchMock).not.toHaveBeenCalled();
+		expect(getActiveRequestControllerCount()).toBe(0);
+	});
+
+	it.each([
+		['attachment; filename="report.csv"', "report.csv"],
+		["attachment; filename*=UTF-8''r%C3%A9sum%C3%A9.csv", "résumé.csv"],
+		[
+			'attachment; filename="report.csv"; filename*=UTF-8\'\'r%C3%A9sum%C3%A9.csv',
+			"résumé.csv",
+		],
+	])(
+		"derives report filenames from content disposition %s",
+		async (contentDisposition: string, expectedFilename: string) => {
+			vi.stubGlobal(
+				"fetch",
+				vi.fn().mockResolvedValue(
+					new Response("report", {
+						status: 200,
+						headers: {
+							"Content-Disposition": contentDisposition,
+							"Content-Type": "text/csv",
+						},
+					}),
+				),
+			);
+
+			await expect(downloadReport("summary", "csv")).resolves.toMatchObject({
+				filename: expectedFilename,
+				contentType: "text/csv",
+			});
+		},
+	);
 
 	it("does not leak request controllers when request URL normalization throws", async () => {
 		await expect(

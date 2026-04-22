@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
 	createDashboardAuthSession,
 	deleteDashboardAuthSession,
@@ -37,7 +37,6 @@ export function useAuthBootstrap(): AuthBootstrapState {
 	const [status, setStatus] =
 		useState<AuthBootstrapState["status"]>("checking");
 	const [about, setAbout] = useState<AboutResponse | null>(null);
-	const aboutRef = useRef<AboutResponse | null>(null);
 	const [currentTenant, setCurrentTenant] = useState<CurrentTenant | null>(
 		null,
 	);
@@ -50,7 +49,6 @@ export function useAuthBootstrap(): AuthBootstrapState {
 			getCurrentTenant({ dedupe: false }),
 		]);
 		if (aboutResult.status === "fulfilled") {
-			aboutRef.current = aboutResult.value;
 			setAbout(aboutResult.value);
 		}
 
@@ -74,8 +72,8 @@ export function useAuthBootstrap(): AuthBootstrapState {
 		setCurrentTenant(null);
 		setError(
 			describeError(tenantResult.reason, {
-				scope: "dashboard authentication",
-				fallback: "Unable to validate the configured dashboard credentials.",
+				scope: "your session",
+				fallback: "Unable to check your session.",
 			}),
 		);
 		setStatus("error");
@@ -87,25 +85,50 @@ export function useAuthBootstrap(): AuthBootstrapState {
 		remember = false,
 	) {
 		requestManager.cancelAll();
-		const session = await createDashboardAuthSession(mode, apiKey, remember);
-		requestManager.cancelAll();
-		setDashboardAuthSession(mode, {
-			remember,
-			apiKey,
-			sessionID: session.session_id,
-		});
-		await refresh();
+		try {
+			const session = await createDashboardAuthSession(mode, apiKey, remember);
+			requestManager.cancelAll();
+			setDashboardAuthSession(mode, {
+				remember,
+				sessionID: session.session_id,
+			});
+			await refresh();
+		} catch (reason) {
+			requestManager.cancelAll();
+			setCurrentTenant(null);
+			setError(
+				describeError(reason, {
+					scope: "your session",
+					fallback: "Unable to start your session.",
+				}),
+			);
+			setStatus("error");
+			throw reason;
+		}
 	}
 
 	async function connectLocal(remember = false) {
 		requestManager.cancelAll();
-		const session = await createDashboardAuthSession("local", "", remember);
-		requestManager.cancelAll();
-		setDashboardAuthSession("local", {
-			remember,
-			sessionID: session.session_id,
-		});
-		await refresh();
+		try {
+			const session = await createDashboardAuthSession("local", "", remember);
+			requestManager.cancelAll();
+			setDashboardAuthSession("local", {
+				remember,
+				sessionID: session.session_id,
+			});
+			await refresh();
+		} catch (reason) {
+			requestManager.cancelAll();
+			setCurrentTenant(null);
+			setError(
+				describeError(reason, {
+					scope: "your session",
+					fallback: "Unable to start your session.",
+				}),
+			);
+			setStatus("error");
+			throw reason;
+		}
 	}
 
 	function signOut() {

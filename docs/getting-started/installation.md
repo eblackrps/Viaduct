@@ -5,15 +5,15 @@ Viaduct can be evaluated from the signed OCI image, from source, or from a nativ
 ## Canonical OCI Install
 
 ```bash
-docker pull ghcr.io/eblackrps/viaduct:3.0.0
-cosign verify ghcr.io/eblackrps/viaduct:3.0.0 \
+docker pull ghcr.io/eblackrps/viaduct:3.1.0
+cosign verify ghcr.io/eblackrps/viaduct:3.1.0 \
   --certificate-identity \
-  'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.0.0' \
+  'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.1.0' \
   --certificate-oidc-issuer \
   'https://token.actions.githubusercontent.com'
 ```
 
-The signed canonical registry is `ghcr.io/eblackrps/viaduct`. The Docker Hub mirror is `docker.io/emb079/viaduct:3.0.0`.
+The signed canonical registry is `ghcr.io/eblackrps/viaduct`. The Docker Hub mirror is `docker.io/emb079/viaduct:3.1.0`.
 
 GitHub Actions mirrors release tags plus `main` branch `:edge` and `:sha-*` tags to Docker Hub whenever `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` are configured for this repo or inherited from an organization secret scope. For runtime flags, upgrade guidance, SBOM verification, the production compose sample, and the Helm chart defaults, continue with [../operations/docker.md](../operations/docker.md), [../../deploy/docker-compose.prod.yml](../../deploy/docker-compose.prod.yml), and [../../deploy/helm/viaduct](../../deploy/helm/viaduct).
 
@@ -36,7 +36,7 @@ make web-build
 ```
 
 On a fresh source checkout, `viaduct start` creates the default local lab config when it is missing, points it at `examples/lab/kvm`, and serves the WebUI and API together at `http://127.0.0.1:8080`.
-The browser-first flow starts on the runtime bootstrap screen, where the default local lab path offers a direct loopback-only `Use local operator session` action instead of requiring a pasted key.
+The browser-first flow starts on the Get started screen, where the default local lab path offers a direct loopback-only `Start local session` action instead of requiring a pasted key.
 The same runtime also serves live operator API docs at `http://127.0.0.1:8080/api/v1/docs`.
 
 ## Native Release Bundle Alternative
@@ -60,7 +60,7 @@ The canonical packaging matrix is:
 - `darwin/arm64`
 - `windows/amd64`
 
-Git tags keep the leading `v`, but bundle names use the numeric release label. For example, `v3.0.0` publishes `dist/viaduct_3.0.0_linux_amd64.tar.gz`.
+Git tags keep the leading `v`, but bundle names use the numeric release label. For example, `v3.1.0` publishes `dist/viaduct_3.1.0_linux_amd64.tar.gz`.
 
 Each bundle includes:
 - the Viaduct CLI binary
@@ -132,8 +132,8 @@ If you installed only the CLI and not the dashboard assets, the API and migratio
 For browser access in packaged environments:
 - keep `VIADUCT_ALLOWED_ORIGINS` empty for same-origin deployments; set it only if the dashboard is served from a different trusted origin
 - set `VIADUCT_WEB_DIR` only if the built dashboard assets live outside the standard packaged or installed paths
-- prefer service-account keys for normal operator access
-- rely on the runtime auth bootstrap for packaged environments unless you intentionally pre-seed a development-only browser credential
+- prefer service account keys for normal operator access
+- rely on the Get started session flow for packaged environments unless you intentionally pre-seed a development-only browser credential
 - use `VIADUCT_WORKSPACE_JOB_TIMEOUT` if workspace jobs need a different server-side timeout budget
 - use `VIADUCT_WORKSPACE_JOB_CONCURRENCY` if packaged workspace execution needs a different bounded worker count
 - use `viaduct serve-api` directly only when you intentionally want the lower-level service command instead of the local `start` flow, and keep its default loopback bind unless API credentials are configured

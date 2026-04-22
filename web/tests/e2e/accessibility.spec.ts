@@ -21,12 +21,12 @@ function expectNoSeriousOrCriticalViolations(
 test.describe("unauthenticated accessibility", () => {
 	test.use({ storageState: emptyStorageState });
 
-	test("keeps the auth bootstrap screen free of critical accessibility violations", async ({
+	test("keeps the Get started screen free of critical accessibility violations", async ({
 		page,
 	}) => {
 		await page.goto("/");
 		await expect(
-			page.getByRole("heading", { name: "Connect the Viaduct dashboard" }),
+			page.getByRole("heading", { name: "Get started" }),
 		).toBeVisible();
 
 		const results = await new AxeBuilder({ page }).analyze();

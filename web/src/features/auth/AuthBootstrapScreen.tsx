@@ -1,15 +1,15 @@
-import { ShieldCheck } from "lucide-react";
-import { useState, type FormEvent, type ReactElement } from "react";
+import { ChevronDown, ShieldCheck } from "lucide-react";
+import {
+	useEffect,
+	useState,
+	type FormEvent,
+	type ReactElement,
+} from "react";
 import { ErrorState } from "../../components/primitives/ErrorState";
 import { LoadingState } from "../../components/primitives/LoadingState";
 import { PageHeader } from "../../components/primitives/PageHeader";
 import { SectionCard } from "../../components/primitives/SectionCard";
-import { StatusBadge } from "../../components/primitives/StatusBadge";
-import {
-	getDashboardAuthPersistence,
-	getDashboardAuthSession,
-	type DashboardAuthPersistence,
-} from "../../runtimeAuth";
+import { getDashboardAuthSession } from "../../runtimeAuth";
 import type { AuthBootstrapState } from "./useAuthBootstrap";
 
 interface AuthBootstrapScreenProps {
@@ -24,8 +24,16 @@ export function AuthBootstrapScreen({ auth }: AuthBootstrapScreenProps) {
 	const [remember, setRemember] = useState(false);
 	const [submitting, setSubmitting] = useState(false);
 	const [startingLocalSession, setStartingLocalSession] = useState(false);
+	const [showKeyForm, setShowKeyForm] = useState(false);
+	const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
+
+	useEffect(() => {
+		if (!auth.localOperatorAvailable) {
+			setShowKeyForm(true);
+		}
+	}, [auth.localOperatorAvailable]);
+
 	const storedSession = getDashboardAuthSession();
-	const persistence = getDashboardAuthPersistence();
 	const runtimeKeyPresent =
 		storedSession.source === "runtime" && storedSession.mode !== "none";
 	const errorActions = [
@@ -35,7 +43,7 @@ export function AuthBootstrapScreen({ auth }: AuthBootstrapScreenProps) {
 			onClick={() => void auth.refresh()}
 			className="operator-button-danger"
 		>
-			Retry validation
+			Try again
 		</button>,
 		runtimeKeyPresent ? (
 			<button
@@ -44,16 +52,24 @@ export function AuthBootstrapScreen({ auth }: AuthBootstrapScreenProps) {
 				onClick={() => auth.signOut()}
 				className="operator-button-secondary"
 			>
-				Forget browser session
+				Sign out on this browser
 			</button>
 		) : null,
 	].filter((action): action is ReactElement => action !== null);
 
 	async function handleSubmit(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
+		const submittedKey = apiKey.trim();
+		if (submittedKey === "") {
+			return;
+		}
+
 		setSubmitting(true);
+		setAPIKey("");
 		try {
-			await auth.connect(mode, apiKey, remember);
+			await auth.connect(mode, submittedKey, remember);
+		} catch {
+			setAPIKey(submittedKey);
 		} finally {
 			setSubmitting(false);
 		}
@@ -63,18 +79,41 @@ export function AuthBootstrapScreen({ auth }: AuthBootstrapScreenProps) {
 		setStartingLocalSession(true);
 		try {
 			await auth.connectLocal(remember);
+		} catch {
+			return;
 		} finally {
 			setStartingLocalSession(false);
 		}
 	}
 
+	function toggleAdvancedOptions() {
+		setShowAdvancedOptions((current) => {
+			if (current && mode === "tenant") {
+				setMode("service-account");
+			}
+			return !current;
+		});
+	}
+
+	const keyModeTitle =
+		mode === "service-account" ? "Service account key" : "Tenant key (advanced)";
+	const keyModeDescription =
+		mode === "service-account"
+			? "Best for everyday operator work in shared or packaged environments."
+			: "Use only for tenant setup or recovery when you need elevated access.";
+	const showStartOptions = auth.status !== "checking" || auth.about !== null;
+
 	return (
 		<main className="min-h-screen bg-transparent px-4 py-4 md:px-6 md:py-6">
-			<div className="mx-auto max-w-[1520px] space-y-6">
+			<div className="mx-auto max-w-5xl space-y-6">
 				<PageHeader
-					eyebrow="Operator Bootstrap"
-					title="Connect the Viaduct dashboard"
-					description="Start with a scoped service-account session for day-to-day operator work. Use a tenant key only for tenant bootstrap or break-glass administrative recovery."
+					eyebrow="Viaduct dashboard"
+					title="Get started"
+					description={
+						auth.localOperatorAvailable
+							? "Start a local session for this machine, or use a key for a shared or packaged environment."
+							: "Use a service account key to start your dashboard session. Tenant keys are still available for setup or recovery."
+					}
 					badges={[
 						{
 							label: auth.about
@@ -82,314 +121,293 @@ export function AuthBootstrapScreen({ auth }: AuthBootstrapScreenProps) {
 								: "Build metadata pending",
 							tone: "neutral",
 						},
-						{ label: "Session storage is the default", tone: "info" },
 						{
-							label: auth.localOperatorAvailable
-								? "Local operator bootstrap available"
-								: "Runtime authentication",
-							tone: "accent",
+							label:
+								auth.status === "checking" && auth.about === null
+									? "Checking sign-in options"
+									: auth.localOperatorAvailable
+										? "Local session ready"
+										: "Key sign-in",
+							tone:
+								auth.status === "checking" && auth.about === null
+									? "neutral"
+									: auth.localOperatorAvailable
+										? "accent"
+										: "info",
 						},
 					]}
 				/>
 
 				{auth.status === "checking" ? (
 					<LoadingState
-						title="Validating dashboard credentials"
-						message="The dashboard is confirming the provided service-account or tenant key against the current Viaduct API."
+						title="Checking your session"
+						message="Viaduct is looking for an existing dashboard session and the best available sign-in option for this runtime."
 					/>
 				) : null}
 
 				{auth.status === "error" && auth.error ? (
 					<ErrorState
-						title="Authentication failed"
+						title="We couldn't open the dashboard"
 						message={auth.error.message}
 						technicalDetails={auth.error.technicalDetails}
 						actions={errorActions}
 					/>
 				) : null}
 
-				<section className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.95fr)]">
+				{showStartOptions ? (
 					<SectionCard
-						eyebrow="Authentication"
-						title="Runtime credential bootstrap"
+						eyebrow="Start here"
+						title={
+							auth.localOperatorAvailable
+								? "Start on this machine"
+								: "Start with a key"
+						}
 						description={
 							auth.localOperatorAvailable
-								? "This local runtime can issue an operator-scoped session without a pasted key. Service-account and tenant keys remain available for packaged or multi-tenant deployments."
-								: "The dashboard accepts runtime credentials so operators can rotate or replace access without rebuilding the frontend. Direct loopback runtime bootstrap is only available on 127.0.0.1, so proxied or remote access should use a service-account or tenant key."
+								? "The local session is the fastest path. It starts a dashboard session for this machine and does not require a pasted key."
+								: "Paste a service account key to continue. This keeps the sign-in flow simple for normal operator work."
 						}
 					>
-						<form className="space-y-5" onSubmit={handleSubmit}>
+						<div className="space-y-5">
 							{auth.localOperatorAvailable ? (
-								<div className="metric-surface space-y-3">
-									<div>
-										<p className="operator-kicker">Local lab session</p>
-										<p className="mt-2 text-sm leading-6 text-slate-600">
-											Use the shipped local runtime to start the workspace-first
-											operator flow without pasting a key. The browser stores
-											only a non-sensitive session marker while the server keeps
-											the effective operator identity.
-										</p>
+								<div className="panel-subtle px-5 py-5">
+									<div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+										<div className="max-w-2xl space-y-3">
+											<p className="operator-kicker">Recommended</p>
+											<div className="space-y-2">
+												<p className="text-lg font-semibold text-ink">
+													Local operator session
+												</p>
+												<p className="text-sm leading-6 text-slate-600">
+													This is the easiest path for the local runtime.
+													Viaduct starts the session for this machine, and the
+													sign-in details stay on the server.
+												</p>
+											</div>
+											<ul className="space-y-2 text-sm leading-6 text-slate-600">
+												<li>No pasted key required.</li>
+												<li>Uses the local runtime you already started.</li>
+												<li>
+													Works best for the default lab and local operator flow.
+												</li>
+											</ul>
+										</div>
+										<button
+											type="button"
+											onClick={() => void handleLocalSession()}
+											disabled={startingLocalSession || submitting}
+											className="operator-button"
+										>
+											{startingLocalSession
+												? "Starting local session..."
+												: "Start local session"}
+										</button>
 									</div>
-									<button
-										type="button"
-										onClick={() => void handleLocalSession()}
-										disabled={startingLocalSession || submitting}
-										className="operator-button"
-									>
-										{startingLocalSession
-											? "Starting local session..."
-											: "Use local operator session"}
-									</button>
 								</div>
 							) : null}
 
-							<div className="operator-toggle">
-								<button
-									type="button"
-									onClick={() => setMode("service-account")}
-									aria-pressed={mode === "service-account"}
-									className={`operator-toggle-button ${mode === "service-account" ? "operator-toggle-button-active" : ""}`}
-								>
-									Service account
-								</button>
-								<button
-									type="button"
-									onClick={() => setMode("tenant")}
-									aria-pressed={mode === "tenant"}
-									className={`operator-toggle-button ${mode === "tenant" ? "operator-toggle-button-active" : ""}`}
-								>
-									Tenant key
-								</button>
-							</div>
-
-							<div className="grid gap-4 md:grid-cols-2">
-								<div className="md:col-span-2">
-									<label className="block">
-										<span className="operator-kicker">
-											{mode === "service-account"
-												? "Service-account key"
-												: "Tenant key"}
-										</span>
-										<input
-											type="password"
-											value={apiKey}
-											onChange={(event) => setAPIKey(event.target.value)}
-											className="operator-input mt-2"
-											placeholder={
-												mode === "service-account"
-													? "Paste the operator service-account key"
-													: "Paste the tenant bootstrap key"
-											}
-										/>
-									</label>
-									<p className="mt-3 text-sm leading-6 text-slate-600">
-										{mode === "service-account"
-											? "Preferred for the guided workspace flow, background jobs, and exported reports."
-											: "Use only when you need tenant bootstrap access or administrative recovery."}
-									</p>
+							<div className="panel-subtle px-5 py-5">
+								<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+									<div className="space-y-2">
+										<p className="text-base font-semibold text-ink">
+											{auth.localOperatorAvailable
+												? "Use a key instead"
+												: "Use a key"}
+										</p>
+										<p className="text-sm leading-6 text-slate-600">
+											Service account keys are the normal choice for shared or
+											packaged environments.
+										</p>
+									</div>
+									{auth.localOperatorAvailable ? (
+										<button
+											type="button"
+											onClick={() => setShowKeyForm((current) => !current)}
+											aria-expanded={showKeyForm}
+											className="operator-button-ghost"
+										>
+											{showKeyForm
+												? "Hide key sign-in"
+												: "Use a key instead"}
+											<ChevronDown
+												className={`h-4 w-4 transition-transform ${showKeyForm ? "rotate-180" : ""}`}
+											/>
+										</button>
+									) : null}
 								</div>
 
-								<label className="metric-surface flex items-start gap-3 text-sm text-slate-700 md:col-span-2">
-									<input
-										type="checkbox"
-										checked={remember}
-										onChange={(event) => setRemember(event.target.checked)}
-										className="mt-1 h-4 w-4 rounded border-slate-300"
-									/>
-									<span>
-										<span className="block font-semibold text-ink">
-											Remember this browser
-										</span>
-										<span className="mt-1.5 block leading-6 text-slate-600">
-											Persist only a non-sensitive session marker in this
-											browser while the server-backed dashboard session stays
-											behind an httpOnly cookie. Leave this off for shared
-											devices, temporary sessions, or validation labs.
-										</span>
-									</span>
-								</label>
-							</div>
-
-							<div className="flex flex-wrap gap-2">
-								<button
-									type="submit"
-									disabled={submitting || apiKey.trim() === ""}
-									className={
-										auth.localOperatorAvailable
-											? "operator-button-secondary"
-											: "operator-button"
-									}
-								>
-									{submitting ? "Connecting..." : "Connect dashboard"}
-								</button>
-								{runtimeKeyPresent ? (
-									<button
-										type="button"
-										onClick={() => auth.signOut()}
-										className="operator-button-secondary"
+								{showKeyForm ? (
+									<form
+										id="auth-key-form"
+										className="mt-5 space-y-4 border-t border-slate-200/80 pt-5"
+										onSubmit={handleSubmit}
 									>
-										Forget browser session
-									</button>
+										<div className="space-y-3">
+											<div className="flex flex-wrap items-center gap-2">
+												<button
+													type="button"
+													onClick={() => setMode("service-account")}
+													aria-pressed={mode === "service-account"}
+													className={`operator-toggle-button rounded-full border ${
+														mode === "service-account"
+															? "border-slate-300 bg-white text-ink shadow-[0_8px_18px_rgba(15,23,42,0.08)]"
+															: "border-slate-200 bg-transparent text-slate-600"
+													} px-3.5 py-2`}
+												>
+													Service account key
+												</button>
+												<button
+													type="button"
+													onClick={toggleAdvancedOptions}
+													aria-expanded={showAdvancedOptions}
+													className="operator-button-ghost min-h-0 px-3 py-2"
+												>
+													{showAdvancedOptions
+														? "Hide advanced options"
+														: "Show advanced options"}
+												</button>
+											</div>
+
+											{showAdvancedOptions ? (
+												<div className="operator-toggle">
+													<button
+														type="button"
+														onClick={() => setMode("service-account")}
+														aria-pressed={mode === "service-account"}
+														className={`operator-toggle-button ${mode === "service-account" ? "operator-toggle-button-active" : ""}`}
+													>
+														Service account key
+													</button>
+													<button
+														type="button"
+														onClick={() => setMode("tenant")}
+														aria-pressed={mode === "tenant"}
+														className={`operator-toggle-button ${mode === "tenant" ? "operator-toggle-button-active" : ""}`}
+													>
+														Tenant key (advanced)
+													</button>
+												</div>
+											) : null}
+										</div>
+
+										<div className="grid gap-4">
+											<label className="block">
+												<span className="operator-kicker">Paste your key</span>
+												<input
+													type="password"
+													value={apiKey}
+													onChange={(event) => setAPIKey(event.target.value)}
+													className="operator-input mt-2"
+													placeholder={keyModeTitle}
+												/>
+											</label>
+											<div className="metric-surface">
+												<p className="text-sm font-semibold text-ink">
+													{keyModeTitle}
+												</p>
+												<p className="mt-1 text-sm leading-6 text-slate-600">
+													{keyModeDescription}
+												</p>
+											</div>
+											<RememberSessionCheckbox
+												remember={remember}
+												onChange={setRemember}
+											/>
+										</div>
+
+										<div className="flex flex-wrap gap-2">
+											<button
+												type="submit"
+												disabled={submitting || apiKey.trim() === ""}
+												className={
+													auth.localOperatorAvailable
+														? "operator-button-secondary"
+														: "operator-button"
+												}
+											>
+												{submitting
+													? "Starting session..."
+													: "Start session"}
+											</button>
+											{runtimeKeyPresent ? (
+												<button
+													type="button"
+													onClick={() => auth.signOut()}
+													className="operator-button-secondary"
+												>
+													Sign out on this browser
+												</button>
+											) : null}
+										</div>
+									</form>
 								) : null}
 							</div>
-						</form>
-					</SectionCard>
 
-					<div className="space-y-6">
-						<SectionCard
-							eyebrow="Recommended flow"
-							title="What operators do next"
-							description="The dashboard is optimized for the workspace-first path, not a disconnected collection of demo pages."
-						>
-							<div className="space-y-3">
-								{[
-									{
-										step: "01",
-										title: "Create a workspace",
-										body: "Capture the source connection, credential reference, and target assumptions in one persisted record.",
-									},
-									{
-										step: "02",
-										title: "Run discovery and inspect",
-										body: "Persist snapshots, review workloads, and inspect dependency context before planning.",
-									},
-									{
-										step: "03",
-										title: "Simulate, plan, and export",
-										body: "Keep readiness results, saved plans, notes, and exported reports attached to the same workspace.",
-									},
-								].map((item) => (
-									<div
-										key={item.step}
-										className="metric-surface flex items-start gap-3"
-									>
-										<span className="inline-flex h-11 w-11 items-center justify-center rounded-lg bg-ink text-body-sm font-semibold text-white shadow-[0_10px_20px_rgba(15,23,42,0.18)]">
-											{item.step}
-										</span>
-										<div>
-											<p className="text-sm font-semibold text-ink">
-												{item.title}
-											</p>
-											<p className="mt-1 text-sm leading-6 text-slate-600">
-												{item.body}
-											</p>
-										</div>
-									</div>
-								))}
-							</div>
-						</SectionCard>
+							{auth.localOperatorAvailable ? (
+								<RememberSessionCheckbox
+									remember={remember}
+									onChange={setRemember}
+									className={showKeyForm ? "hidden" : undefined}
+								/>
+							) : null}
 
-						<SectionCard
-							eyebrow="Credential handling"
-							title="Storage and recovery"
-							description="Keep credential behavior explicit so operators know when a browser session can be trusted and when it should be cleared."
-						>
-							<div className="grid gap-3">
-								<StorageRow
-									label="Current source"
-									value={describeCurrentSource(
-										storedSession.mode,
-										storedSession.source,
-									)}
-								/>
-								<StorageRow
-									label="Persistence"
-									value={describePersistence(persistence)}
-								/>
-								<StorageRow
-									label="Recommended default"
-									value="Session-only browser storage"
-								/>
-							</div>
-						</SectionCard>
-
-						<SectionCard
-							eyebrow="Current API context"
-							title="Operator visibility"
-							description="Build metadata and tenant identity appear here as soon as the API responds."
-						>
-							<div className="flex flex-wrap gap-2">
-								{auth.currentTenant ? (
-									<>
-										<StatusBadge tone="success">
-											{auth.currentTenant.name}
-										</StatusBadge>
-										<StatusBadge tone="info">
-											{auth.currentTenant.role}
-										</StatusBadge>
-										<StatusBadge tone="neutral">
-											{auth.currentTenant.auth_method}
-										</StatusBadge>
-									</>
-								) : (
-									<StatusBadge tone="neutral">
-										Tenant context will appear after validation
-									</StatusBadge>
-								)}
-							</div>
-							<div className="mt-5 metric-surface text-sm text-slate-600">
-								<div className="flex items-start gap-3">
-									<div className="state-icon h-10 w-10 rounded-md bg-white text-slate-600">
-										<ShieldCheck className="h-4 w-4" />
-									</div>
-									<div>
-										<p className="font-semibold text-ink">
-											Tenant-scoped operator access
-										</p>
-										<p className="mt-1 leading-6">
-											The dashboard uses the same tenant-scoped API and
-											persisted backend model as the CLI and packaged operator
-											surfaces.
-										</p>
-									</div>
+							<div className="metric-surface flex items-start gap-3">
+								<div className="state-icon h-10 w-10 rounded-md bg-white text-slate-600">
+									<ShieldCheck className="h-4 w-4" />
+								</div>
+								<div>
+									<p className="text-sm font-semibold text-ink">
+										What happens next
+									</p>
+									<p className="mt-1 text-sm leading-6 text-slate-600">
+										After sign-in, you land in the workspace flow to create a
+										workspace, run discovery, inspect workloads, and save a
+										plan. This browser stores only a non-sensitive session
+										marker.
+									</p>
 								</div>
 							</div>
-						</SectionCard>
-					</div>
-				</section>
+						</div>
+					</SectionCard>
+				) : null}
 			</div>
 		</main>
 	);
 }
 
-function StorageRow({ label, value }: { label: string; value: string }) {
+function RememberSessionCheckbox({
+	remember,
+	onChange,
+	className,
+}: {
+	remember: boolean;
+	onChange: (nextValue: boolean) => void;
+	className?: string;
+}) {
 	return (
-		<div className="metric-surface">
-			<p className="operator-kicker">{label}</p>
-			<p className="mt-2 text-sm font-semibold leading-6 text-ink">{value}</p>
-		</div>
+		<label
+			className={[
+				"metric-surface flex items-start gap-3 text-sm text-slate-700",
+				className,
+			]
+				.filter(Boolean)
+				.join(" ")}
+		>
+			<input
+				type="checkbox"
+				checked={remember}
+				onChange={(event) => onChange(event.target.checked)}
+				className="mt-1 h-4 w-4 rounded border-slate-300"
+			/>
+			<span>
+				<span className="block font-semibold text-ink">
+					Keep me signed in on this browser
+				</span>
+				<span className="mt-1.5 block leading-6 text-slate-600">
+					Viaduct keeps only a non-sensitive session marker here. Leave
+					this off on shared devices.
+				</span>
+			</span>
+		</label>
 	);
-}
-
-function describeCurrentSource(
-	mode: "local" | "tenant" | "service-account" | "none",
-	source: "runtime" | "environment" | "none",
-): string {
-	if (mode === "none" || source === "none") {
-		return "No credential configured";
-	}
-	if (mode === "local") {
-		return "Local operator session issued by the runtime";
-	}
-	if (mode === "service-account") {
-		return source === "runtime"
-			? "Service-account key entered at runtime"
-			: "Service-account key provided by environment";
-	}
-	return source === "runtime"
-		? "Tenant key entered at runtime"
-		: "Tenant key provided by environment";
-}
-
-function describePersistence(persistence: DashboardAuthPersistence): string {
-	switch (persistence) {
-		case "session":
-			return "Session marker stored only for the current browser session";
-		case "local":
-			return "Non-sensitive session marker stored locally until removed";
-		case "environment":
-			return "Provided by environment configuration";
-		default:
-			return "Nothing stored yet";
-	}
 }

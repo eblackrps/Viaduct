@@ -130,13 +130,13 @@ async function createLocalRuntimeSession() {
 	});
 	if (!response.ok) {
 		throw new Error(
-			`runtime auth session bootstrap failed with status ${response.status}`,
+			`runtime auth session start failed with status ${response.status}`,
 		);
 	}
 
 	const cookieHeader = response.headers.get("set-cookie");
 	if (!cookieHeader) {
-		throw new Error("runtime auth session bootstrap did not return a session cookie");
+		throw new Error("runtime auth session start did not return a session cookie");
 	}
 
 	return cookieHeader.split(";")[0];

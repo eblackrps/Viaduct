@@ -1,7 +1,8 @@
 /**
  * Runtime dashboard auth persists only a short-lived session identifier in Web Storage.
- * Residual risk: an operator-provided API key still lives in module memory for the active
- * tab until the page reloads, the tab closes, or sign-out clears the session.
+ * Environment-provided keys remain available for explicit pre-seeded development flows,
+ * while browser-entered runtime keys are exchanged for a server-backed session and are
+ * not retained client-side after session creation completes.
  */
 export type DashboardAuthMode = "local" | "tenant" | "service-account" | "none";
 type DashboardAuthSource = "runtime" | "environment" | "none";
@@ -29,7 +30,6 @@ const localStorageKey = "viaduct.dashboardAuth.remembered";
 const environmentTenantKey = import.meta.env.VITE_VIADUCT_API_KEY?.trim() ?? "";
 const environmentServiceAccountKey =
 	import.meta.env.VITE_VIADUCT_SERVICE_ACCOUNT_KEY?.trim() ?? "";
-let runtimeAPIKey = "";
 
 export function getDashboardAuthSession(): DashboardAuthSession {
 	const runtime = readRuntimeAuth();
@@ -70,14 +70,13 @@ export function getDashboardAuthPersistence(): DashboardAuthPersistence {
 
 export function setDashboardAuthSession(
 	mode: Exclude<DashboardAuthMode, "none">,
-	options?: { remember?: boolean; sessionID?: string; apiKey?: string },
+	options?: { remember?: boolean; sessionID?: string },
 ) {
 	const sessionID = options?.sessionID?.trim() ?? "";
 	if (sessionID === "") {
 		clearDashboardAuthSession();
 		return;
 	}
-	runtimeAPIKey = options?.apiKey?.trim() ?? "";
 	if (typeof window === "undefined") {
 		return;
 	}
@@ -98,7 +97,6 @@ export function setDashboardAuthSession(
 }
 
 export function clearDashboardAuthSession() {
-	runtimeAPIKey = "";
 	if (typeof window === "undefined") {
 		return;
 	}
@@ -119,7 +117,7 @@ function readRuntimeAuth(): DashboardAuthSession {
 	if (runtime) {
 		return {
 			...runtime.session,
-			apiKey: runtimeAPIKey,
+			apiKey: "",
 			source: "runtime",
 		};
 	}
@@ -191,7 +189,7 @@ function parseRuntimeSession(
 					storageKey,
 				},
 			);
-			clearDashboardAuthSession();
+			clearStoredRuntimeSession(storageKey);
 			return null;
 		}
 		return {
@@ -208,7 +206,20 @@ function parseRuntimeSession(
 				storageKey,
 			},
 		);
-		clearDashboardAuthSession();
+		clearStoredRuntimeSession(storageKey);
 		return null;
+	}
+}
+
+function clearStoredRuntimeSession(storageKey: string) {
+	if (typeof window === "undefined") {
+		return;
+	}
+	if (storageKey === sessionStorageKey) {
+		window.sessionStorage.removeItem(sessionStorageKey);
+		return;
+	}
+	if (storageKey === localStorageKey) {
+		window.localStorage.removeItem(localStorageKey);
 	}
 }

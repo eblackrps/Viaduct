@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
 import { copyFile } from "node:fs/promises";
 import { setTimeout as delay } from "node:timers/promises";
-import { chromium } from "@playwright/test";
+import { chromium } from "playwright";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const webDir = path.resolve(__dirname, "..");
@@ -100,16 +100,18 @@ async function main() {
 
 async function captureAuthBootstrap(page, targetPath) {
 	await page.goto("/");
-	await page
-		.getByRole("heading", { name: "Connect the Viaduct dashboard" })
-		.waitFor();
+	await page.getByRole("heading", { name: "Get started" }).waitFor();
 	await page.screenshot({ path: targetPath, fullPage: false });
 }
 
 async function login(page) {
 	await page.goto("/");
-	await page.getByLabel("Service-account key").fill(serviceAccountKey);
-	await page.getByRole("button", { name: "Connect dashboard" }).click();
+	const useKeyButton = page.getByRole("button", { name: "Use a key instead" });
+	if (await useKeyButton.isVisible().catch(() => false)) {
+		await useKeyButton.click();
+	}
+	await page.getByLabel("Paste your key").fill(serviceAccountKey);
+	await page.getByRole("button", { name: "Start session" }).click();
 	await page.getByRole("heading", { name: "E2E Lab Workspace" }).waitFor();
 }
 

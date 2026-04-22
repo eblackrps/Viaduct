@@ -118,9 +118,9 @@ export function ReportsPage({
 						}
 					>
 						{authMode === "service-account"
-							? "Service account auth"
+							? "Service account session"
 							: authMode === "tenant"
-								? "Tenant key auth"
+								? "Tenant key session"
 								: "No dashboard auth configured"}
 					</StatusBadge>
 					<ExportButton

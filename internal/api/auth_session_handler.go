@@ -223,22 +223,22 @@ func (s *Server) deleteAuthSession(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) localRuntimeOperatorPrincipal(ctx context.Context, r *http.Request) (AuthenticatedPrincipal, error) {
 	if s == nil || !s.localRuntimeMode {
-		return AuthenticatedPrincipal{}, fmt.Errorf("local runtime operator bootstrap is not enabled on this server")
+		return AuthenticatedPrincipal{}, fmt.Errorf("local runtime session start is not enabled on this server")
 	}
 	if !localRuntimeRequestAllowed(r, s.bindHost) {
-		return AuthenticatedPrincipal{}, fmt.Errorf("local runtime operator bootstrap is available only for direct loopback requests to a loopback-bound runtime")
+		return AuthenticatedPrincipal{}, fmt.Errorf("local runtime session start is available only for direct loopback requests to a loopback-bound runtime")
 	}
 	if hasConfiguredAPIKeys(ctx, s.store, s.adminAPIKey) {
-		return AuthenticatedPrincipal{}, fmt.Errorf("local runtime operator bootstrap is disabled when API keys are configured")
+		return AuthenticatedPrincipal{}, fmt.Errorf("local runtime session start is disabled when API keys are configured")
 	}
 
 	tenants, err := s.store.ListTenants(ctx)
 	if err != nil {
-		return AuthenticatedPrincipal{}, fmt.Errorf("list tenants for local runtime bootstrap: %w", err)
+		return AuthenticatedPrincipal{}, fmt.Errorf("list tenants for local runtime session start: %w", err)
 	}
 	tenant, ok := defaultTenantFallback(tenants)
 	if !ok {
-		return AuthenticatedPrincipal{}, fmt.Errorf("local runtime operator bootstrap requires the default fallback tenant")
+		return AuthenticatedPrincipal{}, fmt.Errorf("local runtime session start requires the default fallback tenant")
 	}
 	return AuthenticatedPrincipal{
 		Tenant:     tenant,

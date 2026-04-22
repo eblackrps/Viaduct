@@ -11,23 +11,23 @@ This is the top-level installation entrypoint for Viaduct. Use it with [QUICKSTA
 
 ## Canonical Install From Docker
 
-Viaduct `v3.0.0` uses the signed OCI image as the primary install path.
+Viaduct `v3.1.0` uses the signed OCI image as the primary install path.
 
 ```bash
-docker pull ghcr.io/eblackrps/viaduct:3.0.0
+docker pull ghcr.io/eblackrps/viaduct:3.1.0
 ```
 
 Verify the image before rollout:
 
 ```bash
-cosign verify ghcr.io/eblackrps/viaduct:3.0.0 \
+cosign verify ghcr.io/eblackrps/viaduct:3.1.0 \
   --certificate-identity \
-  'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.0.0' \
+  'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.1.0' \
   --certificate-oidc-issuer \
   'https://token.actions.githubusercontent.com'
 ```
 
-The signed canonical registry is `ghcr.io/eblackrps/viaduct`. The Docker Hub mirror is `docker.io/emb079/viaduct:3.0.0`.
+The signed canonical registry is `ghcr.io/eblackrps/viaduct`. The Docker Hub mirror is `docker.io/emb079/viaduct:3.1.0`.
 
 GitHub Actions mirrors release tags plus `main` branch `:edge` and `:sha-*` image tags to Docker Hub whenever `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` are configured for this repo or exposed through organization-level Actions secrets. Then follow the container guidance in [docs/operations/docker.md](docs/operations/docker.md), the production compose sample in [deploy/docker-compose.prod.yml](deploy/docker-compose.prod.yml), or the Helm chart defaults in [deploy/helm/viaduct](deploy/helm/viaduct).
 
@@ -48,7 +48,7 @@ Start the local operator runtime:
 ./bin/viaduct start
 ```
 
-On a fresh source checkout, `viaduct start` generates the default local lab config when `~/.viaduct/config.yaml` is missing, serves the built dashboard and API together, and prints the WebUI URL. The browser-first flow starts on the runtime bootstrap screen, where the default local lab path offers a direct loopback-only `Use local operator session` action instead of requiring a pasted key.
+On a fresh source checkout, `viaduct start` generates the default local lab config when `~/.viaduct/config.yaml` is missing, serves the built dashboard and API together, and prints the WebUI URL. The browser-first flow starts on the Get started screen, where the default local lab path offers `Start local session` instead of requiring a pasted key.
 
 The default local URL is [http://127.0.0.1:8080](http://127.0.0.1:8080).
 The same runtime also serves live API docs at [http://127.0.0.1:8080/api/v1/docs](http://127.0.0.1:8080/api/v1/docs).
@@ -111,7 +111,7 @@ The cleanest evaluation path is still the local lab in [examples/lab](examples/l
 
 For packaged or persistent evaluation environments:
 - use PostgreSQL instead of the in-memory store
-- prefer service-account keys for normal operator access
+- prefer service account keys for normal operator access
 - keep `VIADUCT_ALLOWED_ORIGINS` empty for same-origin deployments; set it only when the dashboard is served from a different origin than the API
 - set `VIADUCT_WEB_DIR` only when you keep built dashboard assets in a non-standard location
 - tune `VIADUCT_WORKSPACE_JOB_TIMEOUT` if discovery or planning jobs need a different server-side timeout budget

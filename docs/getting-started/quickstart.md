@@ -1,6 +1,6 @@
 # Quickstart
 
-This quickstart uses the local KVM fixture lab so you can evaluate Viaduct end to end without a live hypervisor. The signed OCI image is the canonical packaged deployment path in `v3.0.0`, but this remains the fastest route from clone to a working operator console.
+This quickstart uses the local KVM fixture lab so you can evaluate Viaduct end to end without a live hypervisor. The signed OCI image is the canonical packaged deployment path in `v3.1.0`, but this remains the fastest route from clone to a working operator console.
 
 The default dashboard path is now WebUI-first and workspace-first: `viaduct start`, open the browser, create a workspace, discover, inspect, simulate, save a plan, and export a report.
 
@@ -38,15 +38,15 @@ On a fresh source checkout, `viaduct start` creates `~/.viaduct/config.yaml` if 
 Open [http://127.0.0.1:8080](http://127.0.0.1:8080). The local runtime serves the dashboard at `/` and the API under `/api/v1/`.
 Live operator API docs are also available at [http://127.0.0.1:8080/api/v1/docs](http://127.0.0.1:8080/api/v1/docs).
 
-For the default local lab path, the bootstrap screen offers `Use local operator session` on direct `127.0.0.1` requests, so you do not need to paste a browser key.
+For the default local lab path, the Get started screen offers `Start local session` on direct `127.0.0.1` requests, so you do not need to paste a browser key.
 
-If you intentionally configure a tenant key or service-account key, the runtime bootstrap screen remains available:
-- preferred service-account key: `lab-operator-key`
-- bootstrap-only tenant key: `lab-tenant-key`
+If you intentionally configure a key, open `Use a key instead` from the Get started screen:
+- preferred service account key: `lab-operator-key`
+- advanced tenant key: `lab-tenant-key`
 
-The runtime auth flow creates a server-backed session. The browser keeps only an opaque session marker, and any tenant or service-account key stays server-side for that session instead of landing in browser storage. Local operator sessions do not use an API key at all. Use the remember option only when you intentionally want that marker kept across restarts on a trusted workstation.
+The runtime auth flow creates a server-backed session. The browser keeps only an opaque session marker, and any tenant or service account key stays server-side for that session instead of landing in browser storage. Local operator sessions do not use an API key at all. Use the keep-signed-in option only when you intentionally want that marker kept across restarts on a trusted workstation.
 
-For packaged or persistent environments, prefer `VITE_VIADUCT_SERVICE_ACCOUNT_KEY` over `VITE_VIADUCT_API_KEY` only when you intentionally pre-seed a development build. The runtime bootstrap is the default operator path.
+For packaged or persistent environments, prefer `VITE_VIADUCT_SERVICE_ACCOUNT_KEY` over `VITE_VIADUCT_API_KEY` only when you intentionally pre-seed a development build. The Get started flow is the default operator path.
 
 If you want the Vite development server while editing frontend code:
 

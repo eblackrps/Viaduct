@@ -212,7 +212,7 @@ func NewServer(engine *discovery.Engine, stateStore store.Store, port int, catal
 	}
 	if !authEnabled {
 		packageLogger.Warn(
-			"no API keys are configured; protected routes require explicit credentials or an explicit loopback local-runtime session bootstrap",
+			"no API keys are configured; protected routes require explicit credentials or an explicit loopback local-runtime session",
 			"default_tenant", store.DefaultTenantID,
 		)
 	}
@@ -284,7 +284,7 @@ func (s *Server) SetBindHost(host string) {
 	s.bindHost = strings.TrimSpace(host)
 }
 
-// SetLocalRuntimeMode enables or disables local-runtime-only affordances such as one-click operator session bootstrap.
+// SetLocalRuntimeMode enables or disables local-runtime-only affordances such as one-click operator session start.
 func (s *Server) SetLocalRuntimeMode(enabled bool) {
 	if s == nil {
 		return
@@ -429,7 +429,7 @@ func (s *Server) validateBindSecurity(ctx context.Context) error {
 	}
 	if s.localRuntimeMode && bindHostLooksLikeUnixSocket(s.bindHost) {
 		packageLogger.Warn(
-			"local loopback enforcement only applies to TCP listeners; unix-style bind addresses are not eligible for loopback-only runtime bootstrap",
+			"local loopback enforcement only applies to TCP listeners; unix-style bind addresses are not eligible for loopback-only runtime session start",
 			"bind_host", strings.TrimSpace(s.bindHost),
 		)
 	}

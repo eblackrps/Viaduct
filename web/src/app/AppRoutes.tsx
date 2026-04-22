@@ -152,7 +152,7 @@ function AuthenticatedAppRoutes({ auth }: { auth: AuthBootstrapState }) {
 		authSession.mode === "local"
 			? "Local operator session"
 			: authSession.mode === "service-account"
-				? "Service-account key"
+				? "Service account key"
 				: authSession.mode === "tenant"
 					? "Tenant key"
 					: "No runtime credential";

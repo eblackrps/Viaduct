@@ -12,13 +12,13 @@ Fix:
 
 Cause:
 - you called a tenant-scoped API route without either `X-API-Key` or `X-Service-Account-Key`
-- or the local operator runtime session was not bootstrapped for this browser
+- or the local operator session was not started for this browser
 
 Fix:
-- provide a valid tenant API key or service-account key
-- on the default local lab path, use `Use local operator session` from the bootstrap screen and keep the request direct to `127.0.0.1`
+- provide a valid tenant API key or service account key
+- on the default local lab path, use `Start local session` from the Get started screen and keep the request direct to `127.0.0.1`
 - verify tenant status in the admin tenant list
-- prefer a service-account key for normal dashboard or automation use if you are not intentionally using tenant-admin access
+- prefer a service account key for normal dashboard or automation use if you are not intentionally using tenant-admin access
 
 ## `migration requires approval before execution`
 
@@ -42,14 +42,14 @@ Cause:
 - `viaduct start` or `viaduct serve-api` is not running
 - the built dashboard assets are missing from the default serve path
 - Vite is not proxying to `localhost:8080` when you are using the dev server
-- no runtime key or pre-seeded dashboard key is available for tenant-protected routes
+- no active dashboard session or pre-seeded dashboard key is available for tenant-protected routes
 
 Fix:
 - if you are deploying with Docker, confirm the container is running with `docker ps` and inspect logs with `docker logs`
 - start `viaduct start`
 - open `http://127.0.0.1:8080` for the default same-origin operator path
 - set `VIADUCT_WEB_DIR` only if the built dashboard assets live outside the standard packaged or installed paths
-- use the runtime bootstrap screen or prefer `VITE_VIADUCT_SERVICE_ACCOUNT_KEY` for local development
+- use the Get started screen or prefer `VITE_VIADUCT_SERVICE_ACCOUNT_KEY` for local development
 - confirm API health at `/api/v1/health`
 
 ## Browser Reports `origin not allowed`
@@ -90,13 +90,13 @@ Fix:
 ## Dashboard Sign-In Disappears After Closing The Browser
 
 Cause:
-- the runtime bootstrap uses a non-persistent browser session by default
+- the Get started flow uses a non-persistent browser session by default
 - the browser session marker was stored only in session storage, so it was intentionally cleared when the browser closed
 
 Fix:
 - sign in again
-- use the bootstrap screen's remember option if you intentionally want the browser to keep a local session marker across restarts
-- prefer service-account keys over tenant keys for remembered browser sessions
+- use the Keep me signed in option if you intentionally want the browser to keep a local session marker across restarts
+- prefer service account keys over tenant keys for remembered browser sessions
 - review `VIADUCT_AUTH_SESSION_TTL` and `VIADUCT_AUTH_REMEMBER_TTL` if the server-side session window is too short for your environment
 
 ## KVM Fixture Discovery Returns No VMs

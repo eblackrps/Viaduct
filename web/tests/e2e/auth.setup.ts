@@ -8,11 +8,15 @@ setup("authenticates the seeded dashboard operator", async ({ page }) => {
 	mkdirSync("playwright/.auth", { recursive: true });
 	await page.goto("/");
 	await expect(
-		page.getByRole("heading", { name: "Connect the Viaduct dashboard" }),
+		page.getByRole("heading", { name: "Get started" }),
 	).toBeVisible();
 
-	await page.getByLabel("Service-account key").fill(serviceAccountKey);
-	await page.getByRole("button", { name: "Connect dashboard" }).click();
+	const useKeyButton = page.getByRole("button", { name: "Use a key instead" });
+	if (await useKeyButton.isVisible().catch(() => false)) {
+		await useKeyButton.click();
+	}
+	await page.getByLabel("Paste your key").fill(serviceAccountKey);
+	await page.getByRole("button", { name: "Start session" }).click();
 	await expect(
 		page.getByRole("heading", { name: "E2E Lab Workspace" }),
 	).toBeVisible();

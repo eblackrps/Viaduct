@@ -1,6 +1,6 @@
 # Quickstart
 
-The signed OCI image is the canonical production install for Viaduct `v3.0.0`, but this quickstart remains the fastest local lab path from a fresh clone. It uses the shipped KVM fixtures so you can reach the workspace-to-report flow without a live hypervisor estate.
+The signed OCI image is the canonical production install for Viaduct `v3.1.0`, but this quickstart remains the fastest local lab path from a fresh clone. It uses the shipped KVM fixtures so you can reach the workspace-to-report flow without a live hypervisor estate.
 
 The default operator path is now browser-first: start the local runtime, open the WebUI, create a workspace, discover, inspect, simulate, save a plan, and export a report.
 
@@ -35,9 +35,9 @@ For any persistent non-demo environment, configure `state_store_dsn` and use Pos
 Open [http://127.0.0.1:8080](http://127.0.0.1:8080). The same local runtime serves the WebUI at `/` and the API at `/api/v1/`.
 Live Swagger UI is also available at [http://127.0.0.1:8080/api/v1/docs](http://127.0.0.1:8080/api/v1/docs).
 
-For the default local lab path, the bootstrap screen offers `Use local operator session` on direct `127.0.0.1` requests, so you do not need to paste a browser key.
+For the default local lab path, the Get started screen offers `Start local session` on direct `127.0.0.1` requests, so you do not need to paste a browser key.
 
-If you intentionally configure tenant keys or service-account keys, the runtime bootstrap screen remains available. The runtime auth flow now creates a server-backed session: the browser keeps only a non-sensitive session marker, and any tenant or service-account key stays server-side for that session instead of landing in browser storage. Local operator sessions do not use an API key at all. Use the remember option only on a trusted workstation.
+If you intentionally configure tenant keys or service account keys, open `Use a key instead` from the Get started screen. Service account keys are the normal path, while tenant keys remain available under the advanced option for setup or recovery. The runtime auth flow creates a server-backed session: the browser keeps only a non-sensitive session marker, and any tenant or service account key stays server-side for that session instead of landing in browser storage. Local operator sessions do not use an API key at all. Use the keep-signed-in option only on a trusted workstation.
 
 If you want the Vite development server instead of the packaged local shell:
 

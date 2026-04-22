@@ -156,10 +156,19 @@ export function describeError(
 	};
 }
 
-function buildHeaders(initHeaders?: HeadersInit, hasBody = false): Headers {
+function buildHeaders(
+	initHeaders?: HeadersInit,
+	options?: {
+		hasBody?: boolean;
+		includeAuth?: boolean;
+	},
+): Headers {
 	const headers = new Headers(initHeaders);
-	if (hasBody && !headers.has("Content-Type")) {
+	if (options?.hasBody && !headers.has("Content-Type")) {
 		headers.set("Content-Type", "application/json");
+	}
+	if (options?.includeAuth === false) {
+		return headers;
 	}
 	const session = getDashboardAuthSession();
 	if (session.mode === "service-account" && session.apiKey) {
@@ -213,10 +222,15 @@ export function createRequestController(
 		controller.abort(new DOMException("Timed out", "AbortError"));
 	}, timeoutMs);
 	const forwardAbort = () =>
-		controller.abort(
+		abortControllerWithReason(
+			controller,
 			options?.signal?.reason ?? new DOMException("Canceled", "AbortError"),
 		);
-	options?.signal?.addEventListener("abort", forwardAbort, { once: true });
+	if (options?.signal?.aborted) {
+		forwardAbort();
+	} else {
+		options?.signal?.addEventListener("abort", forwardAbort, { once: true });
+	}
 
 	return {
 		controller,
@@ -233,6 +247,13 @@ export function createRequestController(
 		},
 		timedOut: () => didTimeout,
 	};
+}
+
+function abortControllerWithReason(controller: AbortController, reason: unknown) {
+	if (controller.signal.aborted) {
+		return;
+	}
+	controller.abort(reason);
 }
 
 export function getActiveRequestControllerCount(): number {
@@ -290,14 +311,22 @@ class RequestManager {
 		const requestController = createRequestController(options);
 		const timeoutMs = options?.timeoutMs ?? defaultRequestTimeoutMs;
 		try {
+			if (requestController.signal.aborted) {
+				throw (
+					requestController.signal.reason ??
+					new DOMException("Canceled", "AbortError")
+				);
+			}
+
 			const promise = (async () => {
 				try {
 					return await fetch(requestURL, {
 						...init,
 						credentials: "same-origin",
-						headers: options?.skipAuth
-							? new Headers(init?.headers)
-							: buildHeaders(init?.headers, init?.body !== undefined),
+						headers: buildHeaders(init?.headers, {
+							hasBody: init?.body !== undefined,
+							includeAuth: options?.skipAuth !== true,
+						}),
 						signal: requestController.signal,
 					});
 				} catch (reason) {
@@ -880,8 +909,44 @@ function getFilenameFromDisposition(
 		return undefined;
 	}
 
-	const match = disposition.match(/filename="?([^"]+)"?/i);
-	return match?.[1];
+	const encodedFilename = getDispositionParameter(disposition, "filename*");
+	if (encodedFilename) {
+		const decodedFilename = decodeDispositionFilename(encodedFilename);
+		if (decodedFilename) {
+			return decodedFilename;
+		}
+	}
+
+	return getDispositionParameter(disposition, "filename");
+}
+
+function getDispositionParameter(
+	disposition: string,
+	name: "filename" | "filename*",
+): string | undefined {
+	const match = disposition.match(
+		new RegExp(
+			`(?:^|;)\\s*${name}\\s*=\\s*(?:\"([^\"]*)\"|([^;]+))`,
+			"i",
+		),
+	);
+	const value = match?.[1] ?? match?.[2];
+	return value?.trim();
+}
+
+function decodeDispositionFilename(value: string): string | undefined {
+	const match = value.match(/^([^']*)'[^']*'(.*)$/);
+	const charset = match?.[1]?.trim() ?? "";
+	const encodedValue = match?.[2] ?? value;
+	if (charset !== "" && !/^utf-8$/i.test(charset)) {
+		return undefined;
+	}
+
+	try {
+		return decodeURIComponent(encodedValue);
+	} catch {
+		return undefined;
+	}
 }
 
 function hasExecutionPayload(

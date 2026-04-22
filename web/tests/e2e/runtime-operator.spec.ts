@@ -24,16 +24,16 @@ test("boots the real viaduct runtime and completes the first local operator flow
 
 	await page.goto("/");
 	await expect(
-		page.getByRole("heading", { name: "Connect the Viaduct dashboard" }),
+		page.getByRole("heading", { name: "Get started" }),
 	).toBeVisible();
 	await expect(
-		page.getByRole("button", { name: "Use local operator session" }),
+		page.getByRole("button", { name: "Start local session" }),
 	).toBeVisible();
 
 	const docsResponse = await page.request.get("/api/v1/docs/swagger.json");
 	expect(docsResponse.ok()).toBeTruthy();
 
-	await page.getByRole("button", { name: "Use local operator session" }).click();
+	await page.getByRole("button", { name: "Start local session" }).click();
 	await expect(
 		page.getByRole("heading", { name: "Start the workspace-first operator flow" }),
 	).toBeVisible();
@@ -73,7 +73,7 @@ test("keeps the legacy v1 inventory response shape available", async ({ page }) 
 	await page.goto("/");
 
 	const localSessionButton = page.getByRole("button", {
-		name: "Use local operator session",
+		name: "Start local session",
 	});
 	if (await localSessionButton.isVisible()) {
 		await localSessionButton.click();

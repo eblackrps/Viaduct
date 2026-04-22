@@ -16,7 +16,7 @@ export async function login(
 			})
 		: null;
 	const bootstrapHeading = page.getByRole("heading", {
-		name: "Connect the Viaduct dashboard",
+		name: "Get started",
 	});
 	const signOutButton = page.getByRole("button", { name: "Sign out" });
 	await expect
@@ -33,7 +33,7 @@ export async function login(
 			{
 				timeout: 10_000,
 				message:
-					"expected either the authenticated dashboard shell or the bootstrap screen",
+					"expected either the authenticated dashboard shell or the Get started screen",
 			},
 		)
 		.not.toBe("pending");
@@ -42,8 +42,12 @@ export async function login(
 		: "authenticated";
 	if (authState === "bootstrap") {
 		await expect(bootstrapHeading).toBeVisible();
-		await page.getByLabel("Service-account key").fill(serviceAccountKey);
-		await page.getByRole("button", { name: "Connect dashboard" }).click();
+		const useKeyButton = page.getByRole("button", { name: "Use a key instead" });
+		if (await useKeyButton.isVisible().catch(() => false)) {
+			await useKeyButton.click();
+		}
+		await page.getByLabel("Paste your key").fill(serviceAccountKey);
+		await page.getByRole("button", { name: "Start session" }).click();
 	}
 	if (landingHeading) {
 		await expect(landingHeading).toBeVisible();

@@ -6,6 +6,25 @@ This changelog tracks published releases and the major implementation milestones
 
 ## [Unreleased]
 
+## [3.1.0] - 2026-04-22
+
+### Get Started Experience
+
+- replaced the runtime-credential-first auth screen with a simpler Get started flow that makes the local operator session the obvious primary path when it is available, keeps service account key sign-in as the default key-based option, and moves tenant key sign-in under advanced options
+- rewrote the first-run copy, sign-in labels, and failed-auth messaging in plain English so operators can understand the local path, the key path, and the browser-session behavior at a glance
+- refreshed the checked-in README and demo screenshots plus the supporting quickstart, lab, dashboard, and operator docs so the current release surface matches the shipped Get started experience
+
+### Session Handling And Frontend Hardening
+
+- stopped retaining browser-entered runtime keys client-side after successful session creation; the dashboard now clears the pasted key immediately, stores only the opaque session marker in browser storage, and relies on the server-backed session for subsequent requests
+- fixed dashboard auth-session creation to keep sending `Content-Type: application/json` even when auth-header injection is skipped, preserved already-aborted external abort reasons before `fetch` begins, added RFC 5987 `filename*=` support for download names, and limited corrupt runtime-session cleanup to only the offending storage key
+- expanded frontend regression coverage around already-aborted requests, auth-session header construction, corrupt storage fallback behavior, encoded download filenames, the new Get started layout, and raw-key clearing after sign-in
+
+### Release Engineering And Tooling
+
+- aligned the current release-facing version surfaces, Docker and Helm samples, package metadata, public site install snippets, and screenshot captions on `v3.1.0`
+- hardened `.codex/setup.sh` so contributor bootstrap now fails fast below Go `1.25.9` and installs a configurable modern `golangci-lint` version that matches the repo-supported toolchain line
+
 ## [3.0.0] - 2026-04-21
 
 ### Release Model And Packaging

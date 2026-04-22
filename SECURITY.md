@@ -32,12 +32,12 @@ When reporting a vulnerability, include:
 
 ## Operational Notes
 
-- Never include secrets, tenant keys, service-account keys, or real environment credentials in a report.
-- Prefer service-account keys for normal operator access. Reserve tenant keys for bootstrap or intentional tenant-admin actions.
-- Tenant and service-account keys are persisted as non-recoverable hashes. Capture the raw value only when Viaduct returns it during create or rotate operations.
+- Never include secrets, tenant keys, service account keys, or real environment credentials in a report.
+- Prefer service account keys for normal operator access. Reserve tenant keys for setup or intentional tenant-admin actions.
+- Tenant and service account keys are persisted as non-recoverable hashes. Capture the raw value only when Viaduct returns it during create or rotate operations.
 - The dashboard runtime auth flow keeps the actual API credential server-side and in an `httpOnly` cookie. The browser stores only an opaque session identifier.
 - When `VIADUCT_ALLOWED_ORIGINS` is empty, Viaduct stays same-origin only. Do not use `*` for API-key deployments.
-- Treat the local operator bootstrap as a direct loopback-only session flow. Protected tenant routes should not rely on ambient anonymous fallback in any shared or proxied environment.
+- Treat the local operator session path as a direct loopback-only session flow. Protected tenant routes should not rely on ambient anonymous fallback in any shared or proxied environment.
 - Keep `VIADUCT_ALLOW_UNAUTHENTICATED_REMOTE=false` outside disposable break-glass scenarios. `viaduct serve-api` defaults to loopback and should not be exposed remotely without explicit API credentials.
 - The API and bundled dashboard now emit CSP, `X-Content-Type-Options`, `X-Frame-Options`, and `Referrer-Policy` headers, with HSTS added automatically on HTTPS requests.
 - Do not expose the Vite development server as a shared or internet-facing surface.

@@ -75,18 +75,18 @@ Fields:
 
 ## Dashboard Environment Variables
 - `VITE_VIADUCT_API_KEY`: tenant API key injected into dashboard requests
-- `VITE_VIADUCT_SERVICE_ACCOUNT_KEY`: scoped service-account key injected into dashboard requests; when set, the dashboard prefers this header over `VITE_VIADUCT_API_KEY`
+- `VITE_VIADUCT_SERVICE_ACCOUNT_KEY`: scoped service account key injected into dashboard requests; when set, the dashboard prefers this header over `VITE_VIADUCT_API_KEY`
 - `VITE_VIADUCT_API_TIMEOUT_MS`: dashboard fetch timeout in milliseconds; defaults to `30000`
 
 The dashboard reads this through Vite. See [`../../web/.env.example`](../../web/.env.example).
 
-The dashboard now also supports runtime authentication bootstrap. When neither variable is set, the app either:
+The dashboard now also supports a runtime Get started flow. When neither variable is set, the app either:
 - offers a direct loopback-only local operator session when `viaduct start` is running against the default local lab path and the default tenant is still unkeyed, or
-- starts on a bootstrap screen and accepts either a service-account key or tenant key at runtime
+- starts on the Get started screen and accepts a service account key or, when needed, a tenant key under advanced options at runtime
 
-The runtime bootstrap flow creates a server-backed session. The browser stores only an opaque session identifier, and any tenant or service-account key stays server-side for that session instead of landing in browser storage. Local operator sessions do not use an API key at all. Non-persistent sessions keep that identifier in session storage. Operators can explicitly choose to remember only that non-sensitive marker in local storage on trusted workstations.
+The runtime Get started flow creates a server-backed session. The browser stores only an opaque session identifier, and any tenant or service account key stays server-side for that session instead of landing in browser storage. Local operator sessions do not use an API key at all. Non-persistent sessions keep that identifier in session storage. Operators can explicitly choose to remember only that non-sensitive marker in local storage on trusted workstations.
 
-Prefer `VITE_VIADUCT_SERVICE_ACCOUNT_KEY` for normal dashboard access when you intentionally pre-seed a development build. Reserve `VITE_VIADUCT_API_KEY` for tenant bootstrap, short-lived admin work, or break-glass access.
+Prefer `VITE_VIADUCT_SERVICE_ACCOUNT_KEY` for normal dashboard access when you intentionally pre-seed a development build. Reserve `VITE_VIADUCT_API_KEY` for tenant setup, short-lived admin work, or break-glass access.
 
 Tenant and service-account credentials are persisted as non-recoverable hashes in both the in-memory and PostgreSQL stores. Viaduct only reveals a raw key during tenant creation or an explicit service-account create/rotate response.
 
@@ -98,8 +98,8 @@ Tenant and service-account credentials are persisted as non-recoverable hashes i
 
 ## Tenant Defaults
 - The built-in `default` tenant exists automatically in both the memory store and PostgreSQL store.
-- `viaduct start` exposes local operator bootstrap only through the explicit loopback auth-session flow. A fresh clone can still reach the WebUI without manual key seeding, but protected routes require the issued session cookie rather than ambient fallback access.
-- Any shared or persistent deployment should use explicit tenant or service-account keys instead of relying on local bootstrap behavior.
+- `viaduct start` exposes the local operator session only through the explicit loopback auth-session flow. A fresh clone can still reach the WebUI without manual key seeding, but protected routes require the issued session cookie rather than ambient fallback access.
+- Any shared or persistent deployment should use explicit tenant or service account keys instead of relying on the local session path.
 - Any pilot or packaged dashboard deployment should prefer named service-account credentials over a shared tenant-wide key.
 
 ## State Store Notes

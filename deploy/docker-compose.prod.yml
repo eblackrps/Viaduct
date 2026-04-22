@@ -1,6 +1,6 @@
 services:
   viaduct:
-    image: ghcr.io/eblackrps/viaduct:3.0.0
+    image: ghcr.io/eblackrps/viaduct:3.1.0
     restart: unless-stopped
     read_only: true
     tmpfs:

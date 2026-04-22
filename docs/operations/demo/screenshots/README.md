@@ -12,7 +12,7 @@ Use these images in:
 
 ## Current Files
 
-- [Auth bootstrap](auth-bootstrap.png)
+- [Get started screen](auth-bootstrap.png)
 - [Pilot workspace](pilot-workspace.png)
 - [Inventory assessment](inventory-assessment.png)
 - [Migration operations](migration-ops.png)
@@ -34,7 +34,7 @@ npm run screenshots:readme
 
 ## Preview
 
-![Auth bootstrap](auth-bootstrap.png)
+![Get started screen](auth-bootstrap.png)
 
 ![Pilot workspace](pilot-workspace.png)
 

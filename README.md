@@ -40,10 +40,10 @@ It is strongest when operators need:
 
 ## Screenshots
 
-These are current seeded-product captures from the packaged operator shell. They reflect the `viaduct start` path, the runtime bootstrap flow, and the current workspace-first dashboard.
+These are current seeded-product captures from the packaged operator shell. They reflect the `viaduct start` path, the Get started sign-in screen, and the current workspace-first dashboard.
 
 <p align="center">
-  <img src="docs/operations/demo/screenshots/auth-bootstrap.png" alt="Viaduct dashboard runtime authentication bootstrap" width="48%" />
+  <img src="docs/operations/demo/screenshots/auth-bootstrap.png" alt="Viaduct dashboard Get started screen with local and key-based session options" width="48%" />
   <img src="docs/operations/demo/screenshots/pilot-workspace.png" alt="Viaduct pilot workspace overview with operator workflow progression" width="48%" />
 </p>
 <p align="center">
@@ -65,18 +65,18 @@ These are current seeded-product captures from the packaged operator shell. They
 
 ## Canonical Docker Install
 
-Viaduct `v3.0.0` treats the signed OCI image as the canonical production artifact.
+Viaduct `v3.1.0` treats the signed OCI image as the canonical production artifact.
 
 ```bash
-docker pull ghcr.io/eblackrps/viaduct:3.0.0
-cosign verify ghcr.io/eblackrps/viaduct:3.0.0 \
+docker pull ghcr.io/eblackrps/viaduct:3.1.0
+cosign verify ghcr.io/eblackrps/viaduct:3.1.0 \
   --certificate-identity \
-  'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.0.0' \
+  'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.1.0' \
   --certificate-oidc-issuer \
   'https://token.actions.githubusercontent.com'
 ```
 
-The signed canonical registry is `ghcr.io/eblackrps/viaduct`. The convenience mirror is `docker.io/emb079/viaduct:3.0.0`.
+The signed canonical registry is `ghcr.io/eblackrps/viaduct`. The convenience mirror is `docker.io/emb079/viaduct:3.1.0`.
 
 GitHub Actions is configured to mirror release tags plus `main` branch `:edge` and `:sha-*` image tags to Docker Hub whenever `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` are configured as Actions secrets for this repo or as inherited organization secrets. Detailed container guidance lives in [docs/operations/docker.md](docs/operations/docker.md). The production samples in [deploy/docker-compose.prod.yml](deploy/docker-compose.prod.yml) and [deploy/helm/viaduct](deploy/helm/viaduct) now reflect the canonical release path. Native bundles remain available on GitHub Releases as an alternative path for environments that cannot run containers.
 
@@ -97,7 +97,7 @@ On a fresh source checkout, `viaduct start`:
 - serves the built dashboard and API together at [http://127.0.0.1:8080](http://127.0.0.1:8080)
 - opens the WebUI automatically on interactive local runs when practical
 
-For the default local lab path, the bootstrap screen offers `Use local operator session` on direct `127.0.0.1` browser requests, so no pasted browser key is required. Tenant keys and service-account keys remain supported for multi-tenant, packaged, and pilot environments.
+For the default local lab path, the Get started screen offers `Start local session` on direct `127.0.0.1` browser requests, so no pasted browser key is required. If you need a shared or packaged setup, open `Use a key instead`; service account keys are the normal path, and tenant keys remain available under the advanced option.
 
 Use these companion commands when you need them:
 

@@ -13,7 +13,7 @@ A pilot workspace is the persisted assessment record that ties together:
 
 Use this workflow when you want one durable operator-owned document instead of bouncing between disconnected discovery, graph, simulation, and reporting surfaces.
 
-Viaduct `v3.0.0` treats the signed OCI image as the canonical packaged deployment path. The source-based lab flow below remains the fastest way to evaluate the operator console from a fresh clone.
+Viaduct `v3.1.0` treats the signed OCI image as the canonical packaged deployment path. The source-based lab flow below remains the fastest way to evaluate the operator console from a fresh clone.
 
 ## Recommended Backends
 
@@ -44,20 +44,20 @@ The local runtime serves the WebUI at [http://127.0.0.1:8080](http://127.0.0.1:8
 
 ## 2. Open The Dashboard
 
-Open [http://127.0.0.1:8080](http://127.0.0.1:8080). The dashboard opens on the pilot workspace route and starts on the runtime bootstrap screen. For this default local lab path, choose `Use local operator session` from a direct `127.0.0.1` browser request; no pasted browser key is required.
+Open [http://127.0.0.1:8080](http://127.0.0.1:8080). The dashboard opens on the pilot workspace route and starts on the Get started screen. For this default local lab path, choose `Start local session` from a direct `127.0.0.1` browser request; no pasted browser key is required.
 Live operator API docs remain available at [http://127.0.0.1:8080/api/v1/docs](http://127.0.0.1:8080/api/v1/docs) throughout the flow.
 
-If you intentionally configure tenant-scoped access instead, the runtime authentication bootstrap screen still supports:
-- `Service account` for normal operator access
-- `Tenant key` for bootstrap or break-glass administrative recovery
+If you intentionally configure key-based access instead, open `Use a key instead` from the same screen:
+- `Service account key` for normal operator access
+- `Tenant key (advanced)` for tenant setup or break-glass administrative recovery
 
-The dashboard runtime auth flow now creates a server-backed session. The browser stores only an opaque session marker, while any tenant or service-account key stays server-side for that session instead of landing in browser storage. Local operator sessions do not use an API key at all. Use the optional remember toggle only on a trusted browser that should keep that marker across restarts.
+The dashboard runtime auth flow now creates a server-backed session. The browser stores only an opaque session marker, while any tenant or service account key stays server-side for that session instead of landing in browser storage. Local operator sessions do not use an API key at all. Use the keep-signed-in option only on a trusted browser that should keep that marker across restarts.
 
 You can still pre-seed development credentials with:
 - `VITE_VIADUCT_SERVICE_ACCOUNT_KEY`
 - `VITE_VIADUCT_API_KEY`
 
-The runtime bootstrap flow is the canonical operator path because it works for packaged environments and does not require a rebuild to rotate credentials.
+The Get started flow is the canonical operator path because it works for packaged environments and does not require a rebuild to rotate credentials.
 
 The same-origin local path does not need special CORS configuration. If you serve the dashboard from another host or port, set `VIADUCT_ALLOWED_ORIGINS` before starting the API.
 
