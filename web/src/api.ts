@@ -926,7 +926,7 @@ function getDispositionParameter(
 ): string | undefined {
 	const match = disposition.match(
 		new RegExp(
-			`(?:^|;)\\s*${name}\\s*=\\s*(?:\"([^\"]*)\"|([^;]+))`,
+			`(?:^|;)\\s*${name}\\s*=\\s*(?:"([^"]*)"|([^;]+))`,
 			"i",
 		),
 	);
