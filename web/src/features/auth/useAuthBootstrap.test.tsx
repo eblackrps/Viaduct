@@ -4,15 +4,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const apiMocks = vi.hoisted(() => ({
 	createDashboardAuthSession: vi.fn(),
 	deleteDashboardAuthSession: vi.fn(),
-	describeError: vi.fn(
-		(_reason: unknown, options: { fallback: string }) => ({
-			message: options.fallback,
-			technicalDetails: [],
-		}),
-	),
+	describeError: vi.fn((_reason: unknown, options: { fallback: string }) => ({
+		message: options.fallback,
+		technicalDetails: [],
+	})),
 	getAbout: vi.fn(),
 	getCurrentTenant: vi.fn(),
-	isAPIError: vi.fn((reason: unknown) => reason instanceof Error && "status" in reason),
+	isAPIError: vi.fn(
+		(reason: unknown) => reason instanceof Error && "status" in reason,
+	),
 	requestManager: {
 		cancelAll: vi.fn(),
 	},

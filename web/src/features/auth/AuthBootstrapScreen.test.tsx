@@ -86,7 +86,11 @@ describe("AuthBootstrapScreen", () => {
 		fireEvent.click(screen.getByRole("button", { name: "Start session" }));
 
 		await waitFor(() => {
-			expect(connect).toHaveBeenCalledWith("service-account", "sa-test-key", false);
+			expect(connect).toHaveBeenCalledWith(
+				"service-account",
+				"sa-test-key",
+				false,
+			);
 		});
 		expect(input).toHaveValue("");
 	});

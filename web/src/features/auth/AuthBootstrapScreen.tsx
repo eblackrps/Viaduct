@@ -1,10 +1,5 @@
 import { ChevronDown, ShieldCheck } from "lucide-react";
-import {
-	useEffect,
-	useState,
-	type FormEvent,
-	type ReactElement,
-} from "react";
+import { useEffect, useState, type FormEvent, type ReactElement } from "react";
 import { ErrorState } from "../../components/primitives/ErrorState";
 import { LoadingState } from "../../components/primitives/LoadingState";
 import { PageHeader } from "../../components/primitives/PageHeader";
@@ -96,7 +91,9 @@ export function AuthBootstrapScreen({ auth }: AuthBootstrapScreenProps) {
 	}
 
 	const keyModeTitle =
-		mode === "service-account" ? "Service account key" : "Tenant key (advanced)";
+		mode === "service-account"
+			? "Service account key"
+			: "Tenant key (advanced)";
 	const keyModeDescription =
 		mode === "service-account"
 			? "Best for everyday operator work in shared or packaged environments."
@@ -188,7 +185,8 @@ export function AuthBootstrapScreen({ auth }: AuthBootstrapScreenProps) {
 												<li>No pasted key required.</li>
 												<li>Uses the local runtime you already started.</li>
 												<li>
-													Works best for the default lab and local operator flow.
+													Works best for the default lab and local operator
+													flow.
 												</li>
 											</ul>
 										</div>
@@ -226,9 +224,7 @@ export function AuthBootstrapScreen({ auth }: AuthBootstrapScreenProps) {
 											aria-expanded={showKeyForm}
 											className="operator-button-ghost"
 										>
-											{showKeyForm
-												? "Hide key sign-in"
-												: "Use a key instead"}
+											{showKeyForm ? "Hide key sign-in" : "Use a key instead"}
 											<ChevronDown
 												className={`h-4 w-4 transition-transform ${showKeyForm ? "rotate-180" : ""}`}
 											/>
@@ -325,9 +321,7 @@ export function AuthBootstrapScreen({ auth }: AuthBootstrapScreenProps) {
 														: "operator-button"
 												}
 											>
-												{submitting
-													? "Starting session..."
-													: "Start session"}
+												{submitting ? "Starting session..." : "Start session"}
 											</button>
 											{runtimeKeyPresent ? (
 												<button
@@ -404,8 +398,8 @@ function RememberSessionCheckbox({
 					Keep me signed in on this browser
 				</span>
 				<span className="mt-1.5 block leading-6 text-slate-600">
-					Viaduct keeps only a non-sensitive session marker here. Leave
-					this off on shared devices.
+					Viaduct keeps only a non-sensitive session marker here. Leave this off
+					on shared devices.
 				</span>
 			</span>
 		</label>

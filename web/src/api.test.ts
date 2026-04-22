@@ -363,7 +363,7 @@ describe("api", () => {
 		['attachment; filename="report.csv"', "report.csv"],
 		["attachment; filename*=UTF-8''r%C3%A9sum%C3%A9.csv", "résumé.csv"],
 		[
-			'attachment; filename="report.csv"; filename*=UTF-8\'\'r%C3%A9sum%C3%A9.csv',
+			"attachment; filename=\"report.csv\"; filename*=UTF-8''r%C3%A9sum%C3%A9.csv",
 			"résumé.csv",
 		],
 	])(
