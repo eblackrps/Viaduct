@@ -928,10 +928,17 @@ function getDispositionParameter(
 	name: "filename" | "filename*",
 ): string | undefined {
 	const match = disposition.match(
-		new RegExp(`(?:^|;)\\s*${name}\\s*=\\s*(?:"([^"]*)"|([^;]+))`, "i"),
+		new RegExp(
+			`(?:^|;)\\s*${escapeRegExpLiteral(name)}\\s*=\\s*(?:"([^"]*)"|([^;]+))`,
+			"i",
+		),
 	);
 	const value = match?.[1] ?? match?.[2];
 	return value?.trim();
+}
+
+function escapeRegExpLiteral(value: string): string {
+	return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function decodeDispositionFilename(value: string): string | undefined {
