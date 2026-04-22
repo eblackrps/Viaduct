@@ -249,7 +249,10 @@ export function createRequestController(
 	};
 }
 
-function abortControllerWithReason(controller: AbortController, reason: unknown) {
+function abortControllerWithReason(
+	controller: AbortController,
+	reason: unknown,
+) {
 	if (controller.signal.aborted) {
 		return;
 	}
@@ -925,10 +928,7 @@ function getDispositionParameter(
 	name: "filename" | "filename*",
 ): string | undefined {
 	const match = disposition.match(
-		new RegExp(
-			`(?:^|;)\\s*${name}\\s*=\\s*(?:"([^"]*)"|([^;]+))`,
-			"i",
-		),
+		new RegExp(`(?:^|;)\\s*${name}\\s*=\\s*(?:"([^"]*)"|([^;]+))`, "i"),
 	);
 	const value = match?.[1] ?? match?.[2];
 	return value?.trim();
