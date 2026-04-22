@@ -63,7 +63,7 @@ The dashboard also supports a runtime Get started flow. When no environment key 
 - offers a direct loopback-only `Start local session` path when the packaged runtime started through `viaduct start` is running against the default local lab path, or
 - opens the Get started screen so the operator can use a service account key, with the tenant key path kept under advanced options when needed
 
-The runtime Get started flow keeps tenant or service-account credentials in a server-backed session behind an `httpOnly` cookie. The browser stores only an opaque session marker, and local operator sessions do not use an API key at all. Non-persistent sessions use session storage for that marker, and the remember option persists only the marker in local storage on trusted workstations.
+The runtime Get started flow keeps tenant or service account credentials in a server-backed session behind an `httpOnly` cookie. The browser stores only an opaque session marker, and local operator sessions do not use an API key at all. Non-persistent sessions use session storage for that marker, and the remember option persists only the marker in local storage on trusted workstations.
 Tenant and service account keys are persisted by the backend as non-recoverable hashes; the raw key is only shown at create or rotate time.
 
 Current README and release-facing dashboard screenshots can be regenerated with `npm run screenshots:readme`. That script builds the dashboard, boots the seeded Playwright fixture server, and captures the checked-in PNG assets used by the root README and demo collateral. Runtime compatibility against the actual `viaduct start` path is covered separately by `npm run e2e:runtime`.

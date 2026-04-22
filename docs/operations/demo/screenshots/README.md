@@ -22,7 +22,7 @@ Use these images in:
 - [Pilot bootstrap SVG](pilot-bootstrap.svg)
 - [Pilot workspace flow SVG](pilot-workspace-flow.svg)
 
-The SVG files remain for older release notes that referenced them directly. New release-facing docs should prefer the PNG captures above.
+The SVG files remain for older release notes that referenced them directly. They predate the current Get started wording and are kept only for historical release collateral. New release-facing docs should prefer the PNG captures above.
 
 ## Refresh
 

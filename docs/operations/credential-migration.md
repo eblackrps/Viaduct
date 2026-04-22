@@ -1,12 +1,12 @@
 # Credential Migration Remediation
 
-Viaduct persists tenant and service-account credentials as non-recoverable hashes. During PostgreSQL startup migrations, Viaduct also verifies that every persisted credential hash is globally unique before it applies or validates the durable uniqueness index.
+Viaduct persists tenant and service account credentials as non-recoverable hashes. During PostgreSQL startup migrations, Viaduct also verifies that every persisted credential hash is globally unique before it applies or validates the durable uniqueness index.
 
 If startup fails with a duplicate-credential conflict:
 
 1. Identify the tenant IDs listed in the startup error.
-2. Inspect the tenant API keys and service-account keys owned by those tenants.
-3. Rotate any duplicated tenant or service-account key so each identity has a unique credential.
+2. Inspect the tenant API keys and service account keys owned by those tenants.
+3. Rotate any duplicated tenant or service account key so each identity has a unique credential.
 4. Restart Viaduct after the duplicates have been remediated.
 
 Notes:

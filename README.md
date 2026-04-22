@@ -109,11 +109,11 @@ Use these companion commands when you need them:
 
 The same runtime also publishes live operator API docs at [http://127.0.0.1:8080/api/v1/docs](http://127.0.0.1:8080/api/v1/docs), backed by the checked-in contract in [docs/reference/openapi.yaml](docs/reference/openapi.yaml).
 
-`viaduct serve-api` remains the lower-level API command for container, service, and intentionally headless deployments. It still serves the built dashboard automatically when assets are present in `web/dist`, a packaged `web/` directory, or an installed `share/viaduct/web` layout. It now binds to `127.0.0.1` by default and refuses unauthenticated non-loopback listeners unless you configure an admin, tenant, or service-account credential or pass the explicit dangerous override. If you prefer the Vite development server while changing frontend code, that flow still lives in [web/README.md](web/README.md).
+`viaduct serve-api` remains the lower-level API command for container, service, and intentionally headless deployments. It still serves the built dashboard automatically when assets are present in `web/dist`, a packaged `web/` directory, or an installed `share/viaduct/web` layout. It now binds to `127.0.0.1` by default and refuses unauthenticated non-loopback listeners unless you configure an admin, tenant, or service account credential or pass the explicit dangerous override. If you prefer the Vite development server while changing frontend code, that flow still lives in [web/README.md](web/README.md).
 
 If you serve the dashboard from a different browser origin, configure `VIADUCT_ALLOWED_ORIGINS` on the API so tenant-protected routes can be reached safely. The default same-origin local path on `http://127.0.0.1:8080` does not need that override.
 
-Tenant and service-account API keys are persisted as non-recoverable hashes. Viaduct only reveals a raw key at tenant creation time or during an explicit service-account rotate flow.
+Tenant and service account API keys are persisted as non-recoverable hashes. Viaduct only reveals a raw key at tenant creation time or during an explicit service-account rotate flow.
 
 Use these entrypoints next:
 - Quickstart: [QUICKSTART.md](QUICKSTART.md)

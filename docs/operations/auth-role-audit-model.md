@@ -74,14 +74,15 @@ This is not an SSO-first or enterprise IAM design. It is the minimum model that 
 | --- | --- | --- | --- |
 | Platform admin key | `X-Admin-Key` | Platform bootstrap and tenant administration | Creating and deleting tenants |
 | Tenant key | `X-API-Key` | Tenant bootstrap and break-glass admin access | Initial setup, emergency admin actions, short-lived direct admin work |
-| Service-account key | `X-Service-Account-Key` | Normal named access for operators and automation | Dashboard access, scripted operations, export jobs, migration workflows |
+| Service account key | `X-Service-Account-Key` | Normal named access for operators and automation | Dashboard access, scripted operations, export jobs, migration workflows |
 
 ### Early-product authentication rules
-- Viaduct v1 does not need SSO, OIDC, browser sessions, or SCIM.
+- Viaduct v1 does not need SSO, OIDC, human user accounts, or SCIM.
+- Viaduct already ships a small same-origin browser session model for the Get started flow. That session is an operator convenience layer over the existing tenant, service account, and local-runtime auth paths, not a separate identity system.
 - Viaduct does need explicit, named credentials with a clear intended use.
 - Tenant API keys should exist, but they should not be the recommended default for routine operator activity.
 - Dashboard and automation guidance should prefer service accounts over a shared tenant key.
-- In the current web client, that means `VITE_VIADUCT_SERVICE_ACCOUNT_KEY` should be the default documented credential path, while `VITE_VIADUCT_API_KEY` should be documented as bootstrap or break-glass usage.
+- In the current web client, that means `VITE_VIADUCT_SERVICE_ACCOUNT_KEY` should be the default documented development credential path, while `VITE_VIADUCT_API_KEY` should be documented as setup or break-glass usage.
 - Default-tenant fallback should remain available for local lab usage but should be treated as non-production behavior in docs, demos, and pilot guidance.
 - Pilots should run behind TLS termination or a trusted reverse proxy. Viaduct's early trust model assumes transport security is provided by the deployment environment.
 
@@ -139,7 +140,7 @@ Viaduct should keep the current three-role model.
 | Read current tenant context | `GET /api/v1/tenants/current` | `tenant.read` | Yes | Yes | Yes | Powers Settings trust context |
 | List service accounts | `GET /api/v1/service-accounts` | `tenant.manage` | No | No | Yes | Admin-only tenant administration |
 | Create service account | `POST /api/v1/service-accounts` | `tenant.manage` | No | No | Yes | Admin-only |
-| Rotate service-account key | `POST /api/v1/service-accounts/{id}/rotate` | `tenant.manage` | No | No | Yes | Admin-only |
+| Rotate service account key | `POST /api/v1/service-accounts/{id}/rotate` | `tenant.manage` | No | No | Yes | Admin-only |
 | Create or delete tenant | `/api/v1/admin/tenants*` | Admin key only | No | No | No | Outside tenant role model |
 
 ### Operator vs admin distinction
@@ -354,7 +355,7 @@ Viaduct does not need a large security console for v1. It does need attribution 
 ### Limits
 - No SSO or OIDC yet
 - No MFA yet
-- No session-based browser auth yet
+- No SSO-backed or user-account-backed browser identity yet
 - No custom roles or group mapping
 - No immutable audit retention guarantee
 - No dedicated secrets manager integration
@@ -395,9 +396,9 @@ Viaduct does not need a large security console for v1. It does need attribution 
 
 ### Work package 1: Freeze the product contract in docs and examples
 - Keep the current auth headers and three-role model.
-- Update operator-facing docs so tenant keys are bootstrap or break-glass credentials, while dashboard and automation guidance prefer service accounts.
+- Update operator-facing docs so tenant keys are setup or break-glass credentials, while dashboard and automation guidance prefer service accounts.
 - Document `VITE_VIADUCT_SERVICE_ACCOUNT_KEY` as the normal dashboard credential path.
-- Treat the local operator session bootstrap as a direct loopback-only local-lab behavior in product messaging.
+- Treat the local operator session path as a direct loopback-only local-lab behavior in product messaging.
 
 ### Work package 2: Complete backend audit coverage
 - Normalize migration audit details in `internal/api/server.go` so `plan`, `execute`, `resume`, and `rollback` use the same detail keys.
@@ -430,14 +431,14 @@ Viaduct does not need a large security console for v1. It does need attribution 
 - The dashboard shows current auth method, role, and effective permissions.
 - Migration execution history shows action attribution without frontend-only inference.
 - The first UI attribution pass reads from audit events, not from new ad hoc migration-history fields.
-- Local operator session bootstrap is documented as lab behavior, not pilot guidance.
+- Local operator session path is documented as lab behavior, not pilot guidance.
 
 ### Test outlines
 - Auth middleware tests:
   - tenant key authenticates as tenant admin
-  - service-account key authenticates with effective permissions
+  - service account key authenticates with effective permissions
   - inactive or expired service account is rejected
-  - direct loopback-only local operator bootstrap is rejected for proxied or forwarded requests
+  - direct loopback-only local operator session start is rejected for proxied or forwarded requests
   - explicit service-account permissions do not bypass role-gated routes
 - Authorization tests:
   - viewer cannot call migration-manage routes
@@ -469,8 +470,8 @@ Viaduct does not need a large security console for v1. It does need attribution 
    - the API returns `403`
    - an authenticated authorization-denial audit event is recorded once that gap is implemented
 7. Export the audit report and confirm one export audit event appears.
-8. Load the dashboard with the operator service-account credential and confirm:
-   - Settings shows service-account auth, role, and permissions
+8. Load the dashboard with the operator service account credential and confirm:
+   - Settings shows service account auth, role, and permissions
    - reports surface shows recent trust-sensitive audit events
    - migration history/detail shows attribution sourced from audit events
    - request IDs are visible on operator-facing failures

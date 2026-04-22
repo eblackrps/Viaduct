@@ -12,4 +12,4 @@ Viaduct's loopback-only local runtime protections are TCP-only.
 
 - Keep the local-runtime Get started session flow on a loopback TCP bind such as `127.0.0.1`.
 - When you deploy behind a reverse proxy, configure `VIADUCT_TRUSTED_PROXIES` with the proxy CIDR ranges before relying on forwarded client IP or scheme headers.
-- For remotely reachable packaged environments, prefer explicit admin, tenant, or service-account credentials instead of the local-runtime session path.
+- For remotely reachable packaged environments, prefer explicit admin, tenant, or service account credentials instead of the local-runtime session path.

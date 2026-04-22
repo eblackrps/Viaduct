@@ -6,7 +6,7 @@ Viaduct treats store migrations as operational state transitions, not best-effor
 
 Credential migration uses a crash-safe two-phase model:
 
-1. `008a` seed phase: Viaduct inserts durable credential-hash rows for every tenant and service-account credential with `INSERT ... ON CONFLICT DO NOTHING`.
+1. `008a` seed phase: Viaduct inserts durable credential-hash rows for every tenant and service account credential with `INSERT ... ON CONFLICT DO NOTHING`.
 2. `008b` clear phase: Viaduct clears legacy plaintext only after it verifies the expected hash rows already exist for that tenant.
 3. `008` uniqueness guard: after the seeded and cleared state is stable, Viaduct applies the concurrent unique index for `credential_hashes`.
 

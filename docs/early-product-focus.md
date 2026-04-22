@@ -93,7 +93,7 @@ See [V1 Scope Definition](v1-scope.md) for the authoritative must-have, nice-to-
 
 The product should optimize around one reliable end-to-end operator path:
 
-1. create or select a tenant and use a tenant key or service-account key
+1. create or select a tenant and start a session, usually with a service account key and only using a tenant key when you intentionally need tenant-admin access
 2. run discovery against the lab or a supported pilot environment
 3. review inventory, dependency graph, snapshot history, and lifecycle posture
 4. author a migration spec and run dry-run planning plus preflight validation

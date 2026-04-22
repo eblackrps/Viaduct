@@ -56,7 +56,7 @@ Fields:
 - `VIADUCT_ADMIN_KEY`: admin API key used by the REST server for tenant administration. Viaduct accepts either the preferred persisted `sha256:<hex>` digest or the legacy plaintext secret. The request header still carries the plaintext `X-Admin-Key`; see [`../operations/admin-key.md`](../operations/admin-key.md).
 - `VIADUCT_PLUGIN_ADDR`: plugin listener address used by community connector plugins
 - `VIADUCT_ALLOWED_ORIGINS`: comma-separated browser origins allowed to call the API from another origin; defaults to same-origin only when empty
-- `VIADUCT_ALLOW_UNAUTHENTICATED_REMOTE`: explicit dangerous override that permits a non-loopback `serve-api` bind without configured admin, tenant, or service-account credentials; leave this unset outside disposable break-glass scenarios
+- `VIADUCT_ALLOW_UNAUTHENTICATED_REMOTE`: explicit dangerous override that permits a non-loopback `serve-api` bind without configured admin, tenant, or service account credentials; leave this unset outside disposable break-glass scenarios
 - `VIADUCT_WEB_DIR`: override path for built dashboard assets when they are not in `web/dist`, `web/`, or the installed `share/viaduct/web` layout
 - `VIADUCT_WORKSPACE_JOB_TIMEOUT`: per-job server-side timeout for pilot workspace discovery, graph, simulation, and plan generation; defaults to `2m`
 - `VIADUCT_WORKSPACE_ENQUEUE_TIMEOUT`: maximum time an API request waits for the bounded workspace executor to acknowledge queue admission before returning `ErrEnqueueTimeout`; defaults to `30s`
@@ -88,7 +88,7 @@ The runtime Get started flow creates a server-backed session. The browser stores
 
 Prefer `VITE_VIADUCT_SERVICE_ACCOUNT_KEY` for normal dashboard access when you intentionally pre-seed a development build. Reserve `VITE_VIADUCT_API_KEY` for tenant setup, short-lived admin work, or break-glass access.
 
-Tenant and service-account credentials are persisted as non-recoverable hashes in both the in-memory and PostgreSQL stores. Viaduct only reveals a raw key during tenant creation or an explicit service-account create/rotate response.
+Tenant and service account credentials are persisted as non-recoverable hashes in both the in-memory and PostgreSQL stores. Viaduct only reveals a raw key during tenant creation or an explicit service-account create/rotate response.
 
 ## API Authentication Headers
 - `X-API-Key`: tenant-scoped API key for inventory, migration, lifecycle, and summary routes
@@ -100,7 +100,7 @@ Tenant and service-account credentials are persisted as non-recoverable hashes i
 - The built-in `default` tenant exists automatically in both the memory store and PostgreSQL store.
 - `viaduct start` exposes the local operator session only through the explicit loopback auth-session flow. A fresh clone can still reach the WebUI without manual key seeding, but protected routes require the issued session cookie rather than ambient fallback access.
 - Any shared or persistent deployment should use explicit tenant or service account keys instead of relying on the local session path.
-- Any pilot or packaged dashboard deployment should prefer named service-account credentials over a shared tenant-wide key.
+- Any pilot or packaged dashboard deployment should prefer named service account credentials over a shared tenant-wide key.
 
 ## State Store Notes
 - in-memory store: useful for demos, tests, and local evaluation only

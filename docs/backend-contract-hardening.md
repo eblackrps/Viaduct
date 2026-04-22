@@ -591,7 +591,7 @@ The following enums should be treated as stable once documented in OpenAPI and c
 - `runtime-session`
 - `local-runtime-session`
 
-`local-runtime-session` is the only lab-specific auth method that should remain operator-visible. It is a direct loopback runtime bootstrap path, not a packaged or proxied deployment story.
+`local-runtime-session` is the only lab-specific auth method that should remain operator-visible. It is a direct loopback runtime session-start path, not a packaged or proxied deployment story.
 
 ### Preflight Check Status
 

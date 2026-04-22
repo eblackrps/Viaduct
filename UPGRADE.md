@@ -24,7 +24,7 @@ This is the top-level upgrade entrypoint. Use it with [docs/operations/upgrade.m
 - The loopback local operator session path now requires a direct `127.0.0.1` browser request. If you place the runtime behind a same-host reverse proxy or use any non-loopback hostname, authenticate with a tenant or service account key instead of expecting `Start local session` to appear.
 - If `VIADUCT_ALLOWED_ORIGINS` was empty in older environments, note that the effective default is now same-origin only. Set it explicitly only for trusted cross-origin dashboards.
 - The dashboard runtime auth path now uses server-backed sessions with an `httpOnly` cookie. If you are testing across older browser state, sign out once after upgrade so stale browser session state is cleared cleanly.
-- If an upgraded PostgreSQL environment fails during credential migration with a duplicate-credential conflict, resolve any reused tenant/service-account API keys so every persisted credential is globally unique, then restart the new binary.
+- If an upgraded PostgreSQL environment fails during credential migration with a duplicate-credential conflict, resolve any reused tenant or service account API keys so every persisted credential is globally unique, then restart the new binary.
 - New clients can adopt `/api/v2/inventory`, `/api/v2/snapshots`, and `/api/v2/migrations` for paginated list responses. Legacy `/api/v1` response shapes remain available for existing clients.
 
 ## Rollback

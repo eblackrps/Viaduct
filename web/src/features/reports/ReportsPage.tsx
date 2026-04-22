@@ -146,7 +146,7 @@ export function ReportsPage({
 				</div>
 				<div className="mt-4">
 					<InlineNotice
-						message="Downloads are performed through the dashboard client so configured tenant or service-account credentials are applied consistently."
+						message="Downloads are performed through the dashboard client so configured tenant or service account credentials are applied consistently."
 						tone="info"
 					/>
 				</div>

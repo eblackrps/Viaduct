@@ -149,7 +149,7 @@ Each step below defines the current implementation, success criteria, failure mo
 
 - dashboard runtime context in `web/src/features/settings/SettingsPage.tsx`
 - API build metadata and tenant context through `/api/v1/about` and `/api/v1/tenants/current`
-- tenant key and service-account key handling in `web/src/api.ts`
+- tenant key and service account key handling in `web/src/api.ts`
 
 ### Success Criteria
 
