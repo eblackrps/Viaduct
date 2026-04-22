@@ -1,5 +1,11 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import {
+	cleanup,
+	fireEvent,
+	render,
+	screen,
+	waitFor,
+} from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { AuthBootstrapScreen } from "./AuthBootstrapScreen";
 import type { AuthBootstrapState } from "./useAuthBootstrap";
 
@@ -34,6 +40,10 @@ function buildAuthState(
 }
 
 describe("AuthBootstrapScreen", () => {
+	afterEach(() => {
+		cleanup();
+	});
+
 	it("keeps the local session path primary and tucks key sign-in behind a disclosure", () => {
 		render(<AuthBootstrapScreen auth={buildAuthState()} />);
 
