@@ -47,7 +47,7 @@ describe("AuthBootstrapScreen", () => {
 			screen.getByRole("button", { name: "Use a key instead" }),
 		).toBeInTheDocument();
 		expect(
-			screen.queryByLabelText("Paste your key", { selector: "input" }),
+			screen.queryByPlaceholderText("Service account key"),
 		).not.toBeInTheDocument();
 		expect(
 			screen.queryByText("Runtime credential bootstrap"),
@@ -56,7 +56,7 @@ describe("AuthBootstrapScreen", () => {
 		fireEvent.click(screen.getByRole("button", { name: "Use a key instead" }));
 
 		expect(
-			screen.getByLabelText("Paste your key", { selector: "input" }),
+			screen.getByPlaceholderText("Service account key"),
 		).toBeInTheDocument();
 		expect(
 			screen.getByRole("button", { name: "Show advanced options" }),
@@ -85,9 +85,7 @@ describe("AuthBootstrapScreen", () => {
 			/>,
 		);
 
-		const input = screen.getByLabelText("Paste your key", {
-			selector: "input",
-		});
+		const input = screen.getByPlaceholderText("Service account key");
 		fireEvent.change(input, { target: { value: "sa-test-key" } });
 		fireEvent.click(screen.getByRole("button", { name: "Start session" }));
 
@@ -112,9 +110,7 @@ describe("AuthBootstrapScreen", () => {
 			/>,
 		);
 
-		const input = screen.getByLabelText("Paste your key", {
-			selector: "input",
-		});
+		const input = screen.getByPlaceholderText("Service account key");
 		fireEvent.change(input, { target: { value: "bad-key" } });
 		fireEvent.click(screen.getByRole("button", { name: "Start session" }));
 
