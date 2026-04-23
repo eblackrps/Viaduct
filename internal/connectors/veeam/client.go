@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/eblackrps/viaduct/internal/connectors"
+	"github.com/eblackrps/viaduct/internal/telemetry"
 )
 
 type oauthTokenResponse struct {
@@ -40,10 +41,10 @@ func NewVeeamClient(address string, insecure bool, requestID ...string) *VeeamCl
 		baseURL: normalizeBaseURL(address),
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
-			Transport: &http.Transport{
+			Transport: telemetry.HTTPClientTransport(&http.Transport{
 				// #nosec G402 -- operators can explicitly opt into insecure TLS for lab and self-signed Veeam endpoints.
 				TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS12, InsecureSkipVerify: insecure},
-			},
+			}, "veeam"),
 		},
 		requestID: propagatedRequestID,
 	}

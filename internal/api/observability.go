@@ -11,7 +11,12 @@ import (
 	"time"
 
 	"github.com/eblackrps/viaduct/internal/store"
+	"github.com/eblackrps/viaduct/internal/telemetry"
 	"github.com/google/uuid"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/trace"
 )
 
 const (
@@ -219,28 +224,42 @@ func (s *Server) withObservability(next http.Handler) http.Handler {
 		if requestID == "" {
 			requestID = uuid.NewString()
 		}
-		traceID := extractTraceID(r)
-
 		startedAt := time.Now()
 		done := s.metrics.startRequest()
 		recorder := &responseRecorder{ResponseWriter: w, status: http.StatusOK}
 		recorder.Header().Set(requestIDHeader, requestID)
+
+		parentCtx := otel.GetTextMapPropagator().Extract(r.Context(), propagation.HeaderCarrier(r.Header))
+		route := normalizeMetricsPath(r.URL.Path)
+		spanCtx, span := telemetry.StartSpan(parentCtx, telemetry.ScopeAPI, requestSpanName(r.Method, route), trace.WithSpanKind(trace.SpanKindServer), trace.WithAttributes(
+			attribute.String("http.request.method", r.Method),
+			attribute.String("url.path", firstNonEmpty(r.URL.EscapedPath(), "/")),
+			attribute.String("http.route", route),
+			attribute.String("viaduct.request_id", requestID),
+		))
+		traceID := firstNonEmpty(telemetry.CurrentTraceID(spanCtx), extractTraceID(r))
 		if traceID != "" {
 			recorder.Header().Set(traceIDHeader, traceID)
 		}
-
 		scope := &requestScope{
 			requestID: requestID,
 			traceID:   traceID,
-			tenantID:  store.TenantIDFromContext(r.Context()),
+			tenantID:  store.TenantIDFromContext(spanCtx),
 		}
-		ctx := context.WithValue(r.Context(), requestIDContextKey{}, requestID)
+		ctx := context.WithValue(spanCtx, requestIDContextKey{}, requestID)
 		ctx = context.WithValue(ctx, traceIDContextKey{}, traceID)
 		ctx = context.WithValue(ctx, requestScopeContextKey{}, scope)
 		next.ServeHTTP(recorder, r.WithContext(ctx))
 
 		duration := time.Since(startedAt)
 		done(r.Method, r.URL.Path, recorder.status, duration)
+		span.SetAttributes(
+			attribute.Int64("viaduct.request.duration_ms", duration.Milliseconds()),
+			attribute.String("tenant.id", strings.TrimSpace(scope.tenantID)),
+			attribute.String("viaduct.auth_method", strings.TrimSpace(scope.authMethod)),
+		)
+		telemetry.RecordHTTPStatus(span, recorder.status)
+		span.End()
 		packageLogger.Info(
 			"http request completed",
 			"request_id", requestID,
@@ -253,6 +272,18 @@ func (s *Server) withObservability(next http.Handler) http.Handler {
 			"auth_method", scope.authMethod,
 		)
 	})
+}
+
+func requestSpanName(method, route string) string {
+	normalizedMethod := strings.ToUpper(strings.TrimSpace(method))
+	if normalizedMethod == "" {
+		normalizedMethod = http.MethodGet
+	}
+	normalizedRoute := strings.TrimSpace(route)
+	if normalizedRoute == "" {
+		normalizedRoute = "/"
+	}
+	return normalizedMethod + " " + normalizedRoute
 }
 
 // TenantRateLimitMiddleware enforces a simple per-tenant request budget.

@@ -41,6 +41,18 @@ spec:
                   key: {{ .Values.secrets.adminKeyField }}
             - name: VIADUCT_WEB_DIR
               value: /opt/viaduct/web
+            - name: VIADUCT_OTEL_ENABLED
+              value: {{ ternary "true" "false" .Values.observability.enabled | quote }}
+            - name: VIADUCT_OTEL_ENDPOINT
+              value: {{ .Values.observability.endpoint | quote }}
+            - name: VIADUCT_OTEL_SERVICE_NAME
+              value: {{ .Values.observability.serviceName | quote }}
+            - name: VIADUCT_OTEL_ENVIRONMENT
+              value: {{ .Values.observability.environment | quote }}
+            - name: VIADUCT_OTEL_SAMPLER
+              value: {{ .Values.observability.sampler | quote }}
+            - name: VIADUCT_OTEL_SAMPLER_ARG
+              value: {{ .Values.observability.samplerArg | quote }}
           ports:
             - name: http
               containerPort: 8080

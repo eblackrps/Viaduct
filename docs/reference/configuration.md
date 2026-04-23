@@ -58,6 +58,12 @@ Fields:
 - `VIADUCT_ALLOWED_ORIGINS`: comma-separated browser origins allowed to call the API from another origin; defaults to same-origin only when empty
 - `VIADUCT_ALLOW_UNAUTHENTICATED_REMOTE`: explicit dangerous override that permits a non-loopback `serve-api` bind without configured admin, tenant, or service account credentials; leave this unset outside disposable break-glass scenarios
 - `VIADUCT_WEB_DIR`: override path for built dashboard assets when they are not in `web/dist`, `web/`, or the installed `share/viaduct/web` layout
+- `VIADUCT_OTEL_ENABLED`: enables backend OpenTelemetry trace export when set to `true`; defaults to disabled
+- `VIADUCT_OTEL_ENDPOINT`: OTLP/HTTP endpoint for backend trace export; defaults to `http://127.0.0.1:4318`
+- `VIADUCT_OTEL_SERVICE_NAME`: override for the reported OpenTelemetry service name; defaults to `viaduct-api`
+- `VIADUCT_OTEL_ENVIRONMENT`: deployment environment label added to traces; defaults to `local` for `viaduct start` and `self-hosted` otherwise
+- `VIADUCT_OTEL_SAMPLER`: trace sampler name; supported values are `parentbased_traceidratio`, `traceidratio`, `always_on`, `always_off`, `parentbased_always_on`, and `parentbased_always_off`
+- `VIADUCT_OTEL_SAMPLER_ARG`: numeric sample ratio used by the ratio-based samplers; defaults to `1`
 - `VIADUCT_WORKSPACE_JOB_TIMEOUT`: per-job server-side timeout for pilot workspace discovery, graph, simulation, and plan generation; defaults to `2m`
 - `VIADUCT_WORKSPACE_ENQUEUE_TIMEOUT`: maximum time an API request waits for the bounded workspace executor to acknowledge queue admission before returning `ErrEnqueueTimeout`; defaults to `30s`
 - `VIADUCT_WORKSPACE_JOB_CONCURRENCY`: bounded worker count for queued and recovered workspace jobs; defaults to `4`
@@ -95,6 +101,15 @@ Tenant and service account credentials are persisted as non-recoverable hashes i
 - `X-Service-Account-Key`: scoped machine credential for tenant service accounts
 - `X-Admin-Key`: admin-only plaintext API key for tenant creation and deletion; the stored server-side `VIADUCT_ADMIN_KEY` may be either plaintext or `sha256:<hex>`
 - `X-Request-ID`: optional caller-supplied request correlation ID; when absent, the API generates one
+- `X-Trace-ID`: response header exposing the current backend trace identifier when tracing is active
+- `Traceparent`: optional inbound W3C trace context header for request-to-request correlation
+
+## Observability Notes
+
+- Trace export is opt-in and safe to leave disabled.
+- Viaduct continues serving requests if the configured OTLP backend is unreachable after startup; trace export is best-effort.
+- If the exporter cannot be created during startup, Viaduct logs a warning and continues without telemetry rather than failing the server process.
+- The built-in `/metrics` endpoint remains the official metrics contract for now. OpenTelemetry metrics export is intentionally deferred until Viaduct adopts a single operator-facing metrics path.
 
 ## Tenant Defaults
 - The built-in `default` tenant exists automatically in both the memory store and PostgreSQL store.

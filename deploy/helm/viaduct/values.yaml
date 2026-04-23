@@ -38,6 +38,14 @@ config:
   existingConfigMap: viaduct-config
   mountPath: /etc/viaduct
 
+observability:
+  enabled: false
+  endpoint: ""
+  serviceName: viaduct-api
+  environment: production
+  sampler: parentbased_traceidratio
+  samplerArg: "1"
+
 secrets:
   existingSecret: viaduct-secrets
   adminKeyField: admin-api-key

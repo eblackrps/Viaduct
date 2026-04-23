@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/eblackrps/viaduct/internal/connectors"
+	"github.com/eblackrps/viaduct/internal/telemetry"
 )
 
 type apiEnvelope struct {
@@ -51,7 +52,7 @@ func NewProxmoxClient(address string, insecure bool, requestID ...string) *Proxm
 		baseURL: baseURL,
 		httpClient: &http.Client{
 			Timeout:   30 * time.Second,
-			Transport: transport,
+			Transport: telemetry.HTTPClientTransport(transport, "proxmox"),
 		},
 		requestID: propagatedRequestID,
 	}

@@ -12,6 +12,8 @@ This document describes the current Docker-canonical packaging and release proce
 - `make release-surface-check`: verify the current version, install docs, site copy, and deployment samples still agree
 - `make web-e2e-setup`: install the dashboard dependencies plus the Playwright Chromium runtime for local browser smoke
 - `make pilot-smoke`: run the root-level evaluator path (`tests/integration` workspace smoke plus the real `viaduct start` browser smoke)
+- `make observability-up`: start the local Grafana + Tempo stack used for backend trace validation
+- `make observability-validate`: confirm Grafana, Tempo, and a real Viaduct trace are reachable in a local telemetry run
 - `go run ./scripts/openapi_generate`: regenerate the checked-in OpenAPI JSON used by `/api/v1/docs/swagger.json`
 - `cd web && npm run lint`: enforce dashboard lint and accessibility rules
 - `cd web && npm run test`: run dashboard unit tests
@@ -20,7 +22,7 @@ This document describes the current Docker-canonical packaging and release proce
 
 On Windows, `make release-gate` still builds `bin/viaduct.exe`, but it validates the CLI smoke commands through a LocalAppData-staged `go run ./cmd/viaduct` helper because some operator workstations enforce Application Control policies that block freshly built unsigned binaries from direct execution or from `%TEMP%`. The Windows test helpers stage race and coverage artifacts under repo-local cache directories so the canonical gate remains reproducible on locked-down workstations.
 
-`make release-gate` is the authoritative local check. The canonical tag workflow now lives in `.github/workflows/image.yml`, which publishes the signed OCI image to GHCR, mirrors it to `docker.io/emb079/viaduct` when Docker Hub secrets are available, attaches SBOM attestations and provenance, runs the image scan, and publishes the secondary native bundles. CI adds browser end-to-end coverage plus `gosec` and `trivy`; those checks are required for merges, but they stay outside the local release gate because they depend on extra browser or scanner setup.
+`make release-gate` is the authoritative local check. The canonical tag workflow now lives in `.github/workflows/image.yml`, which publishes the signed OCI image to GHCR, mirrors it to `docker.io/emb079/viaduct` when Docker Hub secrets are available, attaches SBOM attestations and provenance, runs the image scan, and publishes the secondary native bundles. CI adds browser end-to-end coverage, a Docker-backed observability smoke that validates Tempo trace ingestion, plus `gosec` and `trivy`; those checks are required for merges, but they stay outside the local release gate because they depend on extra browser, Docker, or scanner setup.
 
 ## Release Checklist
 1. Ensure the working tree is in the intended state and public docs are current.

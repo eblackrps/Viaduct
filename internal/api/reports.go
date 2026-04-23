@@ -13,7 +13,9 @@ import (
 	migratepkg "github.com/eblackrps/viaduct/internal/migrate"
 	"github.com/eblackrps/viaduct/internal/models"
 	"github.com/eblackrps/viaduct/internal/store"
+	"github.com/eblackrps/viaduct/internal/telemetry"
 	"github.com/google/uuid"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 type awaitAuditContextKey struct{}
@@ -67,21 +69,36 @@ func (s *Server) handleReports(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) writeSummaryReport(w http.ResponseWriter, r *http.Request, format string) {
+	ctx, span := telemetry.StartSpan(r.Context(), telemetry.ScopeAPI, "report.summary", withTenantSpanAttributes(r.Context(),
+		attribute.String("viaduct.report.name", "summary"),
+		attribute.String("viaduct.report.format", format),
+	)...)
+	defer span.End()
+	r = r.WithContext(ctx)
+
 	inventory, err := s.latestInventory(r.Context(), "")
 	if err != nil {
+		telemetry.RecordError(span, err)
 		writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 		return
 	}
 	snapshots, err := s.store.ListSnapshots(r.Context(), store.TenantIDFromContext(r.Context()), "", 100)
 	if err != nil {
+		telemetry.RecordError(span, err)
 		writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 		return
 	}
 	migrations, err := s.store.ListMigrations(r.Context(), store.TenantIDFromContext(r.Context()), 100)
 	if err != nil {
+		telemetry.RecordError(span, err)
 		writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 		return
 	}
+	span.SetAttributes(
+		attribute.Int("viaduct.inventory.vm_count", len(inventory.VMs)),
+		attribute.Int("viaduct.snapshot_count", len(snapshots)),
+		attribute.Int("viaduct.migration_count", len(migrations)),
+	)
 
 	summary := tenantSummary{
 		TenantID:      store.TenantIDFromContext(r.Context()),
@@ -128,11 +145,20 @@ func (s *Server) writeSummaryReport(w http.ResponseWriter, r *http.Request, form
 }
 
 func (s *Server) writeMigrationsReport(w http.ResponseWriter, r *http.Request, format string) {
+	ctx, span := telemetry.StartSpan(r.Context(), telemetry.ScopeAPI, "report.migrations", withTenantSpanAttributes(r.Context(),
+		attribute.String("viaduct.report.name", "migrations"),
+		attribute.String("viaduct.report.format", format),
+	)...)
+	defer span.End()
+	r = r.WithContext(ctx)
+
 	items, err := s.store.ListMigrations(r.Context(), store.TenantIDFromContext(r.Context()), 200)
 	if err != nil {
+		telemetry.RecordError(span, err)
 		writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 		return
 	}
+	span.SetAttributes(attribute.Int("viaduct.migration_count", len(items)))
 
 	if format == "csv" {
 		rows := make([][]string, 0, len(items))
@@ -154,11 +180,20 @@ func (s *Server) writeMigrationsReport(w http.ResponseWriter, r *http.Request, f
 }
 
 func (s *Server) writeAuditReport(w http.ResponseWriter, r *http.Request, format string) {
+	ctx, span := telemetry.StartSpan(r.Context(), telemetry.ScopeAPI, "report.audit", withTenantSpanAttributes(r.Context(),
+		attribute.String("viaduct.report.name", "audit"),
+		attribute.String("viaduct.report.format", format),
+	)...)
+	defer span.End()
+	r = r.WithContext(ctx)
+
 	items, err := s.store.ListAuditEvents(r.Context(), store.TenantIDFromContext(r.Context()), 200)
 	if err != nil {
+		telemetry.RecordError(span, err)
 		writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 		return
 	}
+	span.SetAttributes(attribute.Int("viaduct.audit.event_count", len(items)))
 
 	if format == "csv" {
 		rows := make([][]string, 0, len(items))
@@ -197,7 +232,13 @@ func (s *Server) recordAuditEvent(r *http.Request, event models.AuditEvent) {
 	event = s.normalizeAuditEvent(ctx, event)
 
 	saveEvent := func(ctx context.Context) {
+		ctx, span := telemetry.StartSpan(ctx, telemetry.ScopeAPI, "audit.persist", withTenantSpanAttributes(ctx,
+			attribute.String("viaduct.audit.category", strings.TrimSpace(event.Category)),
+			attribute.String("viaduct.audit.action", strings.TrimSpace(event.Action)),
+		)...)
+		defer span.End()
 		if err := s.persistAuditEvent(ctx, event); err != nil {
+			telemetry.RecordError(span, err)
 			log.Printf("component=api category=audit action=save outcome=failure message=%q", err.Error())
 		}
 	}

@@ -17,6 +17,7 @@ Viaduct `v3.1.1` treats the signed GHCR OCI image as the canonical install surfa
 - [Backup Portability](operations/backup-portability.md)
 - [Multi-Tenancy](operations/multi-tenancy.md)
 - [Auth, Role, And Auditability Model](operations/auth-role-audit-model.md)
+- [Backend Observability](operations/observability.md)
 - [Observability Requirements](operations/observability-requirements.md)
 - [Upgrade](operations/upgrade.md)
 - [Rollback](operations/rollback.md)

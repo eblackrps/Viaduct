@@ -12,6 +12,7 @@ import (
 
 	"github.com/eblackrps/viaduct/internal/connectors"
 	"github.com/eblackrps/viaduct/internal/models"
+	"github.com/eblackrps/viaduct/internal/telemetry"
 	"github.com/vmware/govmomi"
 	"github.com/vmware/govmomi/session"
 	"github.com/vmware/govmomi/view"
@@ -41,6 +42,7 @@ func (c *VMwareConnector) Connect(ctx context.Context) error {
 	}
 
 	soapClient := soap.NewClient(endpoint, c.config.Insecure)
+	soapClient.Transport = telemetry.HTTPClientTransport(soapClient.Transport, "vmware.soap")
 	if requestID := strings.TrimSpace(c.config.RequestID); requestID != "" {
 		soapClient.Transport = requestIDTransport{
 			base:      soapClient.Transport,

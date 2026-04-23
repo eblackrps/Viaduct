@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/eblackrps/viaduct/internal/connectors"
+	"github.com/eblackrps/viaduct/internal/telemetry"
 )
 
 // PrismClient is a lightweight Prism Central v3 REST client.
@@ -41,10 +42,10 @@ func NewPrismClient(address, username, password string, insecure bool, requestID
 		baseURL: strings.TrimRight(address, "/"),
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
-			Transport: &http.Transport{
+			Transport: telemetry.HTTPClientTransport(&http.Transport{
 				// #nosec G402 -- operators can explicitly opt into insecure TLS for lab and self-signed Prism endpoints.
 				TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS12, InsecureSkipVerify: insecure},
-			},
+			}, "nutanix"),
 		},
 		username:  username,
 		password:  password,

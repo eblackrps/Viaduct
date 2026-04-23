@@ -20,7 +20,10 @@ import (
 	migratepkg "github.com/eblackrps/viaduct/internal/migrate"
 	"github.com/eblackrps/viaduct/internal/models"
 	"github.com/eblackrps/viaduct/internal/store"
+	"github.com/eblackrps/viaduct/internal/telemetry"
 	"github.com/google/uuid"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type workspaceCreateRequest struct {
@@ -388,8 +391,15 @@ func (s *Server) handleWorkspaceReportExport(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	ctx, span := telemetry.StartSpan(r.Context(), telemetry.ScopeAPI, "workspace.report.export", workspaceSpanAttributes(r.Context(), workspaceID, "",
+		attribute.String("viaduct.export.kind", "workspace-report"),
+	)...)
+	defer span.End()
+	r = r.WithContext(ctx)
+
 	workspace, err := s.store.GetWorkspace(r.Context(), tenantID, workspaceID)
 	if err != nil {
+		telemetry.RecordError(span, err)
 		writeAPIError(w, r, http.StatusNotFound, "workspace_not_found", err.Error(), apiErrorOptions{
 			Details: map[string]any{"workspace_id": workspaceID},
 		})
@@ -399,10 +409,12 @@ func (s *Server) handleWorkspaceReportExport(w http.ResponseWriter, r *http.Requ
 	defer r.Body.Close()
 	var request workspaceReportExportRequest
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil && !errors.Is(err, io.EOF) {
+		telemetry.RecordError(span, err)
 		writeAPIError(w, r, http.StatusBadRequest, "invalid_request", fmt.Errorf("decode workspace report export request: %w", err).Error(), apiErrorOptions{})
 		return
 	}
 	if err := validateWorkspaceReportExportRequest(request); err != nil {
+		telemetry.RecordError(span, err)
 		if writeValidationFailure(w, r, err) {
 			return
 		}
@@ -414,7 +426,9 @@ func (s *Server) handleWorkspaceReportExport(w http.ResponseWriter, r *http.Requ
 	if format == "" {
 		format = "markdown"
 	}
+	span.SetAttributes(attribute.String("viaduct.export.format", format))
 	if format != "markdown" && format != "json" {
+		telemetry.RecordError(span, fmt.Errorf("unsupported workspace report format %q", format))
 		writeAPIError(w, r, http.StatusBadRequest, "invalid_request", fmt.Sprintf("unsupported report format %q", format), apiErrorOptions{
 			FieldErrors: []apiFieldError{{Path: "format", Message: "supported formats are markdown and json"}},
 		})
@@ -423,6 +437,7 @@ func (s *Server) handleWorkspaceReportExport(w http.ResponseWriter, r *http.Requ
 
 	jobs, err := s.store.ListWorkspaceJobs(r.Context(), tenantID, workspaceID, 50)
 	if err != nil {
+		telemetry.RecordError(span, err)
 		writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 		return
 	}
@@ -446,6 +461,7 @@ func (s *Server) handleWorkspaceReportExport(w http.ResponseWriter, r *http.Requ
 	})
 	workspace.Status = advanceWorkspaceStatus(workspace.Status, models.PilotWorkspaceStatusReported)
 	if err := s.store.UpdateWorkspace(r.Context(), tenantID, *workspace); err != nil {
+		telemetry.RecordError(span, err)
 		writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 		return
 	}
@@ -465,6 +481,7 @@ func (s *Server) handleWorkspaceReportExport(w http.ResponseWriter, r *http.Requ
 	if format == "json" {
 		payload, err := json.MarshalIndent(document, "", "  ")
 		if err != nil {
+			telemetry.RecordError(span, err)
 			writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 			return
 		}
@@ -517,11 +534,14 @@ func (s *Server) runWorkspaceJob(ctx context.Context, tenantID, workspaceID, job
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	ctx, span := telemetry.StartSpan(ctx, telemetry.ScopeAPI, "workspace.job.run", workspaceSpanAttributes(ctx, workspaceID, jobID)...)
+	defer span.End()
 	storeCtx := store.ContextWithTenantID(ctx, tenantID)
 
 	job, err := s.store.GetWorkspaceJob(storeCtx, tenantID, workspaceID, jobID)
 	if err != nil {
 		failure := fmt.Errorf("load workspace job %s: %w", jobID, err)
+		telemetry.RecordError(span, failure)
 		placeholder := workspaceJobFailurePlaceholder(tenantID, workspaceID, jobID)
 		if persistErr := s.recordWorkspaceJobFailure(storeCtx, tenantID, placeholder, false, failure); persistErr != nil {
 			return
@@ -530,11 +550,16 @@ func (s *Server) runWorkspaceJob(ctx context.Context, tenantID, workspaceID, job
 	}
 	workspace, err := s.store.GetWorkspace(storeCtx, tenantID, workspaceID)
 	if err != nil {
+		telemetry.RecordError(span, err)
 		if persistErr := s.recordWorkspaceJobFailure(storeCtx, tenantID, *job, false, fmt.Errorf("load workspace %s: %w", workspaceID, err)); persistErr != nil {
 			return
 		}
 		return
 	}
+	span.SetAttributes(
+		attribute.String("viaduct.workspace.job_type", string(job.Type)),
+		attribute.String("viaduct.request_id", strings.TrimSpace(job.CorrelationID)),
+	)
 
 	job.Status = models.WorkspaceJobStatusRunning
 	job.StartedAt = time.Now().UTC()
@@ -542,6 +567,7 @@ func (s *Server) runWorkspaceJob(ctx context.Context, tenantID, workspaceID, job
 	job.Message = workspaceJobRunningMessage(job.Type)
 	if err := s.store.SaveWorkspaceJob(storeCtx, tenantID, *job); err != nil {
 		failure := fmt.Errorf("mark workspace job %s running: %w", job.ID, err)
+		telemetry.RecordError(span, failure)
 		packageLogger.Error("failed to persist workspace job state", "request_id", job.CorrelationID, "job_id", job.ID, "workspace_id", workspaceID, "error", err.Error())
 		if persistErr := s.recordWorkspaceJobFailure(storeCtx, tenantID, *job, true, failure); persistErr != nil {
 			return
@@ -551,6 +577,7 @@ func (s *Server) runWorkspaceJob(ctx context.Context, tenantID, workspaceID, job
 
 	request, err := decodeWorkspaceJobRequest(job.InputJSON)
 	if err != nil {
+		telemetry.RecordError(span, err)
 		if persistErr := s.recordWorkspaceJobFailure(storeCtx, tenantID, *job, false, err); persistErr != nil {
 			return
 		}
@@ -578,6 +605,7 @@ func (s *Server) runWorkspaceJob(ctx context.Context, tenantID, workspaceID, job
 	}
 
 	if err != nil {
+		telemetry.RecordError(span, err)
 		if persistErr := s.recordWorkspaceJobFailure(storeCtx, tenantID, *job, isRetryableWorkspaceJobError(err), err); persistErr != nil {
 			return
 		}
@@ -585,6 +613,7 @@ func (s *Server) runWorkspaceJob(ctx context.Context, tenantID, workspaceID, job
 	}
 	output, truncated, err := capWorkspaceJobOutput(output)
 	if err != nil {
+		telemetry.RecordError(span, err)
 		if persistErr := s.recordWorkspaceJobFailure(storeCtx, tenantID, *job, false, err); persistErr != nil {
 			return
 		}
@@ -599,8 +628,13 @@ func (s *Server) runWorkspaceJob(ctx context.Context, tenantID, workspaceID, job
 	job.OutputJSON = output
 	job.UpdatedAt = time.Now().UTC()
 	job.CompletedAt = job.UpdatedAt
+	span.SetAttributes(
+		attribute.Bool("viaduct.workspace.output_truncated", truncated),
+		attribute.Int("viaduct.workspace.output_size_bytes", len(output)),
+	)
 	if err := s.store.SaveWorkspaceJob(storeCtx, tenantID, *job); err != nil {
 		failure := fmt.Errorf("persist workspace job %s result: %w", job.ID, err)
+		telemetry.RecordError(span, failure)
 		packageLogger.Error("failed to persist workspace job result", "request_id", job.CorrelationID, "job_id", job.ID, "workspace_id", workspaceID, "error", err.Error())
 		if persistErr := s.recordWorkspaceJobFailure(storeCtx, tenantID, *job, true, failure); persistErr != nil {
 			return
@@ -609,13 +643,21 @@ func (s *Server) runWorkspaceJob(ctx context.Context, tenantID, workspaceID, job
 }
 
 func (s *Server) executeWorkspaceDiscoveryJob(ctx context.Context, tenantID string, workspace *models.PilotWorkspace, request workspaceJobCreateRequest) (json.RawMessage, string, error) {
+	ctx, span := telemetry.StartSpan(ctx, telemetry.ScopeAPI, "workspace.discovery", workspaceSpanAttributes(ctx, workspace.ID, "",
+		attribute.Int("viaduct.workspace.source_count", len(workspace.SourceConnections)),
+	)...)
+	defer span.End()
 	sourceConnections := workspaceSourceConnections(*workspace, request.SourceConnectionIDs)
 	if len(sourceConnections) == 0 {
-		return nil, "", fmt.Errorf("workspace discovery: at least one source connection is required")
+		err := fmt.Errorf("workspace discovery: at least one source connection is required")
+		telemetry.RecordError(span, err)
+		return nil, "", err
 	}
+	span.SetAttributes(attribute.Int("viaduct.workspace.discovery_scope_count", len(sourceConnections)))
 
 	catalog, err := s.workspaceConnectorCatalog()
 	if err != nil {
+		telemetry.RecordError(span, err)
 		return nil, "", fmt.Errorf("workspace discovery: %w", err)
 	}
 
@@ -624,6 +666,7 @@ func (s *Server) executeWorkspaceDiscoveryJob(ctx context.Context, tenantID stri
 	for _, source := range sourceConnections {
 		connector, err := s.buildConnector(ctx, catalog, source.Platform, source.Address, source.CredentialRef)
 		if err != nil {
+			telemetry.RecordError(span, err)
 			return nil, "", fmt.Errorf("workspace discovery: build %s connector: %w", source.Platform, err)
 		}
 		engine.AddSource(source.ID, connector)
@@ -632,14 +675,21 @@ func (s *Server) executeWorkspaceDiscoveryJob(ctx context.Context, tenantID stri
 
 	merged, runErr := engine.RunAll(ctx)
 	if merged == nil {
-		return nil, "", fmt.Errorf("workspace discovery: no discovery results returned")
+		err := fmt.Errorf("workspace discovery: no discovery results returned")
+		telemetry.RecordError(span, err)
+		return nil, "", err
 	}
+	span.SetAttributes(
+		attribute.Int("viaduct.workspace.discovery_sources_returned", len(merged.Sources)),
+		attribute.Int("viaduct.workspace.discovery_warning_count", len(merged.Errors)),
+	)
 	snapshots := make([]models.WorkspaceSnapshot, 0, len(merged.Sources))
 	snapshotIDs := make([]string, 0, len(merged.Sources))
 	for _, result := range merged.Sources {
 		resultCopy := result
 		snapshotID, err := s.store.SaveDiscovery(ctx, tenantID, &resultCopy)
 		if err != nil {
+			telemetry.RecordError(span, err)
 			return nil, "", fmt.Errorf("workspace discovery: save discovery snapshot: %w", err)
 		}
 		sourceConnectionID := addressToConnectionID[strings.ToLower(strings.TrimSpace(result.Source))]
@@ -662,6 +712,7 @@ func (s *Server) executeWorkspaceDiscoveryJob(ctx context.Context, tenantID stri
 		workspace.Status = advanceWorkspaceStatus(workspace.Status, models.PilotWorkspaceStatusDiscovered)
 	}
 	if err := s.store.UpdateWorkspace(ctx, tenantID, *workspace); err != nil {
+		telemetry.RecordError(span, err)
 		return nil, "", fmt.Errorf("workspace discovery: update workspace: %w", err)
 	}
 
@@ -671,23 +722,34 @@ func (s *Server) executeWorkspaceDiscoveryJob(ctx context.Context, tenantID stri
 		"errors":       merged.Errors,
 	})
 	if err != nil {
+		telemetry.RecordError(span, err)
 		return nil, "", fmt.Errorf("workspace discovery: marshal output: %w", err)
 	}
 	if runErr != nil {
+		telemetry.RecordError(span, runErr)
 		return output, fmt.Sprintf("Discovery saved %d snapshot(s) with warnings.", len(snapshotIDs)), fmt.Errorf("workspace discovery: %w", runErr)
 	}
 	return output, fmt.Sprintf("Discovery saved %d snapshot(s).", len(snapshotIDs)), nil
 }
 
 func (s *Server) executeWorkspaceGraphJob(ctx context.Context, tenantID string, workspace *models.PilotWorkspace) (json.RawMessage, string, error) {
+	ctx, span := telemetry.StartSpan(ctx, telemetry.ScopeAPI, "workspace.graph", workspaceSpanAttributes(ctx, workspace.ID, "")...)
+	defer span.End()
 	inventory, err := s.workspaceInventory(ctx, tenantID, *workspace)
 	if err != nil {
+		telemetry.RecordError(span, err)
 		return nil, "", fmt.Errorf("workspace graph: %w", err)
 	}
 
 	graph := deps.BuildGraph(inventory, s.backups)
+	span.SetAttributes(
+		attribute.Int("viaduct.inventory.vm_count", len(inventory.VMs)),
+		attribute.Int("viaduct.graph.node_count", len(graph.Nodes)),
+		attribute.Int("viaduct.graph.edge_count", len(graph.Edges)),
+	)
 	output, err := json.Marshal(graph)
 	if err != nil {
+		telemetry.RecordError(span, err)
 		return nil, "", fmt.Errorf("workspace graph: %w", err)
 	}
 
@@ -699,14 +761,18 @@ func (s *Server) executeWorkspaceGraphJob(ctx context.Context, tenantID string, 
 	}
 	workspace.Status = advanceWorkspaceStatus(workspace.Status, models.PilotWorkspaceStatusGraphReady)
 	if err := s.store.UpdateWorkspace(ctx, tenantID, *workspace); err != nil {
+		telemetry.RecordError(span, err)
 		return nil, "", fmt.Errorf("workspace graph: update workspace: %w", err)
 	}
 	return output, fmt.Sprintf("Dependency graph generated with %d nodes and %d edges.", len(graph.Nodes), len(graph.Edges)), nil
 }
 
 func (s *Server) executeWorkspaceSimulationJob(ctx context.Context, tenantID string, workspace *models.PilotWorkspace, request workspaceJobCreateRequest) (json.RawMessage, string, error) {
+	ctx, span := telemetry.StartSpan(ctx, telemetry.ScopeAPI, "workspace.simulation", workspaceSpanAttributes(ctx, workspace.ID, "")...)
+	defer span.End()
 	inventory, err := s.workspaceInventory(ctx, tenantID, *workspace)
 	if err != nil {
+		telemetry.RecordError(span, err)
 		return nil, "", fmt.Errorf("workspace simulation: %w", err)
 	}
 
@@ -724,15 +790,25 @@ func (s *Server) executeWorkspaceSimulationJob(ctx context.Context, tenantID str
 		}
 	}
 	if simulationRequest.TargetPlatform == "" {
-		return nil, "", fmt.Errorf("workspace simulation: target platform is required")
+		err := fmt.Errorf("workspace simulation: target platform is required")
+		telemetry.RecordError(span, err)
+		return nil, "", err
 	}
+	span.SetAttributes(
+		attribute.String("viaduct.target_platform", string(simulationRequest.TargetPlatform)),
+		attribute.Int("viaduct.selected_vm_count", len(simulationRequest.VMIDs)),
+		attribute.Bool("viaduct.include_all", simulationRequest.IncludeAll),
+	)
 
 	result, err := s.recommendationEngine.Simulate(inventory, simulationRequest)
 	if err != nil {
+		telemetry.RecordError(span, err)
 		return nil, "", fmt.Errorf("workspace simulation: %w", err)
 	}
+	span.SetAttributes(attribute.Int("viaduct.moved_vm_count", result.MovedVMs))
 	output, err := json.Marshal(result)
 	if err != nil {
+		telemetry.RecordError(span, err)
 		return nil, "", fmt.Errorf("workspace simulation: %w", err)
 	}
 
@@ -751,6 +827,7 @@ func (s *Server) executeWorkspaceSimulationJob(ctx context.Context, tenantID str
 	workspace.Readiness = deriveWorkspaceReadiness(result, len(simulationRequest.VMIDs), simulationRequest.IncludeAll, len(inventory.VMs))
 	workspace.Status = advanceWorkspaceStatus(workspace.Status, models.PilotWorkspaceStatusSimulated)
 	if err := s.store.UpdateWorkspace(ctx, tenantID, *workspace); err != nil {
+		telemetry.RecordError(span, err)
 		return nil, "", fmt.Errorf("workspace simulation: update workspace: %w", err)
 	}
 
@@ -758,26 +835,41 @@ func (s *Server) executeWorkspaceSimulationJob(ctx context.Context, tenantID str
 }
 
 func (s *Server) executeWorkspacePlanJob(ctx context.Context, tenantID string, workspace *models.PilotWorkspace, request workspaceJobCreateRequest) (json.RawMessage, string, error) {
+	ctx, span := telemetry.StartSpan(ctx, telemetry.ScopeAPI, "workspace.plan", workspaceSpanAttributes(ctx, workspace.ID, "")...)
+	defer span.End()
 	inventory, err := s.workspaceInventory(ctx, tenantID, *workspace)
 	if err != nil {
+		telemetry.RecordError(span, err)
 		return nil, "", fmt.Errorf("workspace plan: %w", err)
 	}
 
 	selectedIDs := workspaceSelectedWorkloadIDs(*workspace, request.SelectedWorkloadIDs)
 	spec, err := buildWorkspaceMigrationSpec(*workspace, inventory, selectedIDs)
 	if err != nil {
+		telemetry.RecordError(span, err)
 		return nil, "", fmt.Errorf("workspace plan: %w", err)
 	}
+	span.SetAttributes(
+		attribute.String("viaduct.source_platform", string(spec.Source.Platform)),
+		attribute.String("viaduct.target_platform", string(spec.Target.Platform)),
+		attribute.Int("viaduct.selected_vm_count", len(selectedIDs)),
+	)
 
 	migrationID := uuid.NewString()
 	generatedAt := time.Now().UTC()
 	state, err := migratepkg.BuildStateFromInventory(spec, inventory, migrationID, generatedAt)
 	if err != nil {
+		telemetry.RecordError(span, err)
 		return nil, "", fmt.Errorf("workspace plan: %w", err)
 	}
+	span.SetAttributes(
+		attribute.String("viaduct.migration.id", migrationID),
+		attribute.Int("viaduct.plan.workload_count", len(state.Workloads)),
+	)
 
 	statePayload, err := json.Marshal(state)
 	if err != nil {
+		telemetry.RecordError(span, err)
 		return nil, "", fmt.Errorf("workspace plan: marshal migration state: %w", err)
 	}
 	if err := s.store.SaveMigration(ctx, tenantID, store.MigrationRecord{
@@ -789,11 +881,13 @@ func (s *Server) executeWorkspacePlanJob(ctx context.Context, tenantID string, w
 		UpdatedAt: state.UpdatedAt,
 		RawJSON:   statePayload,
 	}); err != nil {
+		telemetry.RecordError(span, err)
 		return nil, "", fmt.Errorf("workspace plan: save migration record: %w", err)
 	}
 
 	specPayload, err := json.Marshal(spec)
 	if err != nil {
+		telemetry.RecordError(span, err)
 		return nil, "", fmt.Errorf("workspace plan: marshal migration spec: %w", err)
 	}
 
@@ -814,6 +908,7 @@ func (s *Server) executeWorkspacePlanJob(ctx context.Context, tenantID string, w
 	syncWorkspacePlanApproval(workspace, generatedAt)
 	workspace.Status = advanceWorkspaceStatus(workspace.Status, models.PilotWorkspaceStatusPlanned)
 	if err := s.store.UpdateWorkspace(ctx, tenantID, *workspace); err != nil {
+		telemetry.RecordError(span, err)
 		return nil, "", fmt.Errorf("workspace plan: update workspace: %w", err)
 	}
 
@@ -929,9 +1024,13 @@ func (s *Server) recoverWorkspaceJobs(ctx context.Context) error {
 	if s == nil || s.store == nil {
 		return nil
 	}
+	ctx, span := telemetry.StartSpan(ctx, telemetry.ScopeAPI, "workspace.jobs.recover")
+	defer span.End()
+	recoveredJobs := 0
 
 	tenants, err := s.store.ListTenants(ctx)
 	if err != nil {
+		telemetry.RecordError(span, err)
 		return fmt.Errorf("recover workspace jobs: list tenants: %w", err)
 	}
 
@@ -939,12 +1038,14 @@ func (s *Server) recoverWorkspaceJobs(ctx context.Context) error {
 		tenantCtx := store.ContextWithTenantID(ctx, tenant.ID)
 		workspaces, err := s.store.ListWorkspaces(tenantCtx, tenant.ID, 0)
 		if err != nil {
+			telemetry.RecordError(span, err)
 			return fmt.Errorf("recover workspace jobs: list workspaces for tenant %s: %w", tenant.ID, err)
 		}
 
 		for _, workspace := range workspaces {
 			jobs, err := s.store.ListWorkspaceJobs(tenantCtx, tenant.ID, workspace.ID, 0)
 			if err != nil {
+				telemetry.RecordError(span, err)
 				return fmt.Errorf("recover workspace jobs: list jobs for workspace %s: %w", workspace.ID, err)
 			}
 			for _, job := range jobs {
@@ -959,19 +1060,40 @@ func (s *Server) recoverWorkspaceJobs(ctx context.Context) error {
 				job.Error = ""
 				job.Retryable = false
 				if err := s.store.SaveWorkspaceJob(tenantCtx, tenant.ID, job); err != nil {
+					telemetry.RecordError(span, err)
 					return fmt.Errorf("recover workspace jobs: save recovered job %s: %w", job.ID, err)
 				}
 				if err := s.enqueueWorkspaceJob(tenantCtx, job); err != nil {
+					telemetry.RecordError(span, err)
 					persistCtx := store.ContextWithTenantID(context.WithoutCancel(tenantCtx), tenant.ID)
 					if persistErr := s.recordWorkspaceJobFailure(persistCtx, tenant.ID, job, true, err); persistErr != nil {
 						return fmt.Errorf("recover workspace jobs: enqueue job %s: %v (persist failure: %w)", job.ID, err, persistErr)
 					}
 					return fmt.Errorf("recover workspace jobs: enqueue job %s: %w", job.ID, err)
 				}
+				recoveredJobs++
 			}
 		}
 	}
+	span.SetAttributes(attribute.Int("viaduct.workspace.recovered_job_count", recoveredJobs))
 	return nil
+}
+
+func workspaceSpanAttributes(ctx context.Context, workspaceID, jobID string, attributes ...attribute.KeyValue) []trace.SpanStartOption {
+	tenantID := strings.TrimSpace(store.TenantIDFromContext(ctx))
+	if tenantID != "" {
+		attributes = append([]attribute.KeyValue{attribute.String("tenant.id", tenantID)}, attributes...)
+	}
+	if trimmedWorkspaceID := strings.TrimSpace(workspaceID); trimmedWorkspaceID != "" {
+		attributes = append(attributes, attribute.String("viaduct.workspace.id", trimmedWorkspaceID))
+	}
+	if trimmedJobID := strings.TrimSpace(jobID); trimmedJobID != "" {
+		attributes = append(attributes, attribute.String("viaduct.workspace.job_id", trimmedJobID))
+	}
+	if len(attributes) == 0 {
+		return nil
+	}
+	return []trace.SpanStartOption{trace.WithAttributes(attributes...)}
 }
 
 func (s *Server) workspaceConnectorCatalog() (*connectorcatalog.Catalog, error) {

@@ -7,11 +7,13 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	viaductapi "github.com/eblackrps/viaduct/internal/api"
 	"github.com/eblackrps/viaduct/internal/connectors"
 	"github.com/eblackrps/viaduct/internal/discovery"
 	"github.com/eblackrps/viaduct/internal/models"
+	"github.com/eblackrps/viaduct/internal/telemetry"
 	"github.com/spf13/cobra"
 )
 
@@ -59,6 +61,19 @@ func newServeAPICommand() *cobra.Command {
 }
 
 func runServeAPI(ctx context.Context, options serveAPIOptions) error {
+	shutdownTelemetry, err := telemetry.Setup(ctx, telemetry.OptionsFromEnv(version, options.LocalRuntime))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: OpenTelemetry disabled: %v\n", err)
+		shutdownTelemetry = func(context.Context) error { return nil }
+	}
+	defer func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := shutdownTelemetry(shutdownCtx); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: OpenTelemetry shutdown failed: %v\n", err)
+		}
+	}()
+
 	cfg, err := loadAppConfig(options.ConfigPath)
 	if err != nil {
 		return fmt.Errorf("serve-api: load config: %w", err)

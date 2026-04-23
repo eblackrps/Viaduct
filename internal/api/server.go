@@ -27,7 +27,10 @@ import (
 	migratepkg "github.com/eblackrps/viaduct/internal/migrate"
 	"github.com/eblackrps/viaduct/internal/models"
 	"github.com/eblackrps/viaduct/internal/store"
+	"github.com/eblackrps/viaduct/internal/telemetry"
 	"github.com/google/uuid"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type tenantCreateRequest struct {
@@ -1392,24 +1395,37 @@ func (s *Server) handleSimulation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	ctx, span := telemetry.StartSpan(r.Context(), telemetry.ScopeAPI, "simulation.evaluate", withTenantSpanAttributes(r.Context(), attribute.String("viaduct.simulation.scope", "tenant"))...)
+	defer span.End()
+	r = r.WithContext(ctx)
+
 	defer r.Body.Close()
 	var request lifecycle.SimulationRequest
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		telemetry.RecordError(span, err)
 		writeAPIError(w, r, http.StatusBadRequest, "invalid_request", fmt.Errorf("decode simulation request: %w", err).Error(), apiErrorOptions{})
 		return
 	}
+	span.SetAttributes(
+		attribute.String("viaduct.target_platform", strings.TrimSpace(string(request.TargetPlatform))),
+		attribute.Int("viaduct.selected_vm_count", len(request.VMIDs)),
+		attribute.Bool("viaduct.include_all", request.IncludeAll),
+	)
 
 	inventory, err := s.latestInventory(r.Context(), "")
 	if err != nil {
+		telemetry.RecordError(span, err)
 		writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 		return
 	}
 
 	result, err := s.recommendationEngine.Simulate(inventory, request)
 	if err != nil {
+		telemetry.RecordError(span, err)
 		writeAPIError(w, r, http.StatusBadRequest, "invalid_request", err.Error(), apiErrorOptions{})
 		return
 	}
+	span.SetAttributes(attribute.Int("viaduct.moved_vm_count", result.MovedVMs))
 	writeJSON(w, http.StatusOK, result)
 }
 
@@ -1419,26 +1435,40 @@ func (s *Server) handleSummary(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	ctx, span := telemetry.StartSpan(r.Context(), telemetry.ScopeAPI, "summary.generate", withTenantSpanAttributes(r.Context())...)
+	defer span.End()
+	r = r.WithContext(ctx)
+
 	inventory, err := s.latestInventory(r.Context(), "")
 	if err != nil {
+		telemetry.RecordError(span, err)
 		writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 		return
 	}
 	snapshots, err := s.store.ListSnapshots(r.Context(), store.TenantIDFromContext(r.Context()), "", 100)
 	if err != nil {
+		telemetry.RecordError(span, err)
 		writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 		return
 	}
 	migrations, err := s.store.ListMigrations(r.Context(), store.TenantIDFromContext(r.Context()), 100)
 	if err != nil {
+		telemetry.RecordError(span, err)
 		writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 		return
 	}
 	recommendations, err := s.recommendationEngine.Generate(inventory, nil, nil)
 	if err != nil {
+		telemetry.RecordError(span, err)
 		writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
 		return
 	}
+	span.SetAttributes(
+		attribute.Int("viaduct.inventory.vm_count", len(inventory.VMs)),
+		attribute.Int("viaduct.snapshot_count", len(snapshots)),
+		attribute.Int("viaduct.migration_count", len(migrations)),
+		attribute.Int("viaduct.recommendation_count", len(recommendations.Recommendations)),
+	)
 
 	summary := tenantSummary{
 		TenantID:            store.TenantIDFromContext(r.Context()),
@@ -1502,9 +1532,16 @@ func (s *Server) runMigrationAsync(parentCtx context.Context, tenantID, requestI
 	logger := s.backgroundLogger()
 	tenantID = store.TenantIDFromContext(ctx)
 	requestID = RequestIDFromContext(ctx)
+	ctx, span := telemetry.StartSpan(ctx, telemetry.ScopeAPI, "migration.async", withTenantSpanAttributes(ctx,
+		attribute.String("viaduct.migration.action", strings.TrimSpace(action)),
+		attribute.String("viaduct.migration.id", strings.TrimSpace(migrationID)),
+		attribute.String("viaduct.request_id", strings.TrimSpace(requestID)),
+	)...)
+	defer span.End()
 
 	defer func() {
 		if recovered := recover(); recovered != nil {
+			telemetry.RecordError(span, fmt.Errorf("panic: %v", recovered))
 			logger.Error(
 				"migration background task panicked",
 				"action", action,
@@ -1518,6 +1555,7 @@ func (s *Server) runMigrationAsync(parentCtx context.Context, tenantID, requestI
 	}()
 
 	if err := execute(ctx); err != nil {
+		telemetry.RecordError(span, err)
 		logger.Error(
 			"migration background task failed",
 			"action", action,
@@ -1550,10 +1588,22 @@ func (s *Server) backgroundTaskContext(parentCtx context.Context, tenantID, requ
 	}
 
 	ctx = store.ContextWithTenantID(ctx, tenantID)
+	ctx = telemetry.CarrySpanContext(ctx, parentCtx)
 	ctx = ContextWithRequestID(ctx, requestID)
-	ctx = ContextWithTraceID(ctx, TraceIDFromContext(parentCtx))
+	ctx = ContextWithTraceID(ctx, firstNonEmpty(telemetry.CurrentTraceID(parentCtx), TraceIDFromContext(parentCtx)))
 	ctx = contextWithConnectorRequestID(ctx, requestID)
 	return ctx, cancel
+}
+
+func withTenantSpanAttributes(ctx context.Context, attributes ...attribute.KeyValue) []trace.SpanStartOption {
+	tenantID := strings.TrimSpace(store.TenantIDFromContext(ctx))
+	if tenantID != "" {
+		attributes = append([]attribute.KeyValue{attribute.String("tenant.id", tenantID)}, attributes...)
+	}
+	if len(attributes) == 0 {
+		return nil
+	}
+	return []trace.SpanStartOption{trace.WithAttributes(attributes...)}
 }
 
 func (s *Server) specKey(tenantID, migrationID string) string {

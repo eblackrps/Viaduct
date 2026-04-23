@@ -52,7 +52,7 @@ LINUX_ARM64_BINARY = bin/viaduct-linux-arm64
 DARWIN_ARM64_BINARY = bin/viaduct-darwin-arm64
 WINDOWS_BINARY = bin/viaduct.exe
 
-.PHONY: all build build-linux build-linux-amd64 build-linux-arm64 build-darwin-arm64 build-windows test lint proto docker dashboard serve web-install web-e2e-setup web-build web-verify web-runtime-smoke pilot-smoke package-release package-release-host-bundle package-release-linux package-release-linux-amd64 package-release-linux-amd64-bundle package-release-linux-arm64 package-release-linux-arm64-bundle package-release-darwin-arm64 package-release-darwin-arm64-bundle package-release-windows package-release-windows-bundle package-release-matrix certification-test soak-test plugin-check openapi-generate contract-check release-surface-check timing-check migrate-diag release-gate clean
+.PHONY: all build build-linux build-linux-amd64 build-linux-arm64 build-darwin-arm64 build-windows test lint proto docker dashboard serve web-install web-e2e-setup web-build web-verify web-runtime-smoke pilot-smoke observability-up observability-down observability-validate package-release package-release-host-bundle package-release-linux package-release-linux-amd64 package-release-linux-amd64-bundle package-release-linux-arm64 package-release-linux-arm64-bundle package-release-darwin-arm64 package-release-darwin-arm64-bundle package-release-windows package-release-windows-bundle package-release-matrix certification-test soak-test plugin-check openapi-generate contract-check release-surface-check timing-check migrate-diag release-gate clean
 
 all: lint test build
 
@@ -123,6 +123,15 @@ web-runtime-smoke:
 pilot-smoke:
 	go test ./tests/integration -run TestPilotWorkspace_LabFlow_CreateDiscoverGraphSimulatePlanReport_Expected -count=1 -v
 	$(MAKE) web-runtime-smoke
+
+observability-up:
+	docker compose -f deploy/observability/docker-compose.yml up -d
+
+observability-down:
+	docker compose -f deploy/observability/docker-compose.yml down -v
+
+observability-validate:
+	go run ./scripts/observability_validate
 
 package-release:
 	$(RM_DIST)

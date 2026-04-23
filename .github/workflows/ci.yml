@@ -74,6 +74,68 @@ jobs:
           path: web/playwright-report
           if-no-files-found: ignore
 
+  observability-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "20.20.0"
+          cache: "npm"
+          cache-dependency-path: web/package-lock.json
+
+      - name: Build Dashboard Assets
+        run: make web-build
+
+      - name: Build Viaduct
+        run: make build
+
+      - name: Start Local Observability Stack
+        run: make observability-up
+
+      - name: Start Viaduct With Telemetry
+        env:
+          VIADUCT_OTEL_ENABLED: "true"
+          VIADUCT_OTEL_ENDPOINT: http://127.0.0.1:4318
+          VIADUCT_OTEL_SERVICE_NAME: viaduct-api
+          VIADUCT_OTEL_ENVIRONMENT: ci
+          VIADUCT_OTEL_SAMPLER: always_on
+        run: ./bin/viaduct start --detach --open-browser=false
+
+      - name: Validate Trace Ingestion
+        run: make observability-validate
+
+      - name: Capture Observability Artifacts
+        if: failure()
+        run: |
+          mkdir -p artifacts/observability
+          ./bin/viaduct status --runtime > artifacts/observability/status.txt 2>&1 || true
+          ./bin/viaduct doctor > artifacts/observability/doctor.txt 2>&1 || true
+          cp -R "$HOME/.viaduct/runtime" artifacts/observability/runtime || true
+          docker compose -f deploy/observability/docker-compose.yml logs --no-color > artifacts/observability/compose.log || true
+
+      - name: Upload Observability Artifacts
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: observability-smoke-artifacts
+          path: artifacts/observability
+          if-no-files-found: ignore
+
+      - name: Stop Viaduct
+        if: always()
+        run: ./bin/viaduct stop || true
+
+      - name: Stop Local Observability Stack
+        if: always()
+        run: make observability-down
+
   build:
     runs-on: ubuntu-latest
     steps:

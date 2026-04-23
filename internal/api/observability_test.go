@@ -11,6 +11,8 @@ import (
 
 	"github.com/eblackrps/viaduct/internal/models"
 	"github.com/eblackrps/viaduct/internal/store"
+	"github.com/eblackrps/viaduct/internal/telemetry"
+	"go.opentelemetry.io/otel/trace"
 )
 
 func TestServer_WithObservability_AddsRequestIDAndMetrics_Expected(t *testing.T) {
@@ -275,6 +277,39 @@ func TestServer_HandleMetrics_IncludesWorkspaceQueueDepth_Expected(t *testing.T)
 	}
 	if !strings.Contains(body, `viaduct_workspace_queue_depth{tenant="tenant-b"} 1`) {
 		t.Fatalf("metrics missing tenant-b queue depth: %s", body)
+	}
+}
+
+func TestServer_BackgroundTaskContext_CarriesTraceContext_Expected(t *testing.T) {
+	t.Parallel()
+
+	server := mustNewServer(t, store.NewMemoryStore())
+	traceID := trace.TraceID{0x4b, 0xf9, 0x2f, 0x35, 0x77, 0xb3, 0x4d, 0xa6, 0xa3, 0xce, 0x92, 0x9d, 0x0e, 0x0e, 0x47, 0x36}
+	spanID := trace.SpanID{0x00, 0xf0, 0x67, 0xaa, 0x0b, 0xa9, 0x02, 0xb7}
+	parentCtx := trace.ContextWithRemoteSpanContext(context.Background(), trace.NewSpanContext(trace.SpanContextConfig{
+		TraceID:    traceID,
+		SpanID:     spanID,
+		TraceFlags: trace.FlagsSampled,
+		Remote:     true,
+	}))
+	parentCtx = store.ContextWithTenantID(parentCtx, "tenant-a")
+	parentCtx = ContextWithRequestID(parentCtx, "req-1")
+	parentCtx = ContextWithTraceID(parentCtx, traceID.String())
+
+	backgroundCtx, cancel := server.backgroundTaskContext(parentCtx, "", "")
+	defer cancel()
+
+	if got := store.TenantIDFromContext(backgroundCtx); got != "tenant-a" {
+		t.Fatalf("TenantIDFromContext() = %q, want tenant-a", got)
+	}
+	if got := RequestIDFromContext(backgroundCtx); got != "req-1" {
+		t.Fatalf("RequestIDFromContext() = %q, want req-1", got)
+	}
+	if got := TraceIDFromContext(backgroundCtx); got != traceID.String() {
+		t.Fatalf("TraceIDFromContext() = %q, want %q", got, traceID.String())
+	}
+	if got := telemetry.CurrentTraceID(backgroundCtx); got != traceID.String() {
+		t.Fatalf("telemetry.CurrentTraceID() = %q, want %q", got, traceID.String())
 	}
 }
 

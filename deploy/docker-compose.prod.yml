@@ -14,6 +14,12 @@ services:
     environment:
       VIADUCT_ADMIN_KEY: ${VIADUCT_ADMIN_KEY:?set-a-plaintext-or-sha256-admin-key}
       VIADUCT_WEB_DIR: /opt/viaduct/web
+      VIADUCT_OTEL_ENABLED: ${VIADUCT_OTEL_ENABLED:-false}
+      VIADUCT_OTEL_ENDPOINT: ${VIADUCT_OTEL_ENDPOINT:-}
+      VIADUCT_OTEL_SERVICE_NAME: ${VIADUCT_OTEL_SERVICE_NAME:-viaduct-api}
+      VIADUCT_OTEL_ENVIRONMENT: ${VIADUCT_OTEL_ENVIRONMENT:-production}
+      VIADUCT_OTEL_SAMPLER: ${VIADUCT_OTEL_SAMPLER:-parentbased_traceidratio}
+      VIADUCT_OTEL_SAMPLER_ARG: ${VIADUCT_OTEL_SAMPLER_ARG:-1}
     command:
       - serve-api
       - --host

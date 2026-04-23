@@ -12,7 +12,10 @@ import (
 	"github.com/eblackrps/viaduct/internal/discovery"
 	"github.com/eblackrps/viaduct/internal/models"
 	"github.com/eblackrps/viaduct/internal/store"
+	"github.com/eblackrps/viaduct/internal/telemetry"
 	"github.com/google/uuid"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // MigrationPhase identifies a phase in the cold migration state machine.
@@ -145,6 +148,8 @@ func (o *Orchestrator) SetDiskConverter(converter func(context.Context, Conversi
 
 // Execute runs a migration spec through the cold migration state machine.
 func (o *Orchestrator) Execute(ctx context.Context, spec *MigrationSpec) (*MigrationState, error) {
+	ctx, span := telemetry.StartSpan(ctx, telemetry.ScopeMigrate, "migration.execute", migrationSpanOptions(spec)...)
+	defer span.End()
 	if spec == nil {
 		return nil, fmt.Errorf("execute migration: spec is nil")
 	}
@@ -153,6 +158,7 @@ func (o *Orchestrator) Execute(ctx context.Context, spec *MigrationSpec) (*Migra
 	}
 
 	state := o.newMigrationState(spec, o.newID())
+	span.SetAttributes(attribute.String("viaduct.migration.id", state.ID))
 
 	sourceResult, targetResult, err := o.discoverInventories(ctx)
 	if err != nil {
@@ -198,6 +204,10 @@ func (o *Orchestrator) Execute(ctx context.Context, spec *MigrationSpec) (*Migra
 
 // Resume continues a previously persisted migration from the last incomplete checkpoint.
 func (o *Orchestrator) Resume(ctx context.Context, migrationID string, spec *MigrationSpec) (*MigrationState, error) {
+	ctx, span := telemetry.StartSpan(ctx, telemetry.ScopeMigrate, "migration.resume", migrationSpanOptions(spec,
+		attribute.String("viaduct.migration.id", stringsTrimSpace(migrationID)),
+	)...)
+	defer span.End()
 	if stringsTrimSpace(migrationID) == "" {
 		return nil, fmt.Errorf("resume migration: migration ID is required")
 	}
@@ -280,23 +290,33 @@ func (o *Orchestrator) runExecution(ctx context.Context, spec *MigrationSpec, st
 
 	for index, phase := range phases[startIndex:] {
 		absoluteIndex := startIndex + index
-		if err := o.setPhase(ctx, state, phase.phase); err != nil {
+		phaseCtx, phaseSpan := telemetry.StartSpan(ctx, telemetry.ScopeMigrate, "migration.phase."+string(phase.phase), trace.WithAttributes(
+			attribute.String("viaduct.migration.id", state.ID),
+			attribute.String("viaduct.migration.phase", string(phase.phase)),
+			attribute.Int("viaduct.phase_index", absoluteIndex+1),
+		))
+		if err := o.setPhase(phaseCtx, state, phase.phase); err != nil {
+			phaseSpan.End()
 			return nil, fmt.Errorf("run migration: %w", err)
 		}
 		o.emit(phase.phase, "", phase.message, 20+(absoluteIndex*15))
 
-		if _, err := NewRollbackManager(o.store, o.sourceConnector, o.targetConnector).CreateRecoveryPoint(ctx, state); err != nil {
-			return o.failState(ctx, state, phase.phase, err)
+		if _, err := NewRollbackManager(o.store, o.sourceConnector, o.targetConnector).CreateRecoveryPoint(phaseCtx, state); err != nil {
+			phaseSpan.End()
+			return o.failState(phaseCtx, state, phase.phase, err)
 		}
 
-		if err := phase.run(ctx, spec, state, sourceResult); err != nil {
-			return o.failState(ctx, state, phase.phase, err)
+		if err := phase.run(phaseCtx, spec, state, sourceResult); err != nil {
+			phaseSpan.End()
+			return o.failState(phaseCtx, state, phase.phase, err)
 		}
 		markCheckpointCompleted(state, phase.phase, phase.message)
 
-		if err := persistMigrationState(ctx, o.store, state); err != nil {
+		if err := persistMigrationState(phaseCtx, o.store, state); err != nil {
+			phaseSpan.End()
 			return nil, fmt.Errorf("run migration: %w", err)
 		}
+		phaseSpan.End()
 	}
 
 	state.Phase = PhaseComplete
@@ -357,25 +377,48 @@ func (o *Orchestrator) validateExecutionReadiness(state *MigrationState, spec *M
 }
 
 func (o *Orchestrator) discoverInventories(ctx context.Context) (*models.DiscoveryResult, *models.DiscoveryResult, error) {
-	if err := o.sourceConnector.Connect(ctx); err != nil {
+	ctx, span := telemetry.StartSpan(ctx, telemetry.ScopeMigrate, "migration.discover_inventories")
+	defer span.End()
+
+	if err := migrationStep(ctx, "migration.connect_source", attribute.String("viaduct.connector.role", "source"), func(stepCtx context.Context) error {
+		return o.sourceConnector.Connect(stepCtx)
+	}); err != nil {
 		return nil, nil, fmt.Errorf("connect source: %w", err)
 	}
 	// Connector shutdown is best effort while unwinding orchestration setup.
 	defer func() { _ = o.sourceConnector.Close() }()
 
-	if err := o.targetConnector.Connect(ctx); err != nil {
+	if err := migrationStep(ctx, "migration.connect_target", attribute.String("viaduct.connector.role", "target"), func(stepCtx context.Context) error {
+		return o.targetConnector.Connect(stepCtx)
+	}); err != nil {
 		return nil, nil, fmt.Errorf("connect target: %w", err)
 	}
 	// Connector shutdown is best effort while unwinding orchestration setup.
 	defer func() { _ = o.targetConnector.Close() }()
 
-	sourceResult, err := o.sourceConnector.Discover(ctx)
+	var sourceResult *models.DiscoveryResult
+	err := migrationStep(ctx, "migration.discover_source", attribute.String("viaduct.connector.role", "source"), func(stepCtx context.Context) error {
+		var discoverErr error
+		sourceResult, discoverErr = o.sourceConnector.Discover(stepCtx)
+		return discoverErr
+	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("discover source: %w", err)
 	}
-	targetResult, err := o.targetConnector.Discover(ctx)
+	var targetResult *models.DiscoveryResult
+	err = migrationStep(ctx, "migration.discover_target", attribute.String("viaduct.connector.role", "target"), func(stepCtx context.Context) error {
+		var discoverErr error
+		targetResult, discoverErr = o.targetConnector.Discover(stepCtx)
+		return discoverErr
+	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("discover target: %w", err)
+	}
+	if sourceResult != nil {
+		span.SetAttributes(attribute.Int("viaduct.source_vm_count", len(sourceResult.VMs)))
+	}
+	if targetResult != nil {
+		span.SetAttributes(attribute.Int("viaduct.target_vm_count", len(targetResult.VMs)))
 	}
 
 	return sourceResult, targetResult, nil
@@ -385,25 +428,29 @@ func (o *Orchestrator) runExport(ctx context.Context, spec *MigrationSpec, state
 	for index := range state.Workloads {
 		workload := &state.Workloads[index]
 		workload.Phase = PhaseExport
-
-		if spec.Options.ShutdownSource {
-			if controller, ok := o.sourceConnector.(vmPowerController); ok && workload.VM.PowerState == models.PowerOn {
-				if err := controller.PowerOffVM(ctx, workload.VM.ID); err != nil {
-					workload.Error = err.Error()
-					return fmt.Errorf("export %s: power off source: %w", workload.VM.Name, err)
+		if err := withWorkloadSpan(ctx, "migration.export.workload", workload, func(workloadCtx context.Context) error {
+			if spec.Options.ShutdownSource {
+				if controller, ok := o.sourceConnector.(vmPowerController); ok && workload.VM.PowerState == models.PowerOn {
+					if err := controller.PowerOffVM(workloadCtx, workload.VM.ID); err != nil {
+						workload.Error = err.Error()
+						return fmt.Errorf("export %s: power off source: %w", workload.VM.Name, err)
+					}
 				}
 			}
-		}
 
-		if exporter, ok := o.sourceConnector.(diskExporter); ok {
-			paths, err := exporter.ExportVMDisks(ctx, workload.VM)
-			if err != nil {
-				workload.Error = err.Error()
-				return fmt.Errorf("export %s: %w", workload.VM.Name, err)
+			if exporter, ok := o.sourceConnector.(diskExporter); ok {
+				paths, err := exporter.ExportVMDisks(workloadCtx, workload.VM)
+				if err != nil {
+					workload.Error = err.Error()
+					return fmt.Errorf("export %s: %w", workload.VM.Name, err)
+				}
+				workload.SourceDiskPaths = append([]string(nil), paths...)
+			} else {
+				workload.SourceDiskPaths = defaultSourceDiskPaths(state.ID, workload.VM)
 			}
-			workload.SourceDiskPaths = append([]string(nil), paths...)
-		} else {
-			workload.SourceDiskPaths = defaultSourceDiskPaths(state.ID, workload.VM)
+			return nil
+		}); err != nil {
+			return err
 		}
 
 		o.emit(PhaseExport, workload.VM.Name, "exported source workload", 25)
@@ -419,27 +466,31 @@ func (o *Orchestrator) runConvert(ctx context.Context, spec *MigrationSpec, stat
 		workload := &state.Workloads[index]
 		workload.Phase = PhaseConvert
 		workload.ConvertedDiskPaths = workload.ConvertedDiskPaths[:0]
+		if err := withWorkloadSpan(ctx, "migration.convert.workload", workload, func(workloadCtx context.Context) error {
+			for _, path := range workload.SourceDiskPaths {
+				sourceFormat := inferDiskFormat(path, workload.VM.Platform)
+				targetPath := deriveTargetDiskPath(path, targetFormat)
+				if filepath.Clean(targetPath) == filepath.Clean(path) {
+					targetPath = path + ".converted"
+				}
 
-		for _, path := range workload.SourceDiskPaths {
-			sourceFormat := inferDiskFormat(path, workload.VM.Platform)
-			targetPath := deriveTargetDiskPath(path, targetFormat)
-			if filepath.Clean(targetPath) == filepath.Clean(path) {
-				targetPath = path + ".converted"
+				result, err := o.convertDisk(workloadCtx, ConversionRequest{
+					SourcePath:   path,
+					SourceFormat: sourceFormat,
+					TargetPath:   targetPath,
+					TargetFormat: targetFormat,
+					Thin:         true,
+				})
+				if err != nil {
+					workload.Error = err.Error()
+					return fmt.Errorf("convert %s disk %s: %w", workload.VM.Name, path, err)
+				}
+
+				workload.ConvertedDiskPaths = append(workload.ConvertedDiskPaths, result.TargetPath)
 			}
-
-			result, err := o.convertDisk(ctx, ConversionRequest{
-				SourcePath:   path,
-				SourceFormat: sourceFormat,
-				TargetPath:   targetPath,
-				TargetFormat: targetFormat,
-				Thin:         true,
-			})
-			if err != nil {
-				workload.Error = err.Error()
-				return fmt.Errorf("convert %s disk %s: %w", workload.VM.Name, path, err)
-			}
-
-			workload.ConvertedDiskPaths = append(workload.ConvertedDiskPaths, result.TargetPath)
+			return nil
+		}); err != nil {
+			return err
 		}
 
 		o.emit(PhaseConvert, workload.VM.Name, "converted exported disks", 45)
@@ -452,26 +503,30 @@ func (o *Orchestrator) runImport(ctx context.Context, spec *MigrationSpec, state
 	for index := range state.Workloads {
 		workload := &state.Workloads[index]
 		workload.Phase = PhaseImport
-
-		overrides, _ := mergedOverridesForVM(workload.VM, spec.Workloads)
-		targetHost := overrides.TargetHost
-		if targetHost == "" {
-			targetHost = spec.Target.DefaultHost
-		}
-		targetStorage := overrides.TargetStorage
-		if targetStorage == "" {
-			targetStorage = spec.Target.DefaultStorage
-		}
-
-		if importer, ok := o.targetConnector.(vmImporter); ok {
-			vmID, err := importer.CreateVM(ctx, workload.VM, workload.ConvertedDiskPaths, targetHost, targetStorage)
-			if err != nil {
-				workload.Error = err.Error()
-				return fmt.Errorf("import %s: %w", workload.VM.Name, err)
+		if err := withWorkloadSpan(ctx, "migration.import.workload", workload, func(workloadCtx context.Context) error {
+			overrides, _ := mergedOverridesForVM(workload.VM, spec.Workloads)
+			targetHost := overrides.TargetHost
+			if targetHost == "" {
+				targetHost = spec.Target.DefaultHost
 			}
-			workload.TargetVMID = vmID
-		} else {
-			workload.TargetVMID = workload.VM.ID + "-target"
+			targetStorage := overrides.TargetStorage
+			if targetStorage == "" {
+				targetStorage = spec.Target.DefaultStorage
+			}
+
+			if importer, ok := o.targetConnector.(vmImporter); ok {
+				vmID, err := importer.CreateVM(workloadCtx, workload.VM, workload.ConvertedDiskPaths, targetHost, targetStorage)
+				if err != nil {
+					workload.Error = err.Error()
+					return fmt.Errorf("import %s: %w", workload.VM.Name, err)
+				}
+				workload.TargetVMID = vmID
+			} else {
+				workload.TargetVMID = workload.VM.ID + "-target"
+			}
+			return nil
+		}); err != nil {
+			return err
 		}
 
 		o.emit(PhaseImport, workload.VM.Name, "created target workload", 60)
@@ -484,20 +539,24 @@ func (o *Orchestrator) runConfigure(ctx context.Context, spec *MigrationSpec, st
 	for index := range state.Workloads {
 		workload := &state.Workloads[index]
 		workload.Phase = PhaseConfigure
-
-		overrides, _ := mergedOverridesForVM(workload.VM, spec.Workloads)
-		mapper := NewNetworkMapper(overrides.NetworkMap, targetResult.Networks)
-		mappedNICs, errs := mapper.MapAllNICs(workload.VM.NICs)
-		if len(errs) > 0 {
-			workload.Error = errs[0].Error()
-			return fmt.Errorf("configure %s: %w", workload.VM.Name, errors.Join(errs...))
-		}
-
-		if configurer, ok := o.targetConnector.(vmNetworkConfigurer); ok {
-			if err := configurer.ConfigureVMNetworks(ctx, workload.TargetVMID, mappedNICs); err != nil {
-				workload.Error = err.Error()
-				return fmt.Errorf("configure %s: %w", workload.VM.Name, err)
+		if err := withWorkloadSpan(ctx, "migration.configure.workload", workload, func(workloadCtx context.Context) error {
+			overrides, _ := mergedOverridesForVM(workload.VM, spec.Workloads)
+			mapper := NewNetworkMapper(overrides.NetworkMap, targetResult.Networks)
+			mappedNICs, errs := mapper.MapAllNICs(workload.VM.NICs)
+			if len(errs) > 0 {
+				workload.Error = errs[0].Error()
+				return fmt.Errorf("configure %s: %w", workload.VM.Name, errors.Join(errs...))
 			}
+
+			if configurer, ok := o.targetConnector.(vmNetworkConfigurer); ok {
+				if err := configurer.ConfigureVMNetworks(workloadCtx, workload.TargetVMID, mappedNICs); err != nil {
+					workload.Error = err.Error()
+					return fmt.Errorf("configure %s: %w", workload.VM.Name, err)
+				}
+			}
+			return nil
+		}); err != nil {
+			return err
 		}
 
 		o.emit(PhaseConfigure, workload.VM.Name, "applied network mappings", 75)
@@ -517,19 +576,23 @@ func (o *Orchestrator) runVerify(ctx context.Context, spec *MigrationSpec, state
 	for index := range state.Workloads {
 		workload := &state.Workloads[index]
 		workload.Phase = PhaseVerify
-
-		controller, hasPower := o.targetConnector.(vmPowerController)
-		if hasPower {
-			if err := controller.PowerOnVM(ctx, workload.TargetVMID); err != nil {
-				workload.Error = err.Error()
-				return fmt.Errorf("verify %s: power on: %w", workload.VM.Name, err)
+		if err := withWorkloadSpan(ctx, "migration.verify.workload", workload, func(workloadCtx context.Context) error {
+			controller, hasPower := o.targetConnector.(vmPowerController)
+			if hasPower {
+				if err := controller.PowerOnVM(workloadCtx, workload.TargetVMID); err != nil {
+					workload.Error = err.Error()
+					return fmt.Errorf("verify %s: power on: %w", workload.VM.Name, err)
+				}
 			}
-		}
-		if verifier, ok := o.targetConnector.(vmVerifier); ok {
-			if err := verifier.VerifyVM(ctx, workload.TargetVMID); err != nil {
-				workload.Error = err.Error()
-				return fmt.Errorf("verify %s: %w", workload.VM.Name, err)
+			if verifier, ok := o.targetConnector.(vmVerifier); ok {
+				if err := verifier.VerifyVM(workloadCtx, workload.TargetVMID); err != nil {
+					workload.Error = err.Error()
+					return fmt.Errorf("verify %s: %w", workload.VM.Name, err)
+				}
 			}
+			return nil
+		}); err != nil {
+			return err
 		}
 
 		o.emit(PhaseVerify, workload.VM.Name, "verified target workload", 90)
@@ -549,6 +612,7 @@ func (o *Orchestrator) failState(ctx context.Context, state *MigrationState, pha
 	state.Phase = PhaseFailed
 	state.UpdatedAt = nowUTC()
 	if err != nil {
+		telemetry.RecordError(trace.SpanFromContext(ctx), err)
 		state.Errors = append(state.Errors, err.Error())
 	}
 	markCheckpointFailed(state, phase, err)
@@ -579,6 +643,54 @@ func defaultSourceDiskPaths(migrationID string, vm models.VirtualMachine) []stri
 		paths = append(paths, filepath.Join("artifacts", migrationID, vm.ID, fmt.Sprintf("disk-%d%s", index+1, diskExtensionForPlatform(vm.Platform))))
 	}
 	return paths
+}
+
+func migrationSpanOptions(spec *MigrationSpec, attributes ...attribute.KeyValue) []trace.SpanStartOption {
+	if spec != nil {
+		attributes = append(attributes,
+			attribute.String("viaduct.spec.name", spec.Name),
+			attribute.String("viaduct.source_platform", string(spec.Source.Platform)),
+			attribute.String("viaduct.target_platform", string(spec.Target.Platform)),
+			attribute.Bool("viaduct.dry_run", spec.Options.DryRun),
+		)
+	}
+	if len(attributes) == 0 {
+		return nil
+	}
+	return []trace.SpanStartOption{trace.WithAttributes(attributes...)}
+}
+
+func migrationStep(ctx context.Context, name string, connectorRole attribute.KeyValue, run func(context.Context) error) error {
+	stepCtx, span := telemetry.StartSpan(ctx, telemetry.ScopeMigrate, name, trace.WithAttributes(connectorRole))
+	defer span.End()
+	if err := run(stepCtx); err != nil {
+		telemetry.RecordError(span, err)
+		return err
+	}
+	return nil
+}
+
+func withWorkloadSpan(ctx context.Context, name string, workload *WorkloadMigration, run func(context.Context) error) error {
+	if workload == nil {
+		return run(ctx)
+	}
+	workloadCtx, span := telemetry.StartSpan(ctx, telemetry.ScopeMigrate, name, trace.WithAttributes(
+		attribute.String("viaduct.vm.id", workload.VM.ID),
+		attribute.String("viaduct.vm.name", workload.VM.Name),
+		attribute.String("viaduct.vm.platform", string(workload.VM.Platform)),
+		attribute.String("viaduct.migration.phase", string(workload.Phase)),
+	))
+	defer span.End()
+	if err := run(workloadCtx); err != nil {
+		telemetry.RecordError(span, err)
+		return err
+	}
+	span.SetAttributes(
+		attribute.String("viaduct.target_vm_id", workload.TargetVMID),
+		attribute.Int("viaduct.source_disk_count", len(workload.SourceDiskPaths)),
+		attribute.Int("viaduct.converted_disk_count", len(workload.ConvertedDiskPaths)),
+	)
+	return nil
 }
 
 func diskExtensionForPlatform(platform models.Platform) string {

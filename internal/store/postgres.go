@@ -17,6 +17,7 @@ import (
 	"github.com/eblackrps/viaduct/internal/models"
 	"github.com/google/uuid"
 	pq "github.com/lib/pq"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 const currentStoreSchemaVersion = 8
@@ -313,7 +314,7 @@ func intFromEnv(name string, fallback int) int {
 }
 
 // SaveDiscovery persists a discovery result to PostgreSQL.
-func (s *PostgresStore) SaveDiscovery(ctx context.Context, tenantID string, result *models.DiscoveryResult) (string, error) {
+func (s *PostgresStore) SaveDiscovery(ctx context.Context, tenantID string, result *models.DiscoveryResult) (snapshotID string, err error) {
 	ctx, cancel := s.writeContext(ctx)
 	defer cancel()
 
@@ -322,26 +323,41 @@ func (s *PostgresStore) SaveDiscovery(ctx context.Context, tenantID string, resu
 	}
 
 	tenantID = normalizeTenantID(tenantID)
+	ctx, span := startPostgresStoreSpan(ctx, "save_discovery", tenantID,
+		attribute.String("viaduct.snapshot.source", strings.TrimSpace(result.Source)),
+		attribute.String("viaduct.snapshot.platform", string(result.Platform)),
+		attribute.Int("viaduct.snapshot.vm_count", len(result.VMs)),
+	)
+	defer func() {
+		attrs := make([]attribute.KeyValue, 0, 1)
+		attrs = appendStoreStringAttr(attrs, "viaduct.snapshot.id", snapshotID)
+		finishStoreSpan(span, err, attrs...)
+	}()
+
 	tenant, err := s.ensureTenant(ctx, tenantID)
 	if err != nil {
-		return "", fmt.Errorf("postgres store: save discovery: %w", err)
+		err = fmt.Errorf("postgres store: save discovery: %w", err)
+		return "", err
 	}
 	if tenant.Quotas.MaxSnapshots > 0 {
 		currentCount, err := s.snapshotCount(ctx, tenantID)
 		if err != nil {
-			return "", fmt.Errorf("postgres store: save discovery: %w", err)
+			err = fmt.Errorf("postgres store: save discovery: %w", err)
+			return "", err
 		}
 		if currentCount >= tenant.Quotas.MaxSnapshots {
-			return "", fmt.Errorf("postgres store: save discovery: snapshot quota exceeded for tenant %s", tenantID)
+			err = fmt.Errorf("postgres store: save discovery: snapshot quota exceeded for tenant %s", tenantID)
+			return "", err
 		}
 	}
 
 	payload, err := json.Marshal(result)
 	if err != nil {
-		return "", fmt.Errorf("postgres store: marshal discovery: %w", err)
+		err = fmt.Errorf("postgres store: marshal discovery: %w", err)
+		return "", err
 	}
 
-	snapshotID := uuid.NewString()
+	snapshotID = uuid.NewString()
 	_, err = s.db.ExecContext(
 		ctx,
 		`INSERT INTO snapshots (id, tenant_id, source, platform, vm_count, discovered_at, duration_ms, raw_json)
@@ -356,35 +372,51 @@ func (s *PostgresStore) SaveDiscovery(ctx context.Context, tenantID string, resu
 		payload,
 	)
 	if err != nil {
-		return "", fmt.Errorf("postgres store: insert snapshot: %w", err)
+		err = fmt.Errorf("postgres store: insert snapshot: %w", err)
+		return "", err
 	}
 
 	return snapshotID, nil
 }
 
 // GetSnapshot retrieves a discovery snapshot by identifier from PostgreSQL.
-func (s *PostgresStore) GetSnapshot(ctx context.Context, tenantID, snapshotID string) (*models.DiscoveryResult, error) {
+func (s *PostgresStore) GetSnapshot(ctx context.Context, tenantID, snapshotID string) (snapshot *models.DiscoveryResult, err error) {
 	ctx, cancel := s.readContext(ctx)
 	defer cancel()
 
 	tenantID = normalizeTenantID(tenantID)
+	ctx, span := startPostgresStoreSpan(ctx, "get_snapshot", tenantID,
+		attribute.String("viaduct.snapshot.id", strings.TrimSpace(snapshotID)),
+	)
+	defer func() {
+		attrs := make([]attribute.KeyValue, 0, 3)
+		if snapshot != nil {
+			attrs = appendStoreStringAttr(attrs, "viaduct.snapshot.source", snapshot.Source)
+			attrs = appendStoreStringAttr(attrs, "viaduct.snapshot.platform", string(snapshot.Platform))
+			attrs = append(attrs, attribute.Int("viaduct.snapshot.vm_count", len(snapshot.VMs)))
+		}
+		finishStoreSpan(span, err, attrs...)
+	}()
 
 	var payload []byte
-	if err := s.db.QueryRowContext(
+	if err = s.db.QueryRowContext(
 		ctx,
 		`SELECT raw_json FROM snapshots WHERE tenant_id = $1 AND id = $2`,
 		tenantID,
 		snapshotID,
 	).Scan(&payload); err != nil {
-		return nil, fmt.Errorf("postgres store: get snapshot %s: %w", snapshotID, err)
+		err = fmt.Errorf("postgres store: get snapshot %s: %w", snapshotID, err)
+		return nil, err
 	}
 
 	var result models.DiscoveryResult
-	if err := json.Unmarshal(payload, &result); err != nil {
-		return nil, fmt.Errorf("postgres store: decode snapshot %s: %w", snapshotID, err)
+	if err = json.Unmarshal(payload, &result); err != nil {
+		err = fmt.Errorf("postgres store: decode snapshot %s: %w", snapshotID, err)
+		return nil, err
 	}
 
-	return &result, nil
+	snapshot = &result
+	return snapshot, nil
 }
 
 // ListSnapshots returns snapshot metadata ordered from newest to oldest.
@@ -397,26 +429,38 @@ func (s *PostgresStore) ListSnapshots(ctx context.Context, tenantID string, plat
 }
 
 // ListSnapshotsPage returns paginated snapshot metadata ordered from newest to oldest.
-func (s *PostgresStore) ListSnapshotsPage(ctx context.Context, tenantID string, platform models.Platform, page, perPage int) ([]SnapshotMeta, int, error) {
+func (s *PostgresStore) ListSnapshotsPage(ctx context.Context, tenantID string, platform models.Platform, page, perPage int) (items []SnapshotMeta, total int, err error) {
 	ctx, cancel := s.readContext(ctx)
 	defer cancel()
 
-	page, perPage, err := normalizePageRequest(page, perPage)
+	page, perPage, err = normalizePageRequest(page, perPage)
 	if err != nil {
-		return nil, 0, fmt.Errorf("postgres store: list snapshots: %w", err)
+		err = fmt.Errorf("postgres store: list snapshots: %w", err)
+		return nil, 0, err
 	}
 
 	tenantID = normalizeTenantID(tenantID)
 	platformName := string(platform)
+	ctx, span := startPostgresStoreSpan(ctx, "list_snapshots", tenantID,
+		attribute.String("viaduct.snapshot.platform", platformName),
+		attribute.Int("viaduct.store.page", page),
+		attribute.Int("viaduct.store.per_page", perPage),
+	)
+	defer func() {
+		finishStoreSpan(span, err,
+			attribute.Int("viaduct.store.result_count", len(items)),
+			attribute.Int("viaduct.store.total", total),
+		)
+	}()
 
-	var total int
-	if err := s.db.QueryRowContext(
+	if err = s.db.QueryRowContext(
 		ctx,
 		`SELECT COUNT(*) FROM snapshots WHERE tenant_id = $1 AND ($2 = '' OR platform = $2)`,
 		tenantID,
 		platformName,
 	).Scan(&total); err != nil {
-		return nil, 0, fmt.Errorf("postgres store: count snapshots: %w", err)
+		err = fmt.Errorf("postgres store: count snapshots: %w", err)
+		return nil, 0, err
 	}
 
 	rows, err := s.db.QueryContext(
@@ -432,23 +476,26 @@ func (s *PostgresStore) ListSnapshotsPage(ctx context.Context, tenantID string, 
 		pageOffset(page, perPage),
 	)
 	if err != nil {
-		return nil, 0, fmt.Errorf("postgres store: list snapshots: %w", err)
+		err = fmt.Errorf("postgres store: list snapshots: %w", err)
+		return nil, 0, err
 	}
 	defer rows.Close()
 
-	items := make([]SnapshotMeta, 0, pageCapacity(total, perPage))
+	items = make([]SnapshotMeta, 0, pageCapacity(total, perPage))
 	for rows.Next() {
 		var item SnapshotMeta
 		var platformName string
-		if err := rows.Scan(&item.ID, &item.TenantID, &item.Source, &platformName, &item.VMCount, &item.DiscoveredAt); err != nil {
-			return nil, 0, fmt.Errorf("postgres store: scan snapshot metadata: %w", err)
+		if err = rows.Scan(&item.ID, &item.TenantID, &item.Source, &platformName, &item.VMCount, &item.DiscoveredAt); err != nil {
+			err = fmt.Errorf("postgres store: scan snapshot metadata: %w", err)
+			return nil, 0, err
 		}
 		item.Platform = models.Platform(platformName)
 		items = append(items, item)
 	}
 
-	if err := rows.Err(); err != nil {
-		return nil, 0, fmt.Errorf("postgres store: iterate snapshot metadata: %w", err)
+	if err = rows.Err(); err != nil {
+		err = fmt.Errorf("postgres store: iterate snapshot metadata: %w", err)
+		return nil, 0, err
 	}
 
 	return items, total, nil
@@ -499,7 +546,7 @@ func (s *PostgresStore) QueryVMs(ctx context.Context, tenantID string, filter VM
 }
 
 // SaveMigration persists a serialized migration record to PostgreSQL.
-func (s *PostgresStore) SaveMigration(ctx context.Context, tenantID string, record MigrationRecord) error {
+func (s *PostgresStore) SaveMigration(ctx context.Context, tenantID string, record MigrationRecord) (err error) {
 	ctx, cancel := s.writeContext(ctx)
 	defer cancel()
 
@@ -512,6 +559,15 @@ func (s *PostgresStore) SaveMigration(ctx context.Context, tenantID string, reco
 
 	tenantID = normalizeTenantID(tenantID)
 	record.TenantID = tenantID
+	ctx, span := startPostgresStoreSpan(ctx, "save_migration", tenantID,
+		attribute.String("viaduct.migration.id", strings.TrimSpace(record.ID)),
+		attribute.String("viaduct.migration.spec_name", strings.TrimSpace(record.SpecName)),
+		attribute.String("viaduct.migration.phase", strings.TrimSpace(record.Phase)),
+	)
+	defer func() {
+		finishStoreSpan(span, err)
+	}()
+
 	tenant, err := s.ensureTenant(ctx, tenantID)
 	if err != nil {
 		return fmt.Errorf("postgres store: save migration: %w", err)
@@ -560,29 +616,41 @@ func (s *PostgresStore) SaveMigration(ctx context.Context, tenantID string, reco
 }
 
 // GetMigration retrieves a serialized migration record from PostgreSQL.
-func (s *PostgresStore) GetMigration(ctx context.Context, tenantID, migrationID string) (*MigrationRecord, error) {
+func (s *PostgresStore) GetMigration(ctx context.Context, tenantID, migrationID string) (record *MigrationRecord, err error) {
 	ctx, cancel := s.readContext(ctx)
 	defer cancel()
 
 	tenantID = normalizeTenantID(tenantID)
+	ctx, span := startPostgresStoreSpan(ctx, "get_migration", tenantID,
+		attribute.String("viaduct.migration.id", strings.TrimSpace(migrationID)),
+	)
+	defer func() {
+		attrs := make([]attribute.KeyValue, 0, 2)
+		if record != nil {
+			attrs = appendStoreStringAttr(attrs, "viaduct.migration.spec_name", record.SpecName)
+			attrs = appendStoreStringAttr(attrs, "viaduct.migration.phase", record.Phase)
+		}
+		finishStoreSpan(span, err, attrs...)
+	}()
 
-	var record MigrationRecord
+	var item MigrationRecord
 	var completedAt sql.NullTime
-	if err := s.db.QueryRowContext(
+	if err = s.db.QueryRowContext(
 		ctx,
 		`SELECT id, tenant_id, spec_name, phase, started_at, updated_at, completed_at, raw_json
 		 FROM migrations WHERE tenant_id = $1 AND id = $2`,
 		tenantID,
 		migrationID,
-	).Scan(&record.ID, &record.TenantID, &record.SpecName, &record.Phase, &record.StartedAt, &record.UpdatedAt, &completedAt, &record.RawJSON); err != nil {
+	).Scan(&item.ID, &item.TenantID, &item.SpecName, &item.Phase, &item.StartedAt, &item.UpdatedAt, &completedAt, &item.RawJSON); err != nil {
 		return nil, fmt.Errorf("postgres store: get migration %s: %w", migrationID, err)
 	}
 
 	if completedAt.Valid {
-		record.CompletedAt = completedAt.Time
+		item.CompletedAt = completedAt.Time
 	}
 
-	return &record, nil
+	record = &item
+	return record, nil
 }
 
 // ListMigrations returns migration metadata ordered by most recent update.
@@ -595,19 +663,28 @@ func (s *PostgresStore) ListMigrations(ctx context.Context, tenantID string, lim
 }
 
 // ListMigrationsPage returns paginated migration metadata ordered by most recent update.
-func (s *PostgresStore) ListMigrationsPage(ctx context.Context, tenantID string, page, perPage int) ([]MigrationMeta, int, error) {
+func (s *PostgresStore) ListMigrationsPage(ctx context.Context, tenantID string, page, perPage int) (items []MigrationMeta, total int, err error) {
 	ctx, cancel := s.readContext(ctx)
 	defer cancel()
 
-	page, perPage, err := normalizePageRequest(page, perPage)
+	page, perPage, err = normalizePageRequest(page, perPage)
 	if err != nil {
 		return nil, 0, fmt.Errorf("postgres store: list migrations: %w", err)
 	}
 
 	tenantID = normalizeTenantID(tenantID)
+	ctx, span := startPostgresStoreSpan(ctx, "list_migrations", tenantID,
+		attribute.Int("viaduct.store.page", page),
+		attribute.Int("viaduct.store.per_page", perPage),
+	)
+	defer func() {
+		finishStoreSpan(span, err,
+			attribute.Int("viaduct.store.result_count", len(items)),
+			attribute.Int("viaduct.store.total", total),
+		)
+	}()
 
-	var total int
-	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM migrations WHERE tenant_id = $1`, tenantID).Scan(&total); err != nil {
+	if err = s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM migrations WHERE tenant_id = $1`, tenantID).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("postgres store: count migrations: %w", err)
 	}
 
@@ -627,11 +704,11 @@ func (s *PostgresStore) ListMigrationsPage(ctx context.Context, tenantID string,
 	}
 	defer rows.Close()
 
-	items := make([]MigrationMeta, 0, pageCapacity(total, perPage))
+	items = make([]MigrationMeta, 0, pageCapacity(total, perPage))
 	for rows.Next() {
 		var item MigrationMeta
 		var completedAt sql.NullTime
-		if err := rows.Scan(&item.ID, &item.TenantID, &item.SpecName, &item.Phase, &item.StartedAt, &item.UpdatedAt, &completedAt); err != nil {
+		if err = rows.Scan(&item.ID, &item.TenantID, &item.SpecName, &item.Phase, &item.StartedAt, &item.UpdatedAt, &completedAt); err != nil {
 			return nil, 0, fmt.Errorf("postgres store: scan migration metadata: %w", err)
 		}
 		if completedAt.Valid {
@@ -640,7 +717,7 @@ func (s *PostgresStore) ListMigrationsPage(ctx context.Context, tenantID string,
 		items = append(items, item)
 	}
 
-	if err := rows.Err(); err != nil {
+	if err = rows.Err(); err != nil {
 		return nil, 0, fmt.Errorf("postgres store: iterate migration metadata: %w", err)
 	}
 
@@ -648,7 +725,7 @@ func (s *PostgresStore) ListMigrationsPage(ctx context.Context, tenantID string,
 }
 
 // SaveRecoveryPoint persists a serialized recovery point to PostgreSQL.
-func (s *PostgresStore) SaveRecoveryPoint(ctx context.Context, tenantID string, record RecoveryPointRecord) error {
+func (s *PostgresStore) SaveRecoveryPoint(ctx context.Context, tenantID string, record RecoveryPointRecord) (err error) {
 	ctx, cancel := s.writeContext(ctx)
 	defer cancel()
 
@@ -661,11 +738,19 @@ func (s *PostgresStore) SaveRecoveryPoint(ctx context.Context, tenantID string, 
 
 	tenantID = normalizeTenantID(tenantID)
 	record.TenantID = tenantID
+	ctx, span := startPostgresStoreSpan(ctx, "save_recovery_point", tenantID,
+		attribute.String("viaduct.migration.id", strings.TrimSpace(record.MigrationID)),
+		attribute.String("viaduct.recovery.phase", strings.TrimSpace(record.Phase)),
+	)
+	defer func() {
+		finishStoreSpan(span, err)
+	}()
+
 	if _, err := s.ensureTenant(ctx, tenantID); err != nil {
 		return fmt.Errorf("postgres store: save recovery point: %w", err)
 	}
 
-	_, err := s.db.ExecContext(
+	_, err = s.db.ExecContext(
 		ctx,
 		`INSERT INTO recovery_points (tenant_id, migration_id, phase, created_at, raw_json)
 		 VALUES ($1, $2, $3, $4, $5)
@@ -687,24 +772,35 @@ func (s *PostgresStore) SaveRecoveryPoint(ctx context.Context, tenantID string, 
 }
 
 // GetRecoveryPoint retrieves a serialized recovery point from PostgreSQL.
-func (s *PostgresStore) GetRecoveryPoint(ctx context.Context, tenantID, migrationID string) (*RecoveryPointRecord, error) {
+func (s *PostgresStore) GetRecoveryPoint(ctx context.Context, tenantID, migrationID string) (record *RecoveryPointRecord, err error) {
 	ctx, cancel := s.readContext(ctx)
 	defer cancel()
 
 	tenantID = normalizeTenantID(tenantID)
+	ctx, span := startPostgresStoreSpan(ctx, "get_recovery_point", tenantID,
+		attribute.String("viaduct.migration.id", strings.TrimSpace(migrationID)),
+	)
+	defer func() {
+		attrs := make([]attribute.KeyValue, 0, 1)
+		if record != nil {
+			attrs = appendStoreStringAttr(attrs, "viaduct.recovery.phase", record.Phase)
+		}
+		finishStoreSpan(span, err, attrs...)
+	}()
 
-	var record RecoveryPointRecord
-	if err := s.db.QueryRowContext(
+	var item RecoveryPointRecord
+	if err = s.db.QueryRowContext(
 		ctx,
 		`SELECT tenant_id, migration_id, phase, created_at, raw_json
 		 FROM recovery_points WHERE tenant_id = $1 AND migration_id = $2`,
 		tenantID,
 		migrationID,
-	).Scan(&record.TenantID, &record.MigrationID, &record.Phase, &record.CreatedAt, &record.RawJSON); err != nil {
+	).Scan(&item.TenantID, &item.MigrationID, &item.Phase, &item.CreatedAt, &item.RawJSON); err != nil {
 		return nil, fmt.Errorf("postgres store: get recovery point %s: %w", migrationID, err)
 	}
 
-	return &record, nil
+	record = &item
+	return record, nil
 }
 
 // CreateTenant persists tenant metadata in PostgreSQL.
@@ -1019,7 +1115,7 @@ func (s *PostgresStore) Diagnostics(ctx context.Context) (Diagnostics, error) {
 }
 
 // SaveAuditEvent persists a tenant-scoped audit event to PostgreSQL.
-func (s *PostgresStore) SaveAuditEvent(ctx context.Context, event models.AuditEvent) error {
+func (s *PostgresStore) SaveAuditEvent(ctx context.Context, event models.AuditEvent) (err error) {
 	ctx, cancel := s.writeContext(ctx)
 	defer cancel()
 
@@ -1036,6 +1132,17 @@ func (s *PostgresStore) SaveAuditEvent(ctx context.Context, event models.AuditEv
 	if event.Details == nil {
 		event.Details = map[string]string{}
 	}
+	ctx, span := startPostgresStoreSpan(ctx, "save_audit_event", event.TenantID,
+		attribute.String("viaduct.audit.id", strings.TrimSpace(event.ID)),
+		attribute.String("viaduct.audit.category", strings.TrimSpace(event.Category)),
+		attribute.String("viaduct.audit.action", strings.TrimSpace(event.Action)),
+		attribute.String("viaduct.audit.outcome", strings.TrimSpace(string(event.Outcome))),
+	)
+	defer func() {
+		attrs := make([]attribute.KeyValue, 0, 1)
+		attrs = appendStoreStringAttr(attrs, "viaduct.audit.id", event.ID)
+		finishStoreSpan(span, err, attrs...)
+	}()
 
 	if _, err := s.ensureTenant(ctx, event.TenantID); err != nil {
 		return fmt.Errorf("postgres store: save audit event: %w", err)
@@ -1070,11 +1177,17 @@ func (s *PostgresStore) SaveAuditEvent(ctx context.Context, event models.AuditEv
 }
 
 // ListAuditEvents returns tenant audit events ordered from newest to oldest.
-func (s *PostgresStore) ListAuditEvents(ctx context.Context, tenantID string, limit int) ([]models.AuditEvent, error) {
+func (s *PostgresStore) ListAuditEvents(ctx context.Context, tenantID string, limit int) (items []models.AuditEvent, err error) {
 	ctx, cancel := s.readContext(ctx)
 	defer cancel()
 
 	tenantID = normalizeTenantID(tenantID)
+	ctx, span := startPostgresStoreSpan(ctx, "list_audit_events", tenantID,
+		attribute.Int("viaduct.store.limit", limit),
+	)
+	defer func() {
+		finishStoreSpan(span, err, attribute.Int("viaduct.store.result_count", len(items)))
+	}()
 
 	query := `SELECT id, tenant_id, actor, request_id, category, action, resource, outcome, message, details, created_at
 		FROM audit_events WHERE tenant_id = $1 ORDER BY created_at DESC`
@@ -1088,14 +1201,14 @@ func (s *PostgresStore) ListAuditEvents(ctx context.Context, tenantID string, li
 	}
 	defer rows.Close()
 
-	items := make([]models.AuditEvent, 0)
+	items = make([]models.AuditEvent, 0)
 	for rows.Next() {
 		var (
 			event          models.AuditEvent
 			outcome        string
 			detailsPayload []byte
 		)
-		if err := rows.Scan(
+		if err = rows.Scan(
 			&event.ID,
 			&event.TenantID,
 			&event.Actor,
@@ -1119,7 +1232,7 @@ func (s *PostgresStore) ListAuditEvents(ctx context.Context, tenantID string, li
 		items = append(items, event)
 	}
 
-	if err := rows.Err(); err != nil {
+	if err = rows.Err(); err != nil {
 		return nil, fmt.Errorf("postgres store: iterate audit events: %w", err)
 	}
 

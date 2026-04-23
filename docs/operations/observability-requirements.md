@@ -1,5 +1,7 @@
 # Observability Requirements
 
+This document is the original product-facing requirements artifact for observability hardening. The current implemented backend tracing and local Grafana + Tempo runbook now live in [observability.md](observability.md).
+
 This document defines the minimum observability model Viaduct needs after Phase 5 so operators and maintainers can answer four questions quickly:
 
 1. what failed

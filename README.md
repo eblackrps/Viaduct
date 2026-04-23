@@ -131,14 +131,16 @@ Use these entrypoints next:
 
 ## Verification
 
-`make release-gate` is the canonical local release-owner verification path. It runs backend build, vet, lint, race coverage, certification fixtures, soak coverage, plugin and OpenAPI contract checks, release-surface consistency checks, CLI smoke coverage, dashboard lint/format/unit/build verification, coverage enforcement, and the cross-platform package matrix in one command. CI adds Playwright end-to-end coverage, CodeQL, `gosec`, and `trivy` on top of the same source-controlled release path.
+`make release-gate` is the canonical local release-owner verification path. It runs backend build, vet, lint, race coverage, certification fixtures, soak coverage, plugin and OpenAPI contract checks, release-surface consistency checks, CLI smoke coverage, dashboard lint/format/unit/build verification, coverage enforcement, and the cross-platform package matrix in one command. CI adds Playwright end-to-end coverage, a Docker-backed observability smoke for Grafana + Tempo trace ingestion, CodeQL, `gosec`, and `trivy` on top of the same source-controlled release path.
 
 Other high-signal commands:
 
 ```bash
 make build
+make observability-up
 make web-e2e-setup
 make pilot-smoke
+make observability-validate
 make certification-test
 make soak-test
 make contract-check
@@ -162,6 +164,7 @@ make package-release-matrix
 - API contract: [docs/reference/openapi.yaml](docs/reference/openapi.yaml)
 - Live API docs: `/api/v1/docs` on any running Viaduct server
 - Support matrix: [docs/reference/support-matrix.md](docs/reference/support-matrix.md)
+- Backend observability: [docs/operations/observability.md](docs/operations/observability.md)
 
 ## Contributing
 

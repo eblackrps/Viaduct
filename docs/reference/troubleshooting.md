@@ -87,6 +87,34 @@ Fix:
 - retry the job from the workspace job history after adjusting the timeout
 - use PostgreSQL for persistent evaluation environments so retry and recovery state survive restarts
 
+## No Traces Reach Tempo
+
+Cause:
+- `VIADUCT_OTEL_ENABLED` is not set to `true`
+- `VIADUCT_OTEL_ENDPOINT` does not point at the Tempo OTLP listener
+- Grafana or Tempo is not running
+- the request you tested never exercised the Viaduct API
+
+Fix:
+- start the local stack with `make observability-up`
+- set `VIADUCT_OTEL_ENABLED=true`
+- set `VIADUCT_OTEL_ENDPOINT=http://127.0.0.1:4318`
+- restart Viaduct after changing telemetry environment variables
+- run `make observability-validate`
+- if you want a richer trace than `/api/v1/about`, rerun the validation script with a service account key or run `make pilot-smoke`
+
+## Viaduct Starts But Logs `OpenTelemetry disabled`
+
+Cause:
+- the OTLP exporter could not be created during startup
+- the configured endpoint is malformed or missing a host
+
+Fix:
+- verify `VIADUCT_OTEL_ENDPOINT`
+- keep the endpoint on OTLP/HTTP for the current repo path, for example `http://127.0.0.1:4318`
+- restart Viaduct after correcting the environment
+- remember that the server continues without telemetry when startup export setup fails
+
 ## Dashboard Sign-In Disappears After Closing The Browser
 
 Cause:
