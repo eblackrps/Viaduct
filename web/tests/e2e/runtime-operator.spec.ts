@@ -34,14 +34,37 @@ test("boots the real viaduct runtime and completes the first local operator flow
 	expect(docsResponse.ok()).toBeTruthy();
 
 	await page.getByRole("button", { name: "Start local session" }).click();
-	await expect(
-		page.getByRole("heading", { name: "Start the workspace-first operator flow" }),
-	).toBeVisible();
+	await expect
+		.poll(async () => {
+			if (
+				await page
+					.getByRole("button", { name: "Create workspace" })
+					.isVisible()
+					.catch(() => false)
+			) {
+				return "intake";
+			}
+			if (
+				await page
+					.getByRole("heading", { name: "Examples Lab Assessment" })
+					.isVisible()
+					.catch(() => false)
+			) {
+				return "workspace";
+			}
+			return "pending";
+		})
+		.not.toBe("pending");
 
-	await page.getByRole("button", { name: "Create workspace" }).click();
-	await expect(
-		page.getByRole("heading", { name: "Examples Lab Assessment" }),
-	).toBeVisible();
+	const createWorkspaceButton = page.getByRole("button", {
+		name: "Create workspace",
+	});
+	if (await createWorkspaceButton.isVisible().catch(() => false)) {
+		await createWorkspaceButton.click();
+		await expect(
+			page.getByRole("heading", { name: "Examples Lab Assessment" }),
+		).toBeVisible();
+	}
 
 	await page.getByRole("button", { name: "Run discovery" }).click();
 	await expect(page.getByText("1 snapshot(s) recorded.")).toBeVisible({
@@ -50,6 +73,42 @@ test("boots the real viaduct runtime and completes the first local operator flow
 	await expect(
 		page.getByRole("heading", { name: "Workload assessment table" }),
 	).toBeVisible();
+	const workloadCheckbox = page.getByRole("checkbox", {
+		name: "Select ubuntu-web-01",
+	});
+	await workloadCheckbox.check();
+	await expect(workloadCheckbox).toBeChecked();
+
+	await expect(page.getByText("Build the dependency graph")).toBeVisible();
+	await page.getByRole("button", { name: "Build graph" }).click();
+	await expect(
+		page.getByRole("button", { name: "Run simulation" }),
+	).toBeVisible({
+		timeout: 30_000,
+	});
+
+	await page.getByRole("button", { name: "Run simulation" }).click();
+	await expect(page.getByRole("button", { name: "Save plan" })).toBeVisible({
+		timeout: 30_000,
+	});
+
+	await page.getByRole("button", { name: "Save plan" }).click();
+	await expect(
+		page.getByRole("button", { name: "Export report" }),
+	).toBeVisible({
+		timeout: 30_000,
+	});
+	await expect(page.getByText(/Saved plan/i)).toBeVisible();
+
+	const downloadPromise = page.waitForEvent("download");
+	await page.getByRole("button", { name: "Export report" }).click();
+	const download = await downloadPromise;
+	expect(download.suggestedFilename()).toMatch(
+		/^examples-lab-assessment-[a-z0-9]{8}\.md$/,
+	);
+	await expect(page.getByText("Latest export")).toBeVisible({
+		timeout: 30_000,
+	});
 
 	await navigateTo(page, "Overview");
 	await expect(

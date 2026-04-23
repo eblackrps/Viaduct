@@ -1,6 +1,9 @@
 package main
 
 import (
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -122,8 +125,195 @@ func TestCollectDoctorReport_MissingConfigReportsLocalLabGuidance_Expected(t *te
 	if len(report.Checks) < 4 {
 		t.Fatalf("Checks = %d, want at least 4", len(report.Checks))
 	}
+	if report.Store.Backend != "memory" {
+		t.Fatalf("Store.Backend = %q, want memory", report.Store.Backend)
+	}
+	if !report.Auth.LocalOnlyFallbackMode {
+		t.Fatal("Auth.LocalOnlyFallbackMode = false, want true")
+	}
 	if report.Runtime.Recorded {
 		t.Fatal("Runtime.Recorded = true, want false")
+	}
+}
+
+func TestCollectDoctorReport_ParsedConfigIncludesStoreAndAuthSummaries_Expected(t *testing.T) {
+	webDir := builtDashboardDir(t)
+	root := t.TempDir()
+	configPath := filepath.Join(root, "viaduct", "config.yaml")
+	t.Setenv("VIADUCT_ADMIN_KEY", "doctor-admin-key")
+	if err := os.MkdirAll(filepath.Dir(configPath), 0o755); err != nil {
+		t.Fatalf("MkdirAll() error = %v", err)
+	}
+	if err := os.WriteFile(configPath, []byte("insecure: false\nsources:\n  kvm:\n    address: examples/lab/kvm\ncredentials:\n  lab-kvm:\n    username: operator\nplugins:\n  sample: ./plugin\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile(config.yaml) error = %v", err)
+	}
+
+	report, err := collectDoctorReport(configPath, webDir, "127.0.0.1", 8080)
+	if err != nil {
+		t.Fatalf("collectDoctorReport() error = %v", err)
+	}
+
+	if !report.Config.Exists || !report.Config.Valid {
+		t.Fatalf("Config summary = %#v, want existing valid config", report.Config)
+	}
+	if report.Config.SourceCount != 1 || report.Config.CredentialCount != 1 || report.Config.PluginCount != 1 {
+		t.Fatalf("Config summary counts = %#v, want one source, credential, and plugin", report.Config)
+	}
+	if report.Store.Backend != "memory" {
+		t.Fatalf("Store.Backend = %q, want memory", report.Store.Backend)
+	}
+	if !report.Auth.AdminKeyConfigured {
+		t.Fatal("Auth.AdminKeyConfigured = false, want true")
+	}
+	if !report.Auth.SharedAccessReady {
+		t.Fatal("Auth.SharedAccessReady = false, want true")
+	}
+}
+
+func TestCollectDoctorReport_RecordedRuntimeIncludesReadinessAndAbout_Expected(t *testing.T) {
+	t.Parallel()
+
+	webDir := builtDashboardDir(t)
+	configPath := filepath.Join(t.TempDir(), "viaduct", "config.yaml")
+	if err := os.MkdirAll(filepath.Dir(configPath), 0o755); err != nil {
+		t.Fatalf("MkdirAll() error = %v", err)
+	}
+	if err := os.WriteFile(configPath, []byte("insecure: false\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile(config.yaml) error = %v", err)
+	}
+
+	runtimeServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v1/health":
+			fmt.Fprint(w, `{"status":"ok"}`)
+		case "/readyz":
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprint(w, `{"status":"ready"}`)
+		case "/api/v1/about":
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprint(w, `{"version":"v3.1.1","store_backend":"memory","persistent_store":false,"local_operator_session_enabled":true}`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer runtimeServer.Close()
+
+	paths, err := resolveLocalRuntimePaths(configPath)
+	if err != nil {
+		t.Fatalf("resolveLocalRuntimePaths() error = %v", err)
+	}
+	state := localRuntimeState{
+		PID:        4242,
+		Detached:   true,
+		Host:       "127.0.0.1",
+		Port:       8080,
+		BaseURL:    runtimeServer.URL,
+		APIURL:     runtimeServer.URL + "/api/v1/",
+		ConfigPath: paths.ConfigPath,
+		WebDir:     webDir,
+		LogPath:    paths.LogPath,
+		Mode:       "local-lab",
+		Version:    "v3.1.1",
+		Commit:     "deadbee",
+		StartedAt:  time.Now().UTC(),
+	}
+	if err := writeLocalRuntimeState(paths, state); err != nil {
+		t.Fatalf("writeLocalRuntimeState() error = %v", err)
+	}
+
+	report, err := collectDoctorReport(configPath, webDir, "127.0.0.1", 8080)
+	if err != nil {
+		t.Fatalf("collectDoctorReport() error = %v", err)
+	}
+
+	if !report.Runtime.Recorded || !report.Runtime.Reachable {
+		t.Fatalf("Runtime summary = %#v, want recorded reachable runtime", report.Runtime)
+	}
+	if report.Runtime.Readiness == nil || !report.Runtime.Readiness.Ready {
+		t.Fatalf("Runtime readiness = %#v, want ready runtime", report.Runtime.Readiness)
+	}
+	if report.Runtime.Readiness.About.Version != "v3.1.1" {
+		t.Fatalf("Runtime about version = %q, want v3.1.1", report.Runtime.Readiness.About.Version)
+	}
+	if !report.Runtime.Readiness.About.LocalOperatorSession {
+		t.Fatal("Runtime about local operator session = false, want true")
+	}
+}
+
+func TestCollectDoctorReport_RecordedRuntimeDegradedReadinessIncludesIssues_Expected(t *testing.T) {
+	t.Parallel()
+
+	webDir := builtDashboardDir(t)
+	configPath := filepath.Join(t.TempDir(), "viaduct", "config.yaml")
+	if err := os.MkdirAll(filepath.Dir(configPath), 0o755); err != nil {
+		t.Fatalf("MkdirAll() error = %v", err)
+	}
+	if err := os.WriteFile(configPath, []byte("insecure: false\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile(config.yaml) error = %v", err)
+	}
+
+	runtimeServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v1/health":
+			fmt.Fprint(w, `{"status":"ok"}`)
+		case "/readyz":
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusServiceUnavailable)
+			fmt.Fprint(w, `{"status":"not_ready","policies_loaded":false,"issues":["no lifecycle policies are loaded from configs/policies","vmware connector circuit is open for vcsa.lab.local; retry after 60s"],"circuit_breakers":[{"state":"open"}]}`)
+		case "/api/v1/about":
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprint(w, `{"version":"v3.1.1","store_backend":"memory","persistent_store":false,"local_operator_session_enabled":true}`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer runtimeServer.Close()
+
+	paths, err := resolveLocalRuntimePaths(configPath)
+	if err != nil {
+		t.Fatalf("resolveLocalRuntimePaths() error = %v", err)
+	}
+	state := localRuntimeState{
+		PID:        5252,
+		Detached:   true,
+		Host:       "127.0.0.1",
+		Port:       8080,
+		BaseURL:    runtimeServer.URL,
+		APIURL:     runtimeServer.URL + "/api/v1/",
+		ConfigPath: paths.ConfigPath,
+		WebDir:     webDir,
+		LogPath:    paths.LogPath,
+		Mode:       "local-lab",
+		Version:    "v3.1.1",
+		Commit:     "deadbee",
+		StartedAt:  time.Now().UTC(),
+	}
+	if err := writeLocalRuntimeState(paths, state); err != nil {
+		t.Fatalf("writeLocalRuntimeState() error = %v", err)
+	}
+
+	report, err := collectDoctorReport(configPath, webDir, "127.0.0.1", 8080)
+	if err != nil {
+		t.Fatalf("collectDoctorReport() error = %v", err)
+	}
+
+	if report.Runtime.Readiness == nil {
+		t.Fatal("Runtime.Readiness = nil, want degraded readiness details")
+	}
+	if report.Runtime.Readiness.Ready {
+		t.Fatalf("Runtime.Readiness = %#v, want degraded readiness", report.Runtime.Readiness)
+	}
+	if report.Runtime.Readiness.OpenCircuitCount != 1 {
+		t.Fatalf("Runtime.Readiness.OpenCircuitCount = %d, want 1", report.Runtime.Readiness.OpenCircuitCount)
+	}
+	if report.Runtime.Readiness.PoliciesLoaded {
+		t.Fatal("Runtime.Readiness.PoliciesLoaded = true, want false")
+	}
+	if len(report.Runtime.Readiness.Issues) != 2 {
+		t.Fatalf("Runtime.Readiness.Issues = %#v, want two issues", report.Runtime.Readiness.Issues)
+	}
+	if !strings.Contains(report.Runtime.Message, "no lifecycle policies are loaded from configs/policies") {
+		t.Fatalf("Runtime.Message = %q, want policy guidance", report.Runtime.Message)
 	}
 }
 

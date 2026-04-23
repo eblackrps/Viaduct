@@ -31,6 +31,8 @@ npm run e2e
 npm run screenshots:readme
 ```
 
+From the repo root, `make web-install` is the deterministic dependency bootstrap, `make web-e2e-setup` adds the Playwright browser for the real-runtime smoke, and `make pilot-smoke` runs the root-level evaluator flow that pairs the workspace integration smoke with the browser runtime smoke.
+
 ## Build
 
 ```bash
@@ -71,6 +73,7 @@ Current README and release-facing dashboard screenshots can be regenerated with 
 ## Notes
 
 - Vite 8 and the current React plugin require Node.js 20.19+ or a newer supported major. CI and release packaging currently pin Node.js 20.20.x.
+- `.codex/setup.sh` now enforces the same Node floor and can install the `web/` dependencies plus the Playwright Chromium runtime unless you opt out with `VIADUCT_SKIP_WEB_SETUP=1` or `VIADUCT_SKIP_PLAYWRIGHT_INSTALL=1`.
 - The Vite dev server is for local development only.
 - The dashboard depends on the same backend state as the CLI and API; avoid frontend-only assumptions about migration or policy state.
 - The default route is the pilot workspace flow in `web/src/features/workspaces/WorkspacePage.tsx`.

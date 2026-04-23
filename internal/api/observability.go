@@ -14,13 +14,18 @@ import (
 	"github.com/google/uuid"
 )
 
-const requestIDHeader = "X-Request-ID"
+const (
+	requestIDHeader = "X-Request-ID"
+	traceIDHeader   = "X-Trace-ID"
+)
 
 type requestIDContextKey struct{}
+type traceIDContextKey struct{}
 type requestScopeContextKey struct{}
 
 type requestScope struct {
 	requestID  string
+	traceID    string
 	tenantID   string
 	authMethod string
 }
@@ -214,17 +219,23 @@ func (s *Server) withObservability(next http.Handler) http.Handler {
 		if requestID == "" {
 			requestID = uuid.NewString()
 		}
+		traceID := extractTraceID(r)
 
 		startedAt := time.Now()
 		done := s.metrics.startRequest()
 		recorder := &responseRecorder{ResponseWriter: w, status: http.StatusOK}
 		recorder.Header().Set(requestIDHeader, requestID)
+		if traceID != "" {
+			recorder.Header().Set(traceIDHeader, traceID)
+		}
 
 		scope := &requestScope{
 			requestID: requestID,
+			traceID:   traceID,
 			tenantID:  store.TenantIDFromContext(r.Context()),
 		}
 		ctx := context.WithValue(r.Context(), requestIDContextKey{}, requestID)
+		ctx = context.WithValue(ctx, traceIDContextKey{}, traceID)
 		ctx = context.WithValue(ctx, requestScopeContextKey{}, scope)
 		next.ServeHTTP(recorder, r.WithContext(ctx))
 
@@ -237,6 +248,7 @@ func (s *Server) withObservability(next http.Handler) http.Handler {
 			"path", r.URL.Path,
 			"status", recorder.status,
 			"duration_ms", duration.Milliseconds(),
+			"trace_id", traceID,
 			"tenant_id", scope.tenantID,
 			"auth_method", scope.authMethod,
 		)
@@ -333,12 +345,75 @@ func ContextWithRequestID(ctx context.Context, requestID string) context.Context
 	return context.WithValue(ctx, requestIDContextKey{}, requestID)
 }
 
+// TraceIDFromContext returns the trace identifier attached by observability middleware when present.
+func TraceIDFromContext(ctx context.Context) string {
+	if ctx == nil {
+		return ""
+	}
+	value, _ := ctx.Value(traceIDContextKey{}).(string)
+	return value
+}
+
+// ContextWithTraceID attaches a trace identifier to a context for downstream correlation.
+func ContextWithTraceID(ctx context.Context, traceID string) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	traceID = normalizeTraceID(traceID)
+	if traceID == "" {
+		return ctx
+	}
+	return context.WithValue(ctx, traceIDContextKey{}, traceID)
+}
+
 func requestScopeFromContext(ctx context.Context) *requestScope {
 	if ctx == nil {
 		return nil
 	}
 	scope, _ := ctx.Value(requestScopeContextKey{}).(*requestScope)
 	return scope
+}
+
+func extractTraceID(r *http.Request) string {
+	if r == nil {
+		return ""
+	}
+	if traceID, ok := parseTraceparentTraceID(r.Header.Get("Traceparent")); ok {
+		return traceID
+	}
+	return normalizeTraceID(r.Header.Get(traceIDHeader))
+}
+
+func parseTraceparentTraceID(value string) (string, bool) {
+	parts := strings.Split(strings.TrimSpace(value), "-")
+	if len(parts) != 4 {
+		return "", false
+	}
+	traceID := normalizeTraceID(parts[1])
+	if traceID == "" || traceID == strings.Repeat("0", 32) {
+		return "", false
+	}
+	return traceID, true
+}
+
+func normalizeTraceID(value string) string {
+	traceID := strings.ToLower(strings.TrimSpace(value))
+	if len(traceID) != 32 || !isLowerHex(traceID) {
+		return ""
+	}
+	return traceID
+}
+
+func isLowerHex(value string) bool {
+	for _, char := range value {
+		switch {
+		case char >= '0' && char <= '9':
+		case char >= 'a' && char <= 'f':
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 func normalizeMetricsPath(path string) string {

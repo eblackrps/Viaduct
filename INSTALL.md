@@ -1,6 +1,6 @@
 # Installation
 
-This is the top-level installation entrypoint for Viaduct. Use it with [QUICKSTART.md](QUICKSTART.md) for the fastest browser-first path, or see [docs/getting-started/installation.md](docs/getting-started/installation.md) for the deeper walkthrough.
+This is the top-level installation entrypoint for Viaduct. Use it with [QUICKSTART.md](QUICKSTART.md) for the fastest browser-first path, see [docs/getting-started/installation.md](docs/getting-started/installation.md) for the deeper walkthrough, and use [docs/releases/current.md](docs/releases/current.md) as the repo-local source of truth for the current release/install story.
 
 ## Requirements
 
@@ -54,6 +54,8 @@ The default local URL is [http://127.0.0.1:8080](http://127.0.0.1:8080).
 The same runtime also serves live API docs at [http://127.0.0.1:8080/api/v1/docs](http://127.0.0.1:8080/api/v1/docs).
 
 This is the contributor and local-lab path. For packaged environments, prefer the signed OCI image above.
+
+If you need the browser-side evaluator smoke from the same checkout, run `make web-e2e-setup` once and then `make pilot-smoke`.
 
 ## Native Release Bundle Alternative
 

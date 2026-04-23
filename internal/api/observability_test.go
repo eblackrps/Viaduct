@@ -44,6 +44,37 @@ func TestServer_WithObservability_AddsRequestIDAndMetrics_Expected(t *testing.T)
 	}
 }
 
+func TestServer_WithObservability_ExtractsTraceparent_Expected(t *testing.T) {
+	t.Parallel()
+
+	server := mustNewServer(t, store.NewMemoryStore())
+	handler := server.withObservability(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if TraceIDFromContext(r.Context()) != "4bf92f3577b34da6a3ce929d0e0e4736" {
+			t.Fatalf("TraceIDFromContext() = %q, want propagated trace ID", TraceIDFromContext(r.Context()))
+		}
+		scope := requestScopeFromContext(r.Context())
+		if scope == nil {
+			t.Fatal("request scope missing from context")
+		}
+		if scope.traceID != "4bf92f3577b34da6a3ce929d0e0e4736" {
+			t.Fatalf("scope.traceID = %q, want propagated trace ID", scope.traceID)
+		}
+		w.WriteHeader(http.StatusAccepted)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/about", nil)
+	req.Header.Set("Traceparent", "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01")
+	recorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(recorder, req)
+	if recorder.Code != http.StatusAccepted {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusAccepted)
+	}
+	if recorder.Header().Get(traceIDHeader) != "4bf92f3577b34da6a3ce929d0e0e4736" {
+		t.Fatalf("X-Trace-ID header = %q, want propagated trace ID", recorder.Header().Get(traceIDHeader))
+	}
+}
+
 func TestServer_WithObservability_CapturesAuthenticatedTenantScope_Expected(t *testing.T) {
 	t.Parallel()
 

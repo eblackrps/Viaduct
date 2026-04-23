@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -96,7 +97,11 @@ func runRuntimeStatus(cmd *cobra.Command) error {
 	case state == nil:
 		report.Message = "No recorded local Viaduct runtime is active."
 	case report.Reachable:
-		report.Message = fmt.Sprintf("Viaduct is reachable at %s.", state.BaseURL)
+		ctx, cancel := context.WithTimeout(cmd.Context(), 3*time.Second)
+		defer cancel()
+		readiness := inspectRecordedRuntime(ctx, state.BaseURL)
+		report.Readiness = &readiness
+		report.Message = readinessSummary(state.BaseURL, readiness)
 	default:
 		report.Message = fmt.Sprintf("Runtime state exists for pid %d, but %s is not responding.", state.PID, state.BaseURL)
 	}
@@ -110,6 +115,9 @@ func runRuntimeStatus(cmd *cobra.Command) error {
 			fmt.Fprintf(cmd.OutOrStdout(), "API:   %s\n", state.APIURL)
 			fmt.Fprintf(cmd.OutOrStdout(), "PID: %d\n", state.PID)
 			fmt.Fprintf(cmd.OutOrStdout(), "Detached: %s\n", strings.ToLower(fmt.Sprintf("%t", state.Detached)))
+			if report.Readiness != nil {
+				fmt.Fprintf(cmd.OutOrStdout(), "Ready: %s\n", summarizeDoctorRuntime(report.Readiness))
+			}
 			if !state.StartedAt.IsZero() {
 				fmt.Fprintf(cmd.OutOrStdout(), "Started: %s\n", state.StartedAt.Format(time.RFC3339))
 			}

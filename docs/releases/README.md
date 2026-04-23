@@ -2,8 +2,11 @@
 
 This directory contains release notes and other release-facing narrative assets that support tagged Viaduct releases.
 
+The current release/install reference lives in [current.md](current.md).
+
 ## Files
 
+- [Current release reference](current.md)
 - [v3.1.1 release notes](v3.1.1.md)
 - [v3.1.0 release notes](v3.1.0.md)
 - [v3.0.0 release notes](v3.0.0.md)

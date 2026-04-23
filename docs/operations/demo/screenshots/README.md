@@ -10,6 +10,8 @@ Use these images in:
 - demo prep
 - operator-facing workflow docs when the dashboard changes materially
 
+The matching evaluator artifact checklist lives in [../pilot-evidence-kit.md](../pilot-evidence-kit.md).
+
 ## Current Files
 
 - [Get started screen](auth-bootstrap.png)

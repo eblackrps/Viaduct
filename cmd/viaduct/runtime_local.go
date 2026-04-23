@@ -15,6 +15,7 @@ import (
 	"time"
 
 	viaductapi "github.com/eblackrps/viaduct/internal/api"
+	"github.com/eblackrps/viaduct/internal/store"
 )
 
 const (
@@ -46,10 +47,11 @@ type localRuntimeState struct {
 }
 
 type localRuntimeStatusReport struct {
-	Recorded  bool               `json:"recorded" yaml:"recorded"`
-	Reachable bool               `json:"reachable" yaml:"reachable"`
-	State     *localRuntimeState `json:"state,omitempty" yaml:"state,omitempty"`
-	Message   string             `json:"message,omitempty" yaml:"message,omitempty"`
+	Recorded  bool                    `json:"recorded" yaml:"recorded"`
+	Reachable bool                    `json:"reachable" yaml:"reachable"`
+	State     *localRuntimeState      `json:"state,omitempty" yaml:"state,omitempty"`
+	Readiness *doctorRuntimeReadiness `json:"readiness,omitempty" yaml:"readiness,omitempty"`
+	Message   string                  `json:"message,omitempty" yaml:"message,omitempty"`
 }
 
 type doctorCheck struct {
@@ -64,8 +66,56 @@ type doctorReport struct {
 	APIURL     string                   `json:"api_url" yaml:"api_url"`
 	WebDir     string                   `json:"web_dir,omitempty" yaml:"web_dir,omitempty"`
 	LabDir     string                   `json:"lab_dir,omitempty" yaml:"lab_dir,omitempty"`
+	Config     doctorConfigReport       `json:"config" yaml:"config"`
+	Store      doctorStoreReport        `json:"store" yaml:"store"`
+	Auth       doctorAuthReport         `json:"auth" yaml:"auth"`
 	Runtime    localRuntimeStatusReport `json:"runtime" yaml:"runtime"`
 	Checks     []doctorCheck            `json:"checks" yaml:"checks"`
+}
+
+type doctorConfigReport struct {
+	Exists               bool   `json:"exists" yaml:"exists"`
+	Valid                bool   `json:"valid" yaml:"valid"`
+	SourceCount          int    `json:"source_count,omitempty" yaml:"source_count,omitempty"`
+	CredentialCount      int    `json:"credential_count,omitempty" yaml:"credential_count,omitempty"`
+	PluginCount          int    `json:"plugin_count,omitempty" yaml:"plugin_count,omitempty"`
+	StateStoreConfigured bool   `json:"state_store_configured" yaml:"state_store_configured"`
+	StateStoreMode       string `json:"state_store_mode,omitempty" yaml:"state_store_mode,omitempty"`
+}
+
+type doctorStoreReport struct {
+	Backend          string `json:"backend,omitempty" yaml:"backend,omitempty"`
+	Persistent       bool   `json:"persistent" yaml:"persistent"`
+	SchemaVersion    int    `json:"schema_version,omitempty" yaml:"schema_version,omitempty"`
+	TenantCount      int    `json:"tenant_count,omitempty" yaml:"tenant_count,omitempty"`
+	ServiceAccounts  int    `json:"service_account_count,omitempty" yaml:"service_account_count,omitempty"`
+	InspectionStatus string `json:"inspection_status,omitempty" yaml:"inspection_status,omitempty"`
+}
+
+type doctorAuthReport struct {
+	AdminKeyConfigured    bool `json:"admin_key_configured" yaml:"admin_key_configured"`
+	TenantKeyTenants      int  `json:"tenant_key_tenants,omitempty" yaml:"tenant_key_tenants,omitempty"`
+	ServiceAccountKeys    int  `json:"service_account_keys,omitempty" yaml:"service_account_keys,omitempty"`
+	SharedAccessReady     bool `json:"shared_access_ready" yaml:"shared_access_ready"`
+	LocalOnlyFallbackMode bool `json:"local_only_fallback_mode" yaml:"local_only_fallback_mode"`
+}
+
+type doctorRuntimeAbout struct {
+	Version              string `json:"version,omitempty" yaml:"version,omitempty"`
+	StoreBackend         string `json:"store_backend,omitempty" yaml:"store_backend,omitempty"`
+	PersistentStore      bool   `json:"persistent_store" yaml:"persistent_store"`
+	LocalOperatorSession bool   `json:"local_operator_session_enabled" yaml:"local_operator_session_enabled"`
+}
+
+type doctorRuntimeReadiness struct {
+	Ready            bool               `json:"ready" yaml:"ready"`
+	Status           string             `json:"status,omitempty" yaml:"status,omitempty"`
+	HTTPStatus       int                `json:"http_status,omitempty" yaml:"http_status,omitempty"`
+	PoliciesLoaded   bool               `json:"policies_loaded" yaml:"policies_loaded"`
+	OpenCircuitCount int                `json:"open_circuit_count,omitempty" yaml:"open_circuit_count,omitempty"`
+	Issues           []string           `json:"issues,omitempty" yaml:"issues,omitempty"`
+	About            doctorRuntimeAbout `json:"about" yaml:"about"`
+	InspectionErr    string             `json:"inspection_error,omitempty" yaml:"inspection_error,omitempty"`
 }
 
 type localStartContext struct {
@@ -365,32 +415,41 @@ func collectDoctorReport(configFile, webDir, host string, port int) (doctorRepor
 		BaseURL:    localBaseURL(host, port),
 		APIURL:     strings.TrimRight(localBaseURL(host, port), "/") + "/api/v1/",
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
 
-	if _, err := os.Stat(paths.ConfigPath); err == nil {
-		report.Checks = append(report.Checks, doctorCheck{Name: "config", Status: "pass", Message: fmt.Sprintf("Config file found at %s.", paths.ConfigPath)})
-	} else if os.IsNotExist(err) {
-		if labDir, labErr := resolveLabFixtureDir(); labErr == nil {
-			report.LabDir = labDir
-			report.Checks = append(report.Checks, doctorCheck{Name: "config", Status: "warn", Message: fmt.Sprintf("Config file is missing; `viaduct start` will generate a local lab config at %s.", paths.ConfigPath)})
-		} else {
-			report.Checks = append(report.Checks, doctorCheck{Name: "config", Status: "fail", Message: fmt.Sprintf("Config file is missing and the lab fixtures were not found: %v", labErr)})
-		}
-	} else {
-		report.Checks = append(report.Checks, doctorCheck{Name: "config", Status: "fail", Message: fmt.Sprintf("Unable to inspect config: %v", err)})
-	}
-
+	labCheck := doctorCheck{Name: "lab", Status: "fail"}
 	if labDir, err := resolveLabFixtureDir(); err == nil {
 		report.LabDir = labDir
-		report.Checks = append(report.Checks, doctorCheck{Name: "lab", Status: "pass", Message: fmt.Sprintf("Local lab fixtures found at %s.", labDir)})
+		labCheck = doctorCheck{Name: "lab", Status: "pass", Message: fmt.Sprintf("Local lab fixtures found at %s.", labDir)}
 	} else {
-		report.Checks = append(report.Checks, doctorCheck{Name: "lab", Status: "fail", Message: err.Error()})
+		labCheck.Message = err.Error()
 	}
+
+	cfg, configCheck := inspectDoctorConfig(paths.ConfigPath, report.LabDir)
+	report.Config = cfg.report
+	report.Checks = append(report.Checks, configCheck, labCheck)
 
 	if detectedWebDir := viaductapi.ResolveDashboardAssetDir(webDir); detectedWebDir != "" {
 		report.WebDir = detectedWebDir
 		report.Checks = append(report.Checks, doctorCheck{Name: "web", Status: "pass", Message: fmt.Sprintf("Built dashboard assets found at %s.", detectedWebDir)})
 	} else {
 		report.Checks = append(report.Checks, doctorCheck{Name: "web", Status: "fail", Message: "Built dashboard assets were not found; run `make web-build` from source or use a packaged release bundle."})
+	}
+
+	if cfg.validConfig != nil {
+		storeReport, authReport, storeCheck, authCheck := inspectDoctorStoreAndAuth(ctx, cfg.validConfig)
+		report.Store = storeReport
+		report.Auth = authReport
+		report.Checks = append(report.Checks, storeCheck, authCheck)
+	} else {
+		report.Store = doctorStoreReport{InspectionStatus: "skipped"}
+		report.Auth = doctorAuthReport{LocalOnlyFallbackMode: true}
+		report.Checks = append(
+			report.Checks,
+			doctorCheck{Name: "store", Status: "warn", Message: "Skipped state-store inspection because the config could not be parsed."},
+			doctorCheck{Name: "auth", Status: "warn", Message: "Skipped shared-auth inspection because the config could not be parsed."},
+		)
 	}
 
 	runtimeState, err := readLocalRuntimeState(paths)
@@ -408,12 +467,356 @@ func collectDoctorReport(configFile, webDir, host string, port int) (doctorRepor
 
 	report.Runtime.Reachable = runtimeReachable(runtimeState, 2*time.Second)
 	if report.Runtime.Reachable {
-		report.Runtime.Message = fmt.Sprintf("Recorded runtime is reachable at %s.", runtimeState.BaseURL)
-		report.Checks = append(report.Checks, doctorCheck{Name: "runtime", Status: "pass", Message: report.Runtime.Message})
+		readiness := inspectRecordedRuntime(ctx, runtimeState.BaseURL)
+		report.Runtime.Readiness = &readiness
+		report.Runtime.Message = readinessSummary(runtimeState.BaseURL, readiness)
+		report.Checks = append(report.Checks, readinessCheck(runtimeState.BaseURL, readiness))
 	} else {
 		report.Runtime.Message = fmt.Sprintf("Recorded runtime state exists for pid %d, but %s is not reachable.", runtimeState.PID, runtimeState.BaseURL)
 		report.Checks = append(report.Checks, doctorCheck{Name: "runtime", Status: "warn", Message: report.Runtime.Message})
 	}
 
 	return report, nil
+}
+
+type inspectedDoctorConfig struct {
+	report      doctorConfigReport
+	validConfig *appConfig
+}
+
+func inspectDoctorConfig(configPath, labDir string) (inspectedDoctorConfig, doctorCheck) {
+	if _, err := os.Stat(configPath); err == nil {
+		cfg, loadErr := loadAppConfig(configPath)
+		if loadErr != nil {
+			return inspectedDoctorConfig{}, doctorCheck{
+				Name:    "config",
+				Status:  "fail",
+				Message: fmt.Sprintf("Config file exists at %s, but it could not be parsed: %v", configPath, loadErr),
+			}
+		}
+
+		report := configSummary(cfg)
+		report.Exists = true
+		report.Valid = true
+		return inspectedDoctorConfig{report: report, validConfig: cfg}, doctorCheck{
+			Name:    "config",
+			Status:  "pass",
+			Message: fmt.Sprintf("Config parsed successfully with %d sources, %d credential refs, and %s state.", report.SourceCount, report.CredentialCount, report.StateStoreMode),
+		}
+	} else if os.IsNotExist(err) {
+		cfg := &appConfig{}
+		report := configSummary(cfg)
+		report.Exists = false
+		report.Valid = false
+
+		message := fmt.Sprintf("Config file is missing; `viaduct start` will generate a local lab config at %s.", configPath)
+		if labDir == "" {
+			message = fmt.Sprintf("Config file is missing at %s.", configPath)
+		}
+		return inspectedDoctorConfig{report: report, validConfig: cfg}, doctorCheck{
+			Name:    "config",
+			Status:  "warn",
+			Message: message,
+		}
+	} else {
+		return inspectedDoctorConfig{}, doctorCheck{
+			Name:    "config",
+			Status:  "fail",
+			Message: fmt.Sprintf("Unable to inspect config: %v", err),
+		}
+	}
+}
+
+func configSummary(cfg *appConfig) doctorConfigReport {
+	report := doctorConfigReport{}
+	if cfg == nil {
+		return report
+	}
+
+	report.SourceCount = len(cfg.Sources)
+	report.CredentialCount = len(cfg.Credentials)
+	report.PluginCount = len(cfg.Plugins)
+	report.StateStoreConfigured = strings.TrimSpace(cfg.StateStoreDSN) != ""
+	report.StateStoreMode = stateStoreModeLabel(cfg)
+	return report
+}
+
+func inspectDoctorStoreAndAuth(ctx context.Context, cfg *appConfig) (doctorStoreReport, doctorAuthReport, doctorCheck, doctorCheck) {
+	storeReport := doctorStoreReport{}
+	authReport := doctorAuthReport{
+		AdminKeyConfigured: strings.TrimSpace(os.Getenv("VIADUCT_ADMIN_KEY")) != "",
+	}
+
+	stateStore, err := openStateStore(ctx, cfg)
+	if err != nil {
+		storeReport.InspectionStatus = "failed"
+		storeCheck := doctorCheck{
+			Name:    "store",
+			Status:  "fail",
+			Message: fmt.Sprintf("Unable to open the configured state store: %v", err),
+		}
+		authReport.LocalOnlyFallbackMode = !authReport.AdminKeyConfigured
+		authCheck := doctorCheck{
+			Name:    "auth",
+			Status:  "warn",
+			Message: "Shared-auth inspection was skipped because the configured state store could not be opened.",
+		}
+		return storeReport, authReport, storeCheck, authCheck
+	}
+	defer func() {
+		_ = stateStore.Close()
+	}()
+
+	storeReport = collectDoctorStoreReport(ctx, stateStore)
+	storeCheck := doctorCheck{
+		Name:    "store",
+		Status:  "pass",
+		Message: fmt.Sprintf("State store backend is %s.", firstNonEmpty(storeReport.Backend, "unknown")),
+	}
+	if !storeReport.Persistent {
+		storeCheck.Status = "warn"
+		storeCheck.Message = "State store backend is memory; local evaluation is fine, but serious pilots should use PostgreSQL."
+	}
+	if storeReport.Persistent && storeReport.SchemaVersion <= 0 {
+		storeCheck.Status = "fail"
+		storeCheck.Message = fmt.Sprintf("Persistent state store %s is reachable, but no schema version was reported.", storeReport.Backend)
+	}
+
+	authReport = collectDoctorAuthReport(ctx, stateStore, authReport)
+	authCheck := doctorCheck{
+		Name:   "auth",
+		Status: "pass",
+		Message: fmt.Sprintf(
+			"Shared access is ready with %d tenant key tenant(s) and %d service-account key(s).",
+			authReport.TenantKeyTenants,
+			authReport.ServiceAccountKeys,
+		),
+	}
+	if !authReport.SharedAccessReady {
+		authCheck.Status = "warn"
+		authCheck.Message = "No admin, tenant, or service-account credentials are configured; loopback local sessions still work, but shared access is not ready."
+	}
+
+	return storeReport, authReport, storeCheck, authCheck
+}
+
+func collectDoctorStoreReport(ctx context.Context, stateStore store.Store) doctorStoreReport {
+	report := doctorStoreReport{InspectionStatus: "ok"}
+	if provider, ok := stateStore.(store.DiagnosticsProvider); ok {
+		if diagnostics, err := provider.Diagnostics(ctx); err == nil {
+			report.Backend = diagnostics.Backend
+			report.Persistent = diagnostics.Persistent
+			report.SchemaVersion = diagnostics.SchemaVersion
+		} else {
+			report.InspectionStatus = "degraded"
+		}
+	}
+
+	if tenants, err := stateStore.ListTenants(ctx); err == nil {
+		report.TenantCount = len(tenants)
+		for _, tenant := range tenants {
+			report.ServiceAccounts += len(tenant.ServiceAccounts)
+		}
+	} else {
+		report.InspectionStatus = "degraded"
+	}
+
+	return report
+}
+
+func collectDoctorAuthReport(ctx context.Context, stateStore store.Store, report doctorAuthReport) doctorAuthReport {
+	tenants, err := stateStore.ListTenants(ctx)
+	if err != nil {
+		report.LocalOnlyFallbackMode = !report.AdminKeyConfigured
+		report.SharedAccessReady = report.AdminKeyConfigured
+		return report
+	}
+
+	for _, tenant := range tenants {
+		if !tenant.Active {
+			continue
+		}
+		if store.HasAPIKeyConfigured(tenant.APIKeyHash, tenant.APIKey) {
+			report.TenantKeyTenants++
+		}
+		for _, account := range tenant.ServiceAccounts {
+			if !account.Active {
+				continue
+			}
+			if store.HasAPIKeyConfigured(account.APIKeyHash, account.APIKey) {
+				report.ServiceAccountKeys++
+			}
+		}
+	}
+
+	report.SharedAccessReady = report.AdminKeyConfigured || report.TenantKeyTenants > 0 || report.ServiceAccountKeys > 0
+	report.LocalOnlyFallbackMode = !report.SharedAccessReady
+	return report
+}
+
+func inspectRecordedRuntime(ctx context.Context, baseURL string) doctorRuntimeReadiness {
+	readiness, readyErr := doctorEndpointReadiness(ctx, strings.TrimRight(baseURL, "/")+"/readyz")
+	if readyErr != nil {
+		readiness.InspectionErr = readyErr.Error()
+	}
+
+	about, err := doctorEndpointAbout(ctx, strings.TrimRight(baseURL, "/")+"/api/v1/about")
+	if err == nil {
+		readiness.About = about
+	} else if readiness.InspectionErr == "" {
+		readiness.InspectionErr = err.Error()
+	}
+
+	return readiness
+}
+
+func doctorEndpointReadiness(ctx context.Context, url string) (doctorRuntimeReadiness, error) {
+	type circuitSnapshot struct {
+		State string `json:"state"`
+	}
+
+	type response struct {
+		Status          string            `json:"status"`
+		PoliciesLoaded  bool              `json:"policies_loaded"`
+		Issues          []string          `json:"issues"`
+		CircuitBreakers []circuitSnapshot `json:"circuit_breakers"`
+	}
+
+	payload, statusCode, err := doctorGET(ctx, url, &response{})
+	readiness := doctorRuntimeReadiness{HTTPStatus: statusCode}
+	if err != nil {
+		return readiness, err
+	}
+	status, _ := payload.(*response)
+	readiness.Status = strings.TrimSpace(status.Status)
+	readiness.PoliciesLoaded = status.PoliciesLoaded
+	if len(status.Issues) > 0 {
+		readiness.Issues = append([]string(nil), status.Issues...)
+	}
+	for _, circuit := range status.CircuitBreakers {
+		if strings.EqualFold(strings.TrimSpace(circuit.State), "open") {
+			readiness.OpenCircuitCount++
+		}
+	}
+	readiness.Ready = statusCode == http.StatusOK && strings.EqualFold(readiness.Status, "ready")
+	return readiness, nil
+}
+
+func doctorEndpointAbout(ctx context.Context, url string) (doctorRuntimeAbout, error) {
+	type response struct {
+		Version              string `json:"version"`
+		StoreBackend         string `json:"store_backend"`
+		PersistentStore      bool   `json:"persistent_store"`
+		LocalOperatorSession bool   `json:"local_operator_session_enabled"`
+	}
+
+	payload, _, err := doctorGET(ctx, url, &response{})
+	if err != nil {
+		return doctorRuntimeAbout{}, err
+	}
+	about, _ := payload.(*response)
+	return doctorRuntimeAbout{
+		Version:              strings.TrimSpace(about.Version),
+		StoreBackend:         strings.TrimSpace(about.StoreBackend),
+		PersistentStore:      about.PersistentStore,
+		LocalOperatorSession: about.LocalOperatorSession,
+	}, nil
+}
+
+func doctorGET(ctx context.Context, url string, payload any) (any, int, error) {
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, 0, fmt.Errorf("build request for %s: %w", url, err)
+	}
+
+	client := &http.Client{Timeout: 2 * time.Second}
+	response, err := client.Do(request)
+	if err != nil {
+		return nil, 0, fmt.Errorf("request %s: %w", url, err)
+	}
+	defer response.Body.Close()
+
+	if payload == nil {
+		return nil, response.StatusCode, nil
+	}
+	if err := json.NewDecoder(response.Body).Decode(payload); err != nil {
+		return nil, response.StatusCode, fmt.Errorf("decode %s: %w", url, err)
+	}
+	return payload, response.StatusCode, nil
+}
+
+func readinessSummary(baseURL string, readiness doctorRuntimeReadiness) string {
+	if readiness.Ready {
+		return fmt.Sprintf(
+			"Recorded runtime is ready at %s%s.",
+			baseURL,
+			runtimeAboutSuffix(readiness.About),
+		)
+	}
+	if readiness.InspectionErr != "" {
+		return fmt.Sprintf("Recorded runtime is reachable at %s, but readiness inspection failed: %s", baseURL, readiness.InspectionErr)
+	}
+	if issues := readinessIssuesSummary(readiness); issues != "" {
+		return fmt.Sprintf(
+			"Recorded runtime is reachable at %s, but /readyz reported %s (%d): %s.",
+			baseURL,
+			firstNonEmpty(readiness.Status, "unknown"),
+			readiness.HTTPStatus,
+			issues,
+		)
+	}
+	return fmt.Sprintf("Recorded runtime is reachable at %s, but /readyz reported %s (%d).", baseURL, firstNonEmpty(readiness.Status, "unknown"), readiness.HTTPStatus)
+}
+
+func readinessCheck(baseURL string, readiness doctorRuntimeReadiness) doctorCheck {
+	if readiness.Ready {
+		return doctorCheck{Name: "runtime", Status: "pass", Message: readinessSummary(baseURL, readiness)}
+	}
+	return doctorCheck{Name: "runtime", Status: "warn", Message: readinessSummary(baseURL, readiness)}
+}
+
+func runtimeAboutSuffix(about doctorRuntimeAbout) string {
+	details := make([]string, 0, 3)
+	if about.Version != "" {
+		details = append(details, fmt.Sprintf(" version %s", about.Version))
+	}
+	if about.StoreBackend != "" {
+		details = append(details, fmt.Sprintf(" store %s", about.StoreBackend))
+	}
+	if about.LocalOperatorSession {
+		details = append(details, " local session available")
+	}
+	if len(details) == 0 {
+		return ""
+	}
+	return " (" + strings.TrimSpace(strings.Join(details, ",")) + ")"
+}
+
+func readinessIssuesSummary(readiness doctorRuntimeReadiness) string {
+	if len(readiness.Issues) == 0 {
+		return ""
+	}
+	items := make([]string, 0, len(readiness.Issues))
+	for _, issue := range readiness.Issues {
+		if trimmed := strings.TrimSpace(issue); trimmed != "" {
+			items = append(items, trimmed)
+		}
+	}
+	return strings.Join(items, "; ")
+}
+
+func stateStoreModeLabel(cfg *appConfig) string {
+	if cfg == nil || strings.TrimSpace(cfg.StateStoreDSN) == "" {
+		return "memory"
+	}
+	return "configured external store"
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
 }

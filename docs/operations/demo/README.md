@@ -12,6 +12,7 @@ Use the files in this directory when you actually present.
 - [15-minute demo card](fifteen-minute-demo-card.md)
 - [Demo scenario brief](demo-scenario-brief.md)
 - [Demo state checklist](demo-state-checklist.md)
+- [Pilot evidence kit](pilot-evidence-kit.md)
 - [Screenshot assets](screenshots/README.md)
 
 ## Intended Use
@@ -19,8 +20,9 @@ Use the files in this directory when you actually present.
 1. Read [../demo-runbook.md](../demo-runbook.md) first.
 2. Use [demo-scenario-brief.md](demo-scenario-brief.md) to stage one consistent environment and story.
 3. Use [demo-state-checklist.md](demo-state-checklist.md) before any real demo.
-4. Use [three-minute-demo-card.md](three-minute-demo-card.md) for first-interest and short recorded demos.
-5. Use [fifteen-minute-demo-card.md](fifteen-minute-demo-card.md) for design-partner and operator evaluation demos.
+4. Use [pilot-evidence-kit.md](pilot-evidence-kit.md) when an evaluator or release owner needs one clean artifact packet from the workspace-first flow.
+5. Use [three-minute-demo-card.md](three-minute-demo-card.md) for first-interest and short recorded demos.
+6. Use [fifteen-minute-demo-card.md](fifteen-minute-demo-card.md) for design-partner and operator evaluation demos.
 
 These assets are intentionally narrow. They support the mixed-estate migration assessment, planning, and controlled operator workflow that Viaduct demonstrates best today, not a broad repo tour.
 

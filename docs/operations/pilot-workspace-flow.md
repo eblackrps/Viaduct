@@ -76,7 +76,19 @@ The workspace keeps the discovery baseline, readiness result, saved plan, notes,
 
 Read-only operators can inspect workspace state and export reports with viewer access, but only operator-level principals can mutate workspace state or start jobs.
 
-## 4. Runtime Checks
+## 4. Capture Evaluator Evidence
+
+If this run is for a pilot approval, design-partner review, or release-owner check, keep one small evidence packet from the same workspace:
+
+1. Get started entry or local-session start
+2. Discovery-complete workspace screenshot
+3. Simulation-complete workspace screenshot
+4. Saved-plan workspace screenshot
+5. Exported Markdown report
+
+Use [the pilot evidence kit](demo/pilot-evidence-kit.md) for the exact artifact list, suggested file names, and CLI corroboration outputs.
+
+## 5. Runtime Checks
 
 If you want CLI confirmation for the local browser-first runtime:
 
@@ -85,13 +97,19 @@ If you want CLI confirmation for the local browser-first runtime:
 ./bin/viaduct doctor
 ```
 
+`viaduct doctor` now confirms:
+- whether the config parses cleanly
+- whether the active store is memory or persistent
+- whether shared auth is configured for anything beyond the local loopback path
+- whether the recorded runtime is just reachable or actually ready according to `/readyz`
+
 Stop the local runtime when you are done:
 
 ```bash
 ./bin/viaduct stop
 ```
 
-## 5. API Equivalents
+## 6. API Equivalents
 
 If you want to exercise the same flow through the REST API, seed the lab tenant and service account first:
 
@@ -170,6 +188,7 @@ If you want to discard a completed evaluation workspace, delete it through the d
 
 The deterministic end-to-end lab smoke now lives in:
 - `tests/integration/pilot_workspace_smoke_test.go`
+- `web/tests/e2e/runtime-operator.spec.ts`
 
 Run the focused smoke when you want a tight workspace regression pass:
 
@@ -177,4 +196,23 @@ Run the focused smoke when you want a tight workspace regression pass:
 go test ./tests/integration -run PilotWorkspace_LabFlow_CreateDiscoverGraphSimulatePlanReport_Expected -v
 ```
 
-For release work, `make release-gate` remains the canonical verification path.
+For the browser half on a fresh shell, install the dashboard and Playwright prerequisites once:
+
+```bash
+make web-e2e-setup
+```
+
+The runtime browser smoke covers the local-session evaluator path all the way through report export:
+
+```bash
+cd web
+npm run e2e:runtime
+```
+
+The root-level shortcut for the whole evaluator path is:
+
+```bash
+make pilot-smoke
+```
+
+For release work, `make release-gate` and `make release-surface-check` remain the canonical verification path.

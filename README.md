@@ -7,7 +7,7 @@
 
 Viaduct helps operators discover mixed virtualization estates, map dependencies, build migration plans, and manage controlled migration work from one shared backend model. The repository combines a Go backend, REST API, CLI, React dashboard, and standalone public site around the same persisted inventory, workspace, planning, and reporting surfaces.
 
-Versioned release notes live in [docs/releases/README.md](docs/releases/README.md), and the published release stream is tracked in [CHANGELOG.md](CHANGELOG.md).
+Versioned release notes live in [docs/releases/README.md](docs/releases/README.md), the current install/reference surface lives in [docs/releases/current.md](docs/releases/current.md), and the published release stream is tracked in [CHANGELOG.md](CHANGELOG.md).
 
 ## Current Focus
 
@@ -131,15 +131,18 @@ Use these entrypoints next:
 
 ## Verification
 
-`make release-gate` is the canonical local release-owner verification path. It runs backend build, vet, lint, race coverage, certification fixtures, soak coverage, plugin and OpenAPI contract checks, CLI smoke coverage, dashboard lint/format/unit/build verification, coverage enforcement, and the cross-platform package matrix in one command. CI adds Playwright end-to-end coverage plus `gosec` and `trivy` on top of the same source-controlled release path.
+`make release-gate` is the canonical local release-owner verification path. It runs backend build, vet, lint, race coverage, certification fixtures, soak coverage, plugin and OpenAPI contract checks, release-surface consistency checks, CLI smoke coverage, dashboard lint/format/unit/build verification, coverage enforcement, and the cross-platform package matrix in one command. CI adds Playwright end-to-end coverage, CodeQL, `gosec`, and `trivy` on top of the same source-controlled release path.
 
 Other high-signal commands:
 
 ```bash
 make build
+make web-e2e-setup
+make pilot-smoke
 make certification-test
 make soak-test
 make contract-check
+make release-surface-check
 make package-release-matrix
 ```
 

@@ -1,6 +1,6 @@
 # Quickstart
 
-The signed OCI image is the canonical production install for Viaduct `v3.1.1`, but this quickstart remains the fastest local lab path from a fresh clone. It uses the shipped KVM fixtures so you can reach the workspace-to-report flow without a live hypervisor estate.
+The signed OCI image is the canonical production install for Viaduct `v3.1.1`, but this quickstart remains the fastest local lab path from a fresh clone. It uses the shipped KVM fixtures so you can reach the workspace-to-report flow without a live hypervisor estate. The current release/install reference also lives in [docs/releases/current.md](docs/releases/current.md).
 
 The default operator path is now browser-first: start the local runtime, open the WebUI, create a workspace, discover, inspect, simulate, save a plan, and export a report.
 
@@ -67,6 +67,16 @@ The matching seeded request body for API-driven creation is in [examples/lab/pil
 ```bash
 ./bin/viaduct status --runtime
 ./bin/viaduct doctor
+```
+
+`viaduct doctor` now reports whether the config parses cleanly, which store backend is active, whether shared auth is configured, and whether the recorded runtime is merely reachable or actually ready.
+`viaduct status --runtime` now mirrors that ready-versus-degraded view, so it is a quick way to confirm the local URL, PID, and readiness posture together.
+
+If you want the browser half of the evaluator smoke from the repo root:
+
+```bash
+make web-e2e-setup
+make pilot-smoke
 ```
 
 Stop the local runtime when you are finished:

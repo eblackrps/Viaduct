@@ -117,6 +117,9 @@ jobs:
       - name: Verify OpenAPI JSON Is Committed
         run: git diff --exit-code -- docs/swagger.json
 
+      - name: Verify Release Surfaces
+        run: make release-surface-check
+
       - name: Run Release Gate
         run: make release-gate
 

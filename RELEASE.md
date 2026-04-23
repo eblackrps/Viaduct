@@ -9,6 +9,9 @@ This document describes the current Docker-canonical packaging and release proce
 - `make soak-test`: run the tagged migration soak workflow
 - `make plugin-check`: validate plugin manifest compatibility against the host version
 - `make contract-check`: verify the published OpenAPI reference still covers the documented operator routes
+- `make release-surface-check`: verify the current version, install docs, site copy, and deployment samples still agree
+- `make web-e2e-setup`: install the dashboard dependencies plus the Playwright Chromium runtime for local browser smoke
+- `make pilot-smoke`: run the root-level evaluator path (`tests/integration` workspace smoke plus the real `viaduct start` browser smoke)
 - `go run ./scripts/openapi_generate`: regenerate the checked-in OpenAPI JSON used by `/api/v1/docs/swagger.json`
 - `cd web && npm run lint`: enforce dashboard lint and accessibility rules
 - `cd web && npm run test`: run dashboard unit tests
@@ -25,13 +28,15 @@ On Windows, `make release-gate` still builds `bin/viaduct.exe`, but it validates
 3. Inspect the generated bundles in `dist/`.
 4. Verify `release-manifest.json`, `dependency-manifest.json`, the bundle-local `SHA256SUMS.txt`, and the release-asset `dist/SHA256SUMS`.
 5. Smoke-test the packaged binary with `viaduct version`, `viaduct --help`, `viaduct doctor`, and the canonical local start flow (`viaduct start --config <installed-config> --detach --open-browser=false`) against the bundled dashboard assets when they are present.
+   When the local environment has browser prerequisites installed, run `make pilot-smoke` as the high-signal evaluator path before tagging.
 6. Confirm install docs, quickstarts, upgrade docs, rollback docs, deployment examples, and the pilot workspace guide still match the artifact layout and current auth behavior.
-7. Refresh the checked-in README and demo screenshots, then confirm the root README, install docs, quickstarts, and the `site/` landing page all lead with the Docker-first install and verification path for the current release.
-8. Verify the plugin manifest check, OpenAPI contract check, and runtime Swagger UI (`/api/v1/docs`) remain aligned.
-9. Confirm there are no open release PRs left hanging if the release is being published directly from `main`.
-10. Confirm `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` exist as Actions secrets on the Viaduct repo or as inherited organization secrets if Docker Hub mirroring is expected. Secrets stored in another repository are not visible here.
-11. Tag and publish only after the verification and smoke checks are clean. The tag workflow should publish the signed OCI image first, mirror the tag to Docker Hub when those secrets are present, attach SPDX plus CycloneDX attestations and provenance, run the image scan, and then attach the `make package-release-matrix` native bundles as alternative assets.
-12. If Docker Hub secrets were added after a release tag already existed, backfill the mirror without retagging by running `gh workflow run image.yml --ref main -f mirror_release_tag=vX.Y.Z`.
+7. Run `make release-surface-check` so the current version, release notes, image tags, Helm/Compose samples, and public-facing docs agree before tagging.
+8. Refresh the checked-in README and demo screenshots, then confirm the root README, install docs, quickstarts, and the `site/` landing page all lead with the Docker-first install and verification path for the current release.
+9. Verify the plugin manifest check, OpenAPI contract check, and runtime Swagger UI (`/api/v1/docs`) remain aligned.
+10. Confirm there are no open release PRs left hanging if the release is being published directly from `main`.
+11. Confirm `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` exist as Actions secrets on the Viaduct repo or as inherited organization secrets if Docker Hub mirroring is expected. Secrets stored in another repository are not visible here.
+12. Tag and publish only after the verification and smoke checks are clean. The tag workflow should publish the signed OCI image first, mirror the tag to Docker Hub when those secrets are present, attach SPDX plus CycloneDX attestations and provenance, run the image scan, and then attach the `make package-release-matrix` native bundles as alternative assets.
+13. If Docker Hub secrets were added after a release tag already existed, backfill the mirror without retagging by running `gh workflow run image.yml --ref main -f mirror_release_tag=vX.Y.Z`.
 
 ## Bundle Contents
 The release bundle should include:

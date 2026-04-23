@@ -67,6 +67,12 @@ jobs:
           go vet ./...
           go test ./... -race -count=1 -timeout 15m
 
+      - name: Verify release surfaces
+        shell: bash
+        run: |
+          set -euo pipefail
+          go run ./scripts/release_surface_check
+
       - name: Run Gosec
         shell: bash
         run: |

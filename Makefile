@@ -52,7 +52,7 @@ LINUX_ARM64_BINARY = bin/viaduct-linux-arm64
 DARWIN_ARM64_BINARY = bin/viaduct-darwin-arm64
 WINDOWS_BINARY = bin/viaduct.exe
 
-.PHONY: all build build-linux build-linux-amd64 build-linux-arm64 build-darwin-arm64 build-windows test lint proto docker dashboard serve web-build web-verify package-release package-release-host-bundle package-release-linux package-release-linux-amd64 package-release-linux-amd64-bundle package-release-linux-arm64 package-release-linux-arm64-bundle package-release-darwin-arm64 package-release-darwin-arm64-bundle package-release-windows package-release-windows-bundle package-release-matrix certification-test soak-test plugin-check openapi-generate contract-check timing-check migrate-diag release-gate clean
+.PHONY: all build build-linux build-linux-amd64 build-linux-arm64 build-darwin-arm64 build-windows test lint proto docker dashboard serve web-install web-e2e-setup web-build web-verify web-runtime-smoke pilot-smoke package-release package-release-host-bundle package-release-linux package-release-linux-amd64 package-release-linux-amd64-bundle package-release-linux-arm64 package-release-linux-arm64-bundle package-release-darwin-arm64 package-release-darwin-arm64-bundle package-release-windows package-release-windows-bundle package-release-matrix certification-test soak-test plugin-check openapi-generate contract-check release-surface-check timing-check migrate-diag release-gate clean
 
 all: lint test build
 
@@ -98,6 +98,13 @@ serve:
 	$(WEB_INSTALL)
 	cd web && npm run dev:full
 
+web-install:
+	$(WEB_INSTALL)
+
+web-e2e-setup:
+	$(WEB_INSTALL)
+	cd web && npx playwright install chromium
+
 web-build:
 	$(WEB_INSTALL)
 	cd web && npm run build
@@ -108,6 +115,14 @@ web-verify:
 	cd web && npm run format
 	cd web && npm run test -- --run
 	cd web && npm run build
+
+web-runtime-smoke:
+	$(WEB_INSTALL)
+	cd web && npm run e2e:runtime
+
+pilot-smoke:
+	go test ./tests/integration -run TestPilotWorkspace_LabFlow_CreateDiscoverGraphSimulatePlanReport_Expected -count=1 -v
+	$(MAKE) web-runtime-smoke
 
 package-release:
 	$(RM_DIST)
@@ -184,6 +199,9 @@ contract-check:
 	$(MAKE) openapi-generate
 	go test ./tests/integration/... -run TestOpenAPISpec_ -count=1
 
+release-surface-check:
+	go run ./scripts/release_surface_check
+
 timing-check:
 	go test ./internal/api -run TestCredentialHashConstantTime_Bench -count=1
 
@@ -202,6 +220,7 @@ release-gate:
 	$(MAKE) soak-test
 	$(MAKE) plugin-check
 	$(MAKE) contract-check
+	$(MAKE) release-surface-check
 	$(MAKE) build
 	$(RUN_BIN) --help
 	$(RUN_BIN) version

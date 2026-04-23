@@ -104,6 +104,7 @@ type readinessResponse struct {
 	PoliciesLoaded  bool                       `json:"policies_loaded"`
 	Store           *store.Diagnostics         `json:"store,omitempty"`
 	CircuitBreakers []connectorCircuitSnapshot `json:"circuit_breakers,omitempty"`
+	Issues          []string                   `json:"issues,omitempty"`
 }
 
 // Server serves Viaduct REST API endpoints for discovery, migration, and lifecycle workflows.
@@ -583,27 +584,69 @@ func (s *Server) handleReadyz(w http.ResponseWriter, r *http.Request) {
 		if diagnostics, err := provider.Diagnostics(r.Context()); err == nil {
 			response.Store = &diagnostics
 			if diagnostics.Persistent && diagnostics.SchemaVersion <= 0 {
-				response.Status = "not_ready"
-				statusCode = http.StatusServiceUnavailable
+				markReadinessUnavailable(&response, &statusCode, readinessIssueForStoreSchema(diagnostics))
 			}
 		} else {
-			response.Status = "not_ready"
-			statusCode = http.StatusServiceUnavailable
+			markReadinessUnavailable(&response, &statusCode, readinessIssueForStoreDiagnostics(err))
 		}
 	}
 	response.CircuitBreakers = s.connectorCircuits.snapshots()
 	for _, circuit := range response.CircuitBreakers {
 		if circuit.State == connectorCircuitOpen {
-			response.Status = "not_ready"
-			statusCode = http.StatusServiceUnavailable
+			markReadinessUnavailable(&response, &statusCode, readinessIssueForOpenCircuit(circuit))
 		}
 	}
 	if !response.PoliciesLoaded {
-		response.Status = "not_ready"
-		statusCode = http.StatusServiceUnavailable
+		markReadinessUnavailable(&response, &statusCode, "no lifecycle policies are loaded from configs/policies")
 	}
 
 	writeJSON(w, statusCode, response)
+}
+
+func markReadinessUnavailable(response *readinessResponse, statusCode *int, issue string) {
+	if response == nil || statusCode == nil {
+		return
+	}
+
+	response.Status = "not_ready"
+	*statusCode = http.StatusServiceUnavailable
+	if trimmed := strings.TrimSpace(issue); trimmed != "" {
+		response.Issues = append(response.Issues, trimmed)
+	}
+}
+
+func readinessIssueForStoreDiagnostics(err error) string {
+	if err == nil {
+		return "store diagnostics are unavailable"
+	}
+	return fmt.Sprintf("store diagnostics are unavailable: %v", err)
+}
+
+func readinessIssueForStoreSchema(diagnostics store.Diagnostics) string {
+	backend := strings.TrimSpace(diagnostics.Backend)
+	if backend == "" {
+		backend = "store"
+	}
+	return fmt.Sprintf("%s is persistent but has no schema version recorded", backend)
+}
+
+func readinessIssueForOpenCircuit(circuit connectorCircuitSnapshot) string {
+	platform := strings.TrimSpace(string(circuit.Platform))
+	if platform == "" {
+		platform = "connector"
+	}
+	endpoint := strings.TrimSpace(circuit.Address)
+	if endpoint == "" {
+		endpoint = strings.TrimSpace(circuit.Endpoint)
+	}
+	if endpoint == "" {
+		endpoint = "unknown endpoint"
+	}
+	issue := fmt.Sprintf("%s connector circuit is open for %s", platform, endpoint)
+	if circuit.RetryAfterSeconds > 0 {
+		issue = fmt.Sprintf("%s; retry after %ds", issue, circuit.RetryAfterSeconds)
+	}
+	return issue
 }
 
 func (s *Server) handleAbout(w http.ResponseWriter, r *http.Request) {
@@ -1508,6 +1551,7 @@ func (s *Server) backgroundTaskContext(parentCtx context.Context, tenantID, requ
 
 	ctx = store.ContextWithTenantID(ctx, tenantID)
 	ctx = ContextWithRequestID(ctx, requestID)
+	ctx = ContextWithTraceID(ctx, TraceIDFromContext(parentCtx))
 	ctx = contextWithConnectorRequestID(ctx, requestID)
 	return ctx, cancel
 }
@@ -1732,8 +1776,9 @@ func (s *Server) withCORS(next http.Handler) http.Handler {
 				w.Header().Set("Vary", "Origin")
 				w.Header().Set("Access-Control-Allow-Origin", origin)
 			}
-			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-API-Key, X-Service-Account-Key, X-Admin-Key, X-Request-ID")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Traceparent, X-API-Key, X-Service-Account-Key, X-Admin-Key, X-Request-ID, X-Trace-ID")
 			w.Header().Set("Access-Control-Allow-Methods", "GET,POST,PATCH,DELETE,OPTIONS")
+			w.Header().Set("Access-Control-Expose-Headers", "X-Request-ID, X-Trace-ID")
 			if r.Method == http.MethodOptions {
 				if origin, allowed := s.allowedOrigin(r); origin != "" && !allowed {
 					http.Error(w, "origin is not allowed", http.StatusForbidden)

@@ -1,6 +1,6 @@
 # Quickstart
 
-This quickstart uses the local KVM fixture lab so you can evaluate Viaduct end to end without a live hypervisor. The signed OCI image is the canonical packaged deployment path in `v3.1.1`, but this remains the fastest route from clone to a working operator console.
+This quickstart uses the local KVM fixture lab so you can evaluate Viaduct end to end without a live hypervisor. The signed OCI image is the canonical packaged deployment path in `v3.1.1`, but this remains the fastest route from clone to a working operator console. The repo-local current release/install reference lives in [../releases/current.md](../releases/current.md).
 
 The default dashboard path is now WebUI-first and workspace-first: `viaduct start`, open the browser, create a workspace, discover, inspect, simulate, save a plan, and export a report.
 
@@ -74,6 +74,16 @@ The seeded API request body for the same intake is available in `examples/lab/pi
 ./bin/viaduct doctor
 ```
 
+`viaduct doctor` now reports config validity, store posture, shared-auth readiness, and recorded-runtime readiness so you can tell the difference between “the port answered” and “the runtime is actually ready for operator work.”
+`viaduct status --runtime` now surfaces the same ready-versus-degraded signal when you want a shorter operator check.
+
+If you want the real browser smoke from the repo root before a demo or release review:
+
+```bash
+make web-e2e-setup
+make pilot-smoke
+```
+
 Stop the local runtime when you are done:
 
 ```bash
@@ -95,4 +105,5 @@ This validates the same local fixture set through the CLI.
 - Configuration reference: [../reference/configuration.md](../reference/configuration.md)
 - Migration operations guide: [../operations/migration-operations.md](../operations/migration-operations.md)
 - Auth, role, and auditability model: [../operations/auth-role-audit-model.md](../operations/auth-role-audit-model.md)
+- Ship-readiness plan: [../operations/ship-readiness-plan.md](../operations/ship-readiness-plan.md)
 - Lab assets: [../../examples/lab/README.md](../../examples/lab/README.md)

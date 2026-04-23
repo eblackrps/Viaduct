@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -14,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/eblackrps/viaduct/internal/lifecycle"
 	migratepkg "github.com/eblackrps/viaduct/internal/migrate"
 	"github.com/eblackrps/viaduct/internal/models"
 	"github.com/eblackrps/viaduct/internal/store"
@@ -557,6 +559,50 @@ func TestServer_HandleHealthzAndReadyz_ReturnsExpectedStatus_Expected(t *testing
 	}
 	if !readiness.PoliciesLoaded {
 		t.Fatal("PoliciesLoaded = false, want true")
+	}
+	if len(readiness.Issues) != 0 {
+		t.Fatalf("readiness.Issues = %#v, want empty slice", readiness.Issues)
+	}
+}
+
+func TestServer_HandleReadyz_DegradedReadinessIssuesReported_Expected(t *testing.T) {
+	t.Parallel()
+
+	server := mustNewServer(t, store.NewMemoryStore())
+	server.policyEngine = lifecycle.NewPolicyEngine(lifecycle.NewCostEngine())
+	server.connectorCircuits = newConnectorCircuitRegistry(connectorCircuitConfig{
+		FailureThreshold: 1,
+		FailureWindow:    time.Minute,
+		OpenDuration:     time.Minute,
+	})
+	server.connectorCircuits.recordFailure("vmware:vcsa.lab.local", models.PlatformVMware, "vcsa.lab.local", errors.New("upstream timeout"))
+
+	request := httptest.NewRequest(http.MethodGet, "/readyz", nil)
+	recorder := httptest.NewRecorder()
+
+	server.Handler().ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusServiceUnavailable {
+		t.Fatalf("readyz status = %d, want %d: %s", recorder.Code, http.StatusServiceUnavailable, recorder.Body.String())
+	}
+
+	var readiness readinessResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &readiness); err != nil {
+		t.Fatalf("Unmarshal(readiness) error = %v", err)
+	}
+	if readiness.Status != "not_ready" {
+		t.Fatalf("readiness.Status = %q, want not_ready", readiness.Status)
+	}
+	if readiness.PoliciesLoaded {
+		t.Fatal("PoliciesLoaded = true, want false")
+	}
+	if len(readiness.Issues) < 2 {
+		t.Fatalf("readiness.Issues = %#v, want policy and circuit issues", readiness.Issues)
+	}
+	if !strings.Contains(strings.Join(readiness.Issues, " | "), "no lifecycle policies are loaded from configs/policies") {
+		t.Fatalf("readiness.Issues = %#v, want missing policy guidance", readiness.Issues)
+	}
+	if !strings.Contains(strings.Join(readiness.Issues, " | "), "vmware connector circuit is open for vcsa.lab.local") {
+		t.Fatalf("readiness.Issues = %#v, want connector circuit guidance", readiness.Issues)
 	}
 }
 
