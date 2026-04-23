@@ -65,18 +65,18 @@ These are current seeded-product captures from the packaged operator shell. They
 
 ## Canonical Docker Install
 
-Viaduct `v3.1.0` treats the signed OCI image as the canonical production artifact.
+Viaduct `v3.1.1` treats the signed OCI image as the canonical production artifact.
 
 ```bash
-docker pull ghcr.io/eblackrps/viaduct:3.1.0
-cosign verify ghcr.io/eblackrps/viaduct:3.1.0 \
+docker pull ghcr.io/eblackrps/viaduct:3.1.1
+cosign verify ghcr.io/eblackrps/viaduct:3.1.1 \
   --certificate-identity \
-  'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.1.0' \
+  'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.1.1' \
   --certificate-oidc-issuer \
   'https://token.actions.githubusercontent.com'
 ```
 
-The signed canonical registry is `ghcr.io/eblackrps/viaduct`. The convenience mirror is `docker.io/emb079/viaduct:3.1.0`.
+The signed canonical registry is `ghcr.io/eblackrps/viaduct`. The convenience mirror is `docker.io/emb079/viaduct:3.1.1`.
 
 GitHub Actions is configured to mirror release tags plus `main` branch `:edge` and `:sha-*` image tags to Docker Hub whenever `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` are configured as Actions secrets for this repo or as inherited organization secrets. Detailed container guidance lives in [docs/operations/docker.md](docs/operations/docker.md). The production samples in [deploy/docker-compose.prod.yml](deploy/docker-compose.prod.yml) and [deploy/helm/viaduct](deploy/helm/viaduct) now reflect the canonical release path. Native bundles remain available on GitHub Releases as an alternative path for environments that cannot run containers.
 

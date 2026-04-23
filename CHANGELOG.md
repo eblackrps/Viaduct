@@ -6,6 +6,14 @@ This changelog tracks published releases and the major implementation milestones
 
 ## [Unreleased]
 
+## [3.1.1] - 2026-04-23
+
+### Patch Release Follow-Up
+
+- fixed a follow-up dashboard regression in `Content-Disposition` filename parsing so RFC 5987 `filename*=` parameters are matched literally and decoded correctly in the shipped client
+- stabilized the new Get started auth-screen regression coverage by switching to unambiguous key-input queries and explicitly cleaning up test renders between runs so the web suite stays deterministic in CI
+- aligned the current release-facing docs, install snippets, public site copy, Docker and Helm samples, and package metadata on `v3.1.1`
+
 ## [3.1.0] - 2026-04-22
 
 ### Get Started Experience

@@ -3,4 +3,4 @@ name: viaduct
 description: Helm chart for deploying the Viaduct operator API and dashboard
 type: application
 version: 0.1.0
-appVersion: "3.1.0"
+appVersion: "3.1.1"

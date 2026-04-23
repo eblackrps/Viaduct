@@ -13,7 +13,7 @@ A pilot workspace is the persisted assessment record that ties together:
 
 Use this workflow when you want one durable operator-owned document instead of bouncing between disconnected discovery, graph, simulation, and reporting surfaces.
 
-Viaduct `v3.1.0` treats the signed OCI image as the canonical packaged deployment path. The source-based lab flow below remains the fastest way to evaluate the operator console from a fresh clone.
+Viaduct `v3.1.1` treats the signed OCI image as the canonical packaged deployment path. The source-based lab flow below remains the fastest way to evaluate the operator console from a fresh clone.
 
 ## Recommended Backends
 

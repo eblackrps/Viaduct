@@ -1,6 +1,6 @@
 # Docker Operations
 
-Viaduct `v3.1.0` treats the signed OCI image as the canonical release artifact.
+Viaduct `v3.1.1` treats the signed OCI image as the canonical release artifact.
 
 ## Registries
 
@@ -12,13 +12,13 @@ GitHub Actions mirrors release tags plus `main` branch `:edge` and `:sha-*` imag
 If those secrets are added after a GitHub release tag already exists, release owners can backfill the Docker Hub semver tags from the current workflow definition without retagging the repo:
 
 ```bash
-gh workflow run image.yml --ref main -f mirror_release_tag=v3.1.0
+gh workflow run image.yml --ref main -f mirror_release_tag=v3.1.1
 ```
 
 ## Pull And Run
 
 ```bash
-docker pull ghcr.io/eblackrps/viaduct:3.1.0
+docker pull ghcr.io/eblackrps/viaduct:3.1.1
 docker run --rm \
   --read-only \
   --tmpfs /tmp \
@@ -26,7 +26,7 @@ docker run --rm \
   -v "$PWD/config:/etc/viaduct:ro" \
   -e VIADUCT_ADMIN_KEY='sha256:<hex>' \
   -p 8080:8080 \
-  ghcr.io/eblackrps/viaduct:3.1.0 \
+  ghcr.io/eblackrps/viaduct:3.1.1 \
   serve-api --host 0.0.0.0 --config /etc/viaduct/config.yaml --port 8080
 ```
 
@@ -37,7 +37,7 @@ Writable state must live under `/var/lib/viaduct`. The container is designed to 
 If GHCR access is restricted in your environment, you can pull the mirrored image instead:
 
 ```bash
-docker pull docker.io/emb079/viaduct:3.1.0
+docker pull docker.io/emb079/viaduct:3.1.1
 ```
 
 Treat GHCR as the verification source even when you deploy from the Docker Hub mirror.
@@ -45,9 +45,9 @@ Treat GHCR as the verification source even when you deploy from the Docker Hub m
 ## Verify The Image Signature
 
 ```bash
-cosign verify ghcr.io/eblackrps/viaduct:3.1.0 \
+cosign verify ghcr.io/eblackrps/viaduct:3.1.1 \
   --certificate-identity \
-  'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.1.0' \
+  'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.1.1' \
   --certificate-oidc-issuer \
   'https://token.actions.githubusercontent.com'
 ```
@@ -55,9 +55,9 @@ cosign verify ghcr.io/eblackrps/viaduct:3.1.0 \
 ## Verify The SBOM Attestation
 
 ```bash
-cosign verify-attestation --type spdx ghcr.io/eblackrps/viaduct:3.1.0 \
+cosign verify-attestation --type spdx ghcr.io/eblackrps/viaduct:3.1.1 \
   --certificate-identity \
-  'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.1.0' \
+  'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.1.1' \
   --certificate-oidc-issuer \
   'https://token.actions.githubusercontent.com'
 ```

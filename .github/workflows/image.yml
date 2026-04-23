@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       mirror_release_tag:
-        description: Existing release tag to mirror from GHCR to Docker Hub (for example v3.1.0)
+        description: Existing release tag to mirror from GHCR to Docker Hub (for example v3.1.1)
         required: false
         type: string
 

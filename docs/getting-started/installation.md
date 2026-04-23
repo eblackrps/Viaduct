@@ -5,15 +5,15 @@ Viaduct can be evaluated from the signed OCI image, from source, or from a nativ
 ## Canonical OCI Install
 
 ```bash
-docker pull ghcr.io/eblackrps/viaduct:3.1.0
-cosign verify ghcr.io/eblackrps/viaduct:3.1.0 \
+docker pull ghcr.io/eblackrps/viaduct:3.1.1
+cosign verify ghcr.io/eblackrps/viaduct:3.1.1 \
   --certificate-identity \
-  'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.1.0' \
+  'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.1.1' \
   --certificate-oidc-issuer \
   'https://token.actions.githubusercontent.com'
 ```
 
-The signed canonical registry is `ghcr.io/eblackrps/viaduct`. The Docker Hub mirror is `docker.io/emb079/viaduct:3.1.0`.
+The signed canonical registry is `ghcr.io/eblackrps/viaduct`. The Docker Hub mirror is `docker.io/emb079/viaduct:3.1.1`.
 
 GitHub Actions mirrors release tags plus `main` branch `:edge` and `:sha-*` tags to Docker Hub whenever `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` are configured for this repo or inherited from an organization secret scope. For runtime flags, upgrade guidance, SBOM verification, the production compose sample, and the Helm chart defaults, continue with [../operations/docker.md](../operations/docker.md), [../../deploy/docker-compose.prod.yml](../../deploy/docker-compose.prod.yml), and [../../deploy/helm/viaduct](../../deploy/helm/viaduct).
 
@@ -60,7 +60,7 @@ The canonical packaging matrix is:
 - `darwin/arm64`
 - `windows/amd64`
 
-Git tags keep the leading `v`, but bundle names use the numeric release label. For example, `v3.1.0` publishes `dist/viaduct_3.1.0_linux_amd64.tar.gz`.
+Git tags keep the leading `v`, but bundle names use the numeric release label. For example, `v3.1.1` publishes `dist/viaduct_3.1.1_linux_amd64.tar.gz`.
 
 Each bundle includes:
 - the Viaduct CLI binary
