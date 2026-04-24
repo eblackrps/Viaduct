@@ -36,7 +36,11 @@ export function installGlobalErrorHandlers() {
 	const handleError = (event: ErrorEvent) => {
 		reportFrontendError({
 			type: "error",
-			message: normalizeErrorMessage(event.error, event.message, "Unhandled window error"),
+			message: normalizeErrorMessage(
+				event.error,
+				event.message,
+				"Unhandled window error",
+			),
 			stack: normalizeErrorStack(event.error),
 			source: [event.filename, event.lineno, event.colno]
 				.filter(Boolean)

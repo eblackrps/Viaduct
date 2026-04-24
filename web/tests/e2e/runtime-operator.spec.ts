@@ -79,8 +79,9 @@ test("boots the real viaduct runtime and completes the first local operator flow
 	await workloadCheckbox.check();
 	await expect(workloadCheckbox).toBeChecked();
 
-	await expect(page.getByText("Build the dependency graph")).toBeVisible();
-	await page.getByRole("button", { name: "Build graph" }).click();
+	const buildGraphButton = page.getByRole("button", { name: "Build graph" });
+	await expect(buildGraphButton).toBeVisible();
+	await buildGraphButton.click();
 	await expect(
 		page.getByRole("button", { name: "Run simulation" }),
 	).toBeVisible({

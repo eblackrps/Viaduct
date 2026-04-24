@@ -33,7 +33,9 @@ describe("AppErrorBoundary", () => {
 			screen.getByRole("heading", { name: "Dashboard problem" }),
 		).toBeInTheDocument();
 		expect(
-			screen.getByText(/dashboard error before the page could finish rendering/i),
+			screen.getByText(
+				/dashboard error before the page could finish rendering/i,
+			),
 		).toBeInTheDocument();
 		expect(observabilityMocks.reportFrontendError).toHaveBeenCalledWith(
 			expect.objectContaining({

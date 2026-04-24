@@ -35,13 +35,19 @@ func main() {
 
 	client := &http.Client{Timeout: 5 * time.Second}
 
-	if err := expectStatus(client, strings.TrimRight(options.TempoURL, "/")+"/ready", http.StatusOK); err != nil {
+	if err := waitForCheck(options.Timeout, func() error {
+		return expectStatus(client, strings.TrimRight(options.TempoURL, "/")+"/ready", http.StatusOK)
+	}); err != nil {
 		exitWithError(fmt.Errorf("tempo readiness check failed: %w", err))
 	}
-	if err := expectGrafanaHealth(client, options); err != nil {
+	if err := waitForCheck(options.Timeout, func() error {
+		return expectGrafanaHealth(client, options)
+	}); err != nil {
 		exitWithError(fmt.Errorf("grafana health check failed: %w", err))
 	}
-	if err := expectGrafanaTempoDatasource(client, options); err != nil {
+	if err := waitForCheck(options.Timeout, func() error {
+		return expectGrafanaTempoDatasource(client, options)
+	}); err != nil {
 		exitWithError(fmt.Errorf("grafana datasource check failed: %w", err))
 	}
 
@@ -70,7 +76,9 @@ func expectStatus(client *http.Client, target string, expected int) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	if closeErr := closeResponseBody(resp, target); closeErr != nil {
+		return closeErr
+	}
 	if resp.StatusCode != expected {
 		return fmt.Errorf("%s returned %d, want %d", target, resp.StatusCode, expected)
 	}
@@ -88,7 +96,9 @@ func expectGrafanaHealth(client *http.Client, options validationOptions) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	if closeErr := closeResponseBody(resp, target); closeErr != nil {
+		return closeErr
+	}
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("%s returned %d, want %d", target, resp.StatusCode, http.StatusOK)
 	}
@@ -106,7 +116,9 @@ func expectGrafanaTempoDatasource(client *http.Client, options validationOptions
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	if closeErr := closeResponseBody(resp, target); closeErr != nil {
+		return closeErr
+	}
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("%s returned %d, want %d", target, resp.StatusCode, http.StatusOK)
 	}
@@ -141,7 +153,9 @@ func exerciseViaduct(client *http.Client, options validationOptions) (string, st
 	if err != nil {
 		return "", path, err
 	}
-	defer resp.Body.Close()
+	if closeErr := closeResponseBody(resp, target); closeErr != nil {
+		return "", path, closeErr
+	}
 	if resp.StatusCode != http.StatusOK {
 		return "", path, fmt.Errorf("%s returned %d, want %d", target, resp.StatusCode, http.StatusOK)
 	}
@@ -170,17 +184,26 @@ func waitForTrace(client *http.Client, options validationOptions, traceID string
 		}
 
 		if resp.StatusCode == http.StatusOK {
-			defer resp.Body.Close()
 			var payload map[string]any
 			if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+				if closeErr := closeResponseBody(resp, target); closeErr != nil {
+					return closeErr
+				}
 				return fmt.Errorf("decode trace response: %w", err)
+			}
+			if closeErr := closeResponseBody(resp, target); closeErr != nil {
+				return closeErr
 			}
 			if len(payload) == 0 {
 				return fmt.Errorf("tempo returned an empty trace payload for %s", traceID)
 			}
 			return nil
 		}
-		resp.Body.Close()
+		if closeErr := closeResponseBody(resp, target); closeErr != nil {
+			lastErr = closeErr
+			time.Sleep(1 * time.Second)
+			continue
+		}
 
 		lastErr = fmt.Errorf("%s returned %d", target, resp.StatusCode)
 		time.Sleep(1 * time.Second)
@@ -194,4 +217,31 @@ func waitForTrace(client *http.Client, options validationOptions, traceID string
 func exitWithError(err error) {
 	fmt.Printf("observability validation failed: %v\n", err)
 	os.Exit(1)
+}
+
+func waitForCheck(timeout time.Duration, check func() error) error {
+	deadline := time.Now().Add(timeout)
+	var lastErr error
+	for time.Now().Before(deadline) {
+		if err := check(); err == nil {
+			return nil
+		} else {
+			lastErr = err
+		}
+		time.Sleep(1 * time.Second)
+	}
+	if lastErr == nil {
+		lastErr = fmt.Errorf("timed out before the check completed")
+	}
+	return lastErr
+}
+
+func closeResponseBody(resp *http.Response, target string) error {
+	if resp == nil || resp.Body == nil {
+		return nil
+	}
+	if err := resp.Body.Close(); err != nil {
+		return fmt.Errorf("close response body for %s: %w", target, err)
+	}
+	return nil
 }
