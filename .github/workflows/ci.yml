@@ -15,7 +15,12 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: rhysd/actionlint@v1
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Run actionlint
+        run: make workflow-lint
 
   web-test:
     runs-on: ubuntu-latest
