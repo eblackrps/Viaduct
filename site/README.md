@@ -1,48 +1,27 @@
-# Public Site
+# Viaduct public site
 
-This directory contains the standalone static site for GitHub Pages. It is separate from the product dashboard in `web/` so the public site can ship without the application build.
+This directory contains the static GitHub Pages site for `viaducthq.com`. The
+site is deployed by `.github/workflows/pages.yml` whenever files under `site/`
+change on `main`.
 
-## Files
+## Local preview
 
-- `index.html`: landing page
-- `404.html`: custom not-found page
-- `styles.css`: shared site stylesheet
-- `favicon.svg`: site icon
-- `social-card.svg`: social-preview image for metadata
-- `robots.txt`: crawler policy
-- `sitemap.xml`: Pages sitemap
-
-## Local Preview
-
-For a quick check, open `site/index.html` directly in a browser.
-
-If you prefer to serve it over HTTP:
-
-```powershell
+```bash
 python -m http.server 4173 --directory site
 ```
 
 Then open `http://localhost:4173`.
 
-## Deployment
+## Screenshot assets
 
-GitHub Pages deploys this directory through `.github/workflows/pages.yml`. The workflow uploads `site/` whenever `main` changes in this directory, or when the workflow is run manually.
+The landing page uses product screenshots copied from
+`docs/operations/demo/screenshots/` into `site/assets/` so the GitHub Pages
+artifact is self-contained. When the dashboard screenshots are refreshed for a
+release, copy the updated public-facing captures into `site/assets/` before
+publishing the site.
 
-The Pages deployment is separate from GitHub releases. Release tags package the product artifacts; the public site publishes from the `main` branch workflow.
-`index.html` intentionally uses the dynamic GitHub latest-release badge plus the stable `docs/releases/README.md` link so the public site keeps pointing at the current release surface without hardcoding version-specific badge text. The landing page should also lead with the Docker-canonical install story, the Docker Hub mirror at `docker.io/emb079/viaduct`, the fact that GitHub release tags automatically mirror semver tags there, and the current release tag when that operator guidance changes.
+## Release hygiene
 
-## Domain Notes
-
-The checked-in `CNAME` targets `viaducthq.com`. Asset paths in this site are relative so the same content works on both the custom domain and the default project Pages URL.
-
-If Pages settings ever need to be rebuilt manually:
-- keep the publishing source on `GitHub Actions`
-- keep the custom domain aligned with `site/CNAME`
-- verify the domain before enabling HTTPS enforcement
-
-## Editing Guidance
-
-- Keep the site static and GitHub Pages-compatible.
-- Use concise operator- and buyer-readable language.
-- Keep copy honest about current product maturity and controlled operator workflows without slipping into roadmap jargon.
-- Prefer changes in `site/` over changing the application dashboard just to support marketing copy.
+Keep the site version, install snippets, release links, and social preview card
+aligned with the current release documented in `README.md`, `CHANGELOG.md`, and
+`docs/releases/`.

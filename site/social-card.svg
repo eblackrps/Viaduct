@@ -1,21 +1,19 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" fill="none">
-  <rect width="1200" height="630" fill="#F2EEE7" />
-  <rect x="42" y="42" width="1116" height="546" rx="34" fill="#FFFFFF" stroke="#E7E5E4" />
-  <rect x="776" y="96" width="328" height="438" rx="24" fill="#1C1917" />
-  <text x="96" y="146" fill="#78716C" font-family="Inter, system-ui, sans-serif" font-size="22" font-weight="500">Open source · Apache 2.0</text>
-  <text x="96" y="286" fill="#0C0A09" font-family="Inter, system-ui, sans-serif" font-size="90" font-weight="700">Viaduct</text>
-  <text x="96" y="360" fill="#44403C" font-family="Inter, system-ui, sans-serif" font-size="34" font-weight="600">Virtualization migration control plane</text>
-  <text x="96" y="458" fill="#44403C" font-family="Inter, system-ui, sans-serif" font-size="28" font-weight="500">Discover inventory.</text>
-  <text x="96" y="500" fill="#44403C" font-family="Inter, system-ui, sans-serif" font-size="28" font-weight="500">Map dependencies.</text>
-  <text x="96" y="542" fill="#44403C" font-family="Inter, system-ui, sans-serif" font-size="28" font-weight="500">Run migrations.</text>
-  <text x="824" y="146" fill="#E7E5E4" font-family="Inter, system-ui, sans-serif" font-size="20" font-weight="500">Migration brief</text>
-  <text x="824" y="214" fill="#FAFAF9" font-family="Inter, system-ui, sans-serif" font-size="30" font-weight="600">Discovery</text>
-  <text x="824" y="252" fill="#D6D3D1" font-family="Inter, system-ui, sans-serif" font-size="20" font-weight="500">VMware, Proxmox, Hyper-V,</text>
-  <text x="824" y="282" fill="#D6D3D1" font-family="Inter, system-ui, sans-serif" font-size="20" font-weight="500">KVM, Nutanix, and Veeam</text>
-  <text x="824" y="350" fill="#FAFAF9" font-family="Inter, system-ui, sans-serif" font-size="30" font-weight="600">Dependencies</text>
-  <text x="824" y="388" fill="#D6D3D1" font-family="Inter, system-ui, sans-serif" font-size="20" font-weight="500">Network, storage, and backup</text>
-  <text x="824" y="418" fill="#D6D3D1" font-family="Inter, system-ui, sans-serif" font-size="20" font-weight="500">relationships in one model</text>
-  <text x="824" y="486" fill="#FAFAF9" font-family="Inter, system-ui, sans-serif" font-size="30" font-weight="600">Start</text>
-  <text x="824" y="528" fill="#D6D3D1" font-family="JetBrains Mono, ui-monospace, monospace" font-size="20" font-weight="500">./bin/viaduct start</text>
-  <text x="96" y="584" fill="#78716C" font-family="Inter, system-ui, sans-serif" font-size="24" font-weight="500">viaducthq.com</text>
+  <rect width="1200" height="630" fill="#F6F8F3" />
+  <rect x="58" y="54" width="1084" height="522" rx="38" fill="#FFFEFB" stroke="#DCE4DC" stroke-width="2" />
+  <rect x="96" y="96" width="58" height="58" rx="18" fill="#176C63" />
+  <text x="125" y="135" text-anchor="middle" fill="#FFFFFF" font-family="Sora, Segoe UI, sans-serif" font-size="28" font-weight="700">V</text>
+  <text x="176" y="133" fill="#17212B" font-family="Sora, Segoe UI, sans-serif" font-size="34" font-weight="700">Viaduct</text>
+  <text x="96" y="220" fill="#176C63" font-family="IBM Plex Mono, Cascadia Mono, monospace" font-size="20" font-weight="500" letter-spacing="2">OPEN-SOURCE MIGRATION CONTROL PLANE</text>
+  <text x="96" y="310" fill="#17212B" font-family="Sora, Segoe UI, sans-serif" font-size="68" font-weight="700">Assess. Plan.</text>
+  <text x="96" y="386" fill="#17212B" font-family="Sora, Segoe UI, sans-serif" font-size="68" font-weight="700">Operate with evidence.</text>
+  <text x="96" y="460" fill="#33414D" font-family="Source Sans 3, Segoe UI, sans-serif" font-size="30" font-weight="500">Virtualization migration workflows for operators, reviewers, and release owners.</text>
+  <rect x="770" y="116" width="292" height="316" rx="28" fill="#E6EDF4" stroke="#C7D3CA" />
+  <rect x="812" y="160" width="208" height="30" rx="15" fill="#FFFFFF" />
+  <rect x="812" y="218" width="142" height="18" rx="9" fill="#176C63" opacity="0.82" />
+  <rect x="812" y="258" width="188" height="18" rx="9" fill="#294F75" opacity="0.72" />
+  <rect x="812" y="298" width="118" height="18" rx="9" fill="#B77D2A" opacity="0.72" />
+  <path d="M842 384C881 334 919 330 956 358C980 376 998 377 1022 354" stroke="#176C63" stroke-width="12" stroke-linecap="round" />
+  <text x="96" y="542" fill="#66727D" font-family="Source Sans 3, Segoe UI, sans-serif" font-size="26" font-weight="600">viaducthq.com</text>
+  <text x="974" y="542" text-anchor="end" fill="#66727D" font-family="Source Sans 3, Segoe UI, sans-serif" font-size="24" font-weight="600">v3.2.0</text>
 </svg>
