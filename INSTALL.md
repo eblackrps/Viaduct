@@ -11,25 +11,25 @@ This is the top-level installation entrypoint for Viaduct. Use it with [QUICKSTA
 
 ## Canonical Install From Docker
 
-Viaduct `v3.1.1` uses the signed OCI image as the primary install path.
+Viaduct `v3.2.0` uses the signed OCI image as the primary install path.
 
 ```bash
-docker pull ghcr.io/eblackrps/viaduct:3.1.1
+docker pull ghcr.io/eblackrps/viaduct:3.2.0
 ```
 
 Verify the image before rollout:
 
 ```bash
-cosign verify ghcr.io/eblackrps/viaduct:3.1.1 \
+cosign verify ghcr.io/eblackrps/viaduct:3.2.0 \
   --certificate-identity \
-  'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.1.1' \
+  'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.2.0' \
   --certificate-oidc-issuer \
   'https://token.actions.githubusercontent.com'
 ```
 
-The signed canonical registry is `ghcr.io/eblackrps/viaduct`. The Docker Hub mirror is `docker.io/emb079/viaduct:3.1.1`.
+The signed canonical registry is `ghcr.io/eblackrps/viaduct`. The Docker Hub mirror is `docker.io/emb079/viaduct:3.2.0`.
 
-GitHub Actions mirrors release tags plus `main` branch `:edge` and `:sha-*` image tags to Docker Hub whenever `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` are configured for this repo or exposed through organization-level Actions secrets. Then follow the container guidance in [docs/operations/docker.md](docs/operations/docker.md), the production compose sample in [deploy/docker-compose.prod.yml](deploy/docker-compose.prod.yml), or the Helm chart defaults in [deploy/helm/viaduct](deploy/helm/viaduct).
+GitHub Actions mirrors release tags plus `main` branch `:edge` and `:sha-*` image tags to Docker Hub whenever `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` are configured for this repo or exposed through organization-level Actions secrets. `v3.2.0` also adds the backend observability baseline for packaged environments through opt-in OpenTelemetry export settings. Then follow the container guidance in [docs/operations/docker.md](docs/operations/docker.md), the production compose sample in [deploy/docker-compose.prod.yml](deploy/docker-compose.prod.yml), or the Helm chart defaults in [deploy/helm/viaduct](deploy/helm/viaduct).
 
 ## Build From Source
 

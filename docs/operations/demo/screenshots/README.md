@@ -17,7 +17,9 @@ The matching evaluator artifact checklist lives in [../pilot-evidence-kit.md](..
 - [Get started screen](auth-bootstrap.png)
 - [Pilot workspace](pilot-workspace.png)
 - [Inventory assessment](inventory-assessment.png)
+- [Dependency graph](dependency-graph.png)
 - [Migration operations](migration-ops.png)
+- [Reports and history](reports-history.png)
 
 ## Historical Files
 
@@ -42,4 +44,8 @@ npm run screenshots:readme
 
 ![Inventory assessment](inventory-assessment.png)
 
+![Dependency graph](dependency-graph.png)
+
 ![Migration operations](migration-ops.png)
+
+![Reports and history](reports-history.png)

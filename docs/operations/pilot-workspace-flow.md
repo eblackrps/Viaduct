@@ -13,7 +13,7 @@ A pilot workspace is the persisted assessment record that ties together:
 
 Use this workflow when you want one durable operator-owned document instead of bouncing between disconnected discovery, graph, simulation, and reporting surfaces.
 
-Viaduct `v3.1.1` treats the signed OCI image as the canonical packaged deployment path. The source-based lab flow below remains the fastest way to evaluate the operator console from a fresh clone.
+The signed OCI image is the canonical packaged deployment path. The source-based lab flow below remains the fastest way to evaluate the operator console from a fresh clone.
 
 ## Recommended Backends
 
@@ -102,6 +102,13 @@ If you want CLI confirmation for the local browser-first runtime:
 - whether the active store is memory or persistent
 - whether shared auth is configured for anything beyond the local loopback path
 - whether the recorded runtime is just reachable or actually ready according to `/readyz`
+
+If you also want to confirm the backend observability path before a pilot or release review:
+
+```bash
+make observability-up
+make observability-validate
+```
 
 Stop the local runtime when you are done:
 

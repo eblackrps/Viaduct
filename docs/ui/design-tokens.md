@@ -1,6 +1,6 @@
 # Viaduct UI Design Tokens
 
-Viaduct `v3.1.1` standardizes the dashboard visual system around a small shared token set so every page reads like the same application.
+Viaduct standardizes the dashboard visual system around a small shared token set so every page reads like the same application.
 
 ## Typography
 
@@ -36,6 +36,6 @@ Viaduct does not ship a mixed `gray` / `zinc` / `slate` neutral palette. Slate i
 
 ## Dark Mode
 
-Dark mode is intentionally not shipped in `v3.1.1`.
+Dark mode is intentionally not shipped in the current release.
 
 The existing dashboard is now treated as a complete light-mode operator surface. Shipping a partial dark theme would create broken contrast, inconsistent chart styling, and incomplete state coverage across the migration, lifecycle, and workspace flows. A future dark-mode effort should be treated as a full product pass rather than an incidental toggle.

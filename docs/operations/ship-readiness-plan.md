@@ -1,10 +1,10 @@
 # Ship Readiness Plan
 
-This plan tracks the practical finishing work for Viaduct after the `v3.1.1` release alignment and Get started refactor. It is intentionally scoped around operator trust, evaluator confidence, and repeatable release execution instead of feature redesign.
+This plan records the practical finishing work that shipped in `v3.2.0` and the follow-up release-readiness items that remain. It is intentionally scoped around operator trust, evaluator confidence, and repeatable release execution instead of feature redesign.
 
 ## Findings Summary
 
-- Release/install surfaces are aligned on `v3.1.1`, but many files still carry hand-maintained version strings and image tags.
+- Before this pass, release/install surfaces were aligned on `v3.1.1`, but many files still carried hand-maintained version strings and image tags.
 - The workspace-first evaluator flow already exists in the API smoke and dashboard runtime smoke, but it needed one obvious golden path that reaches exported evidence.
 - `viaduct doctor` was a useful local bootstrap check, but it did not yet answer store, auth, or readiness questions that matter during pilots and release reviews.
 - Backend request correlation and metrics were already solid; the missing observability pieces were trace context plumbing on the API side and a lightweight frontend error hook.
@@ -17,6 +17,7 @@ This plan tracks the practical finishing work for Viaduct after the `v3.1.1` rel
 - added `make web-install`, `make web-e2e-setup`, and `make pilot-smoke` plus stronger `.codex/setup.sh` Node/npm/Playwright bootstrap checks so local release-owner shells have one clear frontend setup path
 - upgraded `viaduct doctor` and `viaduct status --runtime` to report config validity, store posture, shared-auth readiness, and concrete `/readyz` degradation reasons such as missing policies or open connector circuits
 - added frontend render/runtime error capture hooks and backend `traceparent` to `X-Trace-ID` correlation so operators can integrate external monitoring without stack churn
+- wired practical OpenTelemetry tracing plus a local Grafana + Tempo validation path into the backend, deploy assets, docs, and CI smoke coverage
 - added GitHub CodeQL scanning alongside the existing `gosec`, Trivy, Playwright, and release-gate coverage
 - published a small evaluator evidence kit and wired the pilot workspace guide to the root-level `make pilot-smoke` path
 
@@ -34,12 +35,12 @@ This plan tracks the practical finishing work for Viaduct after the `v3.1.1` rel
 
 ### P2 Later
 
-#### 2. Add opt-in backend exporter wiring for OpenTelemetry-compatible collectors
-- Why it matters: the current trace correlation is useful, but larger pilots will eventually want spans shipped to Grafana Tempo or another collector without patching Viaduct.
-- Affected files: `internal/api/observability.go`, config docs, operations docs
+#### 2. Expand trace coverage and decide on optional OTel metrics export
+- Why it matters: `v3.2.0` ships the backend trace path, but the next operator-value step is deeper visibility in the remaining persistence and workflow edges without weakening the existing `/metrics` contract.
+- Affected files: `internal/store/`, selected workflow packages, config docs, operations docs
 - Acceptance criteria:
-  - trace export is opt-in through environment variables
-  - the default local path remains lightweight and dependency-free
+  - remaining hot persistence and workflow edges emit useful spans without recording sensitive payloads
+  - `/metrics` remains the stable metrics contract unless an explicit OTel metrics rollout is documented and shipped
   - request IDs and trace IDs stay aligned in logs and responses
 
 #### 3. Add screenshot and doc-link validation to the release owner path

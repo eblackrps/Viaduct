@@ -6,6 +6,20 @@ This changelog tracks published releases and the major implementation milestones
 
 ## [Unreleased]
 
+## [3.2.0] - 2026-04-24
+
+### Trust, Diagnostics, And Observability
+
+- added backend OpenTelemetry tracing across inbound HTTP requests, workspace jobs, discovery, migration orchestration, report/export generation, connector HTTP clients, and the PostgreSQL-backed persistence path that operators use during real assessments
+- shipped a local Grafana + Tempo stack, source-controlled provisioning, and a validation helper so release owners can prove traces arrive from a real Viaduct runtime before tagging
+- upgraded `viaduct doctor` and `viaduct status --runtime` to report config validity, store posture, auth posture, and concrete readiness degradation reasons instead of a simple reachable/not-reachable split
+
+### Evaluator And Release Readiness
+
+- strengthened the real runtime golden-path smoke so Viaduct now proves the full workspace-first evaluator flow from `viaduct start` through local session, workspace creation, discovery, graph, simulation, plan save, and report export
+- added release-surface consistency checks, a current-release source of truth, CodeQL, and a Docker-backed observability smoke so version drift and trace regressions are caught before release
+- refreshed the root docs, install guides, public site, Helm and compose samples, release references, and checked-in screenshots so the shipped operator story matches `v3.2.0`
+
 ## [3.1.1] - 2026-04-23
 
 ### Patch Release Follow-Up

@@ -1,9 +1,8 @@
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { spawn } from "node:child_process";
 import { copyFile } from "node:fs/promises";
 import { setTimeout as delay } from "node:timers/promises";
-import { chromium } from "playwright";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const webDir = path.resolve(__dirname, "..");
@@ -25,8 +24,16 @@ const dashboardShots = [
 		capture: captureInventory,
 	},
 	{
+		name: "dependency-graph.png",
+		capture: captureGraph,
+	},
+	{
 		name: "migration-ops.png",
 		capture: captureMigrations,
+	},
+	{
+		name: "reports-history.png",
+		capture: captureReports,
 	},
 ];
 
@@ -74,17 +81,23 @@ async function main() {
 	try {
 		await waitForHealth();
 
+		const chromium = await loadChromium();
 		const browser = await chromium.launch({ headless: true });
-		const context = await browser.newContext({
-			baseURL,
-			viewport: { width: 1880, height: 1100 },
-			deviceScaleFactor: 1,
-		});
-		const page = await context.newPage();
-		await page.emulateMedia({ reducedMotion: "reduce" });
 
 		for (const shot of dashboardShots) {
-			await shot.capture(page, path.resolve(screenshotDir, shot.name));
+			console.log(`Capturing ${shot.name}...`);
+			const context = await browser.newContext({
+				baseURL,
+				viewport: { width: 1880, height: 1100 },
+				deviceScaleFactor: 1,
+			});
+			const page = await context.newPage();
+			await page.emulateMedia({ reducedMotion: "reduce" });
+			try {
+				await shot.capture(page, path.resolve(screenshotDir, shot.name));
+			} finally {
+				await context.close();
+			}
 		}
 
 		await browser.close();
@@ -99,7 +112,7 @@ async function main() {
 }
 
 async function captureAuthBootstrap(page, targetPath) {
-	await page.goto("/");
+	await page.goto("/", { waitUntil: "domcontentloaded" });
 	await page.getByRole("heading", { name: "Get started" }).waitFor();
 	await page.screenshot({ path: targetPath, fullPage: false });
 }
@@ -117,13 +130,14 @@ async function login(page) {
 
 async function captureWorkspace(page, targetPath) {
 	await login(page);
-	await page.goto("/#/workspaces");
+	await page.goto("/#/workspaces", { waitUntil: "domcontentloaded" });
 	await page.getByRole("heading", { name: "E2E Lab Workspace" }).waitFor();
 	await page.screenshot({ path: targetPath, fullPage: false });
 }
 
 async function captureInventory(page, targetPath) {
-	await page.goto("/#/inventory");
+	await login(page);
+	await page.goto("/#/inventory", { waitUntil: "domcontentloaded" });
 	await page
 		.getByRole("heading", { name: "Fleet inventory and assessment" })
 		.waitFor();
@@ -137,8 +151,10 @@ async function captureInventory(page, targetPath) {
 }
 
 async function captureMigrations(page, targetPath) {
-	await page.goto("/#/migrations");
+	await login(page);
+	await page.goto("/#/migrations", { waitUntil: "domcontentloaded" });
 	await page.getByRole("heading", { name: "Migrations" }).waitFor();
+	await page.getByRole("heading", { name: "Planning intake" }).waitFor();
 	await page
 		.locator("section")
 		.filter({
@@ -146,6 +162,24 @@ async function captureMigrations(page, targetPath) {
 		})
 		.first()
 		.screenshot({ path: targetPath });
+}
+
+async function captureGraph(page, targetPath) {
+	await login(page);
+	await page.goto("/#/graph", { waitUntil: "domcontentloaded" });
+	await page
+		.getByRole("heading", { name: "Dependency graph", exact: true })
+		.waitFor();
+	await delay(1500);
+	await page.screenshot({ path: targetPath, fullPage: false });
+}
+
+async function captureReports(page, targetPath) {
+	await login(page);
+	await page.goto("/#/reports", { waitUntil: "domcontentloaded" });
+	await page.getByRole("heading", { name: "Reports and history" }).waitFor();
+	await delay(1500);
+	await page.screenshot({ path: targetPath, fullPage: false });
 }
 
 async function waitForHealth() {
@@ -163,6 +197,17 @@ async function waitForHealth() {
 	throw new Error(
 		"Timed out waiting for the screenshot fixture server to start.",
 	);
+}
+
+async function loadChromium() {
+	const override = process.env.VIADUCT_PLAYWRIGHT_MODULE_PATH;
+	if (override) {
+		const playwright = await import(pathToFileURL(override).href);
+		return playwright.chromium;
+	}
+
+	const playwright = await import("playwright");
+	return playwright.chromium;
 }
 
 async function stopProcessTree(pid) {

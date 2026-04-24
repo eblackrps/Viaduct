@@ -36,19 +36,22 @@ It is strongest when operators need:
 - Pilot workspace workflow: persist source connections, snapshots, graph outputs, target assumptions, readiness results, saved plans, approvals, notes, and exported reports in one operator record.
 - Migration planning: use declarative specs, preflight checks, saved dry-run plans, execution windows, approval requirements, checkpoints, resume support, and rollback state.
 - Lifecycle analysis: review drift, policy, cost, remediation guidance, and backup portability inputs in the same control plane.
+- Diagnostics and observability: validate local runtime readiness with `viaduct doctor` and `viaduct status --runtime`, then optionally prove backend trace flow with the bundled Grafana + Tempo path.
 - Multi-tenancy and extensibility: use tenant-scoped APIs, service accounts, PostgreSQL-backed state, and the community plugin host.
 
 ## Screenshots
 
-These are current seeded-product captures from the packaged operator shell. They reflect the `viaduct start` path, the Get started sign-in screen, and the current workspace-first dashboard.
+These are current seeded-product captures from the packaged operator shell. They reflect the `viaduct start` path, the Get started sign-in screen, and the current workspace-first dashboard across inventory, graph, migration, and reporting surfaces.
 
 <p align="center">
-  <img src="docs/operations/demo/screenshots/auth-bootstrap.png" alt="Viaduct dashboard Get started screen with local and key-based session options" width="48%" />
-  <img src="docs/operations/demo/screenshots/pilot-workspace.png" alt="Viaduct pilot workspace overview with operator workflow progression" width="48%" />
+  <img src="docs/operations/demo/screenshots/auth-bootstrap.png" alt="Viaduct dashboard Get started screen with local and key-based session options" width="32%" />
+  <img src="docs/operations/demo/screenshots/pilot-workspace.png" alt="Viaduct pilot workspace overview with operator workflow progression" width="32%" />
+  <img src="docs/operations/demo/screenshots/inventory-assessment.png" alt="Viaduct inventory assessment with selected workload detail" width="32%" />
 </p>
 <p align="center">
-  <img src="docs/operations/demo/screenshots/inventory-assessment.png" alt="Viaduct inventory assessment with selected workload detail" width="48%" />
-  <img src="docs/operations/demo/screenshots/migration-ops.png" alt="Viaduct migration operations workspace with plan and execution posture" width="48%" />
+  <img src="docs/operations/demo/screenshots/dependency-graph.png" alt="Viaduct dependency graph view showing workload relationships" width="32%" />
+  <img src="docs/operations/demo/screenshots/migration-ops.png" alt="Viaduct migration operations workspace with plan and execution posture" width="32%" />
+  <img src="docs/operations/demo/screenshots/reports-history.png" alt="Viaduct reports and history view with export-ready operator evidence" width="32%" />
 </p>
 
 ## Platform Coverage
@@ -65,20 +68,20 @@ These are current seeded-product captures from the packaged operator shell. They
 
 ## Canonical Docker Install
 
-Viaduct `v3.1.1` treats the signed OCI image as the canonical production artifact.
+Viaduct `v3.2.0` treats the signed OCI image as the canonical production artifact.
 
 ```bash
-docker pull ghcr.io/eblackrps/viaduct:3.1.1
-cosign verify ghcr.io/eblackrps/viaduct:3.1.1 \
+docker pull ghcr.io/eblackrps/viaduct:3.2.0
+cosign verify ghcr.io/eblackrps/viaduct:3.2.0 \
   --certificate-identity \
-  'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.1.1' \
+  'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.2.0' \
   --certificate-oidc-issuer \
   'https://token.actions.githubusercontent.com'
 ```
 
-The signed canonical registry is `ghcr.io/eblackrps/viaduct`. The convenience mirror is `docker.io/emb079/viaduct:3.1.1`.
+The signed canonical registry is `ghcr.io/eblackrps/viaduct`. The convenience mirror is `docker.io/emb079/viaduct:3.2.0`.
 
-GitHub Actions is configured to mirror release tags plus `main` branch `:edge` and `:sha-*` image tags to Docker Hub whenever `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` are configured as Actions secrets for this repo or as inherited organization secrets. Detailed container guidance lives in [docs/operations/docker.md](docs/operations/docker.md). The production samples in [deploy/docker-compose.prod.yml](deploy/docker-compose.prod.yml) and [deploy/helm/viaduct](deploy/helm/viaduct) now reflect the canonical release path. Native bundles remain available on GitHub Releases as an alternative path for environments that cannot run containers.
+GitHub Actions is configured to mirror release tags plus `main` branch `:edge` and `:sha-*` image tags to Docker Hub whenever `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` are configured as Actions secrets for this repo or as inherited organization secrets. `v3.2.0` also ships the backend observability baseline: OpenTelemetry tracing in the Go API, a local Grafana + Tempo stack, and a source-controlled validation path that proves traces arrive before release. Detailed container guidance lives in [docs/operations/docker.md](docs/operations/docker.md). The production samples in [deploy/docker-compose.prod.yml](deploy/docker-compose.prod.yml) and [deploy/helm/viaduct](deploy/helm/viaduct) now reflect the canonical release path. Native bundles remain available on GitHub Releases as an alternative path for environments that cannot run containers.
 
 ## Source Build And Local Lab
 

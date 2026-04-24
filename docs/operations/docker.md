@@ -1,6 +1,6 @@
 # Docker Operations
 
-Viaduct `v3.1.1` treats the signed OCI image as the canonical release artifact.
+Viaduct `v3.2.0` treats the signed OCI image as the canonical release artifact.
 
 ## Registries
 
@@ -12,13 +12,13 @@ GitHub Actions mirrors release tags plus `main` branch `:edge` and `:sha-*` imag
 If those secrets are added after a GitHub release tag already exists, release owners can backfill the Docker Hub semver tags from the current workflow definition without retagging the repo:
 
 ```bash
-gh workflow run image.yml --ref main -f mirror_release_tag=v3.1.1
+gh workflow run image.yml --ref main -f mirror_release_tag=v3.2.0
 ```
 
 ## Pull And Run
 
 ```bash
-docker pull ghcr.io/eblackrps/viaduct:3.1.1
+docker pull ghcr.io/eblackrps/viaduct:3.2.0
 docker run --rm \
   --read-only \
   --tmpfs /tmp \
@@ -26,7 +26,7 @@ docker run --rm \
   -v "$PWD/config:/etc/viaduct:ro" \
   -e VIADUCT_ADMIN_KEY='sha256:<hex>' \
   -p 8080:8080 \
-  ghcr.io/eblackrps/viaduct:3.1.1 \
+  ghcr.io/eblackrps/viaduct:3.2.0 \
   serve-api --host 0.0.0.0 --config /etc/viaduct/config.yaml --port 8080
 ```
 
@@ -37,7 +37,7 @@ Writable state must live under `/var/lib/viaduct`. The container is designed to 
 If GHCR access is restricted in your environment, you can pull the mirrored image instead:
 
 ```bash
-docker pull docker.io/emb079/viaduct:3.1.1
+docker pull docker.io/emb079/viaduct:3.2.0
 ```
 
 Treat GHCR as the verification source even when you deploy from the Docker Hub mirror.
@@ -45,9 +45,9 @@ Treat GHCR as the verification source even when you deploy from the Docker Hub m
 ## Verify The Image Signature
 
 ```bash
-cosign verify ghcr.io/eblackrps/viaduct:3.1.1 \
+cosign verify ghcr.io/eblackrps/viaduct:3.2.0 \
   --certificate-identity \
-  'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.1.1' \
+  'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.2.0' \
   --certificate-oidc-issuer \
   'https://token.actions.githubusercontent.com'
 ```
@@ -55,9 +55,9 @@ cosign verify ghcr.io/eblackrps/viaduct:3.1.1 \
 ## Verify The SBOM Attestation
 
 ```bash
-cosign verify-attestation --type spdx ghcr.io/eblackrps/viaduct:3.1.1 \
+cosign verify-attestation --type spdx ghcr.io/eblackrps/viaduct:3.2.0 \
   --certificate-identity \
-  'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.1.1' \
+  'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.2.0' \
   --certificate-oidc-issuer \
   'https://token.actions.githubusercontent.com'
 ```
@@ -65,6 +65,10 @@ cosign verify-attestation --type spdx ghcr.io/eblackrps/viaduct:3.1.1 \
 ## Consume The SBOM
 
 Download the SPDX or CycloneDX attestation payload from the GitHub Release or inspect the attestation directly after verification. Feed the attested SBOM into your registry scanner, admission controller, or software-supply-chain inventory tooling instead of rebuilding a private SBOM from the unpacked image.
+
+## Optional Backend Observability
+
+The production container and Helm defaults now expose opt-in OpenTelemetry environment variables so packaged environments can export traces without patching the image. The default remains safe and lightweight: if you leave observability disabled, Viaduct still runs normally with its built-in `/metrics` and readiness surfaces only.
 
 ## Upgrade Guidance
 
