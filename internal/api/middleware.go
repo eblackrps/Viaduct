@@ -420,12 +420,15 @@ func lookupCredentialTenantIDs(ctx context.Context, stateStore store.Store, tena
 }
 
 func hashCredential(_ context.Context, key string) [32]byte {
-	trimmed := strings.TrimSpace(key)
-	if trimmed == "" {
+	canonicalHash := store.HashAPIKey(key)
+	if canonicalHash == "" {
 		return [32]byte{}
 	}
-	// lgtm[go/weak-sensitive-data-hashing] Tenant and service-account keys are high-entropy API tokens; this digest matches the existing store lookup contract.
-	return sha256.Sum256([]byte(trimmed))
+	digest, ok := parseCredentialHash(canonicalHash)
+	if !ok {
+		return [32]byte{}
+	}
+	return digest
 }
 
 func storedCredentialHash(ctx context.Context, storedHash, legacyRaw string) ([32]byte, bool) {
