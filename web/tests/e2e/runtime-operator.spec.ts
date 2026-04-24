@@ -94,11 +94,11 @@ test("boots the real viaduct runtime and completes the first local operator flow
 	});
 
 	await page.getByRole("button", { name: "Save plan" }).click();
-	await expect(
-		page.getByRole("button", { name: "Export report" }),
-	).toBeVisible({
-		timeout: 30_000,
-	});
+	await expect(page.getByRole("button", { name: "Export report" })).toBeVisible(
+		{
+			timeout: 30_000,
+		},
+	);
 	await expect(page.getByText(/Saved plan/i)).toBeVisible();
 
 	const downloadPromise = page.waitForEvent("download");
@@ -129,7 +129,9 @@ test("boots the real viaduct runtime and completes the first local operator flow
 	).toBeTruthy();
 });
 
-test("keeps the legacy v1 inventory response shape available", async ({ page }) => {
+test("keeps the legacy v1 inventory response shape available", async ({
+	page,
+}) => {
 	await page.goto("/");
 
 	const localSessionButton = page.getByRole("button", {

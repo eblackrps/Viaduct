@@ -21,7 +21,9 @@ describe("AppErrorBoundary", () => {
 	});
 
 	it("renders a fallback state and reports render failures", () => {
-		const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+		const consoleError = vi
+			.spyOn(console, "error")
+			.mockImplementation(() => {});
 
 		render(
 			<AppErrorBoundary>

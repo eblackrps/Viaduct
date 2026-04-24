@@ -30,7 +30,3 @@ storage:
 query_frontend:
   search:
     duration_slo: 5s
-
-overrides:
-  defaults:
-    max_bytes_per_trace: 5242880
