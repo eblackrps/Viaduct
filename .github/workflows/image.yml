@@ -1,3 +1,5 @@
+# Canonical tag-release workflow. Keep image publication, signing, attestations,
+# vulnerability scanning, Docker Hub mirroring, and GitHub Release asset uploads here.
 name: Image
 
 on:
@@ -139,14 +141,16 @@ jobs:
             REGISTRY_IMAGES="${REGISTRY_IMAGES}"$'\n'"${DOCKERHUB_IMAGE_NAME}"
             DOCKERHUB_ENABLED="true"
           fi
-          echo "build_date=${BUILD_DATE}" >> "${GITHUB_OUTPUT}"
-          echo "dockerhub_enabled=${DOCKERHUB_ENABLED}" >> "${GITHUB_OUTPUT}"
-          echo "package_version=${PACKAGE_VERSION}" >> "${GITHUB_OUTPUT}"
-          echo "release_tag=${RELEASE_TAG}" >> "${GITHUB_OUTPUT}"
-          echo "registry_images<<EOF" >> "${GITHUB_OUTPUT}"
-          printf '%s\n' "${REGISTRY_IMAGES}" >> "${GITHUB_OUTPUT}"
-          echo "EOF" >> "${GITHUB_OUTPUT}"
-          echo "workflow_identity=${WORKFLOW_IDENTITY}" >> "${GITHUB_OUTPUT}"
+          {
+            echo "build_date=${BUILD_DATE}"
+            echo "dockerhub_enabled=${DOCKERHUB_ENABLED}"
+            echo "package_version=${PACKAGE_VERSION}"
+            echo "release_tag=${RELEASE_TAG}"
+            echo "registry_images<<EOF"
+            printf '%s\n' "${REGISTRY_IMAGES}"
+            echo "EOF"
+            echo "workflow_identity=${WORKFLOW_IDENTITY}"
+          } >> "${GITHUB_OUTPUT}"
         env:
           IMAGE_NAME: ${{ env.IMAGE_NAME }}
           DOCKERHUB_IMAGE_NAME: ${{ env.DOCKERHUB_IMAGE_NAME }}
@@ -400,6 +404,75 @@ jobs:
           set -euo pipefail
           make package-release-matrix VERSION="${GITHUB_REF_NAME}"
 
+      - name: Verify expected native bundle artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          PACKAGE_VERSION="${GITHUB_REF_NAME#v}"
+          expected_artifacts=(
+            "dist/viaduct_${PACKAGE_VERSION}_linux_amd64.tar.gz"
+            "dist/viaduct_${PACKAGE_VERSION}_linux_arm64.tar.gz"
+            "dist/viaduct_${PACKAGE_VERSION}_darwin_arm64.tar.gz"
+            "dist/viaduct_${PACKAGE_VERSION}_windows_amd64.tar.gz"
+          )
+          actual_artifacts=( "dist/viaduct_${PACKAGE_VERSION}_"*.tar.gz )
+          expected_count=${#expected_artifacts[@]}
+          actual_count=${#actual_artifacts[@]}
+          missing=0
+          for artifact in "${expected_artifacts[@]}"; do
+            if [[ ! -f "${artifact}" ]]; then
+              echo "::error file=.github/workflows/image.yml::missing expected release artifact ${artifact}"
+              missing=1
+            fi
+          done
+          if [[ ${actual_count} -ne ${expected_count} ]]; then
+            echo "::error file=.github/workflows/image.yml::release artifact count ${actual_count} did not match expected ${expected_count}"
+            printf 'actual artifacts:\n%s\n' "${actual_artifacts[@]}"
+            missing=1
+          fi
+          if [[ ! -f dist/SHA256SUMS ]]; then
+            echo "::error file=.github/workflows/image.yml::missing dist/SHA256SUMS"
+            missing=1
+          fi
+          if [[ ${missing} -ne 0 ]]; then
+            exit 1
+          fi
+
+      - name: Verify native bundle checksum manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          PACKAGE_VERSION="${GITHUB_REF_NAME#v}"
+          (
+            cd dist
+            sha256sum -c --ignore-missing SHA256SUMS
+          )
+          rm -rf .release-verify
+          mkdir -p .release-verify/extracted/linux-amd64 .release-verify/extracted/linux-arm64
+          tar -xzf "dist/viaduct_${PACKAGE_VERSION}_linux_amd64.tar.gz" -C .release-verify/extracted/linux-amd64
+          tar -xzf "dist/viaduct_${PACKAGE_VERSION}_linux_arm64.tar.gz" -C .release-verify/extracted/linux-arm64
+          AMD64_RELEASE_BINARY="$(find .release-verify/extracted/linux-amd64 -type f \( -name viaduct -o -name viaduct-linux-amd64 \) | head -n 1)"
+          ARM64_RELEASE_BINARY="$(find .release-verify/extracted/linux-arm64 -type f \( -name viaduct -o -name viaduct-linux-arm64 \) | head -n 1)"
+          if [[ -z "${AMD64_RELEASE_BINARY}" || -z "${ARM64_RELEASE_BINARY}" ]]; then
+            echo "failed to locate extracted release binaries for checksum verification" >&2
+            exit 1
+          fi
+          for required_file in release-manifest.json dependency-manifest.json SHA256SUMS.txt; do
+            if ! find .release-verify/extracted/linux-amd64 -type f -name "${required_file}" | grep -q .; then
+              echo "linux/amd64 bundle missing ${required_file}" >&2
+              exit 1
+            fi
+            if ! find .release-verify/extracted/linux-arm64 -type f -name "${required_file}" | grep -q .; then
+              echo "linux/arm64 bundle missing ${required_file}" >&2
+              exit 1
+            fi
+          done
+          sha256sum bin/viaduct-linux-amd64 "${AMD64_RELEASE_BINARY}"
+          sha256sum bin/viaduct-linux-arm64 "${ARM64_RELEASE_BINARY}"
+          diff <(sha256sum bin/viaduct-linux-amd64 | cut -d' ' -f1) <(sha256sum "${AMD64_RELEASE_BINARY}" | cut -d' ' -f1)
+          diff <(sha256sum bin/viaduct-linux-arm64 | cut -d' ' -f1) <(sha256sum "${ARM64_RELEASE_BINARY}" | cut -d' ' -f1)
+
       - name: Sign native bundle assets
         shell: bash
         run: |
@@ -545,12 +618,14 @@ jobs:
           MAJOR="${PACKAGE_VERSION%%.*}"
           REMAINDER="${PACKAGE_VERSION#*.}"
           MINOR="${REMAINDER%%.*}"
-          echo "commit_sha=${COMMIT_SHA}" >> "${GITHUB_OUTPUT}"
-          echo "major=${MAJOR}" >> "${GITHUB_OUTPUT}"
-          echo "minor=${MINOR}" >> "${GITHUB_OUTPUT}"
-          echo "package_version=${PACKAGE_VERSION}" >> "${GITHUB_OUTPUT}"
-          echo "release_tag=${RELEASE_TAG}" >> "${GITHUB_OUTPUT}"
-          echo "short_sha=${COMMIT_SHA:0:12}" >> "${GITHUB_OUTPUT}"
+          {
+            echo "commit_sha=${COMMIT_SHA}"
+            echo "major=${MAJOR}"
+            echo "minor=${MINOR}"
+            echo "package_version=${PACKAGE_VERSION}"
+            echo "release_tag=${RELEASE_TAG}"
+            echo "short_sha=${COMMIT_SHA:0:12}"
+          } >> "${GITHUB_OUTPUT}"
 
       - name: Mirror GHCR release image to Docker Hub
         shell: bash

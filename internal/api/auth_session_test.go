@@ -190,6 +190,74 @@ func TestAuthSessionManager_Revoke_StoreFailureLeavesSessionActive_Expected(t *t
 	}
 }
 
+func TestAuthSessionManager_DurableIO_DoesNotHoldSessionMutex_Expected(t *testing.T) {
+	manager := newAuthSessionManager(time.Hour, time.Hour)
+	record, err := manager.CreateCredential("tenant", AuthenticatedPrincipal{
+		Tenant: models.Tenant{ID: "tenant-blocking"},
+		Role:   models.TenantRoleAdmin,
+	}, hashCredential(context.Background(), "hash-blocking"), false)
+	if err != nil {
+		t.Fatalf("CreateCredential() error = %v", err)
+	}
+
+	revokeStore := newBlockingAuthSessionRevocationStore()
+	revokeErr := make(chan error, 1)
+	go func() {
+		revokeErr <- manager.Revoke(context.Background(), revokeStore, record, record.Secret, nil)
+	}()
+	<-revokeStore.revokeStarted
+
+	runSessionOpWithTimeout(t, "Lookup during blocked revoke", func() error {
+		if _, ok := manager.Lookup(record.Secret); !ok {
+			return fmt.Errorf("Lookup() = false, want active session while durable revoke is pending")
+		}
+		return nil
+	})
+	runSessionOpWithTimeout(t, "SweepExpired during blocked revoke", func() error {
+		manager.SweepExpired(time.Now().UTC())
+		return nil
+	})
+
+	close(revokeStore.allowRevoke)
+	if err := <-revokeErr; err != nil {
+		t.Fatalf("Revoke() error = %v", err)
+	}
+
+	lookupStore := newBlockingAuthSessionRevocationStore()
+	record, err = manager.CreateCredential("tenant", AuthenticatedPrincipal{
+		Tenant: models.Tenant{ID: "tenant-lookup"},
+		Role:   models.TenantRoleAdmin,
+	}, hashCredential(context.Background(), "hash-lookup"), false)
+	if err != nil {
+		t.Fatalf("CreateCredential(lookup) error = %v", err)
+	}
+
+	lookupErr := make(chan error, 1)
+	go func() {
+		_, _, err := manager.LookupActive(context.Background(), lookupStore, record.Secret)
+		lookupErr <- err
+	}()
+	<-lookupStore.lookupStarted
+
+	runSessionOpWithTimeout(t, "Lookup during blocked revocation read", func() error {
+		if _, ok := manager.Lookup(record.Secret); !ok {
+			return fmt.Errorf("Lookup() = false, want active session while durable revocation read is pending")
+		}
+		return nil
+	})
+	runSessionOpWithTimeout(t, "LookupByPublicID during blocked revocation read", func() error {
+		if _, _, ok := manager.LookupByPublicID(record.PublicID); !ok {
+			return fmt.Errorf("LookupByPublicID() = false, want active session while durable revocation read is pending")
+		}
+		return nil
+	})
+
+	close(lookupStore.allowLookup)
+	if err := <-lookupErr; err != nil {
+		t.Fatalf("LookupActive() error = %v", err)
+	}
+}
+
 func TestRevocationAtomicity_RaceOnDBCrash(t *testing.T) {
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 
@@ -254,4 +322,58 @@ func (s failingAuthSessionRevocationStore) RevokeAuthSession(_ context.Context, 
 
 func (failingAuthSessionRevocationStore) IsAuthSessionRevoked(_ context.Context, _ string) (bool, error) {
 	return false, nil
+}
+
+type blockingAuthSessionRevocationStore struct {
+	revokeStarted chan struct{}
+	allowRevoke   chan struct{}
+	lookupStarted chan struct{}
+	allowLookup   chan struct{}
+}
+
+func newBlockingAuthSessionRevocationStore() *blockingAuthSessionRevocationStore {
+	return &blockingAuthSessionRevocationStore{
+		revokeStarted: make(chan struct{}),
+		allowRevoke:   make(chan struct{}),
+		lookupStarted: make(chan struct{}),
+		allowLookup:   make(chan struct{}),
+	}
+}
+
+func (s *blockingAuthSessionRevocationStore) RevokeAuthSession(ctx context.Context, _ string, _ time.Time) error {
+	close(s.revokeStarted)
+	select {
+	case <-s.allowRevoke:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func (s *blockingAuthSessionRevocationStore) IsAuthSessionRevoked(ctx context.Context, _ string) (bool, error) {
+	close(s.lookupStarted)
+	select {
+	case <-s.allowLookup:
+		return false, nil
+	case <-ctx.Done():
+		return false, ctx.Err()
+	}
+}
+
+func runSessionOpWithTimeout(t *testing.T, name string, fn func() error) {
+	t.Helper()
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- fn()
+	}()
+
+	select {
+	case err := <-errCh:
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+	case <-time.After(250 * time.Millisecond):
+		t.Fatalf("%s timed out while durable store I/O was in flight", name)
+	}
 }

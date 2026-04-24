@@ -156,8 +156,9 @@ func (m *authSessionManager) LookupActive(ctx context.Context, revocations authS
 		m.MarkRevoked(record, secret)
 		return authSessionRecord{}, false, nil
 	}
-	revoked, err := revocations.IsAuthSessionRevoked(ctx, record.PublicID)
 	m.mu.RUnlock()
+
+	revoked, err := revocations.IsAuthSessionRevoked(ctx, record.PublicID)
 	if err != nil {
 		return authSessionRecord{}, false, err
 	}
@@ -165,9 +166,7 @@ func (m *authSessionManager) LookupActive(ctx context.Context, revocations authS
 		return record, true, nil
 	}
 
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.markRevokedLocked(record, secret)
+	m.MarkRevoked(record, secret)
 	return authSessionRecord{}, false, nil
 }
 
@@ -305,8 +304,6 @@ func (m *authSessionManager) Revoke(ctx context.Context, revocations authSession
 		ctx = context.Background()
 	}
 
-	m.mu.Lock()
-	defer m.mu.Unlock()
 	if err := revocations.RevokeAuthSession(ctx, record.PublicID, record.ExpiresAt); err != nil {
 		return err
 	}
@@ -316,7 +313,7 @@ func (m *authSessionManager) Revoke(ctx context.Context, revocations authSession
 		}
 	}
 
-	m.markRevokedLocked(record, secret)
+	m.MarkRevoked(record, secret)
 	return nil
 }
 

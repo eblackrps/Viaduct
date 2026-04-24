@@ -1,112 +1,64 @@
 package ci
 
 import (
-	"os"
-	"path/filepath"
-	"regexp"
-	"slices"
 	"strings"
 	"testing"
 )
 
-func TestReleaseWorkflow_TagPinnedCertificateIdentity_Expected(t *testing.T) {
+func TestReleaseWorkflow_IsGuardOnly_Expected(t *testing.T) {
 	t.Parallel()
 
 	workflow := loadReleaseWorkflow(t)
-	dispatchStep := workflow.stepNamed(t, "dispatch-identity-dry-run", "Verify Dispatch Tag Identity Shape")
-	if !strings.Contains(dispatchStep.Run, `@refs/tags/${RELEASE_TAG}`) {
-		t.Fatalf("dispatch identity step run = %q, want refs/tags identity pin", dispatchStep.Run)
+	job, ok := workflow.Jobs["canonical-release-only"]
+	if !ok {
+		t.Fatal("release workflow missing canonical-release-only guard job")
 	}
-	if strings.Contains(dispatchStep.Run, `@refs/heads/${GITHUB_REF_NAME}`) {
-		t.Fatalf("dispatch identity step still references branch heads: %q", dispatchStep.Run)
+	if len(job.Steps) != 1 {
+		t.Fatalf("release guard job steps = %d, want 1", len(job.Steps))
 	}
 
-	releaseMetaStep := workflow.stepNamed(t, "release", "Derive Release Metadata")
-	if !strings.Contains(releaseMetaStep.Run, `CERTIFICATE_IDENTITY_REF="refs/tags/${RELEASE_TAG}"`) {
-		t.Fatalf("release metadata step run = %q, want tag-pinned certificate identity ref", releaseMetaStep.Run)
+	step := workflow.stepNamed(t, "canonical-release-only", "Fail With Canonical Workflow Guidance")
+	if !strings.Contains(step.Run, ".github/workflows/image.yml") {
+		t.Fatalf("guard workflow run = %q, want canonical image workflow guidance", step.Run)
 	}
-	if strings.Contains(releaseMetaStep.Run, `CERTIFICATE_IDENTITY_REF="${GITHUB_REF}"`) {
-		t.Fatalf("release metadata step should not derive certificate identity from GITHUB_REF: %q", releaseMetaStep.Run)
+	if !strings.Contains(step.Run, "must not publish images, signatures, SBOMs, provenance, Docker Hub mirrors, or GitHub releases") {
+		t.Fatalf("guard workflow run = %q, want duplicate-publishing warning", step.Run)
+	}
+	if strings.Contains(step.Run, "gh release create") || strings.Contains(step.Run, "docker buildx") || strings.Contains(step.Run, "cosign sign") {
+		t.Fatalf("guard workflow run = %q, should not publish release artifacts", step.Run)
 	}
 }
 
-func TestReleaseAssetManifest_ExplicitCount(t *testing.T) {
+func TestImageWorkflow_OwnsCanonicalTagRelease_Expected(t *testing.T) {
 	t.Parallel()
 
-	workflow := loadReleaseWorkflow(t)
-	step := workflow.stepNamed(t, "release", "Verify Expected Release Artifacts")
-	artifactPattern := regexp.MustCompile(`"dist/viaduct_\$\{PACKAGE_VERSION\}_[^"]+\.(?:tar\.gz|zip)"`)
-	artifacts := artifactPattern.FindAllString(step.Run, -1)
-	expectedArtifacts := expectedReleaseArtifacts()
-	if !slices.Equal(artifacts, expectedArtifacts) {
-		t.Fatalf("artifact manifest = %#v, want %#v", artifacts, expectedArtifacts)
+	workflow := loadImageWorkflow(t)
+	releaseJob, ok := workflow.Jobs["release"]
+	if !ok {
+		t.Fatal("image workflow missing release job")
 	}
-	if !strings.Contains(step.Run, `expected_count=${#expected_artifacts[@]}`) {
-		t.Fatal("release workflow does not compute expected_count from explicit manifest")
+	if releaseJob.Uses != "" {
+		t.Fatalf("release job uses = %q, want inline release job", releaseJob.Uses)
 	}
-	if !strings.Contains(step.Run, `actual_count=${#actual_artifacts[@]}`) {
-		t.Fatal("release workflow does not compute actual_count from explicit manifest")
-	}
-	if !strings.Contains(step.Run, "missing expected release artifact") {
-		t.Fatal("release workflow does not emit a named missing-artifact error")
-	}
-	if !strings.Contains(step.Run, "release artifact count") {
-		t.Fatal("release workflow does not emit a named artifact-count error")
-	}
-}
 
-func TestReleaseWorkflow_BinaryPathVerificationMatchesPackageMatrix_Expected(t *testing.T) {
-	t.Parallel()
+	releaseStep := workflow.stepNamed(t, "release", "Create or update GitHub release")
+	if !strings.Contains(releaseStep.Run, `release_notes="docs/releases/${GITHUB_REF_NAME}.md"`) {
+		t.Fatalf("release step run = %q, want versioned release notes path", releaseStep.Run)
+	}
+	if !strings.Contains(releaseStep.Run, `gh release create "${GITHUB_REF_NAME}"`) {
+		t.Fatalf("release step run = %q, want GitHub release creation in image workflow", releaseStep.Run)
+	}
+	if !strings.Contains(releaseStep.Run, `gh release upload "${GITHUB_REF_NAME}" --clobber "${release_assets[@]}"`) {
+		t.Fatalf("release step run = %q, want asset upload in image workflow", releaseStep.Run)
+	}
 
-	workflow := loadReleaseWorkflow(t)
-	step := workflow.stepNamed(t, "release", "Verify Published Bundle Checksums Before Docker Build")
-	for _, binaryPath := range expectedPackageMatrixBinaryPaths(t) {
-		if !strings.Contains(step.Run, "sha256sum "+binaryPath) {
-			t.Fatalf("release verification step run = %q, want sha256sum for %s", step.Run, binaryPath)
-		}
-		if !strings.Contains(step.Run, "diff <(sha256sum "+binaryPath+" | cut -d' ' -f1)") {
-			t.Fatalf("release verification step run = %q, want checksum diff for %s", step.Run, binaryPath)
-		}
+	signStep := workflow.stepNamed(t, "native-bundles", "Sign native bundle assets")
+	if !strings.Contains(signStep.Run, `--certificate-identity "https://github.com/${GITHUB_REPOSITORY}/.github/workflows/image.yml@${GITHUB_REF}"`) {
+		t.Fatalf("native bundle signing run = %q, want image.yml workflow identity", signStep.Run)
 	}
 }
 
 func loadReleaseWorkflow(t *testing.T) workflowDefinition {
 	t.Helper()
 	return loadWorkflow(t, "release.yml")
-}
-
-func expectedReleaseArtifacts() []string {
-	return []string{
-		`"dist/viaduct_${PACKAGE_VERSION}_linux_amd64.tar.gz"`,
-		`"dist/viaduct_${PACKAGE_VERSION}_linux_arm64.tar.gz"`,
-		`"dist/viaduct_${PACKAGE_VERSION}_darwin_arm64.tar.gz"`,
-		`"dist/viaduct_${PACKAGE_VERSION}_windows_amd64.tar.gz"`,
-	}
-}
-
-func expectedPackageMatrixBinaryPaths(t *testing.T) []string {
-	t.Helper()
-
-	makefilePath := filepath.Join("..", "..", "Makefile")
-	payload, err := os.ReadFile(makefilePath)
-	if err != nil {
-		t.Fatalf("ReadFile(Makefile) error = %v", err)
-	}
-
-	content := string(payload)
-	return []string{
-		extractMakeVariable(t, content, "LINUX_AMD64_BINARY"),
-		extractMakeVariable(t, content, "LINUX_ARM64_BINARY"),
-	}
-}
-
-func extractMakeVariable(t *testing.T, content, name string) string {
-	t.Helper()
-
-	pattern := regexp.MustCompile(`(?m)^` + regexp.QuoteMeta(name) + ` = ([^\r\n]+)$`)
-	match := pattern.FindStringSubmatch(content)
-	if len(match) != 2 {
-		t.Fatalf("Makefile missing variable %s", name)
-	}
-	return strings.TrimSpace(match[1])
 }
