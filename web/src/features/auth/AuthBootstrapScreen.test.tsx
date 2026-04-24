@@ -127,6 +127,8 @@ describe("AuthBootstrapScreen", () => {
 		await waitFor(() => {
 			expect(connect).toHaveBeenCalledWith("service-account", "bad-key", false);
 		});
-		expect(input).toHaveValue("bad-key");
+		await waitFor(() => {
+			expect(input).toHaveValue("bad-key");
+		});
 	});
 });
