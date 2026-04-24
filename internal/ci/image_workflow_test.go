@@ -78,8 +78,14 @@ func TestImageWorkflow_TagDerivationAndIdentity_Expected(t *testing.T) {
 	if !strings.Contains(deriveStep.Run, `if [[ -n "${DOCKERHUB_USERNAME}" && -n "${DOCKERHUB_TOKEN}" ]]; then`) {
 		t.Fatalf("derive image metadata run = %q, want Docker Hub mirroring gated on configured secrets", deriveStep.Run)
 	}
-	if !strings.Contains(deriveStep.Run, `echo "registry_images<<EOF" >> "${GITHUB_OUTPUT}"`) {
-		t.Fatalf("derive image metadata run = %q, want registry image list exported for metadata-action", deriveStep.Run)
+	if !strings.Contains(deriveStep.Run, `echo "registry_images<<EOF"`) {
+		t.Fatalf("derive image metadata run = %q, want registry image list header exported for metadata-action", deriveStep.Run)
+	}
+	if !strings.Contains(deriveStep.Run, `printf '%s\n' "${REGISTRY_IMAGES}"`) {
+		t.Fatalf("derive image metadata run = %q, want registry image list payload exported for metadata-action", deriveStep.Run)
+	}
+	if !strings.Contains(deriveStep.Run, `} >> "${GITHUB_OUTPUT}"`) {
+		t.Fatalf("derive image metadata run = %q, want grouped GITHUB_OUTPUT writes for lint-safe output", deriveStep.Run)
 	}
 
 	verifyStep := workflow.stepNamed(t, "sign", "Verify published signature")

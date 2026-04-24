@@ -141,14 +141,16 @@ jobs:
             REGISTRY_IMAGES="${REGISTRY_IMAGES}"$'\n'"${DOCKERHUB_IMAGE_NAME}"
             DOCKERHUB_ENABLED="true"
           fi
-          echo "build_date=${BUILD_DATE}" >> "${GITHUB_OUTPUT}"
-          echo "dockerhub_enabled=${DOCKERHUB_ENABLED}" >> "${GITHUB_OUTPUT}"
-          echo "package_version=${PACKAGE_VERSION}" >> "${GITHUB_OUTPUT}"
-          echo "release_tag=${RELEASE_TAG}" >> "${GITHUB_OUTPUT}"
-          echo "registry_images<<EOF" >> "${GITHUB_OUTPUT}"
-          printf '%s\n' "${REGISTRY_IMAGES}" >> "${GITHUB_OUTPUT}"
-          echo "EOF" >> "${GITHUB_OUTPUT}"
-          echo "workflow_identity=${WORKFLOW_IDENTITY}" >> "${GITHUB_OUTPUT}"
+          {
+            echo "build_date=${BUILD_DATE}"
+            echo "dockerhub_enabled=${DOCKERHUB_ENABLED}"
+            echo "package_version=${PACKAGE_VERSION}"
+            echo "release_tag=${RELEASE_TAG}"
+            echo "registry_images<<EOF"
+            printf '%s\n' "${REGISTRY_IMAGES}"
+            echo "EOF"
+            echo "workflow_identity=${WORKFLOW_IDENTITY}"
+          } >> "${GITHUB_OUTPUT}"
         env:
           IMAGE_NAME: ${{ env.IMAGE_NAME }}
           DOCKERHUB_IMAGE_NAME: ${{ env.DOCKERHUB_IMAGE_NAME }}
@@ -414,7 +416,7 @@ jobs:
             "dist/viaduct_${PACKAGE_VERSION}_darwin_arm64.tar.gz"
             "dist/viaduct_${PACKAGE_VERSION}_windows_amd64.tar.gz"
           )
-          actual_artifacts=(dist/viaduct_${PACKAGE_VERSION}_*.tar.gz)
+          actual_artifacts=( "dist/viaduct_${PACKAGE_VERSION}_"*.tar.gz )
           expected_count=${#expected_artifacts[@]}
           actual_count=${#actual_artifacts[@]}
           missing=0
@@ -616,12 +618,14 @@ jobs:
           MAJOR="${PACKAGE_VERSION%%.*}"
           REMAINDER="${PACKAGE_VERSION#*.}"
           MINOR="${REMAINDER%%.*}"
-          echo "commit_sha=${COMMIT_SHA}" >> "${GITHUB_OUTPUT}"
-          echo "major=${MAJOR}" >> "${GITHUB_OUTPUT}"
-          echo "minor=${MINOR}" >> "${GITHUB_OUTPUT}"
-          echo "package_version=${PACKAGE_VERSION}" >> "${GITHUB_OUTPUT}"
-          echo "release_tag=${RELEASE_TAG}" >> "${GITHUB_OUTPUT}"
-          echo "short_sha=${COMMIT_SHA:0:12}" >> "${GITHUB_OUTPUT}"
+          {
+            echo "commit_sha=${COMMIT_SHA}"
+            echo "major=${MAJOR}"
+            echo "minor=${MINOR}"
+            echo "package_version=${PACKAGE_VERSION}"
+            echo "release_tag=${RELEASE_TAG}"
+            echo "short_sha=${COMMIT_SHA:0:12}"
+          } >> "${GITHUB_OUTPUT}"
 
       - name: Mirror GHCR release image to Docker Hub
         shell: bash
