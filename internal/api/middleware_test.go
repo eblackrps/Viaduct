@@ -169,6 +169,150 @@ func TestTenantAuthMiddleware_ServiceAccountKey_AllowsScopedRequest(t *testing.T
 	}
 }
 
+func TestTenantAuthMiddleware_RotatedTenantKey_RejectsRequest(t *testing.T) {
+	t.Parallel()
+
+	stateStore := newTenantTestStore(t)
+	tenant, err := stateStore.GetTenant(context.Background(), "tenant-a")
+	if err != nil {
+		t.Fatalf("GetTenant() error = %v", err)
+	}
+	tenant.APIKey = "tenant-a-key-rotated"
+	tenant.APIKeyHash = ""
+	if err := stateStore.UpdateTenant(context.Background(), *tenant); err != nil {
+		t.Fatalf("UpdateTenant() error = %v", err)
+	}
+
+	handler := TenantAuthMiddleware(stateStore, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/inventory", nil)
+	req.Header.Set(tenantCredentialHeader, "tenant-a-key")
+	recorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(recorder, req)
+	if recorder.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusUnauthorized)
+	}
+}
+
+func TestTenantAuthMiddleware_RotatedServiceAccountKey_RejectsRequest(t *testing.T) {
+	t.Parallel()
+
+	stateStore := newTenantTestStore(t)
+	if err := stateStore.UpdateTenant(context.Background(), models.Tenant{
+		ID:     "tenant-a",
+		Name:   "Tenant A",
+		APIKey: "tenant-a-key",
+		Active: true,
+		ServiceAccounts: []models.ServiceAccount{
+			{
+				ID:        "sa-operator",
+				Name:      "Operator",
+				APIKey:    "service-key",
+				Role:      models.TenantRoleOperator,
+				Active:    true,
+				CreatedAt: time.Now().UTC(),
+			},
+		},
+	}); err != nil {
+		t.Fatalf("UpdateTenant() error = %v", err)
+	}
+
+	tenant, err := stateStore.GetTenant(context.Background(), "tenant-a")
+	if err != nil {
+		t.Fatalf("GetTenant() error = %v", err)
+	}
+	for index := range tenant.ServiceAccounts {
+		if tenant.ServiceAccounts[index].ID == "sa-operator" {
+			tenant.ServiceAccounts[index].APIKey = "service-key-rotated"
+			tenant.ServiceAccounts[index].APIKeyHash = ""
+		}
+	}
+	if err := stateStore.UpdateTenant(context.Background(), *tenant); err != nil {
+		t.Fatalf("UpdateTenant(rotate service account) error = %v", err)
+	}
+
+	handler := TenantAuthMiddleware(stateStore, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/inventory", nil)
+	req.Header.Set(serviceAccountCredentialHeader, "service-key")
+	recorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(recorder, req)
+	if recorder.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusUnauthorized)
+	}
+}
+
+func TestTenantAuthMiddleware_DeletedServiceAccountSession_RejectsRequest(t *testing.T) {
+	t.Parallel()
+
+	stateStore := newTenantTestStore(t)
+	if err := stateStore.UpdateTenant(context.Background(), models.Tenant{
+		ID:     "tenant-a",
+		Name:   "Tenant A",
+		APIKey: "tenant-a-key",
+		Active: true,
+		ServiceAccounts: []models.ServiceAccount{
+			{
+				ID:        "sa-operator",
+				Name:      "Operator",
+				APIKey:    "service-key",
+				Role:      models.TenantRoleOperator,
+				Active:    true,
+				CreatedAt: time.Now().UTC(),
+			},
+		},
+	}); err != nil {
+		t.Fatalf("UpdateTenant() error = %v", err)
+	}
+
+	principal, ok, err := findServiceAccountPrincipalByAPIKey(context.Background(), stateStore, "service-key")
+	if err != nil {
+		t.Fatalf("findServiceAccountPrincipalByAPIKey() error = %v", err)
+	}
+	if !ok {
+		t.Fatal("findServiceAccountPrincipalByAPIKey() = false, want true")
+	}
+
+	sessions := newAuthSessionManager(time.Hour, 24*time.Hour)
+	record, err := sessions.CreateCredential("service-account", principal, hashCredential(context.Background(), "service-key"), false)
+	if err != nil {
+		t.Fatalf("CreateCredential() error = %v", err)
+	}
+
+	if err := stateStore.UpdateTenant(context.Background(), models.Tenant{
+		ID:              "tenant-a",
+		Name:            "Tenant A",
+		APIKey:          "tenant-a-key",
+		Active:          true,
+		ServiceAccounts: nil,
+	}); err != nil {
+		t.Fatalf("UpdateTenant(delete service account) error = %v", err)
+	}
+
+	server := &Server{store: stateStore, authSessions: sessions}
+	handler := tenantAuthMiddleware(stateStore, sessions, server, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatal("unexpected access with deleted service-account session")
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/inventory", nil)
+	req.AddCookie(&http.Cookie{Name: dashboardSessionCookieName, Value: record.Secret})
+	recorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(recorder, req)
+	if recorder.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want %d: %s", recorder.Code, http.StatusUnauthorized, recorder.Body.String())
+	}
+	if _, ok := sessions.Lookup(record.Secret); ok {
+		t.Fatal("Lookup() = true, want deleted service-account session to be revoked")
+	}
+}
+
 func TestRequireTenantRole_ViewerDeniedOperatorRoute_Expected(t *testing.T) {
 	t.Parallel()
 
@@ -572,6 +716,44 @@ func TestTenantAuthMiddleware_ContextTenantMismatch_ReturnsForbidden(t *testing.
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/inventory", nil)
 	req = req.WithContext(store.ContextWithTenantID(req.Context(), "tenant-b"))
 	req.Header.Set(tenantCredentialHeader, "tenant-a-key")
+	recorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(recorder, req)
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want %d: %s", recorder.Code, http.StatusForbidden, recorder.Body.String())
+	}
+}
+
+func TestTenantAuthMiddleware_ServiceAccountTenantMismatch_ReturnsForbidden(t *testing.T) {
+	t.Parallel()
+
+	stateStore := newTenantTestStore(t)
+	if err := stateStore.UpdateTenant(context.Background(), models.Tenant{
+		ID:     "tenant-a",
+		Name:   "Tenant A",
+		APIKey: "tenant-a-key",
+		Active: true,
+		ServiceAccounts: []models.ServiceAccount{
+			{
+				ID:        "sa-operator",
+				Name:      "Operator",
+				APIKey:    "service-key",
+				Role:      models.TenantRoleOperator,
+				Active:    true,
+				CreatedAt: time.Now().UTC(),
+			},
+		},
+	}); err != nil {
+		t.Fatalf("UpdateTenant() error = %v", err)
+	}
+
+	handler := TenantAuthMiddleware(stateStore, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/inventory", nil)
+	req = req.WithContext(store.ContextWithTenantID(req.Context(), "tenant-b"))
+	req.Header.Set(serviceAccountCredentialHeader, "service-key")
 	recorder := httptest.NewRecorder()
 
 	handler.ServeHTTP(recorder, req)

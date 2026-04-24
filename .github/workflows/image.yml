@@ -1,3 +1,5 @@
+# Canonical tag-release workflow. Keep image publication, signing, attestations,
+# vulnerability scanning, Docker Hub mirroring, and GitHub Release asset uploads here.
 name: Image
 
 on:
@@ -399,6 +401,75 @@ jobs:
         run: |
           set -euo pipefail
           make package-release-matrix VERSION="${GITHUB_REF_NAME}"
+
+      - name: Verify expected native bundle artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          PACKAGE_VERSION="${GITHUB_REF_NAME#v}"
+          expected_artifacts=(
+            "dist/viaduct_${PACKAGE_VERSION}_linux_amd64.tar.gz"
+            "dist/viaduct_${PACKAGE_VERSION}_linux_arm64.tar.gz"
+            "dist/viaduct_${PACKAGE_VERSION}_darwin_arm64.tar.gz"
+            "dist/viaduct_${PACKAGE_VERSION}_windows_amd64.tar.gz"
+          )
+          actual_artifacts=(dist/viaduct_${PACKAGE_VERSION}_*.tar.gz)
+          expected_count=${#expected_artifacts[@]}
+          actual_count=${#actual_artifacts[@]}
+          missing=0
+          for artifact in "${expected_artifacts[@]}"; do
+            if [[ ! -f "${artifact}" ]]; then
+              echo "::error file=.github/workflows/image.yml::missing expected release artifact ${artifact}"
+              missing=1
+            fi
+          done
+          if [[ ${actual_count} -ne ${expected_count} ]]; then
+            echo "::error file=.github/workflows/image.yml::release artifact count ${actual_count} did not match expected ${expected_count}"
+            printf 'actual artifacts:\n%s\n' "${actual_artifacts[@]}"
+            missing=1
+          fi
+          if [[ ! -f dist/SHA256SUMS ]]; then
+            echo "::error file=.github/workflows/image.yml::missing dist/SHA256SUMS"
+            missing=1
+          fi
+          if [[ ${missing} -ne 0 ]]; then
+            exit 1
+          fi
+
+      - name: Verify native bundle checksum manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          PACKAGE_VERSION="${GITHUB_REF_NAME#v}"
+          (
+            cd dist
+            sha256sum -c --ignore-missing SHA256SUMS
+          )
+          rm -rf .release-verify
+          mkdir -p .release-verify/extracted/linux-amd64 .release-verify/extracted/linux-arm64
+          tar -xzf "dist/viaduct_${PACKAGE_VERSION}_linux_amd64.tar.gz" -C .release-verify/extracted/linux-amd64
+          tar -xzf "dist/viaduct_${PACKAGE_VERSION}_linux_arm64.tar.gz" -C .release-verify/extracted/linux-arm64
+          AMD64_RELEASE_BINARY="$(find .release-verify/extracted/linux-amd64 -type f \( -name viaduct -o -name viaduct-linux-amd64 \) | head -n 1)"
+          ARM64_RELEASE_BINARY="$(find .release-verify/extracted/linux-arm64 -type f \( -name viaduct -o -name viaduct-linux-arm64 \) | head -n 1)"
+          if [[ -z "${AMD64_RELEASE_BINARY}" || -z "${ARM64_RELEASE_BINARY}" ]]; then
+            echo "failed to locate extracted release binaries for checksum verification" >&2
+            exit 1
+          fi
+          for required_file in release-manifest.json dependency-manifest.json SHA256SUMS.txt; do
+            if ! find .release-verify/extracted/linux-amd64 -type f -name "${required_file}" | grep -q .; then
+              echo "linux/amd64 bundle missing ${required_file}" >&2
+              exit 1
+            fi
+            if ! find .release-verify/extracted/linux-arm64 -type f -name "${required_file}" | grep -q .; then
+              echo "linux/arm64 bundle missing ${required_file}" >&2
+              exit 1
+            fi
+          done
+          sha256sum bin/viaduct-linux-amd64 "${AMD64_RELEASE_BINARY}"
+          sha256sum bin/viaduct-linux-arm64 "${ARM64_RELEASE_BINARY}"
+          diff <(sha256sum bin/viaduct-linux-amd64 | cut -d' ' -f1) <(sha256sum "${AMD64_RELEASE_BINARY}" | cut -d' ' -f1)
+          diff <(sha256sum bin/viaduct-linux-arm64 | cut -d' ' -f1) <(sha256sum "${ARM64_RELEASE_BINARY}" | cut -d' ' -f1)
 
       - name: Sign native bundle assets
         shell: bash

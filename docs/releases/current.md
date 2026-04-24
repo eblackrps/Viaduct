@@ -4,6 +4,8 @@ Viaduct `v3.2.0` is the current published release.
 
 This page is the repo-local source of truth for the current release/install story. Use it to sanity-check the root docs, deployment samples, screenshots, and public site before tagging the next version.
 
+The only tag-publishing workflow is [`.github/workflows/image.yml`](../../.github/workflows/image.yml). [`.github/workflows/release.yml`](../../.github/workflows/release.yml) is a guard-only workflow and must not publish competing release assets.
+
 ## Canonical Install
 
 The signed GHCR OCI image remains the canonical install surface:

@@ -137,18 +137,16 @@ func (s *Server) createAuthSession(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		tenants, listErr := s.store.ListTenants(r.Context())
-		if listErr != nil {
-			writeAPIError(w, r, http.StatusInternalServerError, "internal_error", listErr.Error(), apiErrorOptions{Retryable: true})
-			return
-		}
-
 		var ok bool
 		switch mode {
 		case "tenant":
-			principal, ok = findTenantPrincipalByAPIKey(r.Context(), tenants, apiKey)
+			principal, ok, err = findTenantPrincipalByAPIKey(r.Context(), s.store, apiKey)
 		case "service-account":
-			principal, ok = findServiceAccountPrincipalByAPIKey(r.Context(), tenants, apiKey)
+			principal, ok, err = findServiceAccountPrincipalByAPIKey(r.Context(), s.store, apiKey)
+		}
+		if err != nil {
+			writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
+			return
 		}
 		if !ok {
 			writeAPIError(w, r, http.StatusUnauthorized, "invalid_credentials", "invalid tenant credentials", apiErrorOptions{})

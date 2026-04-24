@@ -3,6 +3,7 @@ package ci
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -132,6 +133,62 @@ func TestImageWorkflow_ScanFailsClosedAndAttestationsExist_Expected(t *testing.T
 	}
 }
 
+func TestImageWorkflow_VerifiesExplicitNativeBundleManifest_Expected(t *testing.T) {
+	t.Parallel()
+
+	workflow := loadImageWorkflow(t)
+	step := workflow.stepNamed(t, "native-bundles", "Verify expected native bundle artifacts")
+	artifactPattern := regexp.MustCompile(`"dist/viaduct_\$\{PACKAGE_VERSION\}_[^"]+\.tar\.gz"`)
+	artifacts := artifactPattern.FindAllString(step.Run, -1)
+	expectedArtifacts := expectedReleaseArtifacts()
+	if len(artifacts) != len(expectedArtifacts) {
+		t.Fatalf("artifact manifest = %#v, want %#v", artifacts, expectedArtifacts)
+	}
+	for index, expected := range expectedArtifacts {
+		if artifacts[index] != expected {
+			t.Fatalf("artifact manifest[%d] = %q, want %q", index, artifacts[index], expected)
+		}
+	}
+	if !strings.Contains(step.Run, `expected_count=${#expected_artifacts[@]}`) {
+		t.Fatal("native bundle verification does not compute expected_count from explicit manifest")
+	}
+	if !strings.Contains(step.Run, `actual_count=${#actual_artifacts[@]}`) {
+		t.Fatal("native bundle verification does not compute actual_count from explicit manifest")
+	}
+	if !strings.Contains(step.Run, "missing expected release artifact") {
+		t.Fatal("native bundle verification does not emit a named missing-artifact error")
+	}
+	if !strings.Contains(step.Run, "release artifact count") {
+		t.Fatal("native bundle verification does not emit a named artifact-count error")
+	}
+	if !strings.Contains(step.Run, "missing dist/SHA256SUMS") {
+		t.Fatal("native bundle verification does not require dist/SHA256SUMS")
+	}
+}
+
+func TestImageWorkflow_VerifiesNativeBundleChecksumsAgainstPackageMatrix_Expected(t *testing.T) {
+	t.Parallel()
+
+	workflow := loadImageWorkflow(t)
+	step := workflow.stepNamed(t, "native-bundles", "Verify native bundle checksum manifest")
+	if !strings.Contains(step.Run, `sha256sum -c --ignore-missing SHA256SUMS`) {
+		t.Fatalf("native bundle checksum run = %q, want SHA256SUMS verification", step.Run)
+	}
+	for _, binaryPath := range expectedPackageMatrixBinaryPaths(t) {
+		if !strings.Contains(step.Run, "sha256sum "+binaryPath) {
+			t.Fatalf("native bundle checksum run = %q, want sha256sum for %s", step.Run, binaryPath)
+		}
+		if !strings.Contains(step.Run, "diff <(sha256sum "+binaryPath+" | cut -d' ' -f1)") {
+			t.Fatalf("native bundle checksum run = %q, want checksum diff for %s", step.Run, binaryPath)
+		}
+	}
+	for _, requiredFile := range []string{"release-manifest.json", "dependency-manifest.json", "SHA256SUMS.txt"} {
+		if !strings.Contains(step.Run, requiredFile) {
+			t.Fatalf("native bundle checksum run = %q, want required bundle file %s", step.Run, requiredFile)
+		}
+	}
+}
+
 func TestImageWorkflow_SignJobAuthenticatesToRegistry_Expected(t *testing.T) {
 	t.Parallel()
 
@@ -217,4 +274,40 @@ func TestImageWorkflow_ManualReleaseMirrorBackfill_Expected(t *testing.T) {
 func loadImageWorkflow(t *testing.T) workflowDefinition {
 	t.Helper()
 	return loadWorkflow(t, "image.yml")
+}
+
+func expectedReleaseArtifacts() []string {
+	return []string{
+		`"dist/viaduct_${PACKAGE_VERSION}_linux_amd64.tar.gz"`,
+		`"dist/viaduct_${PACKAGE_VERSION}_linux_arm64.tar.gz"`,
+		`"dist/viaduct_${PACKAGE_VERSION}_darwin_arm64.tar.gz"`,
+		`"dist/viaduct_${PACKAGE_VERSION}_windows_amd64.tar.gz"`,
+	}
+}
+
+func expectedPackageMatrixBinaryPaths(t *testing.T) []string {
+	t.Helper()
+
+	makefilePath := filepath.Join("..", "..", "Makefile")
+	payload, err := os.ReadFile(makefilePath)
+	if err != nil {
+		t.Fatalf("ReadFile(Makefile) error = %v", err)
+	}
+
+	content := string(payload)
+	return []string{
+		extractMakeVariable(t, content, "LINUX_AMD64_BINARY"),
+		extractMakeVariable(t, content, "LINUX_ARM64_BINARY"),
+	}
+}
+
+func extractMakeVariable(t *testing.T, content, name string) string {
+	t.Helper()
+
+	pattern := regexp.MustCompile(`(?m)^` + regexp.QuoteMeta(name) + ` = ([^\r\n]+)$`)
+	match := pattern.FindStringSubmatch(content)
+	if len(match) != 2 {
+		t.Fatalf("Makefile missing variable %s", name)
+	}
+	return strings.TrimSpace(match[1])
 }

@@ -1094,6 +1094,134 @@ func TestServer_Handler_TenantCredentialRotation_RevokesBoundSession_Expected(t 
 	}
 }
 
+func TestServer_Handler_TenantDeletion_RevokesBoundSession_Expected(t *testing.T) {
+	t.Parallel()
+
+	stateStore := store.NewMemoryStore()
+	if err := stateStore.CreateTenant(context.Background(), models.Tenant{
+		ID:     "tenant-a",
+		Name:   "Tenant A",
+		APIKey: "tenant-a-key",
+		Active: true,
+	}); err != nil {
+		t.Fatalf("CreateTenant() error = %v", err)
+	}
+
+	server := mustNewServer(t, stateStore)
+	handler := server.Handler()
+
+	createRequest := httptest.NewRequest(http.MethodPost, "/api/v1/auth/session", bytes.NewBufferString(`{"mode":"tenant","api_key":"tenant-a-key"}`))
+	createRequest.RemoteAddr = "203.0.113.10:41000"
+	createRequest.Header.Set("Content-Type", "application/json")
+	createRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(createRecorder, createRequest)
+	if createRecorder.Code != http.StatusCreated {
+		t.Fatalf("create status = %d, want %d: %s", createRecorder.Code, http.StatusCreated, createRecorder.Body.String())
+	}
+
+	var sessionResponse authSessionResponse
+	if err := json.Unmarshal(createRecorder.Body.Bytes(), &sessionResponse); err != nil {
+		t.Fatalf("Unmarshal(create auth session) error = %v", err)
+	}
+
+	if err := stateStore.DeleteTenant(context.Background(), "tenant-a"); err != nil {
+		t.Fatalf("DeleteTenant() error = %v", err)
+	}
+
+	currentTenantRequest := httptest.NewRequest(http.MethodGet, "/api/v1/tenants/current", nil)
+	currentTenantRequest.RemoteAddr = "203.0.113.10:41000"
+	for _, cookie := range createRecorder.Result().Cookies() {
+		currentTenantRequest.AddCookie(cookie)
+	}
+	currentTenantRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(currentTenantRecorder, currentTenantRequest)
+	if currentTenantRecorder.Code != http.StatusUnauthorized {
+		t.Fatalf("current tenant status = %d, want %d: %s", currentTenantRecorder.Code, http.StatusUnauthorized, currentTenantRecorder.Body.String())
+	}
+
+	revoked, err := stateStore.IsAuthSessionRevoked(context.Background(), sessionResponse.SessionID)
+	if err != nil {
+		t.Fatalf("IsAuthSessionRevoked() error = %v", err)
+	}
+	if !revoked {
+		t.Fatal("IsAuthSessionRevoked() = false, want true after tenant deletion")
+	}
+}
+
+func TestServer_Handler_ServiceAccountCredentialRotation_RevokesBoundSession_Expected(t *testing.T) {
+	t.Parallel()
+
+	stateStore := store.NewMemoryStore()
+	if err := stateStore.CreateTenant(context.Background(), models.Tenant{
+		ID:     "tenant-a",
+		Name:   "Tenant A",
+		APIKey: "tenant-a-key",
+		Active: true,
+		ServiceAccounts: []models.ServiceAccount{
+			{
+				ID:        "sa-operator",
+				Name:      "Operator",
+				APIKey:    "service-key",
+				Role:      models.TenantRoleOperator,
+				Active:    true,
+				CreatedAt: time.Now().UTC(),
+			},
+		},
+	}); err != nil {
+		t.Fatalf("CreateTenant() error = %v", err)
+	}
+
+	server := mustNewServer(t, stateStore)
+	handler := server.Handler()
+
+	createRequest := httptest.NewRequest(http.MethodPost, "/api/v1/auth/session", bytes.NewBufferString(`{"mode":"service-account","api_key":"service-key"}`))
+	createRequest.RemoteAddr = "203.0.113.10:41000"
+	createRequest.Header.Set("Content-Type", "application/json")
+	createRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(createRecorder, createRequest)
+	if createRecorder.Code != http.StatusCreated {
+		t.Fatalf("create status = %d, want %d: %s", createRecorder.Code, http.StatusCreated, createRecorder.Body.String())
+	}
+
+	var sessionResponse authSessionResponse
+	if err := json.Unmarshal(createRecorder.Body.Bytes(), &sessionResponse); err != nil {
+		t.Fatalf("Unmarshal(create auth session) error = %v", err)
+	}
+
+	tenant, err := stateStore.GetTenant(context.Background(), "tenant-a")
+	if err != nil {
+		t.Fatalf("GetTenant() error = %v", err)
+	}
+	for index := range tenant.ServiceAccounts {
+		if tenant.ServiceAccounts[index].ID == "sa-operator" {
+			tenant.ServiceAccounts[index].APIKey = "service-key-rotated"
+			tenant.ServiceAccounts[index].APIKeyHash = ""
+		}
+	}
+	if err := stateStore.UpdateTenant(context.Background(), *tenant); err != nil {
+		t.Fatalf("UpdateTenant() error = %v", err)
+	}
+
+	currentTenantRequest := httptest.NewRequest(http.MethodGet, "/api/v1/tenants/current", nil)
+	currentTenantRequest.RemoteAddr = "203.0.113.10:41000"
+	for _, cookie := range createRecorder.Result().Cookies() {
+		currentTenantRequest.AddCookie(cookie)
+	}
+	currentTenantRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(currentTenantRecorder, currentTenantRequest)
+	if currentTenantRecorder.Code != http.StatusUnauthorized {
+		t.Fatalf("current tenant status = %d, want %d: %s", currentTenantRecorder.Code, http.StatusUnauthorized, currentTenantRecorder.Body.String())
+	}
+
+	revoked, err := stateStore.IsAuthSessionRevoked(context.Background(), sessionResponse.SessionID)
+	if err != nil {
+		t.Fatalf("IsAuthSessionRevoked() error = %v", err)
+	}
+	if !revoked {
+		t.Fatal("IsAuthSessionRevoked() = false, want true after service account rotation")
+	}
+}
+
 func TestRotationAuditIncludesBothHashPrefixes(t *testing.T) {
 	t.Parallel()
 

@@ -6,6 +6,11 @@ This changelog tracks published releases and the major implementation milestones
 
 ## [Unreleased]
 
+### Security And Release Hardening
+
+- made `.github/workflows/image.yml` the only publishing workflow for `v*` tags, turned `.github/workflows/release.yml` into a guard-only workflow, and added `actionlint` to CI plus the local release gate so release ownership and signing identity stay singular
+- moved dashboard-session revocation store and audit I/O out from under the in-memory session-manager mutex, switched tenant and service-account auth to a store-backed credential-hash lookup path, and tightened session validation so rotated or deleted tenant and service-account credentials invalidate old sessions without storing plaintext keys
+
 ## [3.2.0] - 2026-04-24
 
 ### Trust, Diagnostics, And Observability
