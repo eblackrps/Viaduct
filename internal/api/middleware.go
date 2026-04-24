@@ -424,6 +424,7 @@ func hashCredential(_ context.Context, key string) [32]byte {
 	if trimmed == "" {
 		return [32]byte{}
 	}
+	// lgtm[go/weak-sensitive-data-hashing] Tenant and service-account keys are high-entropy API tokens; this digest matches the existing store lookup contract.
 	return sha256.Sum256([]byte(trimmed))
 }
 
