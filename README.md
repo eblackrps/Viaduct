@@ -56,6 +56,8 @@ These are current seeded-product captures from the packaged operator shell. They
 
 ## Platform Coverage
 
+Detailed validation status, including fixture-backed versus live-lab claims, is maintained in [docs/reference/support-matrix.md](docs/reference/support-matrix.md).
+
 | Platform / Integration | Status | Notes |
 | --- | --- | --- |
 | VMware vSphere | Implemented | vCenter discovery with VM and infrastructure metadata. |
@@ -66,26 +68,26 @@ These are current seeded-product captures from the packaged operator shell. They
 | Veeam Backup & Replication | Implemented | Backup discovery, restore-point correlation, and portability planning support. |
 | Community plugins | Supported | gRPC plugin host with manifest and compatibility checks. |
 
-## Canonical Docker Install
+## Primary Docker Install
 
-Viaduct `v3.2.0` treats the signed OCI image as the canonical production artifact.
+After the `v3.2.1` tag workflow publishes, Viaduct treats the signed OCI image as the primary packaged artifact.
 
 ```bash
-docker pull ghcr.io/eblackrps/viaduct:3.2.0
-cosign verify ghcr.io/eblackrps/viaduct:3.2.0 \
+docker pull ghcr.io/eblackrps/viaduct:3.2.1
+cosign verify ghcr.io/eblackrps/viaduct:3.2.1 \
   --certificate-identity \
-  'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.2.0' \
+  'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.2.1' \
   --certificate-oidc-issuer \
   'https://token.actions.githubusercontent.com'
 ```
 
-The signed canonical registry is `ghcr.io/eblackrps/viaduct`. The convenience mirror is `docker.io/emb079/viaduct:3.2.0`.
+The primary signed registry is `ghcr.io/eblackrps/viaduct`. The Docker Hub mirror is `docker.io/emb079/viaduct:3.2.1` when repository Docker Hub secrets are configured.
 
-GitHub Actions is configured to mirror release tags plus `main` branch `:edge` and `:sha-*` image tags to Docker Hub whenever `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` are configured as Actions secrets for this repo or as inherited organization secrets. `v3.2.0` also ships the backend observability baseline: OpenTelemetry tracing in the Go API, a local Grafana + Tempo stack, and a source-controlled validation path that proves traces arrive before release. Detailed container guidance lives in [docs/operations/docker.md](docs/operations/docker.md). The production samples in [deploy/docker-compose.prod.yml](deploy/docker-compose.prod.yml) and [deploy/helm/viaduct](deploy/helm/viaduct) now reflect the canonical release path. Native bundles remain available on GitHub Releases as an alternative path for environments that cannot run containers.
+GitHub Actions is configured to mirror release tags plus `main` branch `:edge` and `:sha-*` image tags to Docker Hub whenever `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` are configured as Actions secrets for this repo or as inherited organization secrets. Detailed container guidance lives in [docs/operations/docker.md](docs/operations/docker.md). The Compose and Helm samples in [deploy/docker-compose.prod.yml](deploy/docker-compose.prod.yml) and [deploy/helm/viaduct](deploy/helm/viaduct) use PostgreSQL-backed state for persistent deployments. Native bundles remain available on GitHub Releases as an alternative path for environments that cannot run containers.
 
 ## Source Build And Local Lab
 
-The cleanest contributor and offline-evaluation path is still the local lab in [examples/lab](examples/lab). Docker is the canonical production install, but the local workspace-first flow remains fastest from a fresh clone.
+The cleanest contributor and offline-evaluation path is still the local lab in [examples/lab](examples/lab). Docker is the primary packaged install path, but the local workspace-first flow remains fastest from a fresh clone.
 
 ```bash
 make build
@@ -151,7 +153,7 @@ make release-surface-check
 make package-release-matrix
 ```
 
-`make package-release-matrix` produces the secondary native-bundle matrix that release tags attach beneath the canonical OCI image publication path: `linux/amd64`, `linux/arm64`, `darwin/arm64`, and `windows/amd64` archives plus `dist/SHA256SUMS`.
+`make package-release-matrix` produces the secondary native-bundle matrix that release tags attach beneath the primary OCI image publication path: `linux/amd64`, `linux/arm64`, `darwin/arm64`, and `windows/amd64` archives plus `dist/SHA256SUMS`.
 
 ## Documentation
 

@@ -50,7 +50,7 @@ Fix:
 - open `http://127.0.0.1:8080` for the default same-origin operator path
 - set `VIADUCT_WEB_DIR` only if the built dashboard assets live outside the standard packaged or installed paths
 - use the Get started screen or prefer `VITE_VIADUCT_SERVICE_ACCOUNT_KEY` for local development
-- confirm API health at `/api/v1/health`
+- confirm process liveness at `/healthz` and readiness at `/readyz` or `/api/v1/health`
 
 ## Browser Reports `origin not allowed`
 

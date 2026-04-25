@@ -8,7 +8,7 @@ This directory holds the deeper Viaduct documentation set. The repo-root docs ar
 - [Quickstart](getting-started/quickstart.md)
 - [Docker Operations](operations/docker.md)
 
-Viaduct `v3.2.0` treats the signed GHCR OCI image as the canonical install surface. The Docker Hub mirror at `docker.io/emb079/viaduct` is published from the same workflow when the required Actions secrets are configured. The current release/install reference lives in [releases/current.md](releases/current.md). The default local contributor path still starts with `viaduct start`, opens the WebUI at `http://127.0.0.1:8080`, and uses the shipped lab fixtures when no local config exists yet.
+After the `v3.2.1` tag publishes, the signed GHCR OCI image is the primary packaged install surface. The Docker Hub mirror at `docker.io/emb079/viaduct` is published from the same workflow when the required Actions secrets are configured. The current release/install reference lives in [releases/current.md](releases/current.md). The default local contributor path still starts with `viaduct start`, opens the WebUI at `http://127.0.0.1:8080`, and uses the shipped lab fixtures when no local config exists yet.
 
 ## Operator Workflows
 

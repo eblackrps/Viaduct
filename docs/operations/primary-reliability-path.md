@@ -113,7 +113,7 @@ This path is the best first reliability target because it is the highest-overlap
 It is the only path that simultaneously:
 
 - starts from the VMware-exit problem Viaduct is positioned around
-- ends in a supervised live motion Viaduct explicitly names in `docs/v1-scope.md`
+- ends in a supervised pilot path with limitations documented in `docs/v1-scope.md` and the support matrix
 - touches the main operator surfaces without demanding equal maturity across every feature area
 - produces useful outputs even before broad automation trust exists
 

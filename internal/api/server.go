@@ -93,6 +93,7 @@ type aboutResponse struct {
 	StoreBackend         string                    `json:"store_backend"`
 	StoreSchemaVersion   int                       `json:"store_schema_version,omitempty"`
 	PersistentStore      bool                      `json:"persistent_store"`
+	ProductionMode       bool                      `json:"production_mode"`
 	LocalOperatorSession bool                      `json:"local_operator_session_enabled"`
 }
 
@@ -105,6 +106,9 @@ type healthResponse struct {
 type readinessResponse struct {
 	Status          string                     `json:"status"`
 	PoliciesLoaded  bool                       `json:"policies_loaded"`
+	AuthConfigured  bool                       `json:"auth_configured"`
+	DashboardAssets bool                       `json:"dashboard_assets"`
+	ProductionMode  bool                       `json:"production_mode"`
 	Store           *store.Diagnostics         `json:"store,omitempty"`
 	CircuitBreakers []connectorCircuitSnapshot `json:"circuit_breakers,omitempty"`
 	Issues          []string                   `json:"issues,omitempty"`
@@ -140,6 +144,7 @@ type Server struct {
 	authSessions            *authSessionManager
 	localRuntimeMode        bool
 	allowUnauthRemote       bool
+	productionMode          bool
 	connectorCircuits       *connectorCircuitRegistry
 	apiCSP                  string
 	dashboardCSP            string
@@ -247,6 +252,7 @@ func NewServer(engine *discovery.Engine, stateStore store.Store, port int, catal
 		workspaceJobWorkers:     intEnv("VIADUCT_WORKSPACE_JOB_CONCURRENCY", defaultWorkspaceJobConcurrency),
 		authSessions:            newAuthSessionManager(durationEnv("VIADUCT_AUTH_SESSION_TTL", 12*time.Hour), persistentAuthSessionTTL()),
 		connectorCircuits:       newConnectorCircuitRegistry(loadConnectorCircuitConfig()),
+		productionMode:          productionModeFromEnv(),
 		apiCSP:                  configuredSecurityHeader("VIADUCT_API_CSP", "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"),
 		dashboardCSP: configuredSecurityHeader(
 			"VIADUCT_DASHBOARD_CSP",
@@ -302,6 +308,14 @@ func (s *Server) SetAllowUnauthenticatedRemote(enabled bool) {
 		return
 	}
 	s.allowUnauthRemote = enabled
+}
+
+// SetProductionMode configures startup and readiness checks for production deployments.
+func (s *Server) SetProductionMode(enabled bool) {
+	if s == nil {
+		return
+	}
+	s.productionMode = enabled
 }
 
 func bindHostLooksLikeUnixSocket(host string) bool {
@@ -390,6 +404,9 @@ func (s *Server) Start(ctx context.Context) error {
 	if s == nil {
 		return fmt.Errorf("start api server: nil server")
 	}
+	if err := s.validateProductionStartup(ctx); err != nil {
+		return err
+	}
 	if err := s.validateBindSecurity(ctx); err != nil {
 		return err
 	}
@@ -427,6 +444,32 @@ func (s *Server) Start(ctx context.Context) error {
 	return nil
 }
 
+func (s *Server) validateProductionStartup(ctx context.Context) error {
+	if s == nil || !s.productionMode {
+		return nil
+	}
+	if !hasConfiguredAPIKeys(ctx, s.store, s.adminAPIKey) {
+		return fmt.Errorf("api server: production mode requires an admin, tenant, or service-account credential")
+	}
+	diagnostics, ok, err := s.storeDiagnostics(ctx)
+	if err != nil {
+		return fmt.Errorf("api server: production mode store diagnostics: %w", err)
+	}
+	if !ok || !diagnostics.Persistent {
+		return fmt.Errorf("api server: production mode requires a persistent PostgreSQL state store; configure state_store_dsn or VIADUCT_STATE_STORE_DSN")
+	}
+	if diagnostics.SchemaVersion <= 0 {
+		return fmt.Errorf("api server: production mode requires a recorded store schema version")
+	}
+	if !isBuiltDashboardDir(s.dashboardDir) {
+		return fmt.Errorf("api server: production mode requires built dashboard assets")
+	}
+	if s.policyEngine == nil || s.policyEngine.PolicyCount() == 0 {
+		return fmt.Errorf("api server: production mode requires lifecycle policies to load from configs/policies")
+	}
+	return nil
+}
+
 func (s *Server) validateBindSecurity(ctx context.Context) error {
 	if s == nil {
 		return nil
@@ -442,6 +485,9 @@ func (s *Server) validateBindSecurity(ctx context.Context) error {
 	}
 	if hasConfiguredAPIKeys(ctx, s.store, s.adminAPIKey) {
 		return nil
+	}
+	if s.productionMode {
+		return fmt.Errorf("api server: production remote bind requires configured admin, tenant, or service-account credentials; dangerous unauthenticated remote override is ignored in production mode")
 	}
 	if s.allowUnauthRemote {
 		packageLogger.Warn(
@@ -578,20 +624,27 @@ func (s *Server) handleReadyz(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	authConfigured := hasConfiguredAPIKeys(r.Context(), s.store, s.adminAPIKey)
 	response := readinessResponse{
-		Status:         "ready",
-		PoliciesLoaded: s.policyEngine != nil && s.policyEngine.PolicyCount() > 0,
+		Status:          "ready",
+		PoliciesLoaded:  s.policyEngine != nil && s.policyEngine.PolicyCount() > 0,
+		AuthConfigured:  authConfigured,
+		DashboardAssets: isBuiltDashboardDir(s.dashboardDir),
+		ProductionMode:  s.productionMode,
 	}
 	statusCode := http.StatusOK
-	if provider, ok := s.store.(store.DiagnosticsProvider); ok {
-		if diagnostics, err := provider.Diagnostics(r.Context()); err == nil {
-			response.Store = &diagnostics
-			if diagnostics.Persistent && diagnostics.SchemaVersion <= 0 {
-				markReadinessUnavailable(&response, &statusCode, readinessIssueForStoreSchema(diagnostics))
-			}
-		} else {
-			markReadinessUnavailable(&response, &statusCode, readinessIssueForStoreDiagnostics(err))
+	if diagnostics, ok, err := s.storeDiagnostics(r.Context()); ok && err == nil {
+		response.Store = &diagnostics
+		if diagnostics.Persistent && diagnostics.SchemaVersion <= 0 {
+			markReadinessUnavailable(&response, &statusCode, readinessIssueForStoreSchema(diagnostics))
 		}
+		if s.productionMode && !diagnostics.Persistent {
+			markReadinessUnavailable(&response, &statusCode, "production mode requires a persistent PostgreSQL state store")
+		}
+	} else if err != nil {
+		markReadinessUnavailable(&response, &statusCode, readinessIssueForStoreDiagnostics(err))
+	} else if s.productionMode {
+		markReadinessUnavailable(&response, &statusCode, "production mode requires store diagnostics")
 	}
 	response.CircuitBreakers = s.connectorCircuits.snapshots()
 	for _, circuit := range response.CircuitBreakers {
@@ -602,8 +655,29 @@ func (s *Server) handleReadyz(w http.ResponseWriter, r *http.Request) {
 	if !response.PoliciesLoaded {
 		markReadinessUnavailable(&response, &statusCode, "no lifecycle policies are loaded from configs/policies")
 	}
+	if s.productionMode && !authConfigured {
+		markReadinessUnavailable(&response, &statusCode, "production mode requires an admin, tenant, or service-account credential")
+	}
+	if s.productionMode && !response.DashboardAssets {
+		markReadinessUnavailable(&response, &statusCode, "production mode requires built dashboard assets")
+	}
 
 	writeJSON(w, statusCode, response)
+}
+
+func (s *Server) storeDiagnostics(ctx context.Context) (store.Diagnostics, bool, error) {
+	if s == nil || s.store == nil {
+		return store.Diagnostics{}, false, nil
+	}
+	provider, ok := s.store.(store.DiagnosticsProvider)
+	if !ok {
+		return store.Diagnostics{}, false, nil
+	}
+	diagnostics, err := provider.Diagnostics(ctx)
+	if err != nil {
+		return store.Diagnostics{}, true, err
+	}
+	return diagnostics, true, nil
 }
 
 func markReadinessUnavailable(response *readinessResponse, statusCode *int, issue string) {
@@ -681,6 +755,7 @@ func (s *Server) handleAbout(w http.ResponseWriter, r *http.Request) {
 		StoreBackend:         diagnostics.Backend,
 		StoreSchemaVersion:   diagnostics.SchemaVersion,
 		PersistentStore:      diagnostics.Persistent,
+		ProductionMode:       s.productionMode,
 		LocalOperatorSession: s.localOperatorSessionEnabled(r),
 	})
 }
@@ -1950,6 +2025,15 @@ func configuredAllowedOrigins(raw string, authEnabled bool) (map[string]struct{}
 		allowed[normalizedOrigin] = struct{}{}
 	}
 	return allowed, nil
+}
+
+func productionModeFromEnv() bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("VIADUCT_ENVIRONMENT"))) {
+	case "production", "prod":
+		return true
+	default:
+		return false
+	}
 }
 
 func trustedProxyStrings(networks []*net.IPNet) []string {

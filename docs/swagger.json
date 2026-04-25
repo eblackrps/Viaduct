@@ -39,6 +39,9 @@
           "plugin_protocol": {
             "type": "string"
           },
+          "production_mode": {
+            "type": "boolean"
+          },
           "store_backend": {
             "type": "string"
           },
@@ -251,6 +254,26 @@
         },
         "type": "object"
       },
+      "ConnectorCircuitSnapshot": {
+        "properties": {
+          "address": {
+            "type": "string"
+          },
+          "endpoint": {
+            "type": "string"
+          },
+          "platform": {
+            "type": "string"
+          },
+          "retry_after_seconds": {
+            "type": "integer"
+          },
+          "state": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "CurrentTenant": {
         "properties": {
           "active": {
@@ -306,6 +329,15 @@
               "$ref": "#/components/schemas/VirtualMachine"
             },
             "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "HealthResponse": {
+        "properties": {
+          "status": {
+            "example": "ok",
+            "type": "string"
           }
         },
         "type": "object"
@@ -642,6 +674,45 @@
         },
         "type": "object"
       },
+      "ReadinessResponse": {
+        "properties": {
+          "auth_configured": {
+            "type": "boolean"
+          },
+          "circuit_breakers": {
+            "items": {
+              "$ref": "#/components/schemas/ConnectorCircuitSnapshot"
+            },
+            "type": "array"
+          },
+          "dashboard_assets": {
+            "type": "boolean"
+          },
+          "issues": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "policies_loaded": {
+            "type": "boolean"
+          },
+          "production_mode": {
+            "type": "boolean"
+          },
+          "status": {
+            "enum": [
+              "ready",
+              "not_ready"
+            ],
+            "type": "string"
+          },
+          "store": {
+            "$ref": "#/components/schemas/StoreDiagnostics"
+          }
+        },
+        "type": "object"
+      },
       "RollbackResult": {
         "properties": {
           "duration": {
@@ -775,6 +846,21 @@
             "type": "string"
           },
           "vm_count": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "StoreDiagnostics": {
+        "properties": {
+          "backend": {
+            "example": "postgres",
+            "type": "string"
+          },
+          "persistent": {
+            "type": "boolean"
+          },
+          "schema_version": {
             "type": "integer"
           }
         },
@@ -1612,20 +1698,24 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "properties": {
-                    "status": {
-                      "example": "ok",
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
+                  "$ref": "#/components/schemas/ReadinessResponse"
                 }
               }
             },
-            "description": "API is running"
+            "description": "Runtime is ready"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessResponse"
+                }
+              }
+            },
+            "description": "Runtime is reachable but not ready"
           }
         },
-        "summary": "Liveness probe"
+        "summary": "Readiness probe compatibility alias"
       }
     },
     "/api/v1/inventory": {
@@ -1986,13 +2076,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "properties": {
-                    "status": {
-                      "example": "ok",
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
+                  "$ref": "#/components/schemas/HealthResponse"
                 }
               }
             },
@@ -2949,6 +3033,51 @@
           }
         ],
         "summary": "List tenant discovery snapshots"
+      }
+    },
+    "/healthz": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            },
+            "description": "API process is running"
+          }
+        },
+        "summary": "Process liveness probe"
+      }
+    },
+    "/readyz": {
+      "get": {
+        "description": "Reports readiness details used by containers, Helm readiness probes, release acceptance checks, and operator diagnostics.\n",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessResponse"
+                }
+              }
+            },
+            "description": "Runtime is ready"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessResponse"
+                }
+              }
+            },
+            "description": "Runtime is reachable but not ready"
+          }
+        },
+        "summary": "Runtime readiness probe"
       }
     }
   },

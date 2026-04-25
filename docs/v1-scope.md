@@ -1,6 +1,6 @@
 # V1 Scope Definition
 
-This document freezes the Viaduct v1 support promise. It is the reference for roadmap decisions, demo scope, release planning, and design-partner conversations.
+This document is a historical planning boundary for Viaduct v1 scope. The current release support matrix in [`docs/reference/support-matrix.md`](reference/support-matrix.md) is authoritative for implemented, fixture-tested, live-lab-tested, and production-pilot-tested status.
 
 The rule is simple:
 
@@ -12,7 +12,7 @@ Viaduct already contains more technical surface area than a credible first relea
 
 For v1, "mixed-estate" means Viaduct can help an operator inspect and reason about an estate that spans more than one platform.
 
-It does **not** mean equal live migration support across many source and target combinations.
+It does **not** mean equal live migration support across many source and target combinations, and it does not claim production-pilot validation for live execution.
 
 ## 1. Product Objective For V1
 
@@ -23,7 +23,7 @@ In plain terms, v1 is successful if an operator can:
 - understand workload and dependency risk
 - define and validate the first migration wave
 - produce stakeholder-ready summary, migration, and audit outputs
-- execute a supervised pilot with explicit approvals, checkpoints, and rollback visibility
+- evaluate supervised pilot execution mechanics with explicit approvals, checkpoints, and rollback visibility
 
 ## 2. Target Users For V1
 
@@ -51,20 +51,22 @@ V1 supports these use cases:
 4. Define workloads, exclusions, network/storage mappings, approval requirements, execution windows, and waves in a declarative migration spec.
 5. Run plan validation and preflight checks before execution.
 6. Produce an approval-ready first-wave pilot plan and operator-facing status outputs.
-7. Run a supervised pilot migration for the supported live migration motion with explicit approvals, checkpoint-aware resume support, and rollback visibility.
+7. Evaluate supervised pilot migration mechanics with explicit approvals, checkpoint-aware resume support, and rollback visibility.
 
 Anything broader than those use cases should be treated as post-v1 unless it is required to make the above path work cleanly.
 
-### Single Supported Live Migration Motion
+### Candidate Pilot Execution Boundary
 
-The only formal live migration motion in v1 is:
+The candidate first pilot motion discussed in this historical scope was:
 
 **VMware vSphere source to Proxmox VE target**
+
+Current release docs should not present this as production-pilot-tested unless the support matrix and release evidence explicitly say so.
 
 Everything else should be treated as one of the following:
 - evaluation-only
 - planning context only
-- implemented but unsupported in the v1 promise
+- implemented but unsupported in the release support matrix
 - future work
 
 ## 4. Supported Source Platforms For V1
@@ -87,9 +89,9 @@ These may exist in the repo and remain useful internally, but they are not part 
 
 ## 5. Supported Target Platforms For V1
 
-### Single Supported Live Target
+### Named Pilot Target
 - Proxmox VE
-  Use in v1: primary named pilot target for teams that want a concrete VMware-exit landing zone.
+  Use in v1 planning: primary named pilot target for teams that want a concrete VMware-exit landing-zone candidate. Current release docs must still state validation status conservatively.
 
 ### Evaluation And Demo Target Context
 - KVM/libvirt
@@ -112,13 +114,13 @@ These workflows must work well enough to be considered part of v1:
 2. Inventory and readiness review through the API and dashboard
    `/api/v1/inventory`, `/api/v1/snapshots`, `/api/v1/graph`, `/api/v1/summary`, and the corresponding dashboard views must expose enough context for first-wave decisions.
 3. First-wave planning through declarative specs
-   `viaduct plan` plus the migration spec model must support selectors, mappings, approvals, windows, and waves for the VMware-to-Proxmox path.
+   `viaduct plan` plus the migration spec model must support selectors, mappings, approvals, windows, and waves for the VMware-to-Proxmox planning path.
 4. Preflight validation through the API and dashboard
    `/api/v1/preflight` and the migration workflow UI must expose actionable preflight results before execution.
 5. Approval-ready pilot handoff
    The operator must be able to hand an internal reviewer a concrete first-wave plan, current summary, and audit trail without exporting data manually from the codebase.
 6. Supervised pilot execution through explicit API or CLI action
-   `viaduct migrate` and `/api/v1/migrations` plus `/execute` must support operator-triggered pilot runs for the supported live motion.
+   `viaduct migrate` and `/api/v1/migrations` plus `/execute` must expose operator-triggered pilot execution mechanics without implying production-pilot validation.
 7. Monitor, resume, and roll back
    `viaduct status`, `/api/v1/migrations`, `/api/v1/migrations/<id>`, `/resume`, and `/rollback` plus the dashboard views must expose enough state to control a pilot run safely.
 
@@ -128,7 +130,7 @@ For v1, the CLI and API are the source of truth for workflow state.
 
 The dashboard is required as an operator surface, but it must stay faithful to persisted backend state rather than introducing frontend-only execution logic.
 
-V1 does not require every workflow to be equally polished across CLI, API, and dashboard. It does require the dashboard to accurately reflect the supported backend workflow for the core assessment and supervised pilot path.
+V1 does not require every workflow to be equally polished across CLI, API, and dashboard. It does require the dashboard to accurately reflect the backend workflow for the core assessment and supervised pilot path.
 
 ## 7. Required Reports And Exports For V1
 
@@ -160,7 +162,7 @@ V1 does not require PDF exports, presentation-grade executive reporting, or cust
 These are the capabilities that make v1 real:
 
 - VMware discovery that reliably normalizes source inventory
-- Proxmox target discovery and planning inputs for the supported live migration motion
+- Proxmox target discovery and planning inputs for the candidate VMware-to-Proxmox pilot path
 - dependency-aware inventory sufficient to choose and sequence the first migration wave
 - backup exposure context sufficient to identify workloads that need pilot-planning caution
 - declarative migration spec parsing and validation
@@ -184,7 +186,7 @@ These are useful but should not block v1 if the core path is strong:
 - smoother packaged demo assets for VMware-exit storytelling
 - service-account support for automation-heavy pilot teams
 - stronger dashboard convenience flows that sit on top of existing API behavior
-- deeper live-environment certification beyond the first supported migration motion
+- deeper live-environment certification before any migration motion is claimed as production-pilot-tested
 
 ## 10. Explicitly Out-Of-Scope Items
 

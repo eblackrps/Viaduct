@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -13,8 +14,9 @@ type dashboardPackage struct {
 }
 
 type surfaceExpectation struct {
-	Path    string
-	Needles []string
+	Path          string
+	Needles       []string
+	CheckVersions bool
 }
 
 func main() {
@@ -36,6 +38,7 @@ func main() {
 				imageTag,
 				"docs/releases/current.md",
 			},
+			CheckVersions: true,
 		},
 		{
 			Path: "INSTALL.md",
@@ -45,6 +48,7 @@ func main() {
 				mirrorTag,
 				"docs/releases/current.md",
 			},
+			CheckVersions: true,
 		},
 		{
 			Path: "QUICKSTART.md",
@@ -52,6 +56,7 @@ func main() {
 				releaseTag,
 				"docs/releases/current.md",
 			},
+			CheckVersions: true,
 		},
 		{
 			Path: filepath.Join("docs", "README.md"),
@@ -59,6 +64,16 @@ func main() {
 				releaseTag,
 				"releases/current.md",
 			},
+			CheckVersions: true,
+		},
+		{
+			Path: filepath.Join("docs", "getting-started", "installation.md"),
+			Needles: []string{
+				releaseTag,
+				imageTag,
+				mirrorTag,
+			},
+			CheckVersions: true,
 		},
 		{
 			Path: filepath.Join("docs", "getting-started", "quickstart.md"),
@@ -66,6 +81,7 @@ func main() {
 				releaseTag,
 				"../releases/current.md",
 			},
+			CheckVersions: true,
 		},
 		{
 			Path: filepath.Join("docs", "releases", "README.md"),
@@ -82,6 +98,16 @@ func main() {
 				mirrorTag,
 				releaseNotePath,
 			},
+			CheckVersions: true,
+		},
+		{
+			Path: filepath.Join("docs", "operations", "docker.md"),
+			Needles: []string{
+				releaseTag,
+				imageTag,
+				mirrorTag,
+			},
+			CheckVersions: true,
 		},
 		{
 			Path: "CHANGELOG.md",
@@ -114,6 +140,20 @@ func main() {
 				imageTag,
 				releaseTag + " release notes",
 			},
+			CheckVersions: true,
+		},
+		{
+			Path: filepath.Join("site", "social-card.svg"),
+			Needles: []string{
+				releaseTag,
+			},
+			CheckVersions: true,
+		},
+		{
+			Path: filepath.Join(".github", "workflows", "image.yml"),
+			Needles: []string{
+				"for example " + releaseTag,
+			},
 		},
 	}
 
@@ -124,6 +164,14 @@ func main() {
 				failures,
 				fmt.Sprintf("%s is missing %s", filepath.ToSlash(expectation.Path), strings.Join(missing, ", ")),
 			)
+		}
+		if expectation.CheckVersions {
+			if stale := unexpectedVersionReferences(expectation.Path, version); len(stale) > 0 {
+				failures = append(
+					failures,
+					fmt.Sprintf("%s has stale active version reference(s): %s", filepath.ToSlash(expectation.Path), strings.Join(stale, ", ")),
+				)
+			}
 		}
 	}
 
@@ -172,6 +220,39 @@ func missingNeedles(expectation surfaceExpectation) []string {
 		}
 	}
 	return missing
+}
+
+func unexpectedVersionReferences(path, version string) []string {
+	// #nosec G304 -- paths come from the fixed release-surface expectation table in this script.
+	payload, err := os.ReadFile(path)
+	if err != nil {
+		return []string{fmt.Sprintf("readable content (%v)", err)}
+	}
+	pattern := regexp.MustCompile(`(?:v|viaduct:|viaduct_)[0-9]+\.[0-9]+\.[0-9]+|(?:ghcr\.io/eblackrps/viaduct|docker\.io/emb079/viaduct):[0-9]+\.[0-9]+\.[0-9]+`)
+	matches := pattern.FindAllString(string(payload), -1)
+	stale := make([]string, 0)
+	seen := make(map[string]struct{}, len(matches))
+	for _, match := range matches {
+		normalized := match
+		for _, prefix := range []string{
+			"ghcr.io/eblackrps/viaduct:",
+			"docker.io/emb079/viaduct:",
+			"viaduct:",
+			"viaduct_",
+			"v",
+		} {
+			normalized = strings.TrimPrefix(normalized, prefix)
+		}
+		if normalized == version {
+			continue
+		}
+		if _, ok := seen[match]; ok {
+			continue
+		}
+		seen[match] = struct{}{}
+		stale = append(stale, match)
+	}
+	return stale
 }
 
 func failf(format string, args ...any) {

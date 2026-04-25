@@ -139,6 +139,89 @@ func TestImageWorkflow_ScanFailsClosedAndAttestationsExist_Expected(t *testing.T
 	}
 }
 
+func TestImageWorkflow_RunsPublishedImageAcceptanceBeforeRelease_Expected(t *testing.T) {
+	t.Parallel()
+
+	workflow := loadImageWorkflow(t)
+	step := workflow.stepNamed(t, "release-acceptance", "Run published image acceptance smoke")
+	if !strings.Contains(step.Run, "go run ./scripts/release_acceptance") {
+		t.Fatalf("acceptance run = %q, want release acceptance script", step.Run)
+	}
+	if !strings.Contains(step.Run, `-image "${IMAGE_NAME}@${DIGEST}"`) {
+		t.Fatalf("acceptance run = %q, want published digest image", step.Run)
+	}
+	if !strings.Contains(step.Run, `-certificate-identity "${WORKFLOW_IDENTITY}"`) {
+		t.Fatalf("acceptance run = %q, want cosign identity verification", step.Run)
+	}
+
+	releaseJob, ok := workflow.Jobs["release"]
+	if !ok {
+		t.Fatal("image workflow missing release job")
+	}
+	if !jobNeeds(releaseJob, "release-acceptance") {
+		t.Fatal("release job does not depend on release-acceptance")
+	}
+}
+
+func TestImageWorkflow_BuildTestCoversSourceReleaseGates_Expected(t *testing.T) {
+	t.Parallel()
+
+	workflow := loadImageWorkflow(t)
+	goStep := workflow.stepNamed(t, "build-test", "Run Go verification")
+	for _, required := range []string{
+		"go build ./...",
+		"go vet ./...",
+		"go test ./... -race -count=1 -timeout 15m",
+		"go test -tags soak ./tests/soak/... -count=1",
+	} {
+		if !strings.Contains(goStep.Run, required) {
+			t.Fatalf("go verification run = %q, want %q", goStep.Run, required)
+		}
+	}
+
+	contractStep := workflow.stepNamed(t, "build-test", "Verify OpenAPI contract")
+	for _, required := range []string{
+		"go run ./scripts/openapi_generate",
+		"git diff --exit-code -- docs/swagger.json",
+		"go test ./tests/integration/... -run TestOpenAPISpec_ -count=1",
+	} {
+		if !strings.Contains(contractStep.Run, required) {
+			t.Fatalf("contract run = %q, want %q", contractStep.Run, required)
+		}
+	}
+	if workflow.stepIndex(t, "build-test", "Run Gosec") > workflow.stepIndex(t, "build-test", "Install Web Dependencies") {
+		t.Fatal("gosec should run before web dependencies are installed so node_modules is not part of the scan surface")
+	}
+	if workflow.stepIndex(t, "build-test", "Run Trivy filesystem scan") > workflow.stepIndex(t, "build-test", "Install Web Dependencies") {
+		t.Fatal("Trivy filesystem scan should run before web dependencies are installed so node_modules is not part of the scan surface")
+	}
+}
+
+func TestImageWorkflow_BuildTestCoversRuntimeAndObservabilitySmoke_Expected(t *testing.T) {
+	t.Parallel()
+
+	workflow := loadImageWorkflow(t)
+	runtimeStep := workflow.stepNamed(t, "build-test", "Run Playwright runtime smoke")
+	if !strings.Contains(runtimeStep.Run, "npm run e2e:runtime") {
+		t.Fatalf("runtime smoke run = %q, want npm run e2e:runtime", runtimeStep.Run)
+	}
+
+	observabilityStep := workflow.stepNamed(t, "build-test", "Run observability smoke")
+	for _, required := range []string{
+		"make observability-up",
+		"./bin/viaduct start --detach --open-browser=false",
+		"make observability-validate",
+		"make observability-down",
+	} {
+		if !strings.Contains(observabilityStep.Run, required) {
+			t.Fatalf("observability smoke run = %q, want %q", observabilityStep.Run, required)
+		}
+	}
+	if endpoint, _ := observabilityStep.Env["VIADUCT_OTEL_ENDPOINT"].(string); endpoint != "http://127.0.0.1:4318" {
+		t.Fatalf("observability endpoint = %q, want local OTLP endpoint", endpoint)
+	}
+}
+
 func TestImageWorkflow_VerifiesExplicitNativeBundleManifest_Expected(t *testing.T) {
 	t.Parallel()
 

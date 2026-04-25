@@ -1,4 +1,4 @@
-# Canonical tag-release workflow. Keep image publication, signing, attestations,
+# Primary tag-release workflow. Keep image publication, signing, attestations,
 # vulnerability scanning, Docker Hub mirroring, and GitHub Release asset uploads here.
 name: Image
 
@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       mirror_release_tag:
-        description: Existing release tag to mirror from GHCR to Docker Hub (for example v3.2.0)
+        description: Existing release tag to mirror from GHCR to Docker Hub (for example v3.2.1)
         required: false
         type: string
 
@@ -48,32 +48,34 @@ jobs:
           set -euo pipefail
           go install github.com/securego/gosec/v2/cmd/gosec@v2.22.9
 
-      - name: Install Web Dependencies
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd web
-          npm ci
-
-      - name: Install Playwright browsers
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd web
-          npx playwright install --with-deps chromium
-
       - name: Run Go verification
         shell: bash
         run: |
           set -euo pipefail
+          go build ./...
           go vet ./...
           go test ./... -race -count=1 -timeout 15m
+          go test -tags soak ./tests/soak/... -count=1
+
+      - name: Verify OpenAPI contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          go run ./scripts/openapi_generate
+          git diff --exit-code -- docs/swagger.json
+          go test ./tests/integration/... -run TestOpenAPISpec_ -count=1
 
       - name: Verify release surfaces
         shell: bash
         run: |
           set -euo pipefail
           go run ./scripts/release_surface_check
+
+      - name: Verify public site surfaces
+        shell: bash
+        run: |
+          set -euo pipefail
+          go run ./scripts/site_validate
 
       - name: Run Gosec
         shell: bash
@@ -88,6 +90,20 @@ jobs:
           scan-ref: .
           severity: HIGH,CRITICAL
           exit-code: "1"
+
+      - name: Install Web Dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd web
+          npm ci
+
+      - name: Install Playwright browsers
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd web
+          npx playwright install --with-deps chromium
 
       - name: Run web verification
         shell: bash
@@ -105,6 +121,34 @@ jobs:
           set -euo pipefail
           cd web
           npx playwright test --reporter=line
+
+      - name: Run Playwright runtime smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd web
+          npm run e2e:runtime
+
+      - name: Run observability smoke
+        shell: bash
+        env:
+          VIADUCT_OTEL_ENABLED: "true"
+          VIADUCT_OTEL_ENDPOINT: http://127.0.0.1:4318
+          VIADUCT_OTEL_SERVICE_NAME: viaduct-api
+          VIADUCT_OTEL_ENVIRONMENT: release-ci
+          VIADUCT_OTEL_SAMPLER: always_on
+        run: |
+          set -euo pipefail
+          cleanup() {
+            ./bin/viaduct stop || true
+            make observability-down || true
+          }
+          trap cleanup EXIT
+          make web-build
+          make build
+          make observability-up
+          ./bin/viaduct start --detach --open-browser=false
+          make observability-validate
 
   image:
     if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.mirror_release_tag == '' }}
@@ -377,6 +421,35 @@ jobs:
           IMAGE_NAME: ${{ needs.image.outputs.image_name }}
           DIGEST: ${{ needs.image.outputs.digest }}
 
+  release-acceptance:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs:
+      - image
+      - sign
+      - sbom
+      - scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - uses: sigstore/cosign-installer@v4.1.1
+
+      - name: Run published image acceptance smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          go run ./scripts/release_acceptance \
+            -image "${IMAGE_NAME}@${DIGEST}" \
+            -certificate-identity "${WORKFLOW_IDENTITY}"
+        env:
+          IMAGE_NAME: ${{ needs.image.outputs.image_name }}
+          DIGEST: ${{ needs.image.outputs.digest }}
+          WORKFLOW_IDENTITY: ${{ needs.image.outputs.workflow_identity }}
+
   native-bundles:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     needs: build-test
@@ -528,6 +601,7 @@ jobs:
       - sbom
       - provenance
       - scan
+      - release-acceptance
       - native-bundles
     runs-on: ubuntu-latest
     permissions:

@@ -34,11 +34,18 @@ spec:
             - --port
             - "8080"
           env:
+            - name: VIADUCT_ENVIRONMENT
+              value: {{ .Values.runtime.environment | quote }}
             - name: VIADUCT_ADMIN_KEY
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.secrets.existingSecret }}
                   key: {{ .Values.secrets.adminKeyField }}
+            - name: VIADUCT_STATE_STORE_DSN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.stateStore.existingSecret }}
+                  key: {{ .Values.stateStore.dsnField }}
             - name: VIADUCT_WEB_DIR
               value: /opt/viaduct/web
             - name: VIADUCT_OTEL_ENABLED
@@ -77,12 +84,16 @@ spec:
             - name: config
               mountPath: {{ .Values.config.mountPath }}
               readOnly: true
+            - name: tmp
+              mountPath: /tmp
             - name: state
               mountPath: {{ .Values.persistence.mountPath }}
       volumes:
         - name: config
           configMap:
             name: {{ .Values.config.existingConfigMap }}
+        - name: tmp
+          emptyDir: {}
         - name: state
           persistentVolumeClaim:
             claimName: {{ include "viaduct.fullname" . }}-state

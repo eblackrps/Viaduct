@@ -1,10 +1,13 @@
 services:
   viaduct:
-    image: ghcr.io/eblackrps/viaduct:3.2.0
+    image: ghcr.io/eblackrps/viaduct:3.2.1
     restart: unless-stopped
     read_only: true
     tmpfs:
       - /tmp
+    depends_on:
+      postgres:
+        condition: service_healthy
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -12,7 +15,9 @@ services:
     ports:
       - "8080:8080"
     environment:
-      VIADUCT_ADMIN_KEY: ${VIADUCT_ADMIN_KEY:?set-a-plaintext-or-sha256-admin-key}
+      VIADUCT_ENVIRONMENT: production
+      VIADUCT_ADMIN_KEY: ${VIADUCT_ADMIN_KEY:?set-a-sha256-admin-key-hash}
+      VIADUCT_STATE_STORE_DSN: postgres://viaduct:${POSTGRES_PASSWORD:?set-postgres-password}@postgres:5432/viaduct?sslmode=disable
       VIADUCT_WEB_DIR: /opt/viaduct/web
       VIADUCT_OTEL_ENABLED: ${VIADUCT_OTEL_ENABLED:-false}
       VIADUCT_OTEL_ENDPOINT: ${VIADUCT_OTEL_ENDPOINT:-}
@@ -38,7 +43,7 @@ services:
           "/viaduct",
           "healthcheck",
           "--url",
-          "http://127.0.0.1:8080/healthz",
+          "http://127.0.0.1:8080/readyz",
           "--timeout",
           "5s",
         ]
@@ -54,6 +59,29 @@ services:
         reservations:
           cpus: "0.25"
           memory: 256M
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: viaduct
+      POSTGRES_USER: viaduct
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set-postgres-password}
+    volumes:
+      - viaduct-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U viaduct -d viaduct"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.00"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 256M
 
 volumes:
-  viaduct-state:
+  viaduct-postgres:

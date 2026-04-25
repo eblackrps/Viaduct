@@ -6,7 +6,7 @@ password: ""
 insecure: false
 
 # Leave empty to use the in-memory store for local demos.
-# For persistent state, point this at PostgreSQL.
+# For persistent state, point this at PostgreSQL or set VIADUCT_STATE_STORE_DSN.
 state_store_dsn: "postgres://viaduct:change-me@localhost:5432/viaduct?sslmode=disable"
 
 # Admin API authentication is read from the process environment.

@@ -45,7 +45,7 @@ Fields:
 - `username`: default username used when a source-specific value is absent
 - `password`: default password used when a source-specific value is absent
 - `insecure`: default TLS skip-verify behavior
-- `state_store_dsn`: PostgreSQL DSN for persistent state; when empty, Viaduct uses the in-memory store
+- `state_store_dsn`: PostgreSQL DSN for persistent state; when empty, Viaduct uses the in-memory store unless production mode is enabled
 - `credentials`: reusable auth and transport blocks keyed by migration-spec `credential_ref`
 - `sources`: keyed by source address or platform name, mapped to shared connector config
 - `plugins`: optional platform-to-plugin map for external connector processes or already-running gRPC plugin endpoints
@@ -57,6 +57,8 @@ Fields:
 - `VIADUCT_PLUGIN_ADDR`: plugin listener address used by community connector plugins
 - `VIADUCT_ALLOWED_ORIGINS`: comma-separated browser origins allowed to call the API from another origin; defaults to same-origin only when empty
 - `VIADUCT_ALLOW_UNAUTHENTICATED_REMOTE`: explicit dangerous override that permits a non-loopback `serve-api` bind without configured admin, tenant, or service account credentials; leave this unset outside disposable break-glass scenarios
+- `VIADUCT_ENVIRONMENT`: set to `production` for persistent deployments; production mode refuses in-memory state, missing auth, missing lifecycle policies, and missing dashboard assets at startup
+- `VIADUCT_STATE_STORE_DSN`: PostgreSQL DSN override for container, service, and Helm deployments; when set, it takes precedence over `state_store_dsn`
 - `VIADUCT_WEB_DIR`: override path for built dashboard assets when they are not in `web/dist`, `web/`, or the installed `share/viaduct/web` layout
 - `VIADUCT_OTEL_ENABLED`: enables backend OpenTelemetry trace export when set to `true`; defaults to disabled
 - `VIADUCT_OTEL_ENDPOINT`: OTLP/HTTP endpoint for backend trace export; defaults to `http://127.0.0.1:4318`
@@ -121,6 +123,7 @@ Tenant and service account credentials are persisted as non-recoverable hashes i
 - in-memory store: useful for demos, tests, and local evaluation only
 - PostgreSQL store: recommended for any persistent environment
 - the PostgreSQL backend auto-creates its schema on startup
+- production mode requires PostgreSQL-backed state and reports the active schema version through `/readyz` and `/api/v1/about`
 
 ## Connector Config Shape
 

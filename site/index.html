@@ -62,7 +62,7 @@
           <a href="https://github.com/eblackrps/Viaduct/blob/main/QUICKSTART.md">Quickstart</a>
           <a href="https://github.com/eblackrps/Viaduct/tree/main/docs">Docs</a>
           <a href="https://github.com/eblackrps/Viaduct/blob/main/docs/operations/observability.md">Observability</a>
-          <a href="https://github.com/eblackrps/Viaduct/releases/tag/v3.2.0">v3.2.0 release notes</a>
+          <a href="https://github.com/eblackrps/Viaduct/releases/tag/v3.2.1">v3.2.1 release notes</a>
           <a class="nav-button" href="https://github.com/eblackrps/Viaduct">GitHub</a>
         </nav>
       </div>
@@ -78,8 +78,8 @@
             operator workspace.
           </p>
           <p class="hero-copy">
-            Viaduct brings discovery, dependency mapping, migration planning, controlled
-            execution, traceability, and report export into a single Go API, CLI, and React
+            Viaduct brings discovery, dependency mapping, migration planning, supervised
+            execution workflows, traceability, and report export into a single Go API, CLI, and React
             dashboard.
           </p>
           <div class="hero-actions" aria-label="Primary actions">
@@ -93,7 +93,7 @@
           <dl class="proof-points" aria-label="Release qualities">
             <div>
               <dt>Release</dt>
-              <dd>v3.2.0</dd>
+              <dd>v3.2.1</dd>
             </div>
             <div>
               <dt>Platforms</dt>
@@ -215,7 +215,7 @@
           <div class="operations-list" aria-label="Operational features">
             <div>
               <h3>Signed release artifacts</h3>
-              <p>Canonical image publishing includes provenance, SBOMs, vulnerability scans, and cosign verification.</p>
+              <p>Primary image publishing includes provenance, SBOMs, vulnerability scans, and cosign verification.</p>
             </div>
             <div>
               <h3>Session-aware access</h3>
@@ -235,12 +235,14 @@
             <p class="eyebrow">Install</p>
             <h2 id="install-title">Start with the signed container release.</h2>
             <p class="section-lead">
-              The OCI image is the primary production artifact. Native bundles are also
+              The OCI image is the primary packaged artifact. Native bundles are also
               published on GitHub Releases for environments that cannot run containers.
             </p>
           </div>
           <div class="install-panel">
-            <pre><code>docker pull ghcr.io/eblackrps/viaduct:3.2.0
+            <pre><code>docker pull ghcr.io/eblackrps/viaduct:3.2.1
+export VIADUCT_ADMIN_KEY='sha256:&lt;hex&gt;'
+export POSTGRES_PASSWORD='&lt;database-password&gt;'
 docker compose -f deploy/docker-compose.prod.yml up -d</code></pre>
             <div class="install-links">
               <a href="https://github.com/eblackrps/Viaduct/blob/main/docs/operations/docker.md">Docker guide</a>

@@ -4,32 +4,32 @@ This is the top-level installation entrypoint for Viaduct. Use it with [QUICKSTA
 
 ## Requirements
 
-- Go 1.25.9 or newer
+- Go 1.26.0 or newer
 - Node.js 20.19 or newer if you want to build the dashboard locally; CI and release packaging currently pin Node.js 20.20.x
 - `make` for the standard workflow
 - `golangci-lint` for local linting
 
-## Canonical Install From Docker
+## Primary Install From Docker
 
-Viaduct `v3.2.0` uses the signed OCI image as the primary install path.
+After the `v3.2.1` tag workflow publishes, Viaduct uses the signed OCI image as the primary packaged install path.
 
 ```bash
-docker pull ghcr.io/eblackrps/viaduct:3.2.0
+docker pull ghcr.io/eblackrps/viaduct:3.2.1
 ```
 
 Verify the image before rollout:
 
 ```bash
-cosign verify ghcr.io/eblackrps/viaduct:3.2.0 \
+cosign verify ghcr.io/eblackrps/viaduct:3.2.1 \
   --certificate-identity \
-  'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.2.0' \
+  'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.2.1' \
   --certificate-oidc-issuer \
   'https://token.actions.githubusercontent.com'
 ```
 
-The signed canonical registry is `ghcr.io/eblackrps/viaduct`. The Docker Hub mirror is `docker.io/emb079/viaduct:3.2.0`.
+The primary signed registry is `ghcr.io/eblackrps/viaduct`. The Docker Hub mirror is `docker.io/emb079/viaduct:3.2.1` when repository Docker Hub secrets are configured.
 
-GitHub Actions mirrors release tags plus `main` branch `:edge` and `:sha-*` image tags to Docker Hub whenever `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` are configured for this repo or exposed through organization-level Actions secrets. `v3.2.0` also adds the backend observability baseline for packaged environments through opt-in OpenTelemetry export settings. Then follow the container guidance in [docs/operations/docker.md](docs/operations/docker.md), the production compose sample in [deploy/docker-compose.prod.yml](deploy/docker-compose.prod.yml), or the Helm chart defaults in [deploy/helm/viaduct](deploy/helm/viaduct).
+GitHub Actions mirrors release tags plus `main` branch `:edge` and `:sha-*` image tags to Docker Hub whenever `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` are configured for this repo or exposed through organization-level Actions secrets. For persistent deployments, follow the PostgreSQL-backed container guidance in [docs/operations/docker.md](docs/operations/docker.md), the Compose sample in [deploy/docker-compose.prod.yml](deploy/docker-compose.prod.yml), or the Helm chart defaults in [deploy/helm/viaduct](deploy/helm/viaduct).
 
 ## Build From Source
 

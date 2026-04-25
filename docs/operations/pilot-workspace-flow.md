@@ -13,7 +13,7 @@ A pilot workspace is the persisted assessment record that ties together:
 
 Use this workflow when you want one durable operator-owned document instead of bouncing between disconnected discovery, graph, simulation, and reporting surfaces.
 
-The signed OCI image is the canonical packaged deployment path. The source-based lab flow below remains the fastest way to evaluate the operator console from a fresh clone.
+The signed OCI image is the primary packaged deployment path. The source-based lab flow below remains the fastest way to evaluate the operator console from a fresh clone.
 
 ## Recommended Backends
 

@@ -65,4 +65,4 @@ The universal schema in `internal/models/` is the canonical representation of di
 
 ## Release Model
 
-Viaduct now treats `make release-gate` as the canonical release-quality check and the signed OCI image published by `.github/workflows/image.yml` as the canonical release artifact. `make package-release-matrix` remains the native-bundle packaging path for operators who cannot run containers. Those secondary bundles still include the CLI binary, built web assets, install scripts, docs, configs, examples, deployment references, a manifest, and checksums.
+Viaduct treats `make release-gate` as the canonical release-quality check and the signed OCI image published by `.github/workflows/image.yml` as the primary packaged release artifact. `make package-release-matrix` remains the native-bundle packaging path for operators who cannot run containers. Those secondary bundles still include the CLI binary, built web assets, install scripts, docs, configs, examples, deployment references, a manifest, and checksums.

@@ -3,7 +3,7 @@ Hypervisor-agnostic workload migration and lifecycle management platform.
 ## Project Identity
 - Repo: github.com/eblackrps/viaduct
 - License: Apache 2.0
-- Language: Go 1.25.9+ (core engine, CLI), Python 3.12+ (SDK), TypeScript/React (dashboard)
+- Language: Go 1.26.0+ (core engine, CLI), Python 3.12+ (SDK), TypeScript/React (dashboard)
 - Author: Eric Black (eblackrps)
 ## Architecture
 Four layers, each a separate Go package under internal/:

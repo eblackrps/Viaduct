@@ -191,7 +191,7 @@ func TestCollectDoctorReport_RecordedRuntimeIncludesReadinessAndAbout_Expected(t
 			fmt.Fprint(w, `{"status":"ready"}`)
 		case "/api/v1/about":
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprint(w, `{"version":"v3.1.1","store_backend":"memory","persistent_store":false,"local_operator_session_enabled":true}`)
+			fmt.Fprint(w, `{"version":"v3.2.1","store_backend":"memory","persistent_store":false,"local_operator_session_enabled":true}`)
 		default:
 			http.NotFound(w, r)
 		}
@@ -213,7 +213,7 @@ func TestCollectDoctorReport_RecordedRuntimeIncludesReadinessAndAbout_Expected(t
 		WebDir:     webDir,
 		LogPath:    paths.LogPath,
 		Mode:       "local-lab",
-		Version:    "v3.1.1",
+		Version:    "v3.2.1",
 		Commit:     "deadbee",
 		StartedAt:  time.Now().UTC(),
 	}
@@ -232,8 +232,8 @@ func TestCollectDoctorReport_RecordedRuntimeIncludesReadinessAndAbout_Expected(t
 	if report.Runtime.Readiness == nil || !report.Runtime.Readiness.Ready {
 		t.Fatalf("Runtime readiness = %#v, want ready runtime", report.Runtime.Readiness)
 	}
-	if report.Runtime.Readiness.About.Version != "v3.1.1" {
-		t.Fatalf("Runtime about version = %q, want v3.1.1", report.Runtime.Readiness.About.Version)
+	if report.Runtime.Readiness.About.Version != "v3.2.1" {
+		t.Fatalf("Runtime about version = %q, want v3.2.1", report.Runtime.Readiness.About.Version)
 	}
 	if !report.Runtime.Readiness.About.LocalOperatorSession {
 		t.Fatal("Runtime about local operator session = false, want true")
@@ -262,7 +262,7 @@ func TestCollectDoctorReport_RecordedRuntimeDegradedReadinessIncludesIssues_Expe
 			fmt.Fprint(w, `{"status":"not_ready","policies_loaded":false,"issues":["no lifecycle policies are loaded from configs/policies","vmware connector circuit is open for vcsa.lab.local; retry after 60s"],"circuit_breakers":[{"state":"open"}]}`)
 		case "/api/v1/about":
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprint(w, `{"version":"v3.1.1","store_backend":"memory","persistent_store":false,"local_operator_session_enabled":true}`)
+			fmt.Fprint(w, `{"version":"v3.2.1","store_backend":"memory","persistent_store":false,"local_operator_session_enabled":true}`)
 		default:
 			http.NotFound(w, r)
 		}
@@ -284,7 +284,7 @@ func TestCollectDoctorReport_RecordedRuntimeDegradedReadinessIncludesIssues_Expe
 		WebDir:     webDir,
 		LogPath:    paths.LogPath,
 		Mode:       "local-lab",
-		Version:    "v3.1.1",
+		Version:    "v3.2.1",
 		Commit:     "deadbee",
 		StartedAt:  time.Now().UTC(),
 	}
