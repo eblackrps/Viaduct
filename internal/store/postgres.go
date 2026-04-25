@@ -3,13 +3,12 @@ package store
 import (
 	"context"
 	"database/sql"
+	"embed"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"os"
-	"path/filepath"
-	"runtime"
+	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -21,6 +20,9 @@ import (
 )
 
 const currentStoreSchemaVersion = 8
+
+//go:embed migrations/*.sql
+var storeMigrationFS embed.FS
 
 type storeSchemaVersion struct {
 	version     int
@@ -2208,32 +2210,14 @@ func storeMigrationSkipsTransaction(payload string) bool {
 }
 
 func readStoreMigrationFile(name string) (string, error) {
-	if strings.TrimSpace(name) == "" {
+	name = strings.TrimSpace(name)
+	if name == "" {
 		return "", fmt.Errorf("read store migration file: migration name is empty")
 	}
-	_, file, _, ok := runtime.Caller(0)
-	if !ok {
-		return "", fmt.Errorf("read store migration file: caller path unavailable")
+	if strings.Contains(name, `\`) || path.Base(name) != name {
+		return "", fmt.Errorf("read store migration file %s: invalid migration name", name)
 	}
-	root, err := os.OpenRoot(filepath.Dir(file))
-	if err != nil {
-		return "", fmt.Errorf("read store migration file: open store root: %w", err)
-	}
-	defer root.Close()
-
-	migrationsRoot, err := root.OpenRoot("migrations")
-	if err != nil {
-		return "", fmt.Errorf("read store migration file: open migrations root: %w", err)
-	}
-	defer migrationsRoot.Close()
-
-	migrationFile, err := migrationsRoot.Open(name)
-	if err != nil {
-		return "", fmt.Errorf("read store migration file %s: %w", name, err)
-	}
-	defer migrationFile.Close()
-
-	payload, err := io.ReadAll(migrationFile)
+	payload, err := storeMigrationFS.ReadFile(path.Join("migrations", name))
 	if err != nil {
 		return "", fmt.Errorf("read store migration file %s: %w", name, err)
 	}
