@@ -17,9 +17,10 @@ import (
 )
 
 const (
-	adminKey      = "viaduct-acceptance-admin"  // #nosec G101 -- disposable release-acceptance credential scoped to a temporary local container.
-	tenantKey     = "viaduct-acceptance-tenant" // #nosec G101 -- disposable release-acceptance credential scoped to a temporary local container.
-	postgresImage = "postgres:16-alpine"
+	adminKey             = "viaduct-acceptance-admin"  // #nosec G101 -- disposable release-acceptance credential scoped to a temporary local container.
+	tenantKey            = "viaduct-acceptance-tenant" // #nosec G101 -- disposable release-acceptance credential scoped to a temporary local container.
+	postgresImage        = "postgres:16-alpine"
+	postgresNetworkAlias = "postgres"
 )
 
 func main() {
@@ -115,6 +116,8 @@ func run(ctx context.Context, keep bool, cfg acceptanceConfig) error {
 		postgres,
 		"--network",
 		network,
+		"--network-alias",
+		postgresNetworkAlias,
 		"-e",
 		"POSTGRES_DB=viaduct",
 		"-e",
@@ -131,7 +134,7 @@ func run(ctx context.Context, keep bool, cfg acceptanceConfig) error {
 
 	adminHash := sha256.Sum256([]byte(adminKey))
 	// #nosec G101 -- this DSN is a disposable credential for a temporary local PostgreSQL container created by this release-acceptance script.
-	dsn := "postgres://viaduct:viaduct-acceptance@postgres:5432/viaduct?sslmode=disable"
+	dsn := fmt.Sprintf("postgres://viaduct:viaduct-acceptance@%s:5432/viaduct?sslmode=disable", postgresNetworkAlias)
 	if err := runLogged(
 		ctx,
 		"docker",
