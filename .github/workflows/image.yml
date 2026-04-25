@@ -82,7 +82,7 @@ jobs:
           "$(go env GOPATH)/bin/gosec" -quiet ./...
 
       - name: Run Trivy filesystem scan
-        uses: aquasecurity/trivy-action@v0.35.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
           scan-ref: .
@@ -539,13 +539,13 @@ jobs:
           fetch-depth: 0
 
       - name: Download native bundle assets
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           name: native-release-assets
           path: dist
 
       - name: Download image SBOM assets
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           name: image-sbom-assets
           path: dist
