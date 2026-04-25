@@ -21,11 +21,74 @@ type surfaceExpectation struct {
 }
 
 func main() {
-	version, err := currentVersion()
+	version, err := currentVersion(".")
 	if err != nil {
 		failf("resolve current version: %v", err)
 	}
 
+	failures := checkReleaseSurfaces(".", version)
+	if len(failures) > 0 {
+		fmt.Fprintln(os.Stderr, "release surface drift detected:")
+		for _, failure := range failures {
+			fmt.Fprintf(os.Stderr, "- %s\n", failure)
+		}
+		os.Exit(1)
+	}
+
+	fmt.Printf("release surfaces match v%s\n", version)
+}
+
+func currentVersion(root string) (string, error) {
+	payload, err := os.ReadFile(filepath.Join(root, "web", "package.json"))
+	if err != nil {
+		return "", fmt.Errorf("read web/package.json: %w", err)
+	}
+
+	var pkg dashboardPackage
+	if err := json.Unmarshal(payload, &pkg); err != nil {
+		return "", fmt.Errorf("decode web/package.json: %w", err)
+	}
+	if strings.TrimSpace(pkg.Version) == "" {
+		return "", fmt.Errorf("web/package.json does not declare a version")
+	}
+	return strings.TrimSpace(pkg.Version), nil
+}
+
+func checkReleaseSurfaces(root, version string) []string {
+	expectations, forbiddenActivePhrases, releaseNotePath := releaseSurfaceExpectations(version)
+	failures := make([]string, 0)
+	for _, expectation := range expectations {
+		if missing := missingNeedles(root, expectation); len(missing) > 0 {
+			failures = append(
+				failures,
+				fmt.Sprintf("%s is missing %s", filepath.ToSlash(expectation.Path), strings.Join(missing, ", ")),
+			)
+		}
+		if expectation.CheckVersions {
+			if stale := unexpectedVersionReferences(root, expectation.Path, version); len(stale) > 0 {
+				failures = append(
+					failures,
+					fmt.Sprintf("%s has stale active version reference(s): %s", filepath.ToSlash(expectation.Path), strings.Join(stale, ", ")),
+				)
+			}
+		}
+		if expectation.ActiveSurface {
+			if forbidden := forbiddenPhrases(root, expectation.Path, forbiddenActivePhrases); len(forbidden) > 0 {
+				failures = append(
+					failures,
+					fmt.Sprintf("%s has pre-release or unsupported wording: %s", filepath.ToSlash(expectation.Path), strings.Join(forbidden, ", ")),
+				)
+			}
+		}
+	}
+
+	if _, err := os.Stat(filepath.Join(root, "docs", "releases", "v"+version+".md")); err != nil {
+		failures = append(failures, fmt.Sprintf("%s is missing", releaseNotePath))
+	}
+	return failures
+}
+
+func releaseSurfaceExpectations(version string) ([]surfaceExpectation, []string, string) {
 	releaseTag := "v" + version
 	imageTag := "ghcr.io/eblackrps/viaduct:" + version
 	mirrorTag := "docker.io/emb079/viaduct:" + version
@@ -36,6 +99,7 @@ func main() {
 		"before cutting this release",
 		"expected to validate",
 		"release surface for the next tag",
+		"future release candidate",
 		"control plane for virtualization migration",
 		"shared operator workspace",
 		"operator workspace",
@@ -52,6 +116,7 @@ func main() {
 		"seamless migration",
 		"fully automated migration",
 		"production proven",
+		"live-proven",
 	}
 
 	expectations := []surfaceExpectation{
@@ -127,6 +192,7 @@ func main() {
 				imageTag,
 				mirrorTag,
 				releaseNotePath,
+				"current published release",
 			},
 			CheckVersions: true,
 			ActiveSurface: true,
@@ -138,6 +204,7 @@ func main() {
 				imageTag,
 				mirrorTag,
 				"published release",
+				"The " + releaseTag + " release workflow published signed images, SBOMs, checksums, and native bundles.",
 			},
 			CheckVersions: true,
 			ActiveSurface: true,
@@ -148,6 +215,8 @@ func main() {
 				releaseTag,
 				imageTag,
 				mirrorTag,
+				"mkdir -p config",
+				"cp configs/config.example.yaml config/config.yaml",
 			},
 			CheckVersions: true,
 			ActiveSurface: true,
@@ -157,6 +226,15 @@ func main() {
 			Needles: []string{
 				fmt.Sprintf("## [%s]", version),
 			},
+		},
+		{
+			Path: "RELEASE.md",
+			Needles: []string{
+				"make release-surface-check",
+				"make support-matrix-check",
+				"make release-remote-check VERSION=" + version,
+			},
+			ActiveSurface: true,
 		},
 		{
 			Path: filepath.Join("deploy", "docker-compose.prod.yml"),
@@ -195,72 +273,49 @@ func main() {
 			ActiveSurface: true,
 		},
 		{
+			Path: filepath.Join("web", "package.json"),
+			Needles: []string{
+				fmt.Sprintf(`"version": "%s"`, version),
+			},
+			CheckVersions: true,
+		},
+		{
+			Path: "Makefile",
+			Needles: []string{
+				"release-surface-check:",
+				"site-check:",
+				"site-check-live:",
+				"release-remote-check:",
+			},
+		},
+		{
+			Path: filepath.Join(".github", "workflows", "ci.yml"),
+			Needles: []string{
+				"make release-surface-check",
+				"make site-check",
+			},
+		},
+		{
+			Path: filepath.Join(".github", "workflows", "pages.yml"),
+			Needles: []string{
+				"actions/setup-go",
+				"make site-check",
+				"go run ./scripts/site_validate -base-url",
+			},
+		},
+		{
 			Path: filepath.Join(".github", "workflows", "image.yml"),
 			Needles: []string{
 				"for example " + releaseTag,
+				"go run ./scripts/site_validate",
 			},
 		},
 	}
-
-	failures := make([]string, 0)
-	for _, expectation := range expectations {
-		if missing := missingNeedles(expectation); len(missing) > 0 {
-			failures = append(
-				failures,
-				fmt.Sprintf("%s is missing %s", filepath.ToSlash(expectation.Path), strings.Join(missing, ", ")),
-			)
-		}
-		if expectation.CheckVersions {
-			if stale := unexpectedVersionReferences(expectation.Path, version); len(stale) > 0 {
-				failures = append(
-					failures,
-					fmt.Sprintf("%s has stale active version reference(s): %s", filepath.ToSlash(expectation.Path), strings.Join(stale, ", ")),
-				)
-			}
-		}
-		if expectation.ActiveSurface {
-			if forbidden := forbiddenPhrases(expectation.Path, forbiddenActivePhrases); len(forbidden) > 0 {
-				failures = append(
-					failures,
-					fmt.Sprintf("%s has pre-release wording: %s", filepath.ToSlash(expectation.Path), strings.Join(forbidden, ", ")),
-				)
-			}
-		}
-	}
-
-	if _, err := os.Stat(filepath.Join("docs", "releases", releaseTag+".md")); err != nil {
-		failures = append(failures, fmt.Sprintf("%s is missing", releaseNotePath))
-	}
-
-	if len(failures) > 0 {
-		fmt.Fprintln(os.Stderr, "release surface drift detected:")
-		for _, failure := range failures {
-			fmt.Fprintf(os.Stderr, "- %s\n", failure)
-		}
-		os.Exit(1)
-	}
-
-	fmt.Printf("release surfaces match %s\n", releaseTag)
+	return expectations, forbiddenActivePhrases, releaseNotePath
 }
 
-func currentVersion() (string, error) {
-	payload, err := os.ReadFile(filepath.Join("web", "package.json"))
-	if err != nil {
-		return "", fmt.Errorf("read web/package.json: %w", err)
-	}
-
-	var pkg dashboardPackage
-	if err := json.Unmarshal(payload, &pkg); err != nil {
-		return "", fmt.Errorf("decode web/package.json: %w", err)
-	}
-	if strings.TrimSpace(pkg.Version) == "" {
-		return "", fmt.Errorf("web/package.json does not declare a version")
-	}
-	return strings.TrimSpace(pkg.Version), nil
-}
-
-func missingNeedles(expectation surfaceExpectation) []string {
-	payload, err := os.ReadFile(expectation.Path)
+func missingNeedles(root string, expectation surfaceExpectation) []string {
+	payload, err := os.ReadFile(filepath.Join(root, expectation.Path))
 	if err != nil {
 		return []string{fmt.Sprintf("readable content (%v)", err)}
 	}
@@ -275,9 +330,9 @@ func missingNeedles(expectation surfaceExpectation) []string {
 	return missing
 }
 
-func unexpectedVersionReferences(path, version string) []string {
+func unexpectedVersionReferences(root, path, version string) []string {
 	// #nosec G304 -- paths come from the fixed release-surface expectation table in this script.
-	payload, err := os.ReadFile(path)
+	payload, err := os.ReadFile(filepath.Join(root, path))
 	if err != nil {
 		return []string{fmt.Sprintf("readable content (%v)", err)}
 	}
@@ -308,9 +363,9 @@ func unexpectedVersionReferences(path, version string) []string {
 	return stale
 }
 
-func forbiddenPhrases(path string, phrases []string) []string {
+func forbiddenPhrases(root, path string, phrases []string) []string {
 	// #nosec G304 -- paths come from the fixed release-surface expectation table in this script.
-	payload, err := os.ReadFile(path)
+	payload, err := os.ReadFile(filepath.Join(root, path))
 	if err != nil {
 		return []string{fmt.Sprintf("readable content (%v)", err)}
 	}

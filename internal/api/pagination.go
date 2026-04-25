@@ -11,6 +11,7 @@ import (
 const (
 	defaultPageSize = 50
 	maxPageSize     = 200
+	maxPageNumber   = 1_000_000
 )
 
 type paginationResponse struct {
@@ -39,6 +40,9 @@ func parsePagination(r *http.Request) (paginationRequest, error) {
 		parsed, err := strconv.Atoi(rawPage)
 		if err != nil || parsed <= 0 {
 			return paginationRequest{}, fmt.Errorf("page must be a positive integer")
+		}
+		if parsed > maxPageNumber {
+			return paginationRequest{}, fmt.Errorf("page must be no greater than %d", maxPageNumber)
 		}
 		page = parsed
 	}
@@ -84,11 +88,17 @@ func slicePage[T any](items []T, page, perPage int) ([]T, paginationResponse) {
 		return []T{}, pagination
 	}
 
+	if pagination.PerPage <= 0 || pagination.Page <= 0 || pagination.Page-1 > math.MaxInt/pagination.PerPage {
+		return []T{}, pagination
+	}
 	start := (pagination.Page - 1) * pagination.PerPage
 	if start >= len(items) {
 		return []T{}, pagination
 	}
 	end := start + pagination.PerPage
+	if end < start {
+		return []T{}, pagination
+	}
 	if end > len(items) {
 		end = len(items)
 	}

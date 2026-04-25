@@ -28,8 +28,16 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v6
 
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v6
+
+      - name: Validate static site
+        run: make site-check
 
       - name: Upload static site artifact
         uses: actions/upload-pages-artifact@v5
@@ -39,3 +47,14 @@ jobs:
       - name: Deploy GitHub Pages site
         id: deployment
         uses: actions/deploy-pages@v5
+
+      - name: Validate deployed site
+        env:
+          DEPLOYED_URL: ${{ steps.deployment.outputs.page_url }}
+          BASE_URL: https://viaducthq.com
+        run: |
+          if [ -n "$DEPLOYED_URL" ]; then
+            go run ./scripts/site_validate -base-url="$DEPLOYED_URL"
+          else
+            go run ./scripts/site_validate -base-url="$BASE_URL"
+          fi

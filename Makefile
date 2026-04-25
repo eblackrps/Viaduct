@@ -53,7 +53,7 @@ LINUX_ARM64_BINARY = bin/viaduct-linux-arm64
 DARWIN_ARM64_BINARY = bin/viaduct-darwin-arm64
 WINDOWS_BINARY = bin/viaduct.exe
 
-.PHONY: all build build-linux build-linux-amd64 build-linux-arm64 build-darwin-arm64 build-windows test lint proto docker dashboard serve web-install web-e2e-setup web-build web-verify web-runtime-smoke pilot-smoke observability-up observability-down observability-validate site-check site-check-live release-acceptance package-release package-release-host-bundle package-release-linux package-release-linux-amd64 package-release-linux-amd64-bundle package-release-linux-arm64 package-release-linux-arm64-bundle package-release-darwin-arm64 package-release-darwin-arm64-bundle package-release-windows package-release-windows-bundle package-release-matrix certification-test soak-test plugin-check openapi-generate contract-check workflow-lint release-surface-check timing-check migrate-diag release-gate clean
+.PHONY: all build build-linux build-linux-amd64 build-linux-arm64 build-darwin-arm64 build-windows test lint proto docker dashboard serve web-install web-e2e-setup web-build web-verify web-runtime-smoke pilot-smoke observability-up observability-down observability-validate site-check site-check-live release-acceptance release-remote-check package-release package-release-host-bundle package-release-linux package-release-linux-amd64 package-release-linux-amd64-bundle package-release-linux-arm64 package-release-linux-arm64-bundle package-release-darwin-arm64 package-release-darwin-arm64-bundle package-release-windows package-release-windows-bundle package-release-matrix certification-test soak-test plugin-check openapi-generate contract-check workflow-lint release-surface-check support-matrix-check repo-drift-check timing-check migrate-diag release-gate clean
 
 all: lint test build
 
@@ -143,6 +143,9 @@ site-check-live:
 release-acceptance:
 	go run ./scripts/release_acceptance -image ghcr.io/eblackrps/viaduct:$(PACKAGE_VERSION) -certificate-identity "https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v$(PACKAGE_VERSION)"
 
+release-remote-check:
+	go run ./scripts/release_remote_check -version $(PACKAGE_VERSION) -base-url=$(BASE_URL)
+
 package-release:
 	$(RM_DIST)
 	$(MKDIR_DIST)
@@ -224,6 +227,11 @@ workflow-lint:
 release-surface-check:
 	go run ./scripts/release_surface_check
 
+support-matrix-check:
+	go run ./scripts/support_matrix_check
+
+repo-drift-check: release-surface-check site-check support-matrix-check
+
 timing-check:
 	go test ./internal/api -run TestCredentialHashConstantTime_Bench -count=1
 
@@ -245,6 +253,7 @@ release-gate:
 	$(MAKE) workflow-lint
 	$(MAKE) release-surface-check
 	$(MAKE) site-check
+	$(MAKE) support-matrix-check
 	$(MAKE) build
 	$(RUN_BIN) --help
 	$(RUN_BIN) version

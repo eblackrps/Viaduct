@@ -8,7 +8,7 @@ The only tag-publishing workflow is [`.github/workflows/image.yml`](../../.githu
 
 ## Primary Install
 
-Use the signed GHCR OCI image as the primary packaged install surface:
+Use the signed GHCR image as the primary packaged artifact:
 
 ```bash
 docker pull ghcr.io/eblackrps/viaduct:3.2.1
@@ -19,7 +19,7 @@ cosign verify ghcr.io/eblackrps/viaduct:3.2.1 \
   'https://token.actions.githubusercontent.com'
 ```
 
-The Docker Hub mirror for the same release is `docker.io/emb079/viaduct:3.2.1` when the repository Docker Hub secrets are configured.
+The Docker Hub mirror is available as `docker.io/emb079/viaduct:3.2.1` when repository secrets published it.
 
 ## Operator Path
 

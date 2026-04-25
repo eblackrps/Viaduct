@@ -66,7 +66,7 @@ Detailed validation status, including fixture-backed versus live-lab claims, is 
 | KVM / libvirt | Implemented | XML-backed fallback works out of the box; live libvirt support is available behind the `libvirt` build tag. |
 | Nutanix AHV | Implemented | Prism Central v3 inventory collection. |
 | Veeam Backup & Replication | Implemented | Backup discovery, restore-point correlation, and portability planning support. |
-| Community plugins | Supported | gRPC plugin host with manifest and compatibility checks. |
+| Community plugins | Implemented | gRPC plugin host with manifest and compatibility checks. |
 
 ## Primary Docker Install
 

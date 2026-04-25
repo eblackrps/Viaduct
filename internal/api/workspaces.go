@@ -8,9 +8,11 @@ import (
 	"io"
 	"net/http"
 	"regexp"
+	"runtime/debug"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/eblackrps/viaduct/internal/connectorcatalog"
@@ -515,7 +517,7 @@ func (s *Server) enqueueWorkspaceJob(ctx context.Context, job models.WorkspaceJo
 	if s != nil && s.workspaceJobTimeout > 0 {
 		timeoutCtx, cancel := context.WithTimeout(parentCtx, s.workspaceJobTimeout)
 		parentCtx = timeoutCtx
-		release = cancel
+		release = onceCancel(cancel)
 	}
 	err := s.workspaceJobExecutor.Enqueue(ctx, workspaceJobTask{
 		tenantID:    job.TenantID,
@@ -530,6 +532,13 @@ func (s *Server) enqueueWorkspaceJob(ctx context.Context, job models.WorkspaceJo
 	return err
 }
 
+func onceCancel(cancel context.CancelFunc) context.CancelFunc {
+	var once sync.Once
+	return func() {
+		once.Do(cancel)
+	}
+}
+
 func (s *Server) runWorkspaceJob(ctx context.Context, tenantID, workspaceID, jobID string) {
 	if ctx == nil {
 		ctx = context.Background()
@@ -537,6 +546,25 @@ func (s *Server) runWorkspaceJob(ctx context.Context, tenantID, workspaceID, job
 	ctx, span := telemetry.StartSpan(ctx, telemetry.ScopeAPI, "workspace.job.run", workspaceSpanAttributes(ctx, workspaceID, jobID)...)
 	defer span.End()
 	storeCtx := store.ContextWithTenantID(ctx, tenantID)
+	jobForFailure := workspaceJobFailurePlaceholder(tenantID, workspaceID, jobID)
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			failure := fmt.Errorf("workspace job panicked while running")
+			telemetry.RecordError(span, failure)
+			packageLogger.Error(
+				"workspace job recovered from panic",
+				"tenant_id", strings.TrimSpace(tenantID),
+				"workspace_id", strings.TrimSpace(workspaceID),
+				"job_id", strings.TrimSpace(jobID),
+				"panic_type", fmt.Sprintf("%T", recovered),
+				"stack", string(debug.Stack()),
+			)
+			persistCtx := store.ContextWithTenantID(context.WithoutCancel(storeCtx), tenantID)
+			if persistErr := s.recordWorkspaceJobFailure(persistCtx, tenantID, jobForFailure, true, failure); persistErr != nil {
+				packageLogger.Error("failed to persist recovered workspace job panic", "job_id", jobID, "workspace_id", workspaceID, "error", persistErr.Error())
+			}
+		}
+	}()
 
 	job, err := s.store.GetWorkspaceJob(storeCtx, tenantID, workspaceID, jobID)
 	if err != nil {
@@ -548,6 +576,7 @@ func (s *Server) runWorkspaceJob(ctx context.Context, tenantID, workspaceID, job
 		}
 		return
 	}
+	jobForFailure = *job
 	workspace, err := s.store.GetWorkspace(storeCtx, tenantID, workspaceID)
 	if err != nil {
 		telemetry.RecordError(span, err)

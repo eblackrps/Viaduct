@@ -55,6 +55,7 @@ observability:
 
 secrets:
   existingSecret: viaduct-secrets
+  # In production, this key must contain VIADUCT_ADMIN_KEY as sha256:<hex>.
   adminKeyField: admin-api-key
 
 persistence:

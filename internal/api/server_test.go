@@ -2069,3 +2069,79 @@ func TestServer_ValidateProductionStartup_MemoryStoreRejected_Expected(t *testin
 		t.Fatalf("validateProductionStartup() error = %q, want persistent store guidance", err)
 	}
 }
+
+func TestServer_ValidateProductionStartup_PlaintextAdminKeyRejected_Expected(t *testing.T) {
+	t.Setenv("VIADUCT_ADMIN_KEY", "plaintext-admin-key")
+	server := mustNewServer(t, store.NewMemoryStore())
+	server.SetProductionMode(true)
+
+	err := server.validateProductionStartup(context.Background())
+	if err == nil {
+		t.Fatal("validateProductionStartup() error = nil, want plaintext admin-key rejection")
+	}
+	if !strings.Contains(err.Error(), "sha256:<hex>") {
+		t.Fatalf("validateProductionStartup() error = %q, want hashed admin-key guidance", err)
+	}
+}
+
+func TestValidateProductionAdminKeyFormat_HashedAndPlaintextModes_Expected(t *testing.T) {
+	if err := validateProductionAdminKeyFormat(store.HashAPIKey("admin-key")); err != nil {
+		t.Fatalf("validateProductionAdminKeyFormat(hashed) error = %v", err)
+	}
+	if err := validateProductionAdminKeyFormat("sha256:not-hex"); err == nil || !strings.Contains(err.Error(), "64 hex") {
+		t.Fatalf("validateProductionAdminKeyFormat(invalid) error = %v, want hex guidance", err)
+	}
+	if err := validateProductionAdminKeyFormat("plaintext-admin-key"); err == nil || !strings.Contains(err.Error(), "sha256:<hex>") {
+		t.Fatalf("validateProductionAdminKeyFormat(plaintext) error = %v, want production rejection", err)
+	}
+}
+
+func TestServer_NonProductionPlaintextAdminKeyStillAccepted_Expected(t *testing.T) {
+	t.Setenv("VIADUCT_ADMIN_KEY", "plaintext-admin-key")
+	server := mustNewServer(t, store.NewMemoryStore())
+
+	if err := server.validateProductionStartup(context.Background()); err != nil {
+		t.Fatalf("validateProductionStartup(non-production) error = %v", err)
+	}
+}
+
+func TestDocs_AdminKeyFormatMentionsProductionHashRequirement_Expected(t *testing.T) {
+	payload, err := os.ReadFile(filepath.Join("..", "..", "docs", "operations", "admin-key.md"))
+	if err != nil {
+		t.Fatalf("ReadFile(admin-key docs) error = %v", err)
+	}
+	content := string(payload)
+	for _, required := range []string{"sha256:<hex>", "production mode", "plaintext"} {
+		if !strings.Contains(content, required) {
+			t.Fatalf("admin-key docs missing %q", required)
+		}
+	}
+}
+
+func TestNewServer_HTTPTimeoutDefaultsAndConfig_Expected(t *testing.T) {
+	server := mustNewServer(t, store.NewMemoryStore())
+	if server.httpReadHeaderTimeout == 0 || server.httpReadTimeout == 0 || server.httpWriteTimeout == 0 || server.httpIdleTimeout == 0 || server.httpShutdownTimeout == 0 {
+		t.Fatalf("HTTP timeout defaults include zero value: readHeader=%s read=%s write=%s idle=%s shutdown=%s", server.httpReadHeaderTimeout, server.httpReadTimeout, server.httpWriteTimeout, server.httpIdleTimeout, server.httpShutdownTimeout)
+	}
+
+	httpServer := server.httpServer("127.0.0.1:0")
+	if httpServer.ReadHeaderTimeout != server.httpReadHeaderTimeout ||
+		httpServer.ReadTimeout != server.httpReadTimeout ||
+		httpServer.WriteTimeout != server.httpWriteTimeout ||
+		httpServer.IdleTimeout != server.httpIdleTimeout {
+		t.Fatalf("httpServer timeouts = %#v, want server configured values", httpServer)
+	}
+}
+
+func TestNewServer_HTTPTimeoutEnvOverrideAndInvalidFallback_Expected(t *testing.T) {
+	t.Setenv("VIADUCT_HTTP_READ_TIMEOUT", "17s")
+	t.Setenv("VIADUCT_HTTP_WRITE_TIMEOUT", "not-a-duration")
+
+	server := mustNewServer(t, store.NewMemoryStore())
+	if server.httpReadTimeout != 17*time.Second {
+		t.Fatalf("httpReadTimeout = %s, want 17s", server.httpReadTimeout)
+	}
+	if server.httpWriteTimeout != defaultHTTPWriteTimeout {
+		t.Fatalf("httpWriteTimeout = %s, want fallback %s", server.httpWriteTimeout, defaultHTTPWriteTimeout)
+	}
+}

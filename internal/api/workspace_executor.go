@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -172,6 +173,7 @@ func (e *workspaceJobExecutor) dispatch() {
 	queue := make([]workspaceJobEnqueueRequest, 0, e.queueCapacity)
 	idleWorkers := make([]workspaceWorkerHandle, 0)
 
+dispatchLoop:
 	for {
 		if len(idleWorkers) > 0 && len(queue) > 0 {
 			worker := idleWorkers[0]
@@ -219,7 +221,8 @@ func (e *workspaceJobExecutor) dispatch() {
 					return
 				case <-request.waitCtx.Done():
 					request.task.cleanup()
-					continue
+					_ = request.respond(request.waitErr()) // Best effort: the caller may already have timed out or closed its receive path.
+					continue dispatchLoop
 				case worker := <-e.workerReady:
 					oldest := queue[0]
 					queue = queue[1:]
@@ -232,6 +235,14 @@ func (e *workspaceJobExecutor) dispatch() {
 						return
 					}
 				}
+			}
+
+			select {
+			case <-request.waitCtx.Done():
+				request.task.cleanup()
+				_ = request.respond(request.waitErr()) // Best effort: the caller may already have timed out or closed its receive path.
+				continue
+			default:
 			}
 
 			if e.ctx.Err() != nil {
@@ -332,17 +343,35 @@ func (e *workspaceJobExecutor) worker() {
 				task.cleanup()
 				return
 			}
-			if e.run != nil {
-				runCtx, cancel := e.taskContext(task)
-				e.run(runCtx, task)
-				cancel()
-			}
-			task.cleanup()
+			e.runTask(task)
 			if e.ctx.Err() != nil {
 				return
 			}
 		}
 	}
+}
+
+func (e *workspaceJobExecutor) runTask(task workspaceJobTask) {
+	defer task.cleanup()
+	if e == nil || e.run == nil {
+		return
+	}
+
+	runCtx, cancel := e.taskContext(task)
+	defer cancel()
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			packageLogger.Error(
+				"workspace job recovered from panic",
+				"tenant_id", strings.TrimSpace(task.tenantID),
+				"workspace_id", strings.TrimSpace(task.workspaceID),
+				"job_id", strings.TrimSpace(task.jobID),
+				"panic_type", fmt.Sprintf("%T", recovered),
+				"stack", string(debug.Stack()),
+			)
+		}
+	}()
+	e.run(runCtx, task)
 }
 
 func (e *workspaceJobExecutor) taskContext(task workspaceJobTask) (context.Context, context.CancelFunc) {
@@ -439,4 +468,14 @@ func (r workspaceJobEnqueueRequest) respond(err error) (sendErr error) {
 	case r.result <- err:
 		return nil
 	}
+}
+
+func (r workspaceJobEnqueueRequest) waitErr() error {
+	if r.waitCtx == nil || r.waitCtx.Err() == nil {
+		return ErrEnqueueTimeout
+	}
+	if errors.Is(r.waitCtx.Err(), context.DeadlineExceeded) {
+		return ErrEnqueueTimeout
+	}
+	return r.waitCtx.Err()
 }

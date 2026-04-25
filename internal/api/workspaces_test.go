@@ -20,11 +20,15 @@ type workspaceJobProbeStore struct {
 	store.Store
 
 	getWorkspaceErr    error
+	getWorkspacePanic  any
 	getWorkspaceJobErr error
 	saveFailures       map[models.WorkspaceJobStatus]int
 }
 
 func (s *workspaceJobProbeStore) GetWorkspace(ctx context.Context, tenantID, workspaceID string) (*models.PilotWorkspace, error) {
+	if s.getWorkspacePanic != nil {
+		panic(s.getWorkspacePanic)
+	}
 	if s.getWorkspaceErr != nil {
 		return nil, s.getWorkspaceErr
 	}
@@ -490,6 +494,55 @@ func TestServer_RunWorkspaceJob_GetWorkspaceFailureMarksFailed_Expected(t *testi
 	}
 	if !strings.Contains(string(job.OutputJSON), `"error":"load workspace workspace-failure: workspace load failed"`) {
 		t.Fatalf("job.OutputJSON = %s, want persisted error payload", job.OutputJSON)
+	}
+}
+
+func TestServer_RunWorkspaceJob_PanicMarksFailed_Expected(t *testing.T) {
+	t.Parallel()
+
+	baseStore := store.NewMemoryStore()
+	probeStore := &workspaceJobProbeStore{
+		Store:             baseStore,
+		getWorkspacePanic: errors.New("injected workspace panic"),
+	}
+	server := mustNewServer(t, probeStore)
+	ctx := store.ContextWithTenantID(context.Background(), store.DefaultTenantID)
+
+	if err := baseStore.CreateWorkspace(ctx, store.DefaultTenantID, models.PilotWorkspace{
+		ID:     "workspace-panic",
+		Name:   "Panic Workspace",
+		Status: models.PilotWorkspaceStatusDraft,
+	}); err != nil {
+		t.Fatalf("CreateWorkspace() error = %v", err)
+	}
+	if err := baseStore.SaveWorkspaceJob(ctx, store.DefaultTenantID, models.WorkspaceJob{
+		ID:            "job-panic",
+		TenantID:      store.DefaultTenantID,
+		WorkspaceID:   "workspace-panic",
+		Type:          models.WorkspaceJobTypeGraph,
+		Status:        models.WorkspaceJobStatusQueued,
+		RequestedAt:   time.Now().UTC(),
+		UpdatedAt:     time.Now().UTC(),
+		CorrelationID: "req-workspace-panic",
+		InputJSON:     json.RawMessage(`{"type":"graph"}`),
+	}); err != nil {
+		t.Fatalf("SaveWorkspaceJob() error = %v", err)
+	}
+
+	server.runWorkspaceJob(ctx, store.DefaultTenantID, "workspace-panic", "job-panic")
+
+	job, err := baseStore.GetWorkspaceJob(ctx, store.DefaultTenantID, "workspace-panic", "job-panic")
+	if err != nil {
+		t.Fatalf("GetWorkspaceJob() error = %v", err)
+	}
+	if job.Status != models.WorkspaceJobStatusFailed {
+		t.Fatalf("job.Status = %s, want failed", job.Status)
+	}
+	if !strings.Contains(job.Error, "workspace job panicked while running") {
+		t.Fatalf("job.Error = %q, want panic failure", job.Error)
+	}
+	if !job.Retryable {
+		t.Fatalf("job.Retryable = %t, want true", job.Retryable)
 	}
 }
 

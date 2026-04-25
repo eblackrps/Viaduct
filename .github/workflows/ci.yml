@@ -194,6 +194,12 @@ jobs:
       - name: Verify Release Surfaces
         run: make release-surface-check
 
+      - name: Verify Public Site
+        run: make site-check
+
+      - name: Verify Support Matrix Claims
+        run: make support-matrix-check
+
       - name: Run Release Gate
         run: make release-gate
 

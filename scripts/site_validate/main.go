@@ -96,6 +96,15 @@ func validateLocalSite(siteDir, version string) error {
 	if !strings.Contains(string(pagesWorkflow), "path: site") {
 		return fmt.Errorf("pages workflow does not upload the site directory")
 	}
+	for _, required := range []string{
+		"actions/setup-go",
+		"make site-check",
+		"go run ./scripts/site_validate -base-url",
+	} {
+		if !strings.Contains(string(pagesWorkflow), required) {
+			return fmt.Errorf("pages workflow is missing %q", required)
+		}
+	}
 	return nil
 }
 

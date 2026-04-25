@@ -1,0 +1,46 @@
+{
+  "platforms": [
+    {
+      "name": "VMware",
+      "site_names": ["VMware vSphere"],
+      "readme_names": ["VMware vSphere"],
+      "validation": "implemented; unit tested; fixture tested; live lab not claimed; production pilot not claimed"
+    },
+    {
+      "name": "Proxmox",
+      "site_names": ["Proxmox VE"],
+      "readme_names": ["Proxmox VE"],
+      "validation": "implemented; unit tested; fixture tested; live lab not claimed; production pilot not claimed"
+    },
+    {
+      "name": "Hyper-V",
+      "site_names": ["Microsoft Hyper-V"],
+      "readme_names": ["Microsoft Hyper-V"],
+      "validation": "implemented; unit tested; fixture tested; live lab not claimed; production pilot not claimed"
+    },
+    {
+      "name": "KVM",
+      "site_names": ["KVM and libvirt"],
+      "readme_names": ["KVM / libvirt"],
+      "validation": "implemented; unit tested; fixture tested; local fixture lab only; production pilot not claimed"
+    },
+    {
+      "name": "Nutanix",
+      "site_names": ["Nutanix Prism"],
+      "readme_names": ["Nutanix AHV"],
+      "validation": "implemented; unit tested; fixture tested; live lab not claimed; production pilot not claimed"
+    },
+    {
+      "name": "Veeam",
+      "site_names": ["Veeam Backup and Replication"],
+      "readme_names": ["Veeam Backup & Replication"],
+      "validation": "implemented; unit tested; fixture tested; live lab not claimed; production pilot not claimed"
+    },
+    {
+      "name": "Community plugins",
+      "site_names": ["Community connectors"],
+      "readme_names": ["Community plugins"],
+      "validation": "plugin host implemented; sample plugin and manifest checks; live lab not claimed; production pilot not claimed"
+    }
+  ]
+}

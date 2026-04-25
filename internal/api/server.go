@@ -114,6 +114,14 @@ type readinessResponse struct {
 	Issues          []string                   `json:"issues,omitempty"`
 }
 
+const (
+	defaultHTTPReadHeaderTimeout = 10 * time.Second
+	defaultHTTPReadTimeout       = 30 * time.Second
+	defaultHTTPWriteTimeout      = 60 * time.Second
+	defaultHTTPIdleTimeout       = 120 * time.Second
+	defaultHTTPShutdownTimeout   = 5 * time.Second
+)
+
 // Server serves Viaduct REST API endpoints for discovery, migration, and lifecycle workflows.
 type Server struct {
 	engine                  *discovery.Engine
@@ -139,6 +147,11 @@ type Server struct {
 	backgroundTaskTimeout   time.Duration
 	workspaceJobTimeout     time.Duration
 	workspaceEnqueueTimeout time.Duration
+	httpReadHeaderTimeout   time.Duration
+	httpReadTimeout         time.Duration
+	httpWriteTimeout        time.Duration
+	httpIdleTimeout         time.Duration
+	httpShutdownTimeout     time.Duration
 	workspaceJobExecutor    workspaceJobEnqueuer
 	workspaceJobWorkers     int
 	authSessions            *authSessionManager
@@ -249,6 +262,11 @@ func NewServer(engine *discovery.Engine, stateStore store.Store, port int, catal
 		backgroundTaskTimeout:   durationEnv("VIADUCT_BACKGROUND_TASK_TIMEOUT", 24*time.Hour),
 		workspaceJobTimeout:     durationEnv("VIADUCT_WORKSPACE_JOB_TIMEOUT", 2*time.Minute),
 		workspaceEnqueueTimeout: durationEnv("VIADUCT_WORKSPACE_ENQUEUE_TIMEOUT", defaultWorkspaceEnqueueTimeout),
+		httpReadHeaderTimeout:   durationEnv("VIADUCT_HTTP_READ_HEADER_TIMEOUT", defaultHTTPReadHeaderTimeout),
+		httpReadTimeout:         durationEnv("VIADUCT_HTTP_READ_TIMEOUT", defaultHTTPReadTimeout),
+		httpWriteTimeout:        durationEnv("VIADUCT_HTTP_WRITE_TIMEOUT", defaultHTTPWriteTimeout),
+		httpIdleTimeout:         durationEnv("VIADUCT_HTTP_IDLE_TIMEOUT", defaultHTTPIdleTimeout),
+		httpShutdownTimeout:     durationEnv("VIADUCT_HTTP_SHUTDOWN_TIMEOUT", defaultHTTPShutdownTimeout),
 		workspaceJobWorkers:     intEnv("VIADUCT_WORKSPACE_JOB_CONCURRENCY", defaultWorkspaceJobConcurrency),
 		authSessions:            newAuthSessionManager(durationEnv("VIADUCT_AUTH_SESSION_TTL", 12*time.Hour), persistentAuthSessionTTL()),
 		connectorCircuits:       newConnectorCircuitRegistry(loadConnectorCircuitConfig()),
@@ -415,15 +433,11 @@ func (s *Server) Start(ctx context.Context) error {
 	if strings.TrimSpace(s.bindHost) != "" {
 		addr = net.JoinHostPort(strings.TrimSpace(s.bindHost), fmt.Sprintf("%d", s.port))
 	}
-	server := &http.Server{
-		Addr:              addr,
-		Handler:           s.Handler(),
-		ReadHeaderTimeout: 10 * time.Second,
-	}
+	server := s.httpServer(addr)
 	go func() {
 		<-ctx.Done()
 		s.cancelBackgroundTasks()
-		shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), s.httpShutdownTimeout)
 		defer cancel()
 		if err := server.Shutdown(shutdownCtx); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			packageLogger.Warn("api server shutdown returned an error", "error", err.Error())
@@ -444,9 +458,37 @@ func (s *Server) Start(ctx context.Context) error {
 	return nil
 }
 
+func (s *Server) httpServer(addr string) *http.Server {
+	return &http.Server{
+		Addr:              addr,
+		Handler:           s.Handler(),
+		ReadHeaderTimeout: s.httpReadHeaderTimeout,
+		ReadTimeout:       s.httpReadTimeout,
+		WriteTimeout:      s.httpWriteTimeout,
+		IdleTimeout:       s.httpIdleTimeout,
+	}
+}
+
+func validateProductionAdminKeyFormat(adminAPIKey string) error {
+	trimmed := strings.TrimSpace(adminAPIKey)
+	if trimmed == "" {
+		return nil
+	}
+	if !hasCredentialHashPrefix(trimmed) {
+		return fmt.Errorf("api server: production mode requires VIADUCT_ADMIN_KEY to use sha256:<hex>; generate the digest with printf '%%s' '<admin-key>' | sha256sum")
+	}
+	if _, ok := parseCredentialHash(trimmed); !ok {
+		return fmt.Errorf("api server: VIADUCT_ADMIN_KEY must use sha256:<64 hex characters> in production mode")
+	}
+	return nil
+}
+
 func (s *Server) validateProductionStartup(ctx context.Context) error {
 	if s == nil || !s.productionMode {
 		return nil
+	}
+	if err := validateProductionAdminKeyFormat(s.adminAPIKey); err != nil {
+		return err
 	}
 	if !hasConfiguredAPIKeys(ctx, s.store, s.adminAPIKey) {
 		return fmt.Errorf("api server: production mode requires an admin, tenant, or service-account credential")

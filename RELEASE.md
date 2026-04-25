@@ -11,6 +11,8 @@ This document describes the current packaged-image and native-bundle release pro
 - `make contract-check`: verify the published OpenAPI reference still covers the documented operator routes
 - `make release-surface-check`: verify the current version, install docs, site copy, and deployment samples still agree
 - `make site-check`: verify public-site version strings, local links, screenshot assets, and the GitHub Pages source directory
+- `make support-matrix-check`: verify website and README connector claims still match the support matrix
+- `make release-remote-check VERSION=3.2.1 BASE_URL=https://viaducthq.com`: verify an already-published release, GHCR image, cosign identity, expected assets, and live site content without modifying the release
 - `go run ./scripts/release_acceptance -image <image> -certificate-identity <workflow-identity>`: pull a published image, verify its cosign identity, start it against PostgreSQL in production mode, and exercise health/readiness/about plus tenant auth
 - `make web-e2e-setup`: install the dashboard dependencies plus the Playwright Chromium runtime for local browser smoke
 - `make pilot-smoke`: run the root-level evaluator path (`tests/integration` workspace smoke plus the real `viaduct start` browser smoke)
@@ -34,14 +36,15 @@ On Windows, `make release-gate` still builds `bin/viaduct.exe`, but it validates
 5. Smoke-test the packaged binary with `viaduct version`, `viaduct --help`, `viaduct doctor`, and the canonical local start flow (`viaduct start --config <installed-config> --detach --open-browser=false`) against the bundled dashboard assets when they are present.
    When the local environment has browser prerequisites installed, run `make pilot-smoke` as the high-signal evaluator path before tagging.
 6. Confirm install docs, quickstarts, upgrade docs, rollback docs, deployment examples, and the pilot workspace guide still match the artifact layout and current auth behavior.
-7. Run `make release-surface-check` so the current version, release notes, image tags, Helm/Compose samples, and public-facing docs agree before tagging.
-8. Run `make site-check`; after Pages deployment, run `go run ./scripts/site_validate -base-url https://viaducthq.com`.
+7. Run `make release-surface-check` and `make support-matrix-check` so the current version, release notes, image tags, Helm/Compose samples, public-facing docs, and connector claims agree before tagging.
+8. Run `make site-check`; after Pages deployment, run `make site-check-live BASE_URL=https://viaducthq.com`.
 9. Refresh the checked-in README and demo screenshots, then confirm the root README, install docs, quickstarts, and the `site/` landing page all lead with the same packaged install and verification path for the current release.
 10. Verify the plugin manifest check, OpenAPI contract check, and runtime Swagger UI (`/api/v1/docs`) remain aligned.
 11. Confirm there are no open release PRs left hanging if the release is being published directly from `main`.
 12. Confirm `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` exist as Actions secrets on the Viaduct repo or as inherited organization secrets if Docker Hub mirroring is expected. Secrets stored in another repository are not visible here.
 13. Tag and publish only after the verification and smoke checks are clean. The tag workflow should publish the signed OCI image first, mirror the tag to Docker Hub when those secrets are present, attach SPDX plus CycloneDX attestations and provenance, run the image scan and published-image acceptance, and then attach the `make package-release-matrix` native bundles as alternative assets.
-14. If Docker Hub secrets were added after a release tag already existed, backfill the mirror without retagging by running `gh workflow run image.yml --ref main -f mirror_release_tag=vX.Y.Z`.
+14. After the release exists, run `make release-remote-check VERSION=X.Y.Z BASE_URL=https://viaducthq.com` from an environment with `gh`, Docker, cosign, Go, network access, and release-view permission.
+15. If Docker Hub secrets were added after a release tag already existed, backfill the mirror without retagging by running `gh workflow run image.yml --ref main -f mirror_release_tag=vX.Y.Z`.
 
 ## Bundle Contents
 The release bundle should include:

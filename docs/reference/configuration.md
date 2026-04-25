@@ -53,7 +53,7 @@ Fields:
 ## CLI Environment Variables
 - `VIADUCT_USERNAME`: overrides config file username for CLI connector auth
 - `VIADUCT_PASSWORD`: overrides config file password for CLI connector auth
-- `VIADUCT_ADMIN_KEY`: admin API key used by the REST server for tenant administration. Viaduct accepts either the preferred persisted `sha256:<hex>` digest or the legacy plaintext secret. The request header still carries the plaintext `X-Admin-Key`; see [`../operations/admin-key.md`](../operations/admin-key.md).
+- `VIADUCT_ADMIN_KEY`: admin API key used by the REST server for tenant administration. Production mode requires the persisted `sha256:<hex>` digest. Non-production local evaluation can still use the legacy plaintext secret for compatibility. The request header still carries the plaintext `X-Admin-Key`; see [`../operations/admin-key.md`](../operations/admin-key.md).
 - `VIADUCT_PLUGIN_ADDR`: plugin listener address used by community connector plugins
 - `VIADUCT_ALLOWED_ORIGINS`: comma-separated browser origins allowed to call the API from another origin; defaults to same-origin only when empty
 - `VIADUCT_ALLOW_UNAUTHENTICATED_REMOTE`: explicit dangerous override that permits a non-loopback `serve-api` bind without configured admin, tenant, or service account credentials; leave this unset outside disposable break-glass scenarios
@@ -69,6 +69,11 @@ Fields:
 - `VIADUCT_WORKSPACE_JOB_TIMEOUT`: per-job server-side timeout for pilot workspace discovery, graph, simulation, and plan generation; defaults to `2m`
 - `VIADUCT_WORKSPACE_ENQUEUE_TIMEOUT`: maximum time an API request waits for the bounded workspace executor to acknowledge queue admission before returning `ErrEnqueueTimeout`; defaults to `30s`
 - `VIADUCT_WORKSPACE_JOB_CONCURRENCY`: bounded worker count for queued and recovered workspace jobs; defaults to `4`
+- `VIADUCT_HTTP_READ_HEADER_TIMEOUT`: maximum time to read request headers; defaults to `10s`
+- `VIADUCT_HTTP_READ_TIMEOUT`: maximum time to read a full request; defaults to `30s`
+- `VIADUCT_HTTP_WRITE_TIMEOUT`: maximum time to write a response; defaults to `60s`
+- `VIADUCT_HTTP_IDLE_TIMEOUT`: maximum idle keep-alive connection time; defaults to `120s`
+- `VIADUCT_HTTP_SHUTDOWN_TIMEOUT`: maximum graceful HTTP shutdown time after server cancellation; defaults to `5s`
 - `VIADUCT_AUTH_SESSION_TTL`: dashboard runtime auth-session lifetime for non-persistent browser sessions; defaults to `12h`
 - `VIADUCT_AUTH_REMEMBER_TTL`: dashboard runtime auth-session lifetime for remembered browser sessions; defaults to `168h` (7 days) and is capped there unless `VIADUCT_LONG_SESSION_DAYS` is set
 - `VIADUCT_LONG_SESSION_DAYS`: explicit override that permits remembered dashboard sessions longer than 7 days when you intentionally accept the larger persistence window
@@ -101,7 +106,7 @@ Tenant and service account credentials are persisted as non-recoverable hashes i
 ## API Authentication Headers
 - `X-API-Key`: tenant-scoped API key for inventory, migration, lifecycle, and summary routes
 - `X-Service-Account-Key`: scoped machine credential for tenant service accounts
-- `X-Admin-Key`: admin-only plaintext API key for tenant creation and deletion; the stored server-side `VIADUCT_ADMIN_KEY` may be either plaintext or `sha256:<hex>`
+- `X-Admin-Key`: admin-only plaintext API key for tenant creation and deletion; the stored server-side `VIADUCT_ADMIN_KEY` must be `sha256:<hex>` in production mode
 - `X-Request-ID`: optional caller-supplied request correlation ID; when absent, the API generates one
 - `X-Trace-ID`: response header exposing the current backend trace identifier when tracing is active
 - `Traceparent`: optional inbound W3C trace context header for request-to-request correlation

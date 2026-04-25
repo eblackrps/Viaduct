@@ -2,6 +2,8 @@
 
 This matrix reflects what is implemented and what is currently validated in the repository. It is intentionally conservative.
 
+The platform names and validation scope are mirrored in `docs/reference/support-matrix.json`; `make support-matrix-check` verifies that README and website connector claims stay aligned with this table.
+
 ## Toolchain
 | Component | Expected Version | Notes |
 | --- | --- | --- |

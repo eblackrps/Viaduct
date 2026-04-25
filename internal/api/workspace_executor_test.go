@@ -394,6 +394,74 @@ func TestWorkspaceJobExecutor_EnqueueDeadlineExceeded_ReturnsTypedError(t *testi
 	close(release)
 }
 
+func TestWorkspaceJobExecutor_QueueFullTimeoutCleansOnceAndDrains_Expected(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	started := make(chan string, 4)
+	release := make(chan struct{})
+	var timeoutCleanup atomic.Int32
+	executor := newWorkspaceJobExecutorWithTimeout(ctx, 1, 25*time.Millisecond, func(_ context.Context, task workspaceJobTask) {
+		started <- task.jobID
+		<-release
+	})
+
+	if err := executor.Enqueue(context.Background(), workspaceJobTask{tenantID: "tenant-running", jobID: "job-running"}); err != nil {
+		t.Fatalf("Enqueue(job-running) error = %v", err)
+	}
+	select {
+	case <-started:
+	case <-time.After(2 * time.Second):
+		t.Fatal("executor did not start the blocking job before timeout")
+	}
+	for _, jobID := range []string{"job-queued-1", "job-queued-2"} {
+		if err := executor.Enqueue(context.Background(), workspaceJobTask{tenantID: jobID, jobID: jobID}); err != nil {
+			t.Fatalf("Enqueue(%s) error = %v", jobID, err)
+		}
+	}
+
+	err := executor.Enqueue(context.Background(), workspaceJobTask{
+		tenantID: "tenant-timeout",
+		jobID:    "job-timeout",
+		release:  func() { timeoutCleanup.Add(1) },
+	})
+	if !errors.Is(err, ErrEnqueueTimeout) {
+		t.Fatalf("Enqueue(job-timeout) error = %v, want ErrEnqueueTimeout", err)
+	}
+	deadline := time.After(2 * time.Second)
+	for timeoutCleanup.Load() == 0 {
+		select {
+		case <-deadline:
+			t.Fatalf("timeout cleanup count = %d, want 1", timeoutCleanup.Load())
+		default:
+			time.Sleep(10 * time.Millisecond)
+		}
+	}
+	if got := timeoutCleanup.Load(); got != 1 {
+		t.Fatalf("timeout cleanup count = %d, want exactly 1", got)
+	}
+	if queueDepths := executor.QueueDepthByTenant(); queueDepths["tenant-timeout"] != 0 {
+		t.Fatalf("QueueDepthByTenant() = %#v, want timed-out tenant absent", queueDepths)
+	}
+
+	close(release)
+	seen := map[string]bool{}
+	deadline = time.After(2 * time.Second)
+	for len(seen) < 2 {
+		select {
+		case jobID := <-started:
+			seen[jobID] = true
+		case <-deadline:
+			t.Fatalf("queued jobs did not dispatch after timeout; seen=%#v", seen)
+		}
+	}
+	if !seen["job-queued-1"] || !seen["job-queued-2"] || seen["job-timeout"] {
+		t.Fatalf("seen started jobs = %#v, want queued jobs only", seen)
+	}
+}
+
 func TestWorkspaceJobExecutor_EnqueueDeadlineStress_DoesNotRetainTimedOutTasks_Expected(t *testing.T) {
 	t.Parallel()
 
@@ -552,6 +620,61 @@ func TestExecutorEnqueueTimeout_NoOrphans(t *testing.T) {
 	}
 	if queueDepths := executor.QueueDepthByTenant(); len(queueDepths) != 0 {
 		t.Fatalf("QueueDepthByTenant() after shutdown = %#v, want empty", queueDepths)
+	}
+}
+
+func TestWorkspaceJobExecutor_WorkerRecoversPanicAndContinues_Expected(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	started := make(chan string, 2)
+	var cleanupCount atomic.Int32
+	executor := newWorkspaceJobExecutor(ctx, 1, func(_ context.Context, task workspaceJobTask) {
+		started <- task.jobID
+		if task.jobID == "job-panic" {
+			panic("workspace job test panic")
+		}
+	})
+
+	if err := executor.Enqueue(context.Background(), workspaceJobTask{
+		tenantID: "tenant-a",
+		jobID:    "job-panic",
+		release:  func() { cleanupCount.Add(1) },
+	}); err != nil {
+		t.Fatalf("Enqueue(job-panic) error = %v", err)
+	}
+	if err := executor.Enqueue(context.Background(), workspaceJobTask{
+		tenantID: "tenant-b",
+		jobID:    "job-next",
+		release:  func() { cleanupCount.Add(1) },
+	}); err != nil {
+		t.Fatalf("Enqueue(job-next) error = %v", err)
+	}
+
+	seen := map[string]bool{}
+	deadline := time.After(2 * time.Second)
+	for len(seen) < 2 {
+		select {
+		case jobID := <-started:
+			seen[jobID] = true
+		case <-deadline:
+			t.Fatalf("worker did not continue after panic; seen=%#v", seen)
+		}
+	}
+	if !seen["job-panic"] || !seen["job-next"] {
+		t.Fatalf("seen started jobs = %#v, want panic and following job", seen)
+	}
+
+	deadline = time.After(2 * time.Second)
+	for cleanupCount.Load() < 2 {
+		select {
+		case <-deadline:
+			t.Fatalf("cleanup count = %d, want 2", cleanupCount.Load())
+		default:
+			time.Sleep(10 * time.Millisecond)
+		}
 	}
 }
 
