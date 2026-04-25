@@ -47,12 +47,13 @@ endif
 COVER_MIN ?= 50.0
 PLUGIN_MANIFEST ?= examples/plugin-example/plugin.json
 PACKAGE_VERSION ?= $(patsubst v%,%,$(VERSION))
+BASE_URL ?= https://viaducthq.com
 LINUX_AMD64_BINARY = bin/viaduct-linux-amd64
 LINUX_ARM64_BINARY = bin/viaduct-linux-arm64
 DARWIN_ARM64_BINARY = bin/viaduct-darwin-arm64
 WINDOWS_BINARY = bin/viaduct.exe
 
-.PHONY: all build build-linux build-linux-amd64 build-linux-arm64 build-darwin-arm64 build-windows test lint proto docker dashboard serve web-install web-e2e-setup web-build web-verify web-runtime-smoke pilot-smoke observability-up observability-down observability-validate site-check release-acceptance package-release package-release-host-bundle package-release-linux package-release-linux-amd64 package-release-linux-amd64-bundle package-release-linux-arm64 package-release-linux-arm64-bundle package-release-darwin-arm64 package-release-darwin-arm64-bundle package-release-windows package-release-windows-bundle package-release-matrix certification-test soak-test plugin-check openapi-generate contract-check workflow-lint release-surface-check timing-check migrate-diag release-gate clean
+.PHONY: all build build-linux build-linux-amd64 build-linux-arm64 build-darwin-arm64 build-windows test lint proto docker dashboard serve web-install web-e2e-setup web-build web-verify web-runtime-smoke pilot-smoke observability-up observability-down observability-validate site-check site-check-live release-acceptance package-release package-release-host-bundle package-release-linux package-release-linux-amd64 package-release-linux-amd64-bundle package-release-linux-arm64 package-release-linux-arm64-bundle package-release-darwin-arm64 package-release-darwin-arm64-bundle package-release-windows package-release-windows-bundle package-release-matrix certification-test soak-test plugin-check openapi-generate contract-check workflow-lint release-surface-check timing-check migrate-diag release-gate clean
 
 all: lint test build
 
@@ -135,6 +136,9 @@ observability-validate:
 
 site-check:
 	go run ./scripts/site_validate
+
+site-check-live:
+	go run ./scripts/site_validate -base-url=$(BASE_URL)
 
 release-acceptance:
 	go run ./scripts/release_acceptance -image ghcr.io/eblackrps/viaduct:$(PACKAGE_VERSION) -certificate-identity "https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v$(PACKAGE_VERSION)"

@@ -23,8 +23,11 @@ make site-check
 After GitHub Pages deploys, verify the public artifact with:
 
 ```bash
-go run ./scripts/site_validate -base-url https://viaducthq.com
+make site-check-live BASE_URL=https://viaducthq.com
 ```
+
+The live check fetches the deployed homepage body and fails if it does not
+contain the current version, GHCR image tag, and matching GitHub Release link.
 
 ## Screenshot assets
 

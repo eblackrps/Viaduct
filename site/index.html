@@ -3,19 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Viaduct - Virtualization migration control plane</title>
+    <title>Viaduct - Virtualization migration planning</title>
     <meta
       name="description"
-      content="Viaduct is an open-source control plane for virtualization migration assessment, planning, controlled execution, observability, and evidence export."
+      content="Viaduct helps teams inspect virtualization environments, understand workload relationships, prepare migration plans, and create reviewable reports before a pilot."
     />
-    <meta name="theme-color" content="#f6f8f3" />
+    <meta name="theme-color" content="#f7f8f6" />
     <meta property="og:title" content="Viaduct" />
     <meta
       property="og:description"
-      content="Assess, plan, observe, and document virtualization migrations from one operator workspace."
+      content="Plan virtualization migrations with better inventory, dependency, and readiness data."
     />
     <meta property="og:image" content="https://viaducthq.com/social-card.svg" />
-    <meta property="og:image:alt" content="Viaduct virtualization migration control plane" />
+    <meta property="og:image:alt" content="Viaduct virtualization migration planning" />
     <meta property="og:url" content="https://viaducthq.com/" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Viaduct" />
@@ -24,24 +24,18 @@
     <meta name="twitter:title" content="Viaduct" />
     <meta
       name="twitter:description"
-      content="Assess, plan, observe, and document virtualization migrations from one operator workspace."
+      content="Plan virtualization migrations with better inventory, dependency, and readiness data."
     />
     <meta name="twitter:image" content="https://viaducthq.com/social-card.svg" />
     <link rel="canonical" href="https://viaducthq.com/" />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=Sora:wght@500;600;700&family=Source+Sans+3:wght@400;500;600;700&display=swap"
-      rel="stylesheet"
-    />
     <link rel="stylesheet" href="styles.css" />
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
         "@type": "SoftwareSourceCode",
         "name": "Viaduct",
-        "description": "Open-source control plane for virtualization migration assessment, planning, controlled execution, observability, and evidence export.",
+        "description": "Open-source software for virtualization inventory, dependency review, migration planning, readiness checks, and reports.",
         "codeRepository": "https://github.com/eblackrps/Viaduct",
         "license": "https://github.com/eblackrps/Viaduct/blob/main/LICENSE",
         "url": "https://viaducthq.com/",
@@ -60,195 +54,190 @@
         </a>
         <nav class="site-nav" aria-label="Primary">
           <a href="https://github.com/eblackrps/Viaduct/blob/main/QUICKSTART.md">Quickstart</a>
-          <a href="https://github.com/eblackrps/Viaduct/tree/main/docs">Docs</a>
-          <a href="https://github.com/eblackrps/Viaduct/blob/main/docs/operations/observability.md">Observability</a>
-          <a href="https://github.com/eblackrps/Viaduct/releases/tag/v3.2.1">v3.2.1 release notes</a>
-          <a class="nav-button" href="https://github.com/eblackrps/Viaduct">GitHub</a>
+          <a href="https://github.com/eblackrps/Viaduct/blob/main/docs/reference/support-matrix.md">Support matrix</a>
+          <a href="https://github.com/eblackrps/Viaduct/blob/main/docs/operations/docker.md">Docker install</a>
+          <a href="https://github.com/eblackrps/Viaduct/blob/main/SECURITY.md">Security</a>
+          <a href="https://github.com/eblackrps/Viaduct">GitHub</a>
+          <a class="release-link" href="https://github.com/eblackrps/Viaduct/releases/tag/v3.2.1">Current release: v3.2.1</a>
         </nav>
       </div>
     </header>
 
     <main id="content">
       <section class="hero" aria-labelledby="hero-title">
-        <div class="shell hero-content">
-          <p class="eyebrow">Open-source migration control plane</p>
-          <h1 id="hero-title">Viaduct</h1>
-          <p class="hero-lead">
-            Assess, plan, observe, and document virtualization migrations from one shared
-            operator workspace.
-          </p>
-          <p class="hero-copy">
-            Viaduct brings discovery, dependency mapping, migration planning, supervised
-            execution workflows, traceability, and report export into a single Go API, CLI, and React
-            dashboard.
-          </p>
-          <div class="hero-actions" aria-label="Primary actions">
-            <a class="button button-primary" href="https://github.com/eblackrps/Viaduct/blob/main/QUICKSTART.md">
-              Start the quickstart
-            </a>
-            <a class="button button-secondary" href="https://github.com/eblackrps/Viaduct/pkgs/container/viaduct">
-              Get the signed image
-            </a>
-          </div>
-          <dl class="proof-points" aria-label="Release qualities">
-            <div>
-              <dt>Release</dt>
-              <dd>v3.2.1</dd>
-            </div>
-            <div>
-              <dt>Platforms</dt>
-              <dd>VMware, Proxmox, Hyper-V, KVM, Nutanix</dd>
-            </div>
-            <div>
-              <dt>Operations</dt>
-              <dd>OpenTelemetry, signed images, exportable evidence</dd>
-            </div>
-          </dl>
-        </div>
-      </section>
-
-      <section class="section mission-section" aria-labelledby="mission-title">
-        <div class="shell mission-layout">
-          <div>
-            <p class="eyebrow">What it is</p>
-            <h2 id="mission-title">A practical workspace for migration decisions.</h2>
-          </div>
-          <p class="section-lead">
-            Viaduct is built for teams that need a trustworthy migration record before
-            anything moves: current inventory, dependencies, policy context, approvals,
-            simulations, execution history, and reports that can be reviewed later.
-          </p>
-        </div>
-      </section>
-
-      <section class="section workflow-section" aria-labelledby="workflow-title">
-        <div class="shell">
-          <div class="section-heading">
-            <p class="eyebrow">Golden path</p>
-            <h2 id="workflow-title">From first scan to migration evidence.</h2>
-          </div>
-          <div class="workflow-grid">
-            <article>
-              <span>01</span>
-              <h3>Discover</h3>
-              <p>Collect inventory from the platforms already in your environment.</p>
-            </article>
-            <article>
-              <span>02</span>
-              <h3>Assess</h3>
-              <p>Review dependencies, backup coverage, policy signals, and drift.</p>
-            </article>
-            <article>
-              <span>03</span>
-              <h3>Plan</h3>
-              <p>Simulate placement, save migration plans, and keep approvals explicit.</p>
-            </article>
-            <article>
-              <span>04</span>
-              <h3>Operate</h3>
-              <p>Track execution, checkpoints, traces, and exportable reports.</p>
-            </article>
-          </div>
-        </div>
-      </section>
-
-      <section class="section product-section" aria-labelledby="product-title">
-        <div class="shell">
-          <div class="section-heading">
-            <p class="eyebrow">Dashboard</p>
-            <h2 id="product-title">A clearer view for operators and reviewers.</h2>
-            <p>
-              The dashboard is designed around the actual pilot flow: create a workspace,
-              inspect inventory, understand dependencies, simulate changes, and export the
-              evidence package.
+        <div class="shell hero-grid">
+          <div class="hero-copy">
+            <p class="eyebrow">Open-source virtualization migration planning</p>
+            <h1 id="hero-title">Plan virtualization migrations with better inventory, dependency, and readiness data.</h1>
+            <p class="hero-lead">
+              Viaduct helps teams inspect virtualization environments, understand workload
+              relationships, prepare migration plans, and create reviewable reports before a pilot.
             </p>
+            <p>
+              It is built for virtualization admins, infrastructure managers, and IT architects who
+              need a clear view of what exists, what depends on what, and what should be checked
+              before moving workloads.
+            </p>
+            <div class="hero-actions" aria-label="Primary actions">
+              <a class="button button-primary" href="https://github.com/eblackrps/Viaduct/blob/main/QUICKSTART.md">
+                Start the quickstart
+              </a>
+              <a class="button button-secondary" href="https://github.com/eblackrps/Viaduct/blob/main/docs/reference/support-matrix.md">
+                View the support matrix
+              </a>
+            </div>
           </div>
+          <figure class="hero-image">
+            <img
+              src="assets/pilot-workspace.png"
+              alt="Viaduct workspace overview showing discovery, readiness, and saved migration planning steps"
+            />
+            <figcaption>Workspace overview from the v3.2.1 dashboard.</figcaption>
+          </figure>
+        </div>
+      </section>
 
-          <div class="product-showcase">
+      <section class="section" aria-labelledby="does-title">
+        <div class="shell">
+          <div class="section-heading">
+            <p class="eyebrow">What Viaduct does</p>
+            <h2 id="does-title">Prepare the migration conversation before making changes.</h2>
+          </div>
+          <div class="card-grid five">
+            <article class="info-card">
+              <h3>Inventory environments</h3>
+              <p>Collect normalized inventory from supported virtualization platforms.</p>
+            </article>
+            <article class="info-card">
+              <h3>Map dependencies</h3>
+              <p>Review workload, network, storage, and backup relationships before grouping moves.</p>
+            </article>
+            <article class="info-card">
+              <h3>Build migration plans</h3>
+              <p>Create plans from declarative specs, selectors, readiness checks, approvals, and waves.</p>
+            </article>
+            <article class="info-card">
+              <h3>Run readiness checks</h3>
+              <p>Check configuration, policy, backup coverage, and runtime prerequisites before a pilot.</p>
+            </article>
+            <article class="info-card">
+              <h3>Create review reports</h3>
+              <p>Export summaries that reviewers can use during planning, approval, and handoff.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section screenshots-section" aria-labelledby="screenshots-title">
+        <div class="shell">
+          <div class="section-heading">
+            <p class="eyebrow">Current dashboard</p>
+            <h2 id="screenshots-title">Screenshots from the checked-in v3.2.1 app.</h2>
+          </div>
+          <div class="screenshots-grid">
             <figure class="screenshot screenshot-wide">
               <img
                 src="assets/pilot-workspace.png"
-                alt="Viaduct workspace dashboard showing migration readiness, discovery status, and operator actions"
+                alt="Viaduct workspace dashboard with migration readiness and planning progress"
               />
-              <figcaption>
-                <strong>Workspace overview.</strong>
-                Track discovery, readiness, saved plans, and the next operator action in one place.
-              </figcaption>
+              <figcaption>Workspace overview</figcaption>
             </figure>
-            <div class="screenshot-pair">
-              <figure class="screenshot">
-                <img
-                  src="assets/dependency-graph.png"
-                  alt="Viaduct dependency graph showing workload relationships across compute, storage, and network resources"
-                />
-                <figcaption>
-                  <strong>Dependency mapping.</strong>
-                  See workload relationships before deciding what moves together.
-                </figcaption>
-              </figure>
-              <figure class="screenshot">
-                <img
-                  src="assets/reports-history.png"
-                  alt="Viaduct reports screen showing generated migration assessment evidence"
-                />
-                <figcaption>
-                  <strong>Evidence export.</strong>
-                  Produce reports that support review, approval, and handoff.
-                </figcaption>
-              </figure>
-            </div>
+            <figure class="screenshot">
+              <img
+                src="assets/inventory-assessment.png"
+                alt="Viaduct inventory table with workload detail for a selected virtual machine"
+              />
+              <figcaption>Inventory and workload detail</figcaption>
+            </figure>
+            <figure class="screenshot">
+              <img
+                src="assets/dependency-graph.png"
+                alt="Viaduct dependency graph showing workload relationships across infrastructure resources"
+              />
+              <figcaption>Dependency graph</figcaption>
+            </figure>
+            <figure class="screenshot">
+              <img
+                src="assets/reports-history.png"
+                alt="Viaduct reports page listing generated migration and assessment reports"
+              />
+              <figcaption>Reports</figcaption>
+            </figure>
           </div>
         </div>
       </section>
 
-      <section class="section operations-section" aria-labelledby="operations-title">
-        <div class="shell operations-layout">
+      <section class="section section-muted" aria-labelledby="platforms-title">
+        <div class="shell split">
           <div>
-            <p class="eyebrow">Built for controlled work</p>
-            <h2 id="operations-title">Trust signals are part of the product surface.</h2>
-            <p class="section-lead">
-              Viaduct keeps the release path, runtime sessions, tenant isolation, and trace
-              visibility aligned so evaluators can understand what changed and operators can
-              diagnose what happened.
+            <p class="eyebrow">Platform support</p>
+            <h2 id="platforms-title">Inspect common virtualization platforms, with validation status documented.</h2>
+            <p>
+              Viaduct includes connectors for VMware, Proxmox, Hyper-V, KVM, and Nutanix inventory.
+              Veeam support is available for backup and restore-point enrichment. Community
+              connectors can be loaded through the plugin host.
             </p>
+            <p class="notice">
+              Some connector validation is fixture-backed. Review the support matrix before using
+              Viaduct in a live environment.
+            </p>
+            <a class="text-link" href="https://github.com/eblackrps/Viaduct/blob/main/docs/reference/support-matrix.md">
+              Read the support matrix
+            </a>
           </div>
-          <div class="operations-list" aria-label="Operational features">
-            <div>
-              <h3>Signed release artifacts</h3>
-              <p>Primary image publishing includes provenance, SBOMs, vulnerability scans, and cosign verification.</p>
-            </div>
-            <div>
-              <h3>Session-aware access</h3>
-              <p>Runtime sessions use server-backed state and service-account friendly tenant controls.</p>
-            </div>
-            <div>
-              <h3>Traceable backend workflows</h3>
-              <p>OpenTelemetry spans cover HTTP requests, discovery, planning, exports, and long-running jobs.</p>
-            </div>
-          </div>
+          <ul class="platform-list" aria-label="Connector list">
+            <li>VMware vSphere</li>
+            <li>Proxmox VE</li>
+            <li>Microsoft Hyper-V</li>
+            <li>KVM and libvirt</li>
+            <li>Nutanix Prism</li>
+            <li>Veeam Backup and Replication</li>
+          </ul>
         </div>
       </section>
 
-      <section class="section install-section" aria-labelledby="install-title">
-        <div class="shell install-layout">
+      <section class="section" aria-labelledby="install-title">
+        <div class="shell split">
           <div>
-            <p class="eyebrow">Install</p>
-            <h2 id="install-title">Start with the signed container release.</h2>
-            <p class="section-lead">
-              The OCI image is the primary packaged artifact. Native bundles are also
-              published on GitHub Releases for environments that cannot run containers.
+            <p class="eyebrow">Install and verify</p>
+            <h2 id="install-title">Use the signed v3.2.1 container image.</h2>
+            <p>
+              The GHCR image is the primary packaged artifact for v3.2.1. Native bundles,
+              checksums, SBOMs, and release notes are published on GitHub Releases.
             </p>
+            <p class="notice">Use PostgreSQL and configure authentication for persistent deployments.</p>
           </div>
-          <div class="install-panel">
+          <div class="code-panel">
             <pre><code>docker pull ghcr.io/eblackrps/viaduct:3.2.1
-export VIADUCT_ADMIN_KEY='sha256:&lt;hex&gt;'
-export POSTGRES_PASSWORD='&lt;database-password&gt;'
-docker compose -f deploy/docker-compose.prod.yml up -d</code></pre>
-            <div class="install-links">
+cosign verify ghcr.io/eblackrps/viaduct:3.2.1 \
+  --certificate-identity \
+  'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.2.1' \
+  --certificate-oidc-issuer \
+  'https://token.actions.githubusercontent.com'</code></pre>
+            <div class="link-row">
+              <a href="https://github.com/eblackrps/Viaduct/releases/tag/v3.2.1">Release notes</a>
               <a href="https://github.com/eblackrps/Viaduct/blob/main/docs/operations/docker.md">Docker guide</a>
-              <a href="https://github.com/eblackrps/Viaduct/blob/main/docs/operations/observability.md">Observability guide</a>
-              <a href="https://github.com/eblackrps/Viaduct/blob/main/RELEASE.md">Release process</a>
+              <a href="https://github.com/eblackrps/Viaduct/blob/main/INSTALL.md">Install guide</a>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section section-muted" aria-labelledby="safe-title">
+        <div class="shell split">
+          <div>
+            <p class="eyebrow">Safe evaluation</p>
+            <h2 id="safe-title">Try Viaduct with included KVM sample data.</h2>
+          </div>
+          <div>
+            <p class="large-copy">
+              No live hypervisor is required for the first run. The quickstart uses the included KVM
+              fixtures so you can open the dashboard, create a workspace, inspect inventory, view
+              dependencies, save a plan, and export a report locally.
+            </p>
+            <a class="button button-primary" href="https://github.com/eblackrps/Viaduct/blob/main/QUICKSTART.md">
+              Open QUICKSTART.md
+            </a>
           </div>
         </div>
       </section>
@@ -257,11 +246,15 @@ docker compose -f deploy/docker-compose.prod.yml up -d</code></pre>
     <footer class="site-footer">
       <div class="shell footer-row">
         <p>Apache 2.0 open source. Built by Eric Black.</p>
-        <div>
+        <nav aria-label="Footer">
+          <a href="https://github.com/eblackrps/Viaduct">GitHub</a>
+          <a href="https://github.com/eblackrps/Viaduct/tree/main/docs">Docs</a>
+          <a href="https://github.com/eblackrps/Viaduct/blob/main/docs/reference/support-matrix.md">Support matrix</a>
           <a href="https://github.com/eblackrps/Viaduct/blob/main/SECURITY.md">Security</a>
           <a href="https://github.com/eblackrps/Viaduct/blob/main/SUPPORT.md">Support</a>
+          <a href="https://github.com/eblackrps/Viaduct/blob/main/LICENSE">License</a>
           <a href="https://github.com/eblackrps/Viaduct/releases">Releases</a>
-        </div>
+        </nav>
       </div>
     </footer>
   </body>

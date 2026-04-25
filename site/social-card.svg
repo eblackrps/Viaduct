@@ -4,10 +4,10 @@
   <rect x="96" y="96" width="58" height="58" rx="18" fill="#176C63" />
   <text x="125" y="135" text-anchor="middle" fill="#FFFFFF" font-family="Sora, Segoe UI, sans-serif" font-size="28" font-weight="700">V</text>
   <text x="176" y="133" fill="#17212B" font-family="Sora, Segoe UI, sans-serif" font-size="34" font-weight="700">Viaduct</text>
-  <text x="96" y="220" fill="#176C63" font-family="IBM Plex Mono, Cascadia Mono, monospace" font-size="20" font-weight="500" letter-spacing="2">OPEN-SOURCE MIGRATION CONTROL PLANE</text>
-  <text x="96" y="310" fill="#17212B" font-family="Sora, Segoe UI, sans-serif" font-size="68" font-weight="700">Assess. Plan.</text>
-  <text x="96" y="386" fill="#17212B" font-family="Sora, Segoe UI, sans-serif" font-size="68" font-weight="700">Operate with evidence.</text>
-  <text x="96" y="460" fill="#33414D" font-family="Source Sans 3, Segoe UI, sans-serif" font-size="30" font-weight="500">Virtualization migration workflows for operators, reviewers, and release owners.</text>
+  <text x="96" y="220" fill="#176C63" font-family="IBM Plex Mono, Cascadia Mono, monospace" font-size="20" font-weight="500" letter-spacing="2">OPEN-SOURCE MIGRATION PLANNING</text>
+  <text x="96" y="310" fill="#17212B" font-family="Sora, Segoe UI, sans-serif" font-size="66" font-weight="700">Inventory. Map.</text>
+  <text x="96" y="386" fill="#17212B" font-family="Sora, Segoe UI, sans-serif" font-size="66" font-weight="700">Plan before a pilot.</text>
+  <text x="96" y="460" fill="#33414D" font-family="Source Sans 3, Segoe UI, sans-serif" font-size="30" font-weight="500">Review virtualization inventory, dependencies, readiness checks, and reports.</text>
   <rect x="770" y="116" width="292" height="316" rx="28" fill="#E6EDF4" stroke="#C7D3CA" />
   <rect x="812" y="160" width="208" height="30" rx="15" fill="#FFFFFF" />
   <rect x="812" y="218" width="142" height="18" rx="9" fill="#176C63" opacity="0.82" />

@@ -1,6 +1,6 @@
 # Installation
 
-Viaduct can be evaluated from the signed OCI image, from source, or from a native release bundle when containers are not an option. After a release tag is published, the OCI image is the primary packaged install surface.
+Viaduct can be evaluated from the signed OCI image, from source, or from a native release bundle when containers are not an option. For v3.2.1, the OCI image is the primary packaged install surface.
 
 ## Primary OCI Install
 
@@ -16,6 +16,14 @@ cosign verify ghcr.io/eblackrps/viaduct:3.2.1 \
 The primary signed registry is `ghcr.io/eblackrps/viaduct`. The Docker Hub mirror is `docker.io/emb079/viaduct:3.2.1` when repository Docker Hub secrets are configured.
 
 GitHub Actions mirrors release tags plus `main` branch `:edge` and `:sha-*` tags to Docker Hub whenever `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` are configured for this repo or inherited from an organization secret scope. For runtime flags, upgrade guidance, SBOM verification, the production compose sample, and the Helm chart defaults, continue with [../operations/docker.md](../operations/docker.md), [../../deploy/docker-compose.prod.yml](../../deploy/docker-compose.prod.yml), and [../../deploy/helm/viaduct](../../deploy/helm/viaduct).
+
+For the production Compose sample, create the local config mount first:
+
+```bash
+mkdir -p config
+cp configs/config.example.yaml config/config.yaml
+# edit config/config.yaml before starting the service
+```
 
 ## Source Build Alternative
 

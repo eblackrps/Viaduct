@@ -1,6 +1,6 @@
 # Ship Readiness Record
 
-This record summarizes the release-readiness work prepared for `v3.2.1`. It is intentionally limited to verified repository surfaces: release metadata, website copy, deployment defaults, runtime readiness, screenshots, and validation commands.
+This record summarizes the release-readiness work completed for `v3.2.1`. It is intentionally limited to verified repository surfaces: release metadata, website copy, deployment defaults, runtime readiness, screenshots, and validation commands.
 
 ## Completed
 

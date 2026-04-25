@@ -17,6 +17,7 @@ type surfaceExpectation struct {
 	Path          string
 	Needles       []string
 	CheckVersions bool
+	ActiveSurface bool
 }
 
 func main() {
@@ -29,6 +30,29 @@ func main() {
 	imageTag := "ghcr.io/eblackrps/viaduct:" + version
 	mirrorTag := "docker.io/emb079/viaduct:" + version
 	releaseNotePath := filepath.ToSlash(filepath.Join("docs", "releases", releaseTag+".md"))
+	forbiddenActivePhrases := []string{
+		"prepared release surface",
+		"tag workflow publishes",
+		"before cutting this release",
+		"expected to validate",
+		"release surface for the next tag",
+		"control plane for virtualization migration",
+		"shared operator workspace",
+		"operator workspace",
+		"golden path",
+		"evidence export",
+		"traceability surface",
+		"runtime posture",
+		"migration estate",
+		"trust signals",
+		"product surface",
+		"single shared backend model",
+		"backend trace visibility",
+		"enterprise ready",
+		"seamless migration",
+		"fully automated migration",
+		"production proven",
+	}
 
 	expectations := []surfaceExpectation{
 		{
@@ -39,6 +63,7 @@ func main() {
 				"docs/releases/current.md",
 			},
 			CheckVersions: true,
+			ActiveSurface: true,
 		},
 		{
 			Path: "INSTALL.md",
@@ -49,6 +74,7 @@ func main() {
 				"docs/releases/current.md",
 			},
 			CheckVersions: true,
+			ActiveSurface: true,
 		},
 		{
 			Path: "QUICKSTART.md",
@@ -57,6 +83,7 @@ func main() {
 				"docs/releases/current.md",
 			},
 			CheckVersions: true,
+			ActiveSurface: true,
 		},
 		{
 			Path: filepath.Join("docs", "README.md"),
@@ -65,6 +92,7 @@ func main() {
 				"releases/current.md",
 			},
 			CheckVersions: true,
+			ActiveSurface: true,
 		},
 		{
 			Path: filepath.Join("docs", "getting-started", "installation.md"),
@@ -74,6 +102,7 @@ func main() {
 				mirrorTag,
 			},
 			CheckVersions: true,
+			ActiveSurface: true,
 		},
 		{
 			Path: filepath.Join("docs", "getting-started", "quickstart.md"),
@@ -82,6 +111,7 @@ func main() {
 				"../releases/current.md",
 			},
 			CheckVersions: true,
+			ActiveSurface: true,
 		},
 		{
 			Path: filepath.Join("docs", "releases", "README.md"),
@@ -99,6 +129,18 @@ func main() {
 				releaseNotePath,
 			},
 			CheckVersions: true,
+			ActiveSurface: true,
+		},
+		{
+			Path: filepath.Join("docs", "releases", releaseTag+".md"),
+			Needles: []string{
+				releaseTag,
+				imageTag,
+				mirrorTag,
+				"published release",
+			},
+			CheckVersions: true,
+			ActiveSurface: true,
 		},
 		{
 			Path: filepath.Join("docs", "operations", "docker.md"),
@@ -108,6 +150,7 @@ func main() {
 				mirrorTag,
 			},
 			CheckVersions: true,
+			ActiveSurface: true,
 		},
 		{
 			Path: "CHANGELOG.md",
@@ -138,9 +181,10 @@ func main() {
 			Needles: []string{
 				releaseTag,
 				imageTag,
-				releaseTag + " release notes",
+				"/releases/tag/" + releaseTag,
 			},
 			CheckVersions: true,
+			ActiveSurface: true,
 		},
 		{
 			Path: filepath.Join("site", "social-card.svg"),
@@ -148,6 +192,7 @@ func main() {
 				releaseTag,
 			},
 			CheckVersions: true,
+			ActiveSurface: true,
 		},
 		{
 			Path: filepath.Join(".github", "workflows", "image.yml"),
@@ -170,6 +215,14 @@ func main() {
 				failures = append(
 					failures,
 					fmt.Sprintf("%s has stale active version reference(s): %s", filepath.ToSlash(expectation.Path), strings.Join(stale, ", ")),
+				)
+			}
+		}
+		if expectation.ActiveSurface {
+			if forbidden := forbiddenPhrases(expectation.Path, forbiddenActivePhrases); len(forbidden) > 0 {
+				failures = append(
+					failures,
+					fmt.Sprintf("%s has pre-release wording: %s", filepath.ToSlash(expectation.Path), strings.Join(forbidden, ", ")),
 				)
 			}
 		}
@@ -253,6 +306,22 @@ func unexpectedVersionReferences(path, version string) []string {
 		stale = append(stale, match)
 	}
 	return stale
+}
+
+func forbiddenPhrases(path string, phrases []string) []string {
+	// #nosec G304 -- paths come from the fixed release-surface expectation table in this script.
+	payload, err := os.ReadFile(path)
+	if err != nil {
+		return []string{fmt.Sprintf("readable content (%v)", err)}
+	}
+	content := strings.ToLower(string(payload))
+	found := make([]string, 0)
+	for _, phrase := range phrases {
+		if strings.Contains(content, strings.ToLower(phrase)) {
+			found = append(found, fmt.Sprintf("%q", phrase))
+		}
+	}
+	return found
 }
 
 func failf(format string, args ...any) {

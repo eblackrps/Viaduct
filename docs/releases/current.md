@@ -1,14 +1,14 @@
 # Current Release
 
-Viaduct `v3.2.1` is the current prepared release surface for the next tag.
+Viaduct `v3.2.1` is the current published release.
 
-This page is the repo-local source of truth for the current release/install story. Use it to sanity-check the root docs, deployment samples, screenshots, and public site before tagging the next version.
+This page is the repo-local source of truth for the current release/install story. Use it to sanity-check the root docs, deployment samples, screenshots, and public site before the next version is prepared.
 
 The only tag-publishing workflow is [`.github/workflows/image.yml`](../../.github/workflows/image.yml). [`.github/workflows/release.yml`](../../.github/workflows/release.yml) is a guard-only workflow and must not publish competing release assets.
 
 ## Primary Install
 
-After the `v3.2.1` tag workflow publishes, the signed GHCR OCI image is the primary packaged install surface:
+Use the signed GHCR OCI image as the primary packaged install surface:
 
 ```bash
 docker pull ghcr.io/eblackrps/viaduct:3.2.1

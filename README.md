@@ -1,11 +1,11 @@
 # Viaduct
-> Open-source control plane for virtualization migration assessment, planning, and controlled operator execution.
+> Open-source software for virtualization inventory, dependency review, migration planning, readiness checks, and reports.
 
 [![CI](https://github.com/eblackrps/Viaduct/actions/workflows/ci.yml/badge.svg)](https://github.com/eblackrps/Viaduct/actions/workflows/ci.yml)
 [![License](https://img.shields.io/github/license/eblackrps/Viaduct)](https://github.com/eblackrps/Viaduct/blob/main/LICENSE)
 [![Release](https://img.shields.io/github/v/release/eblackrps/Viaduct?display_name=tag)](https://github.com/eblackrps/Viaduct/releases)
 
-Viaduct helps operators discover mixed virtualization estates, map dependencies, build migration plans, and manage controlled migration work from one shared backend model. The repository combines a Go backend, REST API, CLI, React dashboard, and standalone public site around the same persisted inventory, workspace, planning, and reporting surfaces.
+Viaduct helps teams inspect mixed virtualization environments, map dependencies, build migration plans, and keep reviewable records before a pilot. The repository combines a Go backend, REST API, CLI, React dashboard, and standalone public site around the same persisted inventory, workspace, planning, and reporting data.
 
 Versioned release notes live in [docs/releases/README.md](docs/releases/README.md), the current install/reference surface lives in [docs/releases/current.md](docs/releases/current.md), and the published release stream is tracked in [CHANGELOG.md](CHANGELOG.md).
 
@@ -15,13 +15,13 @@ Viaduct is built for operators who need:
 - mixed-estate discovery and inventory normalization
 - dependency-aware migration assessment
 - readiness and planning discipline before cutover work starts
-- controlled, reviewable operator workflows with exported evidence
+- controlled, reviewable planning work with exported reports
 
 The default first-run experience is the WebUI-first workspace flow: start Viaduct, create a workspace, discover, inspect, simulate, save a plan, and export a report. The local lab remains the fastest path from fresh clone to a working dashboard and API.
 
 ## Why Viaduct
 
-Many teams do not need more abstract migration talk. They need to know what exists, what depends on what, what should move first, and what evidence is good enough to approve a pilot. Viaduct is aimed at that planning and handoff gap.
+Many teams do not need more abstract migration talk. They need to know what exists, what depends on what, what should move first, and what review material is good enough to approve a pilot. Viaduct is aimed at that planning and handoff gap.
 
 It is strongest when operators need:
 - one normalized inventory across mixed platforms
@@ -33,9 +33,9 @@ It is strongest when operators need:
 
 - Discovery: normalize inventory from VMware, Proxmox, Hyper-V, KVM, Nutanix, and Veeam-related backup systems into the shared model.
 - Dependency mapping: build workload, network, storage, and backup graph context before execution.
-- Pilot workspace workflow: persist source connections, snapshots, graph outputs, target assumptions, readiness results, saved plans, approvals, notes, and exported reports in one operator record.
+- Pilot workspace workflow: persist source connections, snapshots, graph outputs, target assumptions, readiness results, saved plans, approvals, notes, and exported reports in one workspace record.
 - Migration planning: use declarative specs, preflight checks, saved dry-run plans, execution windows, approval requirements, checkpoints, resume support, and rollback state.
-- Lifecycle analysis: review drift, policy, cost, remediation guidance, and backup portability inputs in the same control plane.
+- Lifecycle analysis: review drift, policy, cost, remediation guidance, and backup portability inputs against the same stored data.
 - Diagnostics and observability: validate local runtime readiness with `viaduct doctor` and `viaduct status --runtime`, then optionally prove backend trace flow with the bundled Grafana + Tempo path.
 - Multi-tenancy and extensibility: use tenant-scoped APIs, service accounts, PostgreSQL-backed state, and the community plugin host.
 
@@ -51,7 +51,7 @@ These are current seeded-product captures from the packaged operator shell. They
 <p align="center">
   <img src="docs/operations/demo/screenshots/dependency-graph.png" alt="Viaduct dependency graph view showing workload relationships" width="32%" />
   <img src="docs/operations/demo/screenshots/migration-ops.png" alt="Viaduct migration operations workspace with plan and execution posture" width="32%" />
-  <img src="docs/operations/demo/screenshots/reports-history.png" alt="Viaduct reports and history view with export-ready operator evidence" width="32%" />
+  <img src="docs/operations/demo/screenshots/reports-history.png" alt="Viaduct reports and history view with exported review reports" width="32%" />
 </p>
 
 ## Platform Coverage
@@ -70,7 +70,7 @@ Detailed validation status, including fixture-backed versus live-lab claims, is 
 
 ## Primary Docker Install
 
-After the `v3.2.1` tag workflow publishes, Viaduct treats the signed OCI image as the primary packaged artifact.
+Viaduct v3.2.1 uses the signed GHCR OCI image as the primary packaged artifact.
 
 ```bash
 docker pull ghcr.io/eblackrps/viaduct:3.2.1
@@ -84,6 +84,8 @@ cosign verify ghcr.io/eblackrps/viaduct:3.2.1 \
 The primary signed registry is `ghcr.io/eblackrps/viaduct`. The Docker Hub mirror is `docker.io/emb079/viaduct:3.2.1` when repository Docker Hub secrets are configured.
 
 GitHub Actions is configured to mirror release tags plus `main` branch `:edge` and `:sha-*` image tags to Docker Hub whenever `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` are configured as Actions secrets for this repo or as inherited organization secrets. Detailed container guidance lives in [docs/operations/docker.md](docs/operations/docker.md). The Compose and Helm samples in [deploy/docker-compose.prod.yml](deploy/docker-compose.prod.yml) and [deploy/helm/viaduct](deploy/helm/viaduct) use PostgreSQL-backed state for persistent deployments. Native bundles remain available on GitHub Releases as an alternative path for environments that cannot run containers.
+
+For the production Compose sample, create `config/config.yaml` from `configs/config.example.yaml` before starting the service; the container mounts that directory at `/etc/viaduct:ro`.
 
 ## Source Build And Local Lab
 

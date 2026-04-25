@@ -1,6 +1,6 @@
 # Docker Operations
 
-After the `v3.2.1` tag workflow publishes, Viaduct treats the signed OCI image as the primary packaged release artifact.
+Viaduct v3.2.1 uses the signed GHCR OCI image as the primary packaged release artifact.
 
 ## Registries
 
@@ -21,10 +21,23 @@ For persistent deployments, use PostgreSQL and set `VIADUCT_ENVIRONMENT=producti
 
 ```bash
 docker pull ghcr.io/eblackrps/viaduct:3.2.1
+mkdir -p config
+cp configs/config.example.yaml config/config.yaml
+# edit config/config.yaml before starting the service
 export VIADUCT_ADMIN_KEY='sha256:<hex>'
 export POSTGRES_PASSWORD='<database-password>'
 docker compose -f deploy/docker-compose.prod.yml up -d
 ```
+
+The Compose file mounts `./config` to `/etc/viaduct:ro`, so `config/config.yaml`
+becomes `/etc/viaduct/config.yaml` inside the Viaduct container. Keep secrets in
+environment variables or your deployment secret manager rather than committing
+them to the copied config file.
+
+`/healthz` reports that the HTTP process is alive. `/readyz` is the production
+readiness endpoint and checks the store, schema state, policy loading, auth
+configuration, connector circuit state, dashboard assets, and production mode.
+Use `/readyz` for Compose, Kubernetes, and load balancer readiness checks.
 
 For a single-container evaluation run, omit `VIADUCT_ENVIRONMENT=production` and keep the listener bound to loopback unless credentials are configured:
 

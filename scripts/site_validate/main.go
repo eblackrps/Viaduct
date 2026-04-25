@@ -35,7 +35,7 @@ func main() {
 		failf("validate local site: %v", err)
 	}
 	if strings.TrimSpace(baseURL) != "" {
-		if err := validateDeployedSite(strings.TrimRight(strings.TrimSpace(baseURL), "/")); err != nil {
+		if err := validateDeployedSite(strings.TrimRight(strings.TrimSpace(baseURL), "/"), version); err != nil {
 			failf("validate deployed site: %v", err)
 		}
 	}
@@ -76,6 +76,9 @@ func validateLocalSite(siteDir, version string) error {
 	}
 	if stale := staleVersionReferences(content, version); len(stale) > 0 {
 		return fmt.Errorf("index.html contains stale version reference(s): %s", strings.Join(stale, ", "))
+	}
+	if forbidden := forbiddenHomepagePhrases(content); len(forbidden) > 0 {
+		return fmt.Errorf("index.html contains old or unsupported website copy: %s", strings.Join(forbidden, ", "))
 	}
 	if err := validateLocalReferences(siteDir, "index.html", content); err != nil {
 		return err
@@ -140,40 +143,111 @@ func externalReference(ref string) bool {
 		strings.HasPrefix(ref, "tel:")
 }
 
-func validateDeployedSite(baseURL string) error {
+func validateDeployedSite(baseURL, version string) error {
 	parsed, err := url.Parse(baseURL)
 	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
 		return fmt.Errorf("-base-url must be an absolute URL")
 	}
-	for _, path := range []string{
-		"/",
+	homepage, err := getHTTP200(strings.TrimRight(baseURL, "/") + "/")
+	if err != nil {
+		return err
+	}
+	for _, required := range []string{
+		"v" + version,
+		"ghcr.io/eblackrps/viaduct:" + version,
+		"/releases/tag/v" + version,
+	} {
+		if !strings.Contains(homepage, required) {
+			return fmt.Errorf("deployed homepage is stale or incomplete: missing %q", required)
+		}
+	}
+	if stale := staleVersionReferences(homepage, version); len(stale) > 0 {
+		return fmt.Errorf("deployed homepage contains stale version reference(s): %s", strings.Join(stale, ", "))
+	}
+	if forbidden := forbiddenHomepagePhrases(homepage); len(forbidden) > 0 {
+		return fmt.Errorf("deployed homepage contains old or unsupported website copy: %s", strings.Join(forbidden, ", "))
+	}
+	assetPaths := []string{
 		"/styles.css",
 		"/favicon.svg",
 		"/social-card.svg",
 		"/assets/pilot-workspace.png",
 		"/assets/dependency-graph.png",
 		"/assets/reports-history.png",
-	} {
+	}
+	assetPaths = append(assetPaths, deployedScreenshotAssets(homepage)...)
+	for _, path := range uniqueStrings(assetPaths) {
 		target := strings.TrimRight(baseURL, "/") + path
-		if err := expectHTTP200(target); err != nil {
+		if _, err := getHTTP200(target); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func expectHTTP200(target string) error {
+func forbiddenHomepagePhrases(content string) []string {
+	lower := strings.ToLower(content)
+	forbidden := []string{
+		"shared operator workspace",
+		"supervised execution workflows",
+		"golden path",
+		"trust signals are part of the product surface",
+		"evidence export",
+		"traceability surface",
+		"control plane for virtualization migration",
+		"enterprise ready",
+		"seamless migration",
+		"fully automated migration",
+		"production proven",
+	}
+	found := make([]string, 0)
+	for _, phrase := range forbidden {
+		if strings.Contains(lower, strings.ToLower(phrase)) {
+			found = append(found, fmt.Sprintf("%q", phrase))
+		}
+	}
+	return found
+}
+
+func deployedScreenshotAssets(homepage string) []string {
+	pattern := regexp.MustCompile(`(?:src|href)="(assets/[^"]+\.(?:png|svg|jpg|jpeg|webp))"`)
+	assets := make([]string, 0)
+	for _, match := range pattern.FindAllStringSubmatch(homepage, -1) {
+		if len(match) == 2 {
+			assets = append(assets, "/"+strings.TrimPrefix(match[1], "/"))
+		}
+	}
+	return assets
+}
+
+func uniqueStrings(values []string) []string {
+	seen := make(map[string]struct{}, len(values))
+	unique := make([]string, 0, len(values))
+	for _, value := range values {
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		unique = append(unique, value)
+	}
+	return unique
+}
+
+func getHTTP200(target string) (string, error) {
 	client := http.Client{Timeout: 10 * time.Second}
 	response, err := client.Get(target)
 	if err != nil {
-		return fmt.Errorf("GET %s: %w", target, err)
+		return "", fmt.Errorf("GET %s: %w", target, err)
 	}
 	defer response.Body.Close()
-	_, _ = io.Copy(io.Discard, response.Body)
+	body, readErr := io.ReadAll(response.Body)
 	if response.StatusCode != http.StatusOK {
-		return fmt.Errorf("GET %s returned %d", target, response.StatusCode)
+		return "", fmt.Errorf("GET %s returned %d", target, response.StatusCode)
 	}
-	return nil
+	if readErr != nil {
+		return "", fmt.Errorf("read %s body: %w", target, readErr)
+	}
+	return string(body), nil
 }
 
 func failf(format string, args ...any) {
