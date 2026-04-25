@@ -25,7 +25,7 @@ Viaduct `v3.x` moves to milestone-based release management.
 
 - GitHub release tags publish immutable semver images to `ghcr.io/eblackrps/viaduct`
 - the same tag workflow mirrors those semver tags to `docker.io/emb079/viaduct` when Docker Hub Actions secrets are available
-- GHCR remains the canonical signed verification source even when operators choose the Docker Hub mirror for pull locality
+- GHCR remains the primary signed verification source even when operators choose the Docker Hub mirror for pull locality
 
 ## Deprecation Policy
 

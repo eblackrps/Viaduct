@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-required_go_version="1.25.9"
+required_go_version="1.26.0"
 required_node_version="20.19.0"
 golangci_lint_version="${GOLANGCI_LINT_VERSION:-v2.11.4}"
 

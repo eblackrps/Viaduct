@@ -11,7 +11,7 @@ This directory contains API-related assets that are shared across Viaduct compon
 - Runtime Swagger UI: `/api/v1/docs`
 - Runtime Swagger JSON: `/api/v1/docs/swagger.json`
 - Build metadata endpoint: `/api/v1/about`
-- Health and connector-circuit state: `/api/v1/health`
+- Liveness and readiness: `/healthz`, `/readyz` (`/api/v1/health` remains a compatibility readiness alias)
 
 ## Notes
 - The plugin host in `internal/connectors/plugin/` treats this proto as the compatibility contract for external connector processes.

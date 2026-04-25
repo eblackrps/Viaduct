@@ -1,6 +1,6 @@
 # Quickstart
 
-The signed OCI image is the canonical production install for Viaduct `v3.2.0`, but this quickstart remains the fastest local lab path from a fresh clone. It uses the shipped KVM fixtures so you can reach the workspace-to-report flow without a live hypervisor estate. The current release/install reference also lives in [docs/releases/current.md](docs/releases/current.md).
+The signed OCI image is the primary packaged install for Viaduct `v3.2.1`, but this quickstart remains the fastest local lab path from a fresh clone. It uses the shipped KVM fixtures so you can reach the workspace-to-report flow without a live hypervisor estate. The current release/install reference also lives in [docs/releases/current.md](docs/releases/current.md).
 
 The default operator path is now browser-first: start the local runtime, open the WebUI, create a workspace, discover, inspect, simulate, save a plan, and export a report.
 

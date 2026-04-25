@@ -606,6 +606,44 @@ func TestServer_HandleReadyz_DegradedReadinessIssuesReported_Expected(t *testing
 	}
 }
 
+func TestServer_HandleReadyz_ProductionModeReportsStoreAuthAndDashboardIssues_Expected(t *testing.T) {
+	server := mustNewServer(t, store.NewMemoryStore())
+	server.SetProductionMode(true)
+	server.dashboardDir = t.TempDir()
+
+	request := httptest.NewRequest(http.MethodGet, "/readyz", nil)
+	recorder := httptest.NewRecorder()
+
+	server.Handler().ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusServiceUnavailable {
+		t.Fatalf("readyz status = %d, want %d: %s", recorder.Code, http.StatusServiceUnavailable, recorder.Body.String())
+	}
+
+	var readiness readinessResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &readiness); err != nil {
+		t.Fatalf("Unmarshal(readiness) error = %v", err)
+	}
+	if readiness.Status != "not_ready" || !readiness.ProductionMode {
+		t.Fatalf("readiness = %#v, want production not_ready", readiness)
+	}
+	if readiness.AuthConfigured {
+		t.Fatal("AuthConfigured = true, want false")
+	}
+	if readiness.DashboardAssets {
+		t.Fatal("DashboardAssets = true, want false")
+	}
+	issues := strings.Join(readiness.Issues, " | ")
+	for _, fragment := range []string{
+		"production mode requires a persistent PostgreSQL state store",
+		"production mode requires an admin, tenant, or service-account credential",
+		"production mode requires built dashboard assets",
+	} {
+		if !strings.Contains(issues, fragment) {
+			t.Fatalf("readiness.Issues = %#v, want %q", readiness.Issues, fragment)
+		}
+	}
+}
+
 func TestServer_Handler_AuthSessionRouteRateLimited_Expected(t *testing.T) {
 	t.Parallel()
 
@@ -2000,5 +2038,34 @@ func TestServer_ValidateBindSecurity_RemoteBindAllowsExplicitDangerousOverride_E
 
 	if err := server.validateBindSecurity(context.Background()); err != nil {
 		t.Fatalf("validateBindSecurity() error = %v", err)
+	}
+}
+
+func TestServer_ValidateBindSecurity_ProductionIgnoresDangerousRemoteOverride_Expected(t *testing.T) {
+	server := mustNewServer(t, store.NewMemoryStore())
+	server.SetBindHost("0.0.0.0")
+	server.SetProductionMode(true)
+	server.SetAllowUnauthenticatedRemote(true)
+
+	err := server.validateBindSecurity(context.Background())
+	if err == nil {
+		t.Fatal("validateBindSecurity() error = nil, want production remote bind rejection")
+	}
+	if !strings.Contains(err.Error(), "production remote bind requires configured") {
+		t.Fatalf("validateBindSecurity() error = %q, want production auth requirement", err)
+	}
+}
+
+func TestServer_ValidateProductionStartup_MemoryStoreRejected_Expected(t *testing.T) {
+	t.Setenv("VIADUCT_ADMIN_KEY", store.HashAPIKey("admin-key"))
+	server := mustNewServer(t, store.NewMemoryStore())
+	server.SetProductionMode(true)
+
+	err := server.validateProductionStartup(context.Background())
+	if err == nil {
+		t.Fatal("validateProductionStartup() error = nil, want memory store rejection")
+	}
+	if !strings.Contains(err.Error(), "persistent PostgreSQL state store") {
+		t.Fatalf("validateProductionStartup() error = %q, want persistent store guidance", err)
 	}
 }

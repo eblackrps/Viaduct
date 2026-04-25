@@ -5,7 +5,7 @@ This matrix reflects what is implemented and what is currently validated in the 
 ## Toolchain
 | Component | Expected Version | Notes |
 | --- | --- | --- |
-| Go | 1.25.9+ | CI and release docs align to the `go.mod` version. |
+| Go | 1.26.0+ | CI and release docs align to the `go.mod` version; the release image currently builds with Go 1.26.2. |
 | Node.js | 20.19+ locally / 20.20.x in CI-release | Dashboard development supports Node.js 20.19+, while CI and release packaging pin Node.js 20.20.x. |
 | `make` | Optional but recommended | Windows users can run the underlying commands directly if `make` is unavailable. |
 | `qemu-img` | Optional | Needed for live disk conversion outside mocked or fixture-backed tests. |
@@ -21,19 +21,29 @@ This matrix reflects what is implemented and what is currently validated in the 
 | Migration soak | Tagged local and CI coverage | `make soak-test` exercises large-wave orchestration behavior without requiring external hypervisors. |
 | API contract | Local and CI contract check | `make contract-check` verifies the published OpenAPI reference plus `/api/v1/docs/swagger.json` coverage for documented routes. |
 | Plugin compatibility | Local and CI manifest validation | `make plugin-check` validates manifest protocol and host-version compatibility markers. |
-| Release packaging | Local and CI packaging checks | `.github/workflows/image.yml` publishes the canonical signed multi-arch OCI image, while `make package-release-matrix` and the tag workflow attach native bundles for `linux/amd64`, `linux/arm64`, `darwin/arm64`, and `windows/amd64` plus `dist/SHA256SUMS` as an alternative path. |
+| Release packaging | Local and CI packaging checks | `.github/workflows/image.yml` publishes the primary signed multi-arch OCI image, while `make package-release-matrix` and the tag workflow attach native bundles for `linux/amd64`, `linux/arm64`, `darwin/arm64`, and `windows/amd64` plus `dist/SHA256SUMS` as an alternative path. |
 | Dashboard build | CI and local | `npm run build` is part of the release gate. |
 
 ## Connectors
-| Connector | Status | Repository validation | Notes |
+| Connector | Implemented | Unit tested | Fixture tested | Live lab tested | Production pilot tested | Known limitations |
+| --- | --- | --- | --- | --- | --- | --- |
+| VMware | Discovery and mapping helpers | Yes | Yes | Not claimed | Not claimed | Runtime behavior depends on vCenter API access and fixture coverage is not a substitute for estate-specific pilot testing. |
+| Proxmox | REST discovery and mapping helpers | Yes | Yes, including certification fixtures | Not claimed | Not claimed | Discovery is better covered than connector-specific migration execution. |
+| Hyper-V | WinRM / PowerShell discovery | Yes | Yes | Not claimed | Not claimed | Requires operator-provided WinRM/PowerShell access in real environments. |
+| KVM | XML fixture discovery and libvirt build-tag implementation | Yes | Yes, including certification fixtures | Local fixture lab only | Not claimed | Default builds use the portable XML fallback; live libvirt usage requires the `libvirt` build tag and host libraries. |
+| Nutanix | Prism Central v3 discovery | Yes | Yes | Not claimed | Not claimed | Fixture-backed validation does not prove every Prism deployment shape. |
+| Veeam | Backup discovery, restore-point correlation, and portability planning inputs | Yes | Yes | Not claimed | Not claimed | Backup correlation is name-based and case-insensitive because Veeam commonly exposes protected objects by display name. |
+| Community plugins | gRPC plugin host, manifest compatibility, and sample plugin | Yes | Sample plugin and manifest checks | Not claimed | Not claimed | Plugins must report a non-empty platform ID and pass host/plugin compatibility checks before use. |
+
+## Migration And Lifecycle Features
+| Area | Implemented | Repository validation | Production claim |
 | --- | --- | --- | --- |
-| VMware | Discovery implemented | Package-level tests and fixtures | vCenter discovery with VM and infrastructure metadata. |
-| Proxmox | Discovery implemented | Package-level tests plus fixture-backed certification | REST-based inventory for VMs, containers, networks, storage, and nodes. |
-| Hyper-V | Discovery implemented | Package-level tests and fixtures | WinRM / PowerShell inventory collection. |
-| KVM | Discovery implemented | Package-level tests plus fixture-backed certification | XML-backed fallback plus libvirt build-tag implementation. |
-| Nutanix | Discovery implemented | Package-level tests and fixtures | Prism Central v3 inventory collection. |
-| Veeam | Backup discovery and portability implemented | Package-level tests and fixtures | Used for backup correlation and portability planning. |
-| Community plugins | Supported | Host and manifest tests plus `make plugin-check` | gRPC plugin host with validation for health, platform ID, discovery results, and manifest compatibility. |
+| Declarative specs and workload selection | Yes | Unit and integration tests | Available for evaluation and pilot planning. |
+| Preflight and dry-run planning | Yes | Unit and integration tests | Recommended before any supervised migration attempt. |
+| Cold and warm orchestration primitives | Yes | Unit, integration, and soak tests with mocked or fixture-backed dependencies | Not claimed as production-proven across every connector pair. |
+| Resume, checkpoints, and rollback state | Yes | Unit, integration, and soak tests | Treat as supervised pilot functionality until validated in the target environment. |
+| Lifecycle policy, drift, cost, and remediation guidance | Yes | Unit and integration tests | Decision support; recommendations should be reviewed against local policy before action. |
+| Dashboard workspace and reports | Yes | Unit, fixture E2E, and runtime smoke tests | Suitable for evaluation and pilot evidence workflows. |
 
 ## Operational Notes
 - Persistent deployments should use PostgreSQL rather than the in-memory store.

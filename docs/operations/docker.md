@@ -1,10 +1,10 @@
 # Docker Operations
 
-Viaduct `v3.2.0` treats the signed OCI image as the canonical release artifact.
+After the `v3.2.1` tag workflow publishes, Viaduct treats the signed OCI image as the primary packaged release artifact.
 
 ## Registries
 
-- Canonical signed registry: `ghcr.io/eblackrps/viaduct`
+- Primary signed registry: `ghcr.io/eblackrps/viaduct`
 - Docker Hub mirror: `docker.io/emb079/viaduct`
 
 GitHub Actions mirrors release tags plus `main` branch `:edge` and `:sha-*` image tags to Docker Hub whenever `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` are configured for the Viaduct repo or inherited from an organization-level Actions secret.
@@ -12,32 +12,42 @@ GitHub Actions mirrors release tags plus `main` branch `:edge` and `:sha-*` imag
 If those secrets are added after a GitHub release tag already exists, release owners can backfill the Docker Hub semver tags from the current workflow definition without retagging the repo:
 
 ```bash
-gh workflow run image.yml --ref main -f mirror_release_tag=v3.2.0
+gh workflow run image.yml --ref main -f mirror_release_tag=v3.2.1
 ```
 
 ## Pull And Run
 
+For persistent deployments, use PostgreSQL and set `VIADUCT_ENVIRONMENT=production`. The Compose sample in `deploy/docker-compose.prod.yml` starts PostgreSQL and Viaduct together, reads the admin-key hash and database password from environment variables, and uses `/readyz` for the container health check.
+
 ```bash
-docker pull ghcr.io/eblackrps/viaduct:3.2.0
+docker pull ghcr.io/eblackrps/viaduct:3.2.1
+export VIADUCT_ADMIN_KEY='sha256:<hex>'
+export POSTGRES_PASSWORD='<database-password>'
+docker compose -f deploy/docker-compose.prod.yml up -d
+```
+
+For a single-container evaluation run, omit `VIADUCT_ENVIRONMENT=production` and keep the listener bound to loopback unless credentials are configured:
+
+```bash
 docker run --rm \
   --read-only \
   --tmpfs /tmp \
   -v viaduct-state:/var/lib/viaduct \
   -v "$PWD/config:/etc/viaduct:ro" \
   -e VIADUCT_ADMIN_KEY='sha256:<hex>' \
-  -p 8080:8080 \
-  ghcr.io/eblackrps/viaduct:3.2.0 \
-  serve-api --host 0.0.0.0 --config /etc/viaduct/config.yaml --port 8080
+  -p 127.0.0.1:8080:8080 \
+  ghcr.io/eblackrps/viaduct:3.2.1 \
+  serve-api --host 127.0.0.1 --config /etc/viaduct/config.yaml --port 8080
 ```
 
-Writable state must live under `/var/lib/viaduct`. The container is designed to run with a read-only root filesystem plus `--tmpfs /tmp`.
+Writable fallback files such as audit retry logs live under `/var/lib/viaduct`. The container is designed to run with a read-only root filesystem plus `--tmpfs /tmp`.
 
 `ghcr.io/eblackrps/viaduct:edge` is published from merges to `main` and is not for production use.
 
-If GHCR access is restricted in your environment, you can pull the mirrored image instead:
+If GHCR access is restricted in your environment and the mirror tag has been published, you can pull the mirrored image instead:
 
 ```bash
-docker pull docker.io/emb079/viaduct:3.2.0
+docker pull docker.io/emb079/viaduct:3.2.1
 ```
 
 Treat GHCR as the verification source even when you deploy from the Docker Hub mirror.
@@ -45,9 +55,9 @@ Treat GHCR as the verification source even when you deploy from the Docker Hub m
 ## Verify The Image Signature
 
 ```bash
-cosign verify ghcr.io/eblackrps/viaduct:3.2.0 \
+cosign verify ghcr.io/eblackrps/viaduct:3.2.1 \
   --certificate-identity \
-  'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.2.0' \
+  'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.2.1' \
   --certificate-oidc-issuer \
   'https://token.actions.githubusercontent.com'
 ```
@@ -55,9 +65,9 @@ cosign verify ghcr.io/eblackrps/viaduct:3.2.0 \
 ## Verify The SBOM Attestation
 
 ```bash
-cosign verify-attestation --type spdx ghcr.io/eblackrps/viaduct:3.2.0 \
+cosign verify-attestation --type spdx ghcr.io/eblackrps/viaduct:3.2.1 \
   --certificate-identity \
-  'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.2.0' \
+  'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.2.1' \
   --certificate-oidc-issuer \
   'https://token.actions.githubusercontent.com'
 ```
@@ -69,6 +79,15 @@ Download the SPDX or CycloneDX attestation payload from the GitHub Release or in
 ## Optional Backend Observability
 
 The production container and Helm defaults now expose opt-in OpenTelemetry environment variables so packaged environments can export traces without patching the image. The default remains safe and lightweight: if you leave observability disabled, Viaduct still runs normally with its built-in `/metrics` and readiness surfaces only.
+
+## Production Safety Notes
+
+- Set `VIADUCT_ENVIRONMENT=production` for persistent deployments.
+- Configure PostgreSQL with `state_store_dsn` or `VIADUCT_STATE_STORE_DSN`; production mode refuses the in-memory store.
+- Configure `VIADUCT_ADMIN_KEY` as `sha256:<hex>` and use service account keys for normal dashboard automation.
+- Keep `VIADUCT_ALLOWED_ORIGINS` empty for same-origin deployments. Add only explicit trusted origins when the dashboard and API are served from different origins.
+- Terminate TLS at a reverse proxy or ingress and configure trusted proxy CIDRs with `VIADUCT_TRUSTED_PROXIES` before relying on forwarded protocol headers.
+- Do not use `VIADUCT_ALLOW_UNAUTHENTICATED_REMOTE=true` in production mode; production startup ignores the dangerous override.
 
 ## Upgrade Guidance
 

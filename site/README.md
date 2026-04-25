@@ -12,6 +12,20 @@ python -m http.server 4173 --directory site
 
 Then open `http://localhost:4173`.
 
+## Validation
+
+Run the local version, link, asset, and Pages-workflow check before publishing:
+
+```bash
+make site-check
+```
+
+After GitHub Pages deploys, verify the public artifact with:
+
+```bash
+go run ./scripts/site_validate -base-url https://viaducthq.com
+```
+
 ## Screenshot assets
 
 The landing page uses product screenshots copied from

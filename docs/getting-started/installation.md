@@ -1,26 +1,26 @@
 # Installation
 
-Viaduct can be evaluated from the signed OCI image, from source, or from a native release bundle when containers are not an option. The OCI image is the canonical install surface for packaged environments.
+Viaduct can be evaluated from the signed OCI image, from source, or from a native release bundle when containers are not an option. After a release tag is published, the OCI image is the primary packaged install surface.
 
-## Canonical OCI Install
+## Primary OCI Install
 
 ```bash
-docker pull ghcr.io/eblackrps/viaduct:3.2.0
-cosign verify ghcr.io/eblackrps/viaduct:3.2.0 \
+docker pull ghcr.io/eblackrps/viaduct:3.2.1
+cosign verify ghcr.io/eblackrps/viaduct:3.2.1 \
   --certificate-identity \
-  'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.2.0' \
+  'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.2.1' \
   --certificate-oidc-issuer \
   'https://token.actions.githubusercontent.com'
 ```
 
-The signed canonical registry is `ghcr.io/eblackrps/viaduct`. The Docker Hub mirror is `docker.io/emb079/viaduct:3.2.0`.
+The primary signed registry is `ghcr.io/eblackrps/viaduct`. The Docker Hub mirror is `docker.io/emb079/viaduct:3.2.1` when repository Docker Hub secrets are configured.
 
 GitHub Actions mirrors release tags plus `main` branch `:edge` and `:sha-*` tags to Docker Hub whenever `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` are configured for this repo or inherited from an organization secret scope. For runtime flags, upgrade guidance, SBOM verification, the production compose sample, and the Helm chart defaults, continue with [../operations/docker.md](../operations/docker.md), [../../deploy/docker-compose.prod.yml](../../deploy/docker-compose.prod.yml), and [../../deploy/helm/viaduct](../../deploy/helm/viaduct).
 
 ## Source Build Alternative
 
 ### Prerequisites
-- Go 1.25.9+
+- Go 1.26.0+
 - Node.js 20.19+ for the dashboard (`20.20.x` is what CI and release packaging currently pin)
 - `make` for the standard build flow
 - `qemu-img` if you want live disk-conversion execution outside tests
@@ -54,13 +54,13 @@ This creates:
 - `dist/viaduct_<version>_<goos>_<goarch>.tar.gz`
 - `dist/SHA256SUMS`
 
-The canonical packaging matrix is:
+The packaging matrix is:
 - `linux/amd64`
 - `linux/arm64`
 - `darwin/arm64`
 - `windows/amd64`
 
-Git tags keep the leading `v`, but bundle names use the numeric release label. For example, `v3.2.0` publishes `dist/viaduct_3.2.0_linux_amd64.tar.gz`.
+Git tags keep the leading `v`, but bundle names use the numeric release label. For example, `v3.2.1` publishes `dist/viaduct_3.2.1_linux_amd64.tar.gz`.
 
 Each bundle includes:
 - the Viaduct CLI binary

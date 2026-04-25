@@ -520,7 +520,11 @@ func constantTimeCredentialHashMatch(current [32]byte, currentValid bool, expect
 }
 
 func constantTimeNormalizedCredentialHashMatch(currentBuffer, expectedBuffer [32]byte) bool {
-	return subtle.ConstantTimeCompare(currentBuffer[:], expectedBuffer[:]) == 1
+	var diff byte
+	for index := 0; index < sha256.Size; index++ {
+		diff |= currentBuffer[index] ^ expectedBuffer[index]
+	}
+	return subtle.ConstantTimeByteEq(diff, 0) == 1
 }
 
 func credentialHashPrefix8(value [32]byte) string {

@@ -1,25 +1,25 @@
 # Current Release
 
-Viaduct `v3.2.0` is the current published release.
+Viaduct `v3.2.1` is the current prepared release surface for the next tag.
 
 This page is the repo-local source of truth for the current release/install story. Use it to sanity-check the root docs, deployment samples, screenshots, and public site before tagging the next version.
 
 The only tag-publishing workflow is [`.github/workflows/image.yml`](../../.github/workflows/image.yml). [`.github/workflows/release.yml`](../../.github/workflows/release.yml) is a guard-only workflow and must not publish competing release assets.
 
-## Canonical Install
+## Primary Install
 
-The signed GHCR OCI image remains the canonical install surface:
+After the `v3.2.1` tag workflow publishes, the signed GHCR OCI image is the primary packaged install surface:
 
 ```bash
-docker pull ghcr.io/eblackrps/viaduct:3.2.0
-cosign verify ghcr.io/eblackrps/viaduct:3.2.0 \
+docker pull ghcr.io/eblackrps/viaduct:3.2.1
+cosign verify ghcr.io/eblackrps/viaduct:3.2.1 \
   --certificate-identity \
-  'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.2.0' \
+  'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.2.1' \
   --certificate-oidc-issuer \
   'https://token.actions.githubusercontent.com'
 ```
 
-The convenience mirror for the same release is `docker.io/emb079/viaduct:3.2.0`.
+The Docker Hub mirror for the same release is `docker.io/emb079/viaduct:3.2.1` when the repository Docker Hub secrets are configured.
 
 ## Operator Path
 
@@ -30,7 +30,7 @@ The convenience mirror for the same release is `docker.io/emb079/viaduct:3.2.0`.
 
 ## Release References
 
-- Versioned release note: [docs/releases/v3.2.0.md](v3.2.0.md)
+- Versioned release note: [docs/releases/v3.2.1.md](v3.2.1.md)
 - Changelog stream: [CHANGELOG.md](../../CHANGELOG.md)
 - Install guide: [INSTALL.md](../../INSTALL.md)
 - Quickstart: [QUICKSTART.md](../../QUICKSTART.md)

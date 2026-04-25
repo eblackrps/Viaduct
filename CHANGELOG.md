@@ -6,10 +6,26 @@ This changelog tracks published releases and the major implementation milestones
 
 ## [Unreleased]
 
-### Security And Release Hardening
+- No unreleased changes are documented yet.
 
-- made `.github/workflows/image.yml` the only publishing workflow for `v*` tags, turned `.github/workflows/release.yml` into a guard-only workflow, and added `actionlint` to CI plus the local release gate so release ownership and signing identity stay singular
-- moved dashboard-session revocation store and audit I/O out from under the in-memory session-manager mutex, switched tenant and service-account auth to a store-backed credential-hash lookup path, and tightened session validation so rotated or deleted tenant and service-account credentials invalidate old sessions without storing plaintext keys
+## [3.2.1] - 2026-04-25
+
+### Release, Website, And Deployment Surfaces
+
+- aligned active release, install, Docker, Helm, website, and screenshot surfaces on the `v3.2.1` patch release
+- documented PostgreSQL-backed state as the recommended persistent deployment path for Compose and Helm
+- updated the public site install snippet and release links so they match the same GHCR, Docker Hub, and GitHub Release version
+
+### Runtime Readiness And Safety
+
+- added production-mode startup guards for memory-only state, missing authentication, missing lifecycle policies, and missing dashboard assets
+- expanded `/readyz` so production deployments can see store, schema, policy, auth, connector circuit, and dashboard-asset status in one response
+- added `VIADUCT_STATE_STORE_DSN` for container and Helm deployments that inject PostgreSQL connection details from environment or secrets
+
+### Verification
+
+- added public-site validation and published-image release acceptance checks for release owners
+- strengthened release-surface drift detection so active docs and website files fail when stale semver image or release links remain
 
 ## [3.2.0] - 2026-04-24
 

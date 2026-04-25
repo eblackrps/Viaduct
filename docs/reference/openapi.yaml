@@ -10,20 +10,51 @@ info:
 servers:
   - url: http://localhost:8080
 paths:
-  /api/v1/health:
+  /healthz:
     get:
-      summary: Liveness probe
+      summary: Process liveness probe
       responses:
         "200":
-          description: API is running
+          description: API process is running
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                    example: ok
+                $ref: "#/components/schemas/HealthResponse"
+  /readyz:
+    get:
+      summary: Runtime readiness probe
+      description: >
+        Reports readiness details used by containers, Helm readiness probes,
+        release acceptance checks, and operator diagnostics.
+      responses:
+        "200":
+          description: Runtime is ready
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessResponse"
+        "503":
+          description: Runtime is reachable but not ready
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessResponse"
+  /api/v1/health:
+    get:
+      summary: Readiness probe compatibility alias
+      responses:
+        "200":
+          description: Runtime is ready
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessResponse"
+        "503":
+          description: Runtime is reachable but not ready
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessResponse"
   /api/v1/about:
     get:
       summary: Build and compatibility metadata
@@ -43,11 +74,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                    example: ok
+                $ref: "#/components/schemas/HealthResponse"
   /api/v1/auth/session:
     post:
       summary: Create a dashboard auth session
@@ -1012,8 +1039,63 @@ components:
           type: integer
         persistent_store:
           type: boolean
+        production_mode:
+          type: boolean
         local_operator_session_enabled:
           type: boolean
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
+    StoreDiagnostics:
+      type: object
+      properties:
+        backend:
+          type: string
+          example: postgres
+        schema_version:
+          type: integer
+        persistent:
+          type: boolean
+    ConnectorCircuitSnapshot:
+      type: object
+      properties:
+        platform:
+          type: string
+        address:
+          type: string
+        endpoint:
+          type: string
+        state:
+          type: string
+        retry_after_seconds:
+          type: integer
+    ReadinessResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ready, not_ready]
+        policies_loaded:
+          type: boolean
+        auth_configured:
+          type: boolean
+        dashboard_assets:
+          type: boolean
+        production_mode:
+          type: boolean
+        store:
+          $ref: "#/components/schemas/StoreDiagnostics"
+        circuit_breakers:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConnectorCircuitSnapshot"
+        issues:
+          type: array
+          items:
+            type: string
     DiscoveryResult:
       type: object
       properties:

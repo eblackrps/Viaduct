@@ -714,7 +714,7 @@ This keeps the learning tied to actual product decisions instead of creating res
 These guardrails matter for this product:
 
 - test the VMware-exit focus, not generic platform management
-- keep the live migration target motion limited to VMware source and Proxmox target
+- if live migration is discussed, keep the candidate target motion limited to VMware source and Proxmox target and state that current release validation is still governed by the support matrix
 - do not present KVM lab rehearsal as equivalent to live pilot proof
 - do not imply that discovery is fully in-product today
 - do not run real destructive migration actions as part of a validation session unless the session is explicitly a lab-only engineering rehearsal

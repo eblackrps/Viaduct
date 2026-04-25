@@ -1,52 +1,41 @@
-# Ship Readiness Plan
+# Ship Readiness Record
 
-This plan records the practical finishing work that shipped in `v3.2.0` and the follow-up release-readiness items that remain. It is intentionally scoped around operator trust, evaluator confidence, and repeatable release execution instead of feature redesign.
+This record summarizes the release-readiness work prepared for `v3.2.1`. It is intentionally limited to verified repository surfaces: release metadata, website copy, deployment defaults, runtime readiness, screenshots, and validation commands.
 
-## Findings Summary
+## Completed
 
-- Before this pass, release/install surfaces were aligned on `v3.1.1`, but many files still carried hand-maintained version strings and image tags.
-- The workspace-first evaluator flow already exists in the API smoke and dashboard runtime smoke, but it needed one obvious golden path that reaches exported evidence.
-- `viaduct doctor` was a useful local bootstrap check, but it did not yet answer store, auth, or readiness questions that matter during pilots and release reviews.
-- Backend request correlation and metrics were already solid; the missing observability pieces were trace context plumbing on the API side and a lightweight frontend error hook.
-- CI already covers lint, tests, Playwright, `gosec`, Trivy, packaging, and release publishing. CodeQL was the most obvious missing static-analysis layer.
+- Active install, release, website, Compose, Helm, package metadata, and release-note surfaces are aligned on `v3.2.1`.
+- `make release-surface-check` fails when active docs, website files, image tags, or release links drift from the dashboard package version.
+- `make site-check` validates the static site source, local assets, Pages workflow directory, and active release version strings.
+- `scripts/release_acceptance` can validate a published image by pulling it, verifying cosign identity, running it against PostgreSQL in production mode, and checking health/readiness/about plus tenant auth.
+- Production mode refuses memory-only state, missing auth configuration, missing lifecycle policies, and missing dashboard assets before serving.
+- `/readyz` reports store diagnostics, schema state, lifecycle policy loading, auth configuration, connector circuit state, dashboard assets, and production mode.
+- The Docker image now includes built dashboard assets and default config/policy inputs needed by the packaged readiness path.
 
-## Completed In This Pass
+## Release Owner Checks
 
-- added `make release-surface-check` plus a source-controlled `docs/releases/current.md` reference so version/install drift becomes a release-gate failure instead of a manual review chore
-- expanded the real-runtime dashboard smoke to cover the actual evaluator flow: local session, workspace creation, discovery, graph, simulation, plan save, and report export
-- added `make web-install`, `make web-e2e-setup`, and `make pilot-smoke` plus stronger `.codex/setup.sh` Node/npm/Playwright bootstrap checks so local release-owner shells have one clear frontend setup path
-- upgraded `viaduct doctor` and `viaduct status --runtime` to report config validity, store posture, shared-auth readiness, and concrete `/readyz` degradation reasons such as missing policies or open connector circuits
-- added frontend render/runtime error capture hooks and backend `traceparent` to `X-Trace-ID` correlation so operators can integrate external monitoring without stack churn
-- wired practical OpenTelemetry tracing plus a local Grafana + Tempo validation path into the backend, deploy assets, docs, and CI smoke coverage
-- added GitHub CodeQL scanning alongside the existing `gosec`, Trivy, Playwright, and release-gate coverage
-- published a small evaluator evidence kit and wired the pilot workspace guide to the root-level `make pilot-smoke` path
+Run the release checklist in [RELEASE.md](../../RELEASE.md). The strongest local path remains:
 
-## Prioritized Tasks
+```bash
+make release-gate
+```
 
-### P1 Next
+When Docker, cosign, and network access are available, validate the published image after the tag workflow produces it:
 
-#### 1. Consolidate release workflow ownership around the Docker-canonical path
-- Why it matters: duplicate or legacy release workflows make operators second-guess which artifact path is authoritative.
-- Affected files: `.github/workflows/image.yml`, `.github/workflows/release.yml`, `RELEASE.md`, release docs
-- Acceptance criteria:
-  - one GitHub workflow is clearly documented as the canonical tagged release path
-  - any legacy manual workflow is either retired or explicitly marked non-canonical
-  - release docs do not point at conflicting commands
+```bash
+go run ./scripts/release_acceptance \
+  -image ghcr.io/eblackrps/viaduct:3.2.1 \
+  -certificate-identity 'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.2.1'
+```
 
-### P2 Later
+After GitHub Pages deploys, verify the public site artifact:
 
-#### 2. Expand trace coverage and decide on optional OTel metrics export
-- Why it matters: `v3.2.0` ships the backend trace path, but the next operator-value step is deeper visibility in the remaining persistence and workflow edges without weakening the existing `/metrics` contract.
-- Affected files: `internal/store/`, selected workflow packages, config docs, operations docs
-- Acceptance criteria:
-  - remaining hot persistence and workflow edges emit useful spans without recording sensitive payloads
-  - `/metrics` remains the stable metrics contract unless an explicit OTel metrics rollout is documented and shipped
-  - request IDs and trace IDs stay aligned in logs and responses
+```bash
+go run ./scripts/site_validate -base-url https://viaducthq.com
+```
 
-#### 3. Add screenshot and doc-link validation to the release owner path
-- Why it matters: stale screenshots and broken doc links quietly erode evaluator trust even when the binaries are fine.
-- Affected files: screenshot automation, docs index/readmes, CI/release checks
-- Acceptance criteria:
-  - the checked-in README/demo screenshots are regenerated from the current app state
-  - broken internal doc links fail validation before release
-  - the release checklist points at the same automation
+## Boundaries
+
+- Fixture-backed connector tests do not prove production-pilot coverage for every connector pair.
+- The local KVM lab is the first-run and demo path, not evidence of live production certification.
+- Production deployments should use PostgreSQL, hashed admin-key storage, service accounts for routine automation, same-origin CORS by default, and TLS at a reverse proxy or ingress.

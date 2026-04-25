@@ -21,6 +21,8 @@ spec:
           image: viaduct:latest
           args:
             - serve-api
+            - --host
+            - 0.0.0.0
             - --config
             - /etc/viaduct/config.yaml
             - --port
@@ -63,7 +65,15 @@ spec:
             - name: config
               mountPath: /etc/viaduct
               readOnly: true
+            - name: tmp
+              mountPath: /tmp
+            - name: state
+              mountPath: /var/lib/viaduct
       volumes:
         - name: config
           configMap:
             name: viaduct-config
+        - name: tmp
+          emptyDir: {}
+        - name: state
+          emptyDir: {}

@@ -48,7 +48,7 @@ describe("useAuthBootstrap", () => {
 		apiMocks.getAbout.mockResolvedValue({
 			name: "Viaduct",
 			api_version: "v1",
-			version: "3.1.1",
+			version: "3.2.1",
 			commit: "abc123",
 			built_at: "2026-04-22T00:00:00Z",
 			go_version: "go1.26.0",

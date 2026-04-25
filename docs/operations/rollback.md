@@ -12,7 +12,7 @@ Use this when a newly deployed Viaduct binary or dashboard bundle causes operato
 3. Restore the previous config only if the new version required config changes.
 4. Start Viaduct and verify:
    - `viaduct version`
-   - `GET /api/v1/health`
+   - `GET /healthz` and `GET /readyz`
    - tenant auth and inventory reads
 
 ### PostgreSQL Note

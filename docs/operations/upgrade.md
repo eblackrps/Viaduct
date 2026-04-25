@@ -1,6 +1,6 @@
 # Upgrade Guide
 
-This guide covers upgrading the canonical Viaduct container deployment, plus the alternative native-bundle and source-build paths.
+This guide covers upgrading the primary Viaduct container deployment, plus the alternative native-bundle and source-build paths.
 
 ## Before You Upgrade
 - Record the current version with `viaduct version`
@@ -47,7 +47,7 @@ From a packaged release bundle:
 - `viaduct version`
 - `viaduct --help`
 - `viaduct plan --spec examples/lab/migration-window.yaml`
-- API health: `GET /api/v1/health`
+- API readiness: `GET /readyz` or the compatibility alias `GET /api/v1/health`
 - Dashboard shell load at `/` when built assets are present
 
 ## Recommended Release Validation

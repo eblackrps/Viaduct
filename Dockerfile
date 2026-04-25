@@ -39,6 +39,7 @@ LABEL org.opencontainers.image.title="Viaduct" \
 WORKDIR /opt/viaduct
 COPY --from=go-builder /out/viaduct /viaduct
 COPY --from=web-builder /src/web/dist /opt/viaduct/web
+COPY configs /opt/viaduct/configs
 
 ENV HOME=/tmp \
     VIADUCT_WEB_DIR=/opt/viaduct/web
@@ -46,7 +47,7 @@ ENV HOME=/tmp \
 EXPOSE 8080
 VOLUME ["/var/lib/viaduct"]
 USER 65532:65532
-HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 CMD ["/viaduct", "healthcheck", "--url", "http://127.0.0.1:8080/healthz", "--timeout", "5s"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 CMD ["/viaduct", "healthcheck", "--url", "http://127.0.0.1:8080/readyz", "--timeout", "5s"]
 
 ENTRYPOINT ["/viaduct"]
 CMD ["serve-api", "--host", "0.0.0.0", "--port", "8080"]

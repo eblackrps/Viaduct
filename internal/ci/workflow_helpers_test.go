@@ -16,6 +16,7 @@ type workflowDefinition struct {
 type workflowJobEntry struct {
 	Uses  string              `yaml:"uses"`
 	With  map[string]any      `yaml:"with"`
+	Needs any                 `yaml:"needs"`
 	Steps []workflowStepEntry `yaml:"steps"`
 }
 
@@ -57,4 +58,34 @@ func (workflow workflowDefinition) stepNamed(t *testing.T, jobName, stepName str
 	}
 	t.Fatalf("workflow job %q missing step %q", jobName, stepName)
 	return workflowStepEntry{}
+}
+
+func (workflow workflowDefinition) stepIndex(t *testing.T, jobName, stepName string) int {
+	t.Helper()
+
+	job, ok := workflow.Jobs[jobName]
+	if !ok {
+		t.Fatalf("workflow missing job %q", jobName)
+	}
+	for index, step := range job.Steps {
+		if step.Name == stepName {
+			return index
+		}
+	}
+	t.Fatalf("workflow job %q missing step %q", jobName, stepName)
+	return -1
+}
+
+func jobNeeds(job workflowJobEntry, expected string) bool {
+	switch needs := job.Needs.(type) {
+	case string:
+		return needs == expected
+	case []any:
+		for _, item := range needs {
+			if value, ok := item.(string); ok && value == expected {
+				return true
+			}
+		}
+	}
+	return false
 }
