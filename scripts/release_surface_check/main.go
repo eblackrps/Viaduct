@@ -39,7 +39,7 @@ func main() {
 }
 
 func currentVersion(root string) (string, error) {
-	payload, err := os.ReadFile(filepath.Join(root, "web", "package.json"))
+	payload, err := readRootFile(root, filepath.Join("web", "package.json"))
 	if err != nil {
 		return "", fmt.Errorf("read web/package.json: %w", err)
 	}
@@ -82,7 +82,7 @@ func checkReleaseSurfaces(root, version string) []string {
 		}
 	}
 
-	if _, err := os.Stat(filepath.Join(root, "docs", "releases", "v"+version+".md")); err != nil {
+	if _, err := statRootPath(root, filepath.Join("docs", "releases", "v"+version+".md")); err != nil {
 		failures = append(failures, fmt.Sprintf("%s is missing", releaseNotePath))
 	}
 	return failures
@@ -315,7 +315,7 @@ func releaseSurfaceExpectations(version string) ([]surfaceExpectation, []string,
 }
 
 func missingNeedles(root string, expectation surfaceExpectation) []string {
-	payload, err := os.ReadFile(filepath.Join(root, expectation.Path))
+	payload, err := readRootFile(root, expectation.Path)
 	if err != nil {
 		return []string{fmt.Sprintf("readable content (%v)", err)}
 	}
@@ -331,8 +331,7 @@ func missingNeedles(root string, expectation surfaceExpectation) []string {
 }
 
 func unexpectedVersionReferences(root, path, version string) []string {
-	// #nosec G304 -- paths come from the fixed release-surface expectation table in this script.
-	payload, err := os.ReadFile(filepath.Join(root, path))
+	payload, err := readRootFile(root, path)
 	if err != nil {
 		return []string{fmt.Sprintf("readable content (%v)", err)}
 	}
@@ -364,8 +363,7 @@ func unexpectedVersionReferences(root, path, version string) []string {
 }
 
 func forbiddenPhrases(root, path string, phrases []string) []string {
-	// #nosec G304 -- paths come from the fixed release-surface expectation table in this script.
-	payload, err := os.ReadFile(filepath.Join(root, path))
+	payload, err := readRootFile(root, path)
 	if err != nil {
 		return []string{fmt.Sprintf("readable content (%v)", err)}
 	}
@@ -377,6 +375,43 @@ func forbiddenPhrases(root, path string, phrases []string) []string {
 		}
 	}
 	return found
+}
+
+func readRootFile(root, path string) ([]byte, error) {
+	clean, err := cleanRepoPath(path)
+	if err != nil {
+		return nil, err
+	}
+	repoRoot, err := os.OpenRoot(root)
+	if err != nil {
+		return nil, err
+	}
+	defer repoRoot.Close()
+	return repoRoot.ReadFile(clean)
+}
+
+func statRootPath(root, path string) (os.FileInfo, error) {
+	clean, err := cleanRepoPath(path)
+	if err != nil {
+		return nil, err
+	}
+	repoRoot, err := os.OpenRoot(root)
+	if err != nil {
+		return nil, err
+	}
+	defer repoRoot.Close()
+	return repoRoot.Stat(clean)
+}
+
+func cleanRepoPath(path string) (string, error) {
+	if filepath.IsAbs(path) {
+		return "", fmt.Errorf("absolute path %q is not allowed", path)
+	}
+	clean := filepath.Clean(path)
+	if clean == "." || clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("path %q escapes repository root", path)
+	}
+	return clean, nil
 }
 
 func failf(format string, args ...any) {

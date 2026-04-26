@@ -93,7 +93,7 @@ func checkSupportMatrix(root string) []string {
 }
 
 func loadSupportMatrix(root string) (supportMatrix, error) {
-	payload, err := os.ReadFile(filepath.Join(root, "docs", "reference", "support-matrix.json"))
+	payload, err := readRootFile(root, filepath.Join("docs", "reference", "support-matrix.json"))
 	if err != nil {
 		return supportMatrix{}, fmt.Errorf("read docs/reference/support-matrix.json: %w", err)
 	}
@@ -260,9 +260,33 @@ func stripTags(content string) string {
 }
 
 func readRepoFile(root, path string) (string, error) {
-	payload, err := os.ReadFile(filepath.Join(root, path))
+	payload, err := readRootFile(root, path)
 	if err != nil {
 		return "", fmt.Errorf("read %s: %w", filepath.ToSlash(path), err)
 	}
 	return string(payload), nil
+}
+
+func readRootFile(root, path string) ([]byte, error) {
+	clean, err := cleanRepoPath(path)
+	if err != nil {
+		return nil, err
+	}
+	repoRoot, err := os.OpenRoot(root)
+	if err != nil {
+		return nil, err
+	}
+	defer repoRoot.Close()
+	return repoRoot.ReadFile(clean)
+}
+
+func cleanRepoPath(path string) (string, error) {
+	if filepath.IsAbs(path) {
+		return "", fmt.Errorf("absolute path %q is not allowed", path)
+	}
+	clean := filepath.Clean(path)
+	if clean == "." || clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("path %q escapes repository root", path)
+	}
+	return clean, nil
 }
