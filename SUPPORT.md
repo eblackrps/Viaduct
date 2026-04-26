@@ -18,7 +18,7 @@ Viaduct is maintained as an open-source project with best-effort community suppo
 
 - Installation, usage, or evaluation questions: open a GitHub issue and describe what you are trying to do, your environment, and where you got blocked.
 - Suspected defects: use the bug report template and include reproduction steps, expected behavior, actual behavior, version or commit, and relevant logs with secrets removed.
-- Feature requests: describe the operator problem first, then the change you think would help.
+- Feature requests: describe the user problem first, then the change you think would help.
 
 ## Useful Context To Include
 
@@ -36,7 +36,7 @@ Viaduct is maintained as an open-source project with best-effort community suppo
 
 ## Expectations
 
-- Support is best effort and prioritized by severity, reproducibility, and operator impact.
+- Support is best effort and prioritized by severity, reproducibility, and user impact.
 - Clear repro steps and correlated identifiers materially improve turnaround time.
 - The fastest path to a good answer is usually a narrow question grounded in the current documented workflow.
 

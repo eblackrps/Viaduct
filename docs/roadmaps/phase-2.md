@@ -2,7 +2,7 @@
 
 Status: completed
 
-Phase 2 expanded Viaduct from discovery into cold migration orchestration and operator-facing UI.
+Phase 2 expanded Viaduct from discovery into cold migration orchestration and a dashboard.
 
 ## Delivered Outcomes
 - added disk conversion and declarative migration spec parsing

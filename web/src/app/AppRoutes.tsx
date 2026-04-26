@@ -150,17 +150,17 @@ function AuthenticatedAppRoutes({ auth }: { auth: AuthBootstrapState }) {
 	const authPersistence = getDashboardAuthPersistence();
 	const authSourceLabel =
 		authSession.mode === "local"
-			? "Local operator session"
+			? "Local session"
 			: authSession.mode === "service-account"
 				? "Service account key"
 				: authSession.mode === "tenant"
 					? "Tenant key"
-					: "No runtime credential";
+					: "Not signed in";
 	const authPersistenceLabel =
 		authSession.mode === "local"
 			? authPersistence === "local"
-				? "Remembered local operator session"
-				: "Session-only local operator session"
+				? "Remembered local session"
+				: "Session-only local session"
 			: authPersistence === "local"
 				? "Remembered in this browser"
 				: authPersistence === "session"

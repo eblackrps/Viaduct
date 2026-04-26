@@ -29,7 +29,7 @@ Create clarity and interest fast:
 
 | Time | Screen | Show |
 | --- | --- | --- |
-| 0:00-0:20 | `Inventory` | posture cards, discovery context, visible baseline timestamp |
+| 0:00-0:20 | `Inventory` | status cards, discovery context, visible baseline timestamp |
 | 0:20-0:50 | `Workload detail` | one candidate workload, readiness, risk, dependency, baseline context |
 | 0:50-1:45 | `Migrations` | planning workflow, preflight summary, saved plan or runbook |
 | 1:45-2:20 | `Execute` | migration ID, failed or blocked state, checkpoints or per-workload state |
@@ -40,7 +40,7 @@ Create clarity and interest fast:
 
 ### 0:00-0:20
 
-"Viaduct is for VMware-exit teams that need to turn a mixed estate into a credible first migration wave before they trust automation. I'll start with the operator payoff: which workloads look ready, which need review, and which are blocked."
+"Viaduct is for VMware-exit teams that need to turn a multi-platform environment into a credible first migration wave before they trust automation. I'll start with the payoff: which workloads look ready, which need review, and which are blocked."
 
 ### 0:20-0:50
 

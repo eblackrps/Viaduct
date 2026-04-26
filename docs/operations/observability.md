@@ -1,6 +1,6 @@
 # Backend Observability
 
-Viaduct's operator workflows cross HTTP requests, queued background jobs, connector calls, and long-running migration phases. Because of that, traces are the first signal to wire up. They show where time is spent across discovery, planning, simulation, report generation, and migration execution without forcing operators to reconstruct a story from scattered logs.
+Viaduct's workflows cross HTTP requests, queued background jobs, connector calls, and long-running migration phases. Because of that, traces are the first signal to wire up. They show where time is spent across discovery, planning, simulation, report generation, and migration execution without forcing users to reconstruct a story from scattered logs.
 
 This repo now includes:
 - backend OpenTelemetry tracing for the Go API and migration engine

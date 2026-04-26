@@ -8,18 +8,18 @@ The rule is simple:
 
 Viaduct already contains more technical surface area than a credible first release should promise. This document narrows that surface to the minimum real product needed for the chosen focus:
 
-**VMware-exit mixed-estate discovery and migration readiness assessment with approval-ready pilot planning**
+**VMware-exit multi-platform inventory collection and migration readiness assessment with approval-ready pilot planning**
 
-For v1, "mixed-estate" means Viaduct can help an operator inspect and reason about an estate that spans more than one platform.
+For v1, "multi-platform" means Viaduct can help a user inspect and reason about an environment that spans more than one platform.
 
 It does **not** mean equal live migration support across many source and target combinations, and it does not claim production-pilot validation for live execution.
 
 ## 1. Product Objective For V1
 
-Viaduct v1 should let a VMware-exit team go from estate discovery to an approval-ready first migration wave, with enough operator visibility and supervised pilot controls to run a small pilot without pretending the product is already a zero-touch migration factory.
+Viaduct v1 should let a VMware-exit team go from inventory collection to an approval-ready first migration wave, with enough visibility and supervised pilot controls to run a small pilot without pretending the product is already a zero-touch migration factory.
 
-In plain terms, v1 is successful if an operator can:
-- discover the relevant estate
+In plain terms, v1 is successful if a user can:
+- discover the relevant environment
 - understand workload and dependency risk
 - define and validate the first migration wave
 - produce stakeholder-ready summary, migration, and audit outputs
@@ -45,12 +45,12 @@ In plain terms, v1 is successful if an operator can:
 
 V1 supports these use cases:
 
-1. Discover a VMware-led estate and normalize inventory into a common model.
+1. Discover a VMware-led environment and normalize inventory into a common model.
 2. Inspect dependency, backup, and migration-readiness signals that affect first-wave selection.
 3. Discover likely target inventory where needed for planning.
 4. Define workloads, exclusions, network/storage mappings, approval requirements, execution windows, and waves in a declarative migration spec.
 5. Run plan validation and preflight checks before execution.
-6. Produce an approval-ready first-wave pilot plan and operator-facing status outputs.
+6. Produce an approval-ready first-wave pilot plan and visible status outputs.
 7. Evaluate supervised pilot migration mechanics with explicit approvals, checkpoint-aware resume support, and rollback visibility.
 
 Anything broader than those use cases should be treated as post-v1 unless it is required to make the above path work cleanly.
@@ -105,7 +105,7 @@ These may exist in the repo and remain useful internally, but they are not part 
 
 Those paths can remain implemented or exploratory, but v1 should not claim them as supported target motions.
 
-## 6. Supported Operator Workflows For V1
+## 6. Supported Workflows For V1
 
 These workflows must work well enough to be considered part of v1:
 
@@ -118,25 +118,25 @@ These workflows must work well enough to be considered part of v1:
 4. Preflight validation through the API and dashboard
    `/api/v1/preflight` and the migration workflow UI must expose actionable preflight results before execution.
 5. Approval-ready pilot handoff
-   The operator must be able to hand an internal reviewer a concrete first-wave plan, current summary, and audit trail without exporting data manually from the codebase.
+   The user must be able to hand an internal reviewer a concrete first-wave plan, current summary, and audit trail without exporting data manually from the codebase.
 6. Supervised pilot execution through explicit API or CLI action
-   `viaduct migrate` and `/api/v1/migrations` plus `/execute` must expose operator-triggered pilot execution mechanics without implying production-pilot validation.
+   `viaduct migrate` and `/api/v1/migrations` plus `/execute` must expose user-triggered pilot execution mechanics without implying production-pilot validation.
 7. Monitor, resume, and roll back
    `viaduct status`, `/api/v1/migrations`, `/api/v1/migrations/<id>`, `/resume`, and `/rollback` plus the dashboard views must expose enough state to control a pilot run safely.
 
 ### Workflow Boundary For V1
 
-For v1, the CLI and API are the source of truth for workflow state.
+For v1, the CLI and API are the current reference for workflow state.
 
-The dashboard is required as an operator surface, but it must stay faithful to persisted backend state rather than introducing frontend-only execution logic.
+The dashboard is required, but it must stay faithful to persisted backend state rather than introducing frontend-only execution logic.
 
 V1 does not require every workflow to be equally polished across CLI, API, and dashboard. It does require the dashboard to accurately reflect the backend workflow for the core assessment and supervised pilot path.
 
 ## 7. Required Reports And Exports For V1
 
-These outputs are required for v1 because they help an operator justify and control the first-wave decision.
+These outputs are required for v1 because they help a user justify and control the first-wave decision.
 
-### Required Operator Reports
+### Required Reports
 - `/api/v1/reports/summary` in JSON and CSV
 - `/api/v1/reports/migrations` in JSON and CSV
 - `/api/v1/reports/audit` in JSON and CSV
@@ -147,7 +147,7 @@ These outputs are required for v1 because they help an operator justify and cont
 - `/api/v1/migrations/<id>` state and checkpoint detail in structured API responses
 - `/api/v1/preflight` results in structured API responses
 
-### Required Operator-Ready Evidence
+### Required Evidence
 - last discovery time and workload counts
 - platform distribution and migration counts
 - current migration phase, approval state, and checkpoint state
@@ -169,9 +169,9 @@ These are the capabilities that make v1 real:
 - actionable preflight checks for the VMware-to-Proxmox first-wave path
 - explicit approval gates and execution windows
 - checkpoint-aware execution state, resume support, and rollback visibility
-- operator access through CLI, API, and dashboard for the core assessment and supervised pilot workflow
+- access through CLI, API, and dashboard for the core assessment and supervised pilot workflow
 - tenant-scoped auth sufficient for a direct-use pilot deployment
-- summary, migration, and audit reporting suitable for operator review
+- summary, migration, and audit reporting suitable for review
 - stable documented contract for the supported planning, execution, resume, rollback, and reporting routes
 - packaged release artifacts, install docs, upgrade docs, rollback docs, and OpenAPI/support-matrix alignment
 
@@ -184,7 +184,7 @@ These are useful but should not block v1 if the core path is strong:
 - broader source discovery beyond the v1 supported source promise
 - additional CSV or report formats beyond the current JSON and CSV exports
 - smoother packaged demo assets for VMware-exit storytelling
-- service-account support for automation-heavy pilot teams
+- service account support for automation-heavy pilot teams
 - stronger dashboard convenience flows that sit on top of existing API behavior
 - deeper live-environment certification before any migration motion is claimed as production-pilot-tested
 
@@ -243,11 +243,11 @@ If those conditions are not met, Viaduct is still an evaluation build or pilot c
 - early design partners are willing to accept supervised pilot execution before full automation breadth
 - Proxmox VE is the best named initial target because it creates a concrete landing story without requiring a broader target promise
 - KVM remains valuable as the packaged evaluation and engineering validation path
-- tenant API key authentication is enough for the first direct-use pilots, even if service-account-heavy automation comes later
+- tenant API key authentication is enough for the first direct-use pilots, even if service account-heavy automation comes later
 
 ### Risks
 - the repo's strongest current demo flow is still KVM-lab-based, which can weaken the VMware-exit message if not handled carefully
-- the phrase "mixed-estate" can create false expectations of equal live support across many sources and targets unless the one supported live motion stays explicit
+- the phrase "multi-platform" can create false expectations of equal live support across many sources and targets unless the one supported live motion stays explicit
 - the current product surface may keep dragging lifecycle and multi-platform breadth back into the v1 conversation unless this document is used aggressively
 - implemented non-v1 connectors and features may create roadmap pressure and support confusion
 - lifecycle, backup portability, plugin, and multi-tenant stories can distract from the first-wave planning path if not intentionally deprioritized

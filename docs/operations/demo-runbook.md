@@ -4,17 +4,17 @@ This document defines the first serious demo assets for Viaduct after Phase 5.
 
 It is not a feature tour. It is a constrained demo kit for the current Viaduct focus:
 
-**VMware-exit mixed-estate discovery and migration readiness assessment with approval-ready pilot planning**
+**VMware-exit multi-platform inventory collection and migration readiness assessment with approval-ready pilot planning**
 
 The demos in this document are built around the same path Viaduct is already trying to harden:
 
-1. confirm operator and tenant context
+1. confirm tenant and auth context
 2. confirm discovery baseline
 3. review inventory
 4. inspect one candidate workload
 5. create and validate a first-wave plan
 6. review saved execution state
-7. export operator evidence
+7. export evidence
 
 Use this runbook for:
 - founder or maintainer-led demos
@@ -56,7 +56,7 @@ Prior phases likely made these demos possible by delivering:
 - a shared backend instead of frontend-only demo state
 - persisted migration plans, checkpoints, resume, and rollback state
 - tenant-scoped auth, reporting, and audit surfaces
-- a product-grade dashboard shell with credible operator pages
+- a product-grade dashboard shell with credible workflow pages
 - contract hardening and better API error behavior
 
 ### What Is Still Weak, Ambiguous, Or Risky
@@ -76,7 +76,7 @@ These demos should preserve:
 - the VMware-exit focus
 - the v1 support promise of VMware source to Proxmox target for the named live motion
 - the CLI/API/dashboard split as it exists today
-- explicit operator controls, approvals, checkpoints, and reporting
+- explicit controls, approvals, checkpoints, and reporting
 - honest framing around pilot scope and supported proof
 
 ### Smallest Credible Next Move
@@ -101,13 +101,13 @@ Viaduct should not be demoed as:
 
 Viaduct should be demoed as:
 
-**the product that helps a VMware-exit team go from estate visibility to an approval-ready first migration wave, with enough operator trust to supervise a pilot instead of guessing**
+**the product that helps a VMware-exit team go from environment visibility to an approval-ready first migration wave, with enough trust to supervise a pilot instead of guessing**
 
 ### Core Demo Rule
 
 The short demo should create clarity and interest.
 
-The long demo should create operator trust.
+The long demo should create trust.
 
 Neither demo should attempt to prove every implemented feature in the repository.
 
@@ -152,7 +152,7 @@ Recommended shape:
 - 2 VMware clusters
 - 1 Proxmox target environment
 - a mix of application, infrastructure, and database workloads
-- non-zero visible posture counts for `ready`, `needs review`, and `blocked`
+- non-zero visible status counts for `ready`, `needs review`, and `blocked`
 
 ### Three Standardized Workload Archetypes
 
@@ -187,9 +187,9 @@ Prepare:
 
 Recommended storyline:
 
-- blocker: one target network mapping or readiness issue that an operator can understand quickly
+- blocker: one target network mapping or readiness issue that is easy to understand
 - warning 1: dependency or backup review still needed on the medium-risk candidate
-- warning 2: execution still requires operator review before the first wave is considered ready
+- warning 2: execution still requires review before the first wave is considered ready
 - failed run: the medium-risk candidate reaches `verify` and fails boot or post-cutover validation, so resume versus rollback becomes a real discussion
 
 ### Reports State
@@ -245,7 +245,7 @@ Create quick clarity:
 
 | Time | Screen | Purpose |
 | --- | --- | --- |
-| 0:00-0:20 | `Inventory` | Show the VMware-exit problem in operator terms immediately |
+| 0:00-0:20 | `Inventory` | Show the VMware-exit problem in plain terms immediately |
 | 0:20-0:50 | `Workload detail` | Show how one first-wave candidate gets justified |
 | 0:50-1:45 | `Migrations` | Show planning, preflight, and saved plan state |
 | 1:45-2:20 | `Migrations` execute state | Show supervised pilot control, not blind automation |
@@ -265,7 +265,7 @@ The 3-minute demo should start with the buyer-visible payoff, not the internal t
 Show:
 
 - `Inventory` page header
-- operational posture cards
+- status cards
 - discovery context card
 - one visible baseline timestamp
 
@@ -317,11 +317,11 @@ Use this script closely. Small wording changes are fine, but keep the structure.
 
 #### 0:00-0:20
 
-"Viaduct is for VMware-exit teams that need to turn a mixed estate into a credible first migration wave before they trust automation. So I'll start with the operator payoff: which workloads look ready, which need review, and which are blocked."
+"Viaduct is for VMware-exit teams that need to turn a multi-platform environment into a credible first migration wave before they trust automation. So I'll start with the workflow payoff: which workloads look ready, which need review, and which are blocked."
 
 #### 0:20-0:50
 
-"Here's one candidate workload. Viaduct pulls readiness, dependency, and baseline context together so an operator can justify inclusion in a first wave instead of guessing from disconnected tools."
+"Here's one candidate workload. Viaduct pulls readiness, dependency, and baseline context together so the team can justify inclusion in a first wave instead of guessing from disconnected tools."
 
 #### 0:50-1:45
 
@@ -329,7 +329,7 @@ Use this script closely. Small wording changes are fine, but keep the structure.
 
 #### 1:45-2:20
 
-"And if a pilot is not clean, the operator can still reason from saved state: migration ID, checkpoints, per-workload status, and next action. The story here is supervised pilot control, not blind automation."
+"And if a pilot is not clean, the team can still reason from saved state: migration ID, checkpoints, per-workload status, and next action. The story here is supervised pilot control, not blind automation."
 
 #### 2:20-2:45
 
@@ -382,14 +382,14 @@ Use the 15-minute demo for:
 
 This audience needs:
 
-- proof of operator seriousness
+- proof that the workflow is serious
 - workflow continuity
 - honest boundaries
 - visible failure handling and evidence export
 
 ### Goal
 
-Create operator trust strong enough that the audience believes:
+Create trust strong enough that the audience believes:
 
 - Viaduct understands the assessment and supervised pilot workflow
 - the current product has a real path from discovery to a supervised first wave
@@ -399,9 +399,9 @@ Create operator trust strong enough that the audience believes:
 
 | Time | Screen | Purpose |
 | --- | --- | --- |
-| 0:00-1:15 | `Settings` | Establish trust posture, tenant context, and environment |
+| 0:00-1:15 | `Settings` | Establish trust status, tenant context, and environment |
 | 1:15-2:15 | Prepared terminal | Show exact discovery boundary without wasting time |
-| 2:15-5:00 | `Inventory` | Confirm baseline, posture, and candidate selection |
+| 2:15-5:00 | `Inventory` | Confirm baseline, status, and candidate selection |
 | 5:00-6:30 | `Workload detail` | Show why one workload belongs in the first wave |
 | 6:30-10:30 | `Migrations` `Scope`, `Prepare`, `Validate` | Show how a first-wave plan becomes approval-ready |
 | 10:30-13:00 | `Migrations` `Execute` + `Migration Progress` | Show failed `verify` state, checkpoints, and next-action reasoning |
@@ -414,7 +414,7 @@ Create operator trust strong enough that the audience believes:
 Show:
 
 - `Settings`
-- operator connection
+- dashboard connection
 - tenant context
 - permissions and quotas
 
@@ -430,7 +430,7 @@ Show:
 
 Show:
 
-- `Inventory` operational posture
+- `Inventory` status
 - `Discovery context`
 - `Assessment notes`
 - select the ready candidate
@@ -473,7 +473,7 @@ Show:
 Show:
 
 - `Reports`
-- `Operator API exports`
+- `API exports`
 - `Migration History`
 - `Discovery snapshots`
 
@@ -483,7 +483,7 @@ Use this script structure closely.
 
 #### 0:00-1:15
 
-“Viaduct is not trying to be a generic virtualization control plane. The current focus is VMware-exit discovery and migration-readiness assessment with approval-ready first-wave planning. So before I show anything else, I want to show the operator context: which tenant we’re in, how the dashboard is authenticated, what permissions we have, and what backend we’re talking to.”
+“Viaduct is not trying to be a generic virtualization control plane. The current focus is VMware-exit discovery and migration-readiness assessment with approval-ready first-wave planning. So before I show anything else, I want to show the tenant context: which tenant we’re in, how the dashboard is authenticated, what permissions we have, and what backend we’re talking to.”
 
 #### 1:15-2:15
 
@@ -491,31 +491,31 @@ Use this script structure closely.
 
 #### 2:15-5:00
 
-“Now I’m confirming that we have both the source baseline and the target baseline available, and that the operator can tell how fresh the current view is before planning from it. The key point is that this is an assessment surface, not just an asset list.”
+“Now I’m confirming that we have both the source baseline and the target baseline available, and that the user can tell how fresh the current view is before planning from it. The key point is that this is an assessment page, not just an asset list.”
 
 #### 5:00-6:30
 
-“I’ll pick one workload to show the decision logic. In the detail panel we can see the workload’s current posture, dependency context, and baseline activity clues. That is the bridge from ‘interesting asset’ to ‘candidate for the first wave.’”
+“I’ll pick one workload to show the decision logic. In the detail panel we can see the workload’s current status, dependency context, and baseline activity clues. That is the bridge from ‘interesting asset’ to ‘candidate for the first wave.’”
 
 “If I want to act on this, I can open the migration plan directly from here.”
 
 #### 6:30-10:30
 
-“This is the real planning workflow: bring scope in, prepare the target and execution controls, validate, then save plan state. The important thing here is that Viaduct keeps the backend as the source of truth.”
+“This is the real planning workflow: bring scope in, prepare the target and execution controls, validate, then save plan state. The important thing here is that Viaduct keeps the backend as the current reference.”
 
 “I’m showing a prepared first-wave draft with explicit target details, execution controls, approvals, and mappings. Then preflight turns that draft into an operational decision. We can see blockers, warnings, and the derived runbook before execution starts.”
 
-“That is the real product moment: the operator gets an approval-ready plan, not just a dashboard impression.”
+“That is the real product moment: the team gets an approval-ready plan, not just a dashboard impression.”
 
 #### 10:30-13:00
 
 "For a serious evaluation, I also want to show how Viaduct handles supervision when a pilot is not clean. This saved run reached `verify` and failed after earlier checkpoints completed."
 
-“What matters here is that the operator can see the migration ID, current phase, checkpoints, per-workload state, and next-action options from persisted state alone. That is a much more credible early-product story than pretending everything always goes green.”
+“What matters here is that the team can see the migration ID, current phase, checkpoints, per-workload state, and next-action options from persisted state alone. That is a much more credible early-product story than pretending everything always goes green.”
 
 #### 13:00-15:00
 
-“Finally, the workflow has to end in evidence. The operator can export summary, migration, and audit outputs directly from the product. That supports internal review and change evidence without pulling data manually from the backend.”
+“Finally, the workflow has to end in evidence. The team can export summary, migration, and audit outputs directly from the product. That supports internal review and change evidence without pulling data manually from the backend.”
 
 “The honest boundary is this: Viaduct is strongest today in discovery, readiness reduction, first-wave planning, and supervised pilot control. That is the product we are intentionally hardening first.”
 

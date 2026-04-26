@@ -63,7 +63,7 @@ export function DashboardPage({
 			value: summary?.workload_count ?? inventory?.vms.length ?? 0,
 			tone: "info" as StatusTone,
 			badgeLabel: "Inventory",
-			detail: "Normalized VMs currently visible to the operator surface.",
+			detail: "Normalized VMs currently visible in the dashboard.",
 		},
 		{
 			label: "Active migrations",
@@ -87,7 +87,7 @@ export function DashboardPage({
 				0,
 			tone: "success" as StatusTone,
 			badgeLabel: "Lifecycle",
-			detail: "Lifecycle moves currently suggested by cost and policy posture.",
+			detail: "Lifecycle moves currently suggested by cost and policy status.",
 		},
 	];
 
@@ -95,8 +95,8 @@ export function DashboardPage({
 		<div className="space-y-6">
 			<PageHeader
 				eyebrow="Overview"
-				title="Operational dashboard"
-				description="Monitor tenant posture, current execution state, and workload distribution before drilling into specific migration or governance tasks."
+				title="Dashboard"
+				description="Monitor tenant status, execution state, and workload distribution before opening a detailed page."
 				badges={[
 					{
 						label: `${migrations.length} migrations recorded`,
@@ -120,14 +120,14 @@ export function DashboardPage({
 			{loading && !inventory && !summary ? (
 				<LoadingState
 					title="Loading dashboard"
-					message="Collecting inventory, migration history, lifecycle posture, and tenant summary data from the Viaduct operator API."
+					message="Collecting inventory, migration history, lifecycle status, and tenant summary data from the Viaduct API."
 				/>
 			) : null}
 
 			{!loading && !inventory && !summary ? (
 				<EmptyState
-					title="No operator data available"
-					message="Connect the dashboard to a tenant inventory source or run a discovery cycle to populate the operational dashboard."
+					title="No dashboard data available"
+					message="Connect the dashboard to a tenant inventory source or run discovery to populate this page."
 				/>
 			) : null}
 
@@ -162,13 +162,13 @@ export function DashboardPage({
 						/>
 
 						<SectionCard
-							title="Operational posture"
+							title="Operational status"
 							description="Current cross-domain signals that affect planning, execution, and remediation."
 						>
 							<div className="space-y-4">
 								{postureLoading && !policies && !drift && !remediation ? (
 									<InlineNotice
-										message="Loading policy, drift, and remediation posture for this tenant."
+										message="Loading policy, drift, and remediation status for this tenant."
 										tone="neutral"
 									/>
 								) : null}
@@ -177,7 +177,7 @@ export function DashboardPage({
 								) : null}
 								<div className="grid gap-3 md:grid-cols-3">
 									<SignalRow
-										label="Policy posture"
+										label="Policy status"
 										value={`${policies?.non_compliant_vms ?? 0} flagged / ${policies?.compliant_vms ?? 0} compliant`}
 										badgeTone={
 											(policies?.non_compliant_vms ?? 0) > 0
@@ -186,7 +186,7 @@ export function DashboardPage({
 										}
 									/>
 									<SignalRow
-										label="Drift posture"
+										label="Drift status"
 										value={`${drift?.events.length ?? 0} events / ${drift?.modified_vms ?? 0} modified`}
 										badgeTone={
 											(drift?.events.length ?? 0) > 0 ? "warning" : "success"

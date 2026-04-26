@@ -26,7 +26,7 @@ Standard surface radii:
 
 ## Palette
 
-The operator console uses a slate-based neutral system with:
+The dashboard uses a slate-based neutral system with:
 
 - brand: `ink`, `steel`, and `brand-400`
 - accent: `accent`
@@ -38,4 +38,4 @@ Viaduct does not ship a mixed `gray` / `zinc` / `slate` neutral palette. Slate i
 
 Dark mode is intentionally not shipped in the current release.
 
-The existing dashboard is now treated as a complete light-mode operator surface. Shipping a partial dark theme would create broken contrast, inconsistent chart styling, and incomplete state coverage across the migration, lifecycle, and workspace flows. A future dark-mode effort should be treated as a full product pass rather than an incidental toggle.
+The existing dashboard is now treated as a complete light-mode surface. Shipping a partial dark theme would create broken contrast, inconsistent chart styling, and incomplete state coverage across the migration, lifecycle, and assessment workflows. A future dark-mode effort should be treated as a full product pass rather than an incidental toggle.

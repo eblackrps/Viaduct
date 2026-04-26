@@ -24,7 +24,7 @@ export function PolicyPage({ refreshToken }: PolicyPageProps) {
 			<PageHeader
 				eyebrow="Policy"
 				title="Policy controls"
-				description="Inspect evaluated rules, rule-level violations, and the current enforcement posture across discovered workloads."
+				description="Inspect evaluated rules, rule-level violations, and enforcement status across discovered workloads."
 				badges={[
 					{
 						label: `${report?.policies.length ?? 0} policies`,
@@ -40,7 +40,7 @@ export function PolicyPage({ refreshToken }: PolicyPageProps) {
 			{loading && !report ? (
 				<LoadingState
 					title="Loading policy results"
-					message="Evaluating lifecycle policies and loading the latest compliance posture for the current tenant."
+					message="Evaluating lifecycle policies and loading the latest compliance status for the current tenant."
 				/>
 			) : null}
 

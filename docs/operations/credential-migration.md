@@ -13,4 +13,4 @@ Notes:
 
 - This is treated as a configuration error because Viaduct cannot safely infer which tenant or service account should retain a duplicated credential.
 - The migration does not clear plaintext credentials or apply the unique index when the preflight detects duplicates.
-- Service-account rotation is already available through `POST /api/v1/service-accounts/{serviceAccountID}/rotate`.
+- Service account rotation is already available through `POST /api/v1/service-accounts/{serviceAccountID}/rotate`.

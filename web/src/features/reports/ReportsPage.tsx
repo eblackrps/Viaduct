@@ -82,7 +82,7 @@ export function ReportsPage({
 			<PageHeader
 				eyebrow="Reports"
 				title="Reports and history"
-				description="Keep migration records, saved discovery baselines, and export-ready operator report endpoints accessible from one administrative surface."
+				description="Review migration records, saved discovery baselines, and report exports from one page."
 				badges={[
 					{ label: `${migrations.length} migrations`, tone: "neutral" },
 					{ label: `${snapshots.length} snapshots`, tone: "info" },
@@ -104,8 +104,8 @@ export function ReportsPage({
 			) : null}
 
 			<SectionCard
-				title="Operator API exports"
-				description="Direct links into the current backend report surface published by the operator API."
+				title="API exports"
+				description="Direct links to the report exports published by the API."
 			>
 				<div className="flex flex-wrap items-center gap-3">
 					<StatusBadge

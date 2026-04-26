@@ -44,7 +44,7 @@ export function WorkloadDetailPanel({
 		return (
 			<SectionCard
 				title="Workload detail"
-				description="Select a workload from the inventory table to inspect its operational detail."
+				description="Select a workload from the inventory table to inspect its details."
 			>
 				<EmptyState
 					title="No workload selected"
@@ -59,7 +59,7 @@ export function WorkloadDetailPanel({
 	return (
 		<SectionCard
 			title="Workload detail"
-			description="Operator-facing workload context derived from normalized inventory, lifecycle signals, and the current dependency graph."
+			description="Workload context from normalized inventory, lifecycle signals, and the current dependency graph."
 			actions={
 				<>
 					<button
@@ -203,7 +203,7 @@ export function WorkloadDetailPanel({
 									? [assessmentErrors.policies, assessmentErrors.remediation]
 											.filter(Boolean)
 											.join(" ")
-									: `Risk posture is partial while ${row.missingSources.join(", ")} signals are unavailable.`
+									: `Risk status is partial while ${row.missingSources.join(", ")} signals are unavailable.`
 							}
 						/>
 					) : null}
@@ -229,7 +229,7 @@ export function WorkloadDetailPanel({
 						<div className="mt-4">
 							<InlineNotice
 								tone="success"
-								message="No immediate operator risk signals are currently derived for this workload."
+								message="No immediate risk signals are currently derived for this workload."
 							/>
 						</div>
 					)}

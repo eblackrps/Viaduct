@@ -419,13 +419,13 @@ export function DependencyGraph({
 				{loading ? (
 					<LoadingState
 						title="Loading dependency graph"
-						message="Collecting normalized workload, storage, network, and backup relationships for the current operator scope."
+						message="Collecting normalized workload, storage, network, and backup relationships for the current scope."
 						className="mt-5"
 					/>
 				) : visibleGraph.nodes.length === 0 ? (
 					<EmptyState
 						title="No dependency nodes match the current scope"
-						message="Adjust the current platform or search filters, or wait for a graph payload to populate the operator analysis surface."
+						message="Adjust the current platform or search filters, or wait for a graph payload to populate this view."
 						className="mt-5"
 					/>
 				) : (

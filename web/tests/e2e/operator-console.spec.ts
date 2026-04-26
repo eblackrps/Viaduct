@@ -153,7 +153,9 @@ test("creates a migration plan from the real offline KVM fixtures", async ({
 	await page
 		.getByRole("button", { name: "Run preflight", exact: true })
 		.click();
-	await expect(page.getByText("Blocking checks", { exact: true })).toBeVisible();
+	await expect(
+		page.getByText("Blocking checks", { exact: true }),
+	).toBeVisible();
 
 	await page
 		.getByRole("button", { name: "Save migration plan", exact: true })
@@ -215,10 +217,10 @@ test.describe("workspace failure state", () => {
 			});
 		});
 
-		await login(page, { landingHeading: "Pilot workspaces unavailable" });
+		await login(page, { landingHeading: "Assessments unavailable" });
 
 		await expect(
-			page.getByRole("heading", { name: "Pilot workspaces unavailable" }),
+			page.getByRole("heading", { name: "Assessments unavailable" }),
 		).toBeVisible();
 		await expect(
 			page.getByText(/forced workspace failure for E2E coverage/i),

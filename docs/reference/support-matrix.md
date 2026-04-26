@@ -17,7 +17,7 @@ The platform names and validation scope are mirrored in `docs/reference/support-
 | --- | --- | --- |
 | Release owner gate | CI build job and local release-gate coverage | `make release-gate` runs `go mod tidy`, backend build, vet, `golangci-lint`, race tests, certification fixtures, soak coverage, plugin and OpenAPI contract checks, CLI smoke checks, dashboard lint/format/unit/build verification, the coverage gate, and the package matrix. |
 | Dashboard lint and unit tests | CI and local | `make release-gate`, `npm run lint`, `npm run format`, and `npm run test` enforce frontend quality and auth/workspace regressions. |
-| Dashboard end-to-end tests | CI and local opt-in | `npm run e2e` exercises the Get started sign-in flow, operator console, inventory, and migration workflow paths. It stays outside `make release-gate` because it depends on Playwright browser setup, but CI still enforces it on every pull request. |
+| Dashboard end-to-end tests | CI and local opt-in | `npm run e2e` exercises the Get started sign-in flow, dashboard, inventory, and migration workflow paths. It stays outside `make release-gate` because it depends on Playwright browser setup, but CI still enforces it on every pull request. |
 | Security scans | CI and local opt-in | `gosec ./...` and `trivy fs --severity HIGH,CRITICAL .` run in CI; release owners can run the same commands locally when scanners are available. |
 | Connector certification | Fixture-backed local and CI coverage | `make certification-test` validates KVM and Proxmox normalization against stable fixtures. |
 | Migration soak | Tagged local and CI coverage | `make soak-test` exercises large-wave orchestration behavior without requiring external hypervisors. |
@@ -29,7 +29,7 @@ The platform names and validation scope are mirrored in `docs/reference/support-
 ## Connectors
 | Connector | Implemented | Unit tested | Fixture tested | Live lab tested | Production pilot tested | Known limitations |
 | --- | --- | --- | --- | --- | --- | --- |
-| VMware | Discovery and mapping helpers | Yes | Yes | Not claimed | Not claimed | Runtime behavior depends on vCenter API access and fixture coverage is not a substitute for estate-specific pilot testing. |
+| VMware | Discovery and mapping helpers | Yes | Yes | Not claimed | Not claimed | Runtime behavior depends on vCenter API access and fixture coverage is not a substitute for environment-specific pilot testing. |
 | Proxmox | REST discovery and mapping helpers | Yes | Yes, including certification fixtures | Not claimed | Not claimed | Discovery is better covered than connector-specific migration execution. |
 | Hyper-V | WinRM / PowerShell discovery | Yes | Yes | Not claimed | Not claimed | Requires operator-provided WinRM/PowerShell access in real environments. |
 | KVM | XML fixture discovery and libvirt build-tag implementation | Yes | Yes, including certification fixtures | Local fixture lab only | Not claimed | Default builds use the portable XML fallback; live libvirt usage requires the `libvirt` build tag and host libraries. |

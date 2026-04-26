@@ -587,14 +587,14 @@ func inspectDoctorStoreAndAuth(ctx context.Context, cfg *appConfig) (doctorStore
 		Name:   "auth",
 		Status: "pass",
 		Message: fmt.Sprintf(
-			"Shared access is ready with %d tenant key tenant(s) and %d service-account key(s).",
+			"Shared access is ready with %d tenant key tenant(s) and %d service account key(s).",
 			authReport.TenantKeyTenants,
 			authReport.ServiceAccountKeys,
 		),
 	}
 	if !authReport.SharedAccessReady {
 		authCheck.Status = "warn"
-		authCheck.Message = "No admin, tenant, or service-account credentials are configured; loopback local sessions still work, but shared access is not ready."
+		authCheck.Message = "No admin, tenant, or service account credentials are configured; loopback local sessions still work, but shared access is not ready."
 	}
 
 	return storeReport, authReport, storeCheck, authCheck

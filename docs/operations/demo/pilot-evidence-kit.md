@@ -26,7 +26,7 @@ Capture these five items from one run of the default local lab or an equivalent 
 ## Recommended Supporting Evidence
 
 - `viaduct doctor`
-  Capture the output when you need to prove config, store, auth posture, and runtime readiness from the CLI side.
+Capture the output when you need to prove config, store, auth status, and runtime readiness from the CLI side.
 
 - `viaduct status --runtime`
   Capture this when you need to show the recorded local runtime URL, PID, and ready versus degraded status.

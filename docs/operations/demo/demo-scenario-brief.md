@@ -15,25 +15,25 @@ This is the canonical prepared state behind both [3-minute-demo-card.md](three-m
 - initial focus: VMware-exit assessment leading to an approval-ready first wave
 - named live-motion story: VMware vSphere source to Proxmox VE target
 - operator promise: supervised pilot control, not fleet-wide autonomous migration
-- source of truth: persisted backend state already loaded before the demo starts
+- current reference: persisted backend state already loaded before the demo starts
 
 ## Canonical Tenant And Identity
 
 - tenant: `vmware-exit-demo`
 - dashboard credential: named service account `demo-operator`
-- service-account role: `operator`
+- service account role: `operator`
 - explicit permissions:
   - `inventory.read`
   - `migration.manage`
   - `reports.read`
   - `tenant.read`
-- fallback only: tenant API key for break-glass recovery, not normal demo use
+- fallback only: tenant API key for emergency access, not normal demo use
 
 ## Canonical Workloads
 
 ### `web-portal-01`
 
-- posture: `ready`
+- status: `ready`
 - risk: low
 - role in story: first-wave candidate that looks easy to justify
 - required visible cues:
@@ -43,7 +43,7 @@ This is the canonical prepared state behind both [3-minute-demo-card.md](three-m
 
 ### `orders-app-02`
 
-- posture: `needs-review`
+- status: `needs-review`
 - risk: medium
 - role in story: included in the first-wave draft, but requires operator judgment
 - required visible cues:
@@ -53,27 +53,27 @@ This is the canonical prepared state behind both [3-minute-demo-card.md](three-m
 
 ### `sql-legacy-01`
 
-- posture: `blocked`
+- status: `blocked`
 - risk: high
 - role in story: clear example of what Viaduct should not pull into the first wave
 - required visible cues:
-  - blocked or high-risk posture is obvious
+- blocked or high-risk status is obvious
   - the reason looks operationally plausible, for example snapshot, backup, or policy friction
 
 ## Canonical Screen State
 
 | Screen | Must Be Visible | Why It Matters |
 | --- | --- | --- |
-| `Settings` | tenant `vmware-exit-demo`, named service account, operator-scoped permissions, backend/build context | proves this is a tenant-scoped operator flow, not an anonymous lab page |
-| `Inventory` | recent VMware and Proxmox baselines, non-zero posture counts, the three named workloads | establishes that Viaduct is an assessment surface, not just an asset list |
+| `Settings` | tenant `vmware-exit-demo`, named service account, operator-scoped permissions, backend/build context | proves this is a tenant-scoped workflow, not an anonymous lab page |
+| `Inventory` | recent VMware and Proxmox baselines, non-zero status counts, the three named workloads | establishes that Viaduct is an assessment view, not just an asset list |
 | `Workload detail` | `web-portal-01` selected with readiness, dependency, and baseline clues | shows why a workload belongs in a first wave |
 | `Migrations` `Scope` / `Prepare` / `Validate` | saved first-wave draft containing `web-portal-01` and `orders-app-02`, with `sql-legacy-01` excluded | shows that planning is persisted and selective |
 | `Migrations` `Execute` + `Migration Progress` | prepared run in `failed` state with earlier checkpoints complete and `verify` failed | shows supervised pilot control when the run is not clean |
 | `Reports` | summary export, migration export, audit export, migration history, discovery snapshots | shows that the workflow ends in evidence, not screenshots |
 
-## Canonical Inventory Posture
+## Inventory Status
 
-Keep the posture cards stable across the full session. If the dashboard shows top-line counts, use one fixed set for every serious demo:
+Keep the status cards stable across the full session. If the dashboard shows top-line counts, use one fixed set for every serious demo:
 
 - `ready`: 6
 - `needs review`: 3
@@ -133,7 +133,7 @@ This is the right demo state because it creates a serious operator question: res
 
 Before a call, confirm these exact items:
 
-- `Inventory` shows the three named workloads with the expected posture spread
+- `Inventory` shows the three named workloads with the expected status spread
 - `Workload detail` opens directly on `web-portal-01`
 - `Migrations` shows the saved first-wave draft with one blocker and two warnings
 - `Migration Progress` shows `verify` failed for `orders-app-02`

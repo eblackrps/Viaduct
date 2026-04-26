@@ -50,7 +50,7 @@ export function LifecyclePage({
 			<PageHeader
 				eyebrow="Lifecycle"
 				title="Lifecycle optimization"
-				description="Use Viaduct remediation guidance and cost comparisons to prioritize fleet movement before committing a migration wave."
+				description="Use Viaduct remediation guidance and cost comparisons to prioritize workload moves before committing a migration wave."
 				badges={[
 					{
 						label: `${summary?.recommendation_count ?? remediation?.recommendations.length ?? 0} recommendations`,
@@ -101,12 +101,12 @@ export function LifecyclePage({
 				<>
 					<SectionCard
 						title="Cross-domain handoff"
-						description="Lifecycle decisions stay connected to separate policy and drift views so operators can review enforcement and baseline change before acting."
+						description="Lifecycle decisions stay connected to policy and drift views so teams can review enforcement and baseline change before acting."
 					>
 						<div className="grid gap-3 md:grid-cols-2">
 							<InlineNotice
 								title="Policy review"
-								message="Use the dedicated Policy page to inspect rule-level violations and enforcement posture on the current inventory."
+								message="Use the Policy page to inspect rule-level violations and enforcement status on the current inventory."
 								tone="neutral"
 							/>
 							<InlineNotice

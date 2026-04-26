@@ -4,7 +4,7 @@ This document defines the realistic commercialization paths for Viaduct at its c
 
 It is not a generic startup strategy memo. It is a steering document for the current repo, current support boundary, and current early-product focus:
 
-**VMware-exit mixed-estate discovery and migration readiness assessment with approval-ready pilot planning**
+**VMware-exit multi-platform inventory collection and migration readiness assessment with approval-ready pilot planning**
 
 ## 1. Current-State Summary
 
@@ -36,7 +36,7 @@ The current repo still has commercialization constraints that matter:
 - live pilot hardening is still in progress, especially around durable execution, supportability, and real-user trust
 - auth and RBAC are pilot-grade, not enterprise-identity-grade
 - support is explicitly best effort community support today
-- there is no productized billing, entitlement, licensing, or telemetry posture beyond the open-source repo
+- there is no productized billing, entitlement, licensing, or telemetry model beyond the open-source repo
 - the current value is strongest in reducing migration uncertainty and supporting supervised pilots, not in broad autonomous operations
 
 ### What should be preserved
@@ -99,7 +99,7 @@ Keep Viaduct as an Apache 2.0 open-source product and monetize through:
 ### Pros
 
 - fastest honest path to revenue
-- consistent with the current Apache 2.0 and community-support posture
+- consistent with the current Apache 2.0 and community-support stance
 - lets field learning directly harden the product
 - works well with the current focus and pilot framing
 - avoids premature license and entitlement complexity
@@ -313,7 +313,7 @@ Treat Viaduct mainly as an engineering showcase, internal tool, or research plat
 ### Cons
 
 - directly conflicts with the repo’s current open-source, packaging, docs, and pilot direction
-- wastes the work already done to narrow the focus and harden the operator path
+- wastes the work already done to narrow the focus and harden the workflow
 - produces little pressure to fix the real trust and support gaps that matter for external users
 
 ### Product implications
@@ -360,7 +360,7 @@ This is the strongest path right now because it is the only model that cleanly m
 
 Viaduct is strongest today at:
 
-- mixed-estate discovery
+- multi-platform inventory collection
 - readiness reduction
 - approval-ready first-wave planning
 - supervised pilot visibility and control
@@ -417,7 +417,7 @@ These offers should stay narrow:
   - includes supported discovery, readiness review, first-wave definition, report export, and operator handoff
   - does not include custom connector promises, unsupported target motions, or product-roadmap commitments
 - pilot enablement package:
-  - includes packaged deployment help, tenant and service-account setup, observability setup, runbook review, and supervised pilot support for the named VMware-to-Proxmox motion
+- includes packaged deployment help, tenant and service account setup, observability setup, runbook review, and supervised pilot support for the named VMware-to-Proxmox motion
   - does not include a promise of zero-touch cutover, unsupported target motions, or fleet-scale migration factory behavior
 - support retainer:
   - includes bounded remote support for the supported pilot path and packaged deployment
@@ -467,7 +467,7 @@ These are not neutral alternatives at the current stage:
 
 - open-core now: wrong time, no clean premium boundary, and too likely to distort hardening priorities
 - appliance-first now: too support-heavy and too packaging-heavy for current pilot maturity
-- consulting-lead-gen-only posture: undercuts the product discipline already established in the repo
+- consulting-lead-gen-only stance: undercuts the product discipline already established in the repo
 
 ## 6. What The Recommended Path Should Prioritize Next
 
@@ -484,7 +484,7 @@ If Viaduct follows the recommended path, the next commercialization-supporting p
 - keep [SUPPORT.md](../SUPPORT.md) honest as best-effort community support; do not blur public GitHub support with paid pilot support
 - keep [v1-scope.md](v1-scope.md) and [support-matrix.md](reference/support-matrix.md) aligned to one supported live motion
 - keep release and packaging work centered on [RELEASE.md](../RELEASE.md), `make release-gate`, and `make package-release-matrix`
-- keep auth work centered on the current tenant and service-account model, not SSO-first expansion
+- keep auth work centered on the current tenant and service account model, not SSO-first expansion
 - keep telemetry limited to observability, request correlation, audit/report exports, and support packets unless a later explicit decision changes that
 - reject feature additions that do not make the assessment and supervised pilot path more supportable, more trustworthy, or easier to deliver repeatedly
 

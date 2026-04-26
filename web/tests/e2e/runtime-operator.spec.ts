@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { navigateTo } from "./auth";
 
-test("boots the real viaduct runtime and completes the first local operator flow", async ({
+test("boots the real viaduct runtime and completes the first local session flow", async ({
 	page,
 }) => {
 	const listRequests = new Set<string>();
@@ -38,7 +38,7 @@ test("boots the real viaduct runtime and completes the first local operator flow
 		.poll(async () => {
 			if (
 				await page
-					.getByRole("button", { name: "Create workspace" })
+					.getByRole("button", { name: "Create assessment" })
 					.isVisible()
 					.catch(() => false)
 			) {
@@ -57,7 +57,7 @@ test("boots the real viaduct runtime and completes the first local operator flow
 		.not.toBe("pending");
 
 	const createWorkspaceButton = page.getByRole("button", {
-		name: "Create workspace",
+		name: "Create assessment",
 	});
 	if (await createWorkspaceButton.isVisible().catch(() => false)) {
 		await createWorkspaceButton.click();
@@ -112,9 +112,7 @@ test("boots the real viaduct runtime and completes the first local operator flow
 	});
 
 	await navigateTo(page, "Overview");
-	await expect(
-		page.getByRole("heading", { name: "Operational dashboard" }),
-	).toBeVisible();
+	await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
 
 	expect(listRequests.has("/api/v2/inventory")).toBeTruthy();
 	expect(listRequests.has("/api/v2/snapshots")).toBeTruthy();

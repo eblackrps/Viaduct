@@ -49,9 +49,7 @@ export function MobileSidebarDrawer({
 					<div className="rounded-2xl bg-gradient-to-br from-ink via-steel to-slate-900 px-4 py-4 text-white">
 						<div className="flex items-start justify-between gap-3">
 							<div>
-								<p className="operator-kicker !text-slate-300">
-									Operator console
-								</p>
+								<p className="operator-kicker !text-slate-300">Dashboard</p>
 								<p className="mt-2 font-display text-xl tracking-[-0.03em]">
 									Viaduct
 								</p>
@@ -66,7 +64,7 @@ export function MobileSidebarDrawer({
 							</button>
 						</div>
 						<p className="mt-3 text-sm leading-6 text-slate-200">
-							Discover, plan, execute, and govern from the same control plane.
+							Discover, plan, execute, and review from one dashboard.
 						</p>
 					</div>
 

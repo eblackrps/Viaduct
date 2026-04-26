@@ -59,7 +59,7 @@ export function InventoryPage({
 	);
 	const planningNote =
 		workspace.selectedRows.length > 0
-			? "This action creates a local planning draft and opens the migration planning workspace with the selected workloads already in scope. Viaduct still requires source and target endpoint details before preflight, plan save, and execution because the backend contract is spec-driven."
+			? "This action creates a local planning draft and opens migration planning with the selected workloads already in scope. Viaduct still requires source and target endpoint details before preflight, plan save, and execution because the backend contract is spec-driven."
 			: null;
 	const selectionScope = getSelectionScopeLabel(workspace.selectedRows);
 	const assetCoverage = {
@@ -96,7 +96,7 @@ export function InventoryPage({
 			<PageHeader
 				eyebrow="Inventory"
 				title="Fleet inventory and assessment"
-				description="Operate from a workload-centric inventory surface with search, dependency context, and migration-planning preparation without losing sight of platform reality."
+				description="Review workloads with search, dependency context, and migration planning inputs."
 				badges={[
 					{
 						label: `${summary?.workload_count ?? inventory?.vms.length ?? 0} workloads`,
@@ -136,7 +136,7 @@ export function InventoryPage({
 			{loading && !inventory ? (
 				<LoadingState
 					title="Loading inventory"
-					message="Retrieving normalized workload inventory, dependency context, and operator assessment signals from the Viaduct API."
+					message="Retrieving normalized workload inventory, dependency context, and assessment signals from the Viaduct API."
 				/>
 			) : null}
 
@@ -255,7 +255,7 @@ export function InventoryPage({
 
 					<SectionCard
 						title="Assessment notes"
-						description="Signals that shape readiness and risk in the current operator view."
+						description="Signals that shape readiness and risk in the current view."
 					>
 						<div className="flex flex-wrap gap-2">
 							<StatusBadge

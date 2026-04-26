@@ -1,23 +1,23 @@
 # Viaduct
-> Open-source software for virtualization inventory, dependency review, migration planning, readiness checks, and reports.
+> Open-source software for multi-platform inventory, dependency review, migration planning, readiness checks, and reports.
 
 [![CI](https://github.com/eblackrps/Viaduct/actions/workflows/ci.yml/badge.svg)](https://github.com/eblackrps/Viaduct/actions/workflows/ci.yml)
 [![License](https://img.shields.io/github/license/eblackrps/Viaduct)](https://github.com/eblackrps/Viaduct/blob/main/LICENSE)
 [![Release](https://img.shields.io/github/v/release/eblackrps/Viaduct?display_name=tag)](https://github.com/eblackrps/Viaduct/releases)
 
-Viaduct helps teams inspect mixed virtualization environments, map dependencies, build migration plans, and keep reviewable records before a pilot. The repository combines a Go backend, REST API, CLI, React dashboard, and standalone public site around the same persisted inventory, workspace, planning, and reporting data.
+Viaduct helps teams inspect multi-platform environments, map dependencies, build migration plans, and keep reviewable records before a pilot. The repository combines a Go backend, REST API, CLI, React dashboard, and standalone public site around the same saved inventory, assessment, planning, and reporting data.
 
-Versioned release notes live in [docs/releases/README.md](docs/releases/README.md), the current install/reference surface lives in [docs/releases/current.md](docs/releases/current.md), and the published release stream is tracked in [CHANGELOG.md](CHANGELOG.md).
+Versioned release notes live in [docs/releases/README.md](docs/releases/README.md), the current install reference lives in [docs/releases/current.md](docs/releases/current.md), and the published release stream is tracked in [CHANGELOG.md](CHANGELOG.md).
 
 ## Current Focus
 
 Viaduct is built for operators who need:
-- mixed-estate discovery and inventory normalization
-- dependency-aware migration assessment
-- readiness and planning discipline before cutover work starts
-- controlled, reviewable planning work with exported reports
+- multi-platform inventory collection
+- review dependencies before planning
+- readiness checks and planning steps before cutover work starts
+- save plans and export reports
 
-The default first-run experience is the WebUI-first workspace flow: start Viaduct, create a workspace, discover, inspect, simulate, save a plan, and export a report. The local lab remains the fastest path from fresh clone to a working dashboard and API.
+The default first-run experience is the dashboard assessment workflow: start Viaduct, create an assessment, discover, inspect, simulate, save a plan, and export a report. The local lab remains the fastest path from fresh clone to a working dashboard and API.
 
 ## Why Viaduct
 
@@ -26,14 +26,14 @@ Many teams do not need more abstract migration talk. They need to know what exis
 It is strongest when operators need:
 - one normalized inventory across mixed platforms
 - dependency context before sequencing migration work
-- a persisted assessment record instead of disconnected notes and screenshots
+- a saved assessment instead of disconnected notes and screenshots
 - a CLI, API, and dashboard that reflect the same state
 
 ## What You Can Evaluate Today
 
 - Discovery: normalize inventory from VMware, Proxmox, Hyper-V, KVM, Nutanix, and Veeam-related backup systems into the shared model.
 - Dependency mapping: build workload, network, storage, and backup graph context before execution.
-- Pilot workspace workflow: persist source connections, snapshots, graph outputs, target assumptions, readiness results, saved plans, approvals, notes, and exported reports in one workspace record.
+- Assessment workflow: save source connections, snapshots, graph outputs, target assumptions, readiness results, plans, approvals, notes, and exported reports together.
 - Migration planning: use declarative specs, preflight checks, saved dry-run plans, execution windows, approval requirements, checkpoints, resume support, and rollback state.
 - Lifecycle analysis: review drift, policy, cost, remediation guidance, and backup portability inputs against the same stored data.
 - Diagnostics and observability: validate local runtime readiness with `viaduct doctor` and `viaduct status --runtime`, then optionally prove backend trace flow with the bundled Grafana + Tempo path.
@@ -41,16 +41,16 @@ It is strongest when operators need:
 
 ## Screenshots
 
-These are current seeded-product captures from the packaged operator shell. They reflect the `viaduct start` path, the Get started sign-in screen, and the current workspace-first dashboard across inventory, graph, migration, and reporting surfaces.
+These are current seeded-product captures from the packaged dashboard. They reflect the `viaduct start` path, the Get started sign-in screen, and the current assessment dashboard across inventory, graph, migration, and reporting pages.
 
 <p align="center">
   <img src="docs/operations/demo/screenshots/auth-bootstrap.png" alt="Viaduct dashboard Get started screen with local and key-based session options" width="32%" />
-  <img src="docs/operations/demo/screenshots/pilot-workspace.png" alt="Viaduct pilot workspace overview with operator workflow progression" width="32%" />
+  <img src="docs/operations/demo/screenshots/pilot-workspace.png" alt="Viaduct assessment overview with workflow progress" width="32%" />
   <img src="docs/operations/demo/screenshots/inventory-assessment.png" alt="Viaduct inventory assessment with selected workload detail" width="32%" />
 </p>
 <p align="center">
   <img src="docs/operations/demo/screenshots/dependency-graph.png" alt="Viaduct dependency graph view showing workload relationships" width="32%" />
-  <img src="docs/operations/demo/screenshots/migration-ops.png" alt="Viaduct migration operations workspace with plan and execution posture" width="32%" />
+  <img src="docs/operations/demo/screenshots/migration-ops.png" alt="Viaduct migration operations page with plan and execution status" width="32%" />
   <img src="docs/operations/demo/screenshots/reports-history.png" alt="Viaduct reports and history view with exported review reports" width="32%" />
 </p>
 
@@ -89,7 +89,7 @@ For the production Compose sample, create `config/config.yaml` from `configs/con
 
 ## Source Build And Local Lab
 
-The cleanest contributor and offline-evaluation path is still the local lab in [examples/lab](examples/lab). Docker is the primary packaged install path, but the local workspace-first flow remains fastest from a fresh clone.
+The cleanest contributor and offline evaluation path is still the local lab in [examples/lab](examples/lab). Docker is the primary packaged install path, but the local assessment workflow remains fastest from a fresh clone.
 
 ```bash
 make build
@@ -102,7 +102,7 @@ On a fresh source checkout, `viaduct start`:
 - creates `~/.viaduct/config.yaml` automatically when it is missing
 - points that config at the shipped `examples/lab/kvm` fixtures
 - serves the built dashboard and API together at [http://127.0.0.1:8080](http://127.0.0.1:8080)
-- opens the WebUI automatically on interactive local runs when practical
+- opens the dashboard automatically on interactive local runs when practical
 
 For the default local lab path, the Get started screen offers `Start local session` on direct `127.0.0.1` browser requests, so no pasted browser key is required. If you need a shared or packaged setup, open `Use a key instead`; service account keys are the normal path, and tenant keys remain available under the advanced option.
 
@@ -114,7 +114,7 @@ Use these companion commands when you need them:
 ./bin/viaduct stop
 ```
 
-The same runtime also publishes live operator API docs at [http://127.0.0.1:8080/api/v1/docs](http://127.0.0.1:8080/api/v1/docs), backed by the checked-in contract in [docs/reference/openapi.yaml](docs/reference/openapi.yaml).
+The same runtime also publishes live API docs at [http://127.0.0.1:8080/api/v1/docs](http://127.0.0.1:8080/api/v1/docs), backed by the checked-in contract in [docs/reference/openapi.yaml](docs/reference/openapi.yaml).
 
 `viaduct serve-api` remains the lower-level API command for container, service, and intentionally headless deployments. It still serves the built dashboard automatically when assets are present in `web/dist`, a packaged `web/` directory, or an installed `share/viaduct/web` layout. It now binds to `127.0.0.1` by default and refuses unauthenticated non-loopback listeners unless you configure an admin, tenant, or service account credential or pass the explicit dangerous override. If you prefer the Vite development server while changing frontend code, that flow still lives in [web/README.md](web/README.md).
 
@@ -125,20 +125,20 @@ Tenant and service account API keys are persisted as non-recoverable hashes. Via
 Use these entrypoints next:
 - Quickstart: [QUICKSTART.md](QUICKSTART.md)
 - Detailed quickstart: [docs/getting-started/quickstart.md](docs/getting-started/quickstart.md)
-- Pilot workspace guide: [docs/operations/pilot-workspace-flow.md](docs/operations/pilot-workspace-flow.md)
+- Assessment guide: [docs/operations/pilot-workspace-flow.md](docs/operations/pilot-workspace-flow.md)
 
 ## Repository Surfaces
 
 - `cmd/viaduct/`: CLI entrypoints.
 - `internal/`: discovery, dependency mapping, migration orchestration, lifecycle analysis, API server, and state store packages.
-- `web/`: React dashboard for operator workflows.
+- `web/`: React dashboard for assessment workflows.
 - `site/`: separate static public site for GitHub Pages.
 - `examples/`: lab, deployment, and plugin evaluation assets.
 - `docs/`: deeper reference, operations, and product-scope documentation.
 
 ## Verification
 
-`make release-gate` is the canonical local release-owner verification path. It runs backend build, vet, lint, race coverage, certification fixtures, soak coverage, plugin and OpenAPI contract checks, release-surface consistency checks, CLI smoke coverage, dashboard lint/format/unit/build verification, coverage enforcement, and the cross-platform package matrix in one command. CI adds Playwright end-to-end coverage, a Docker-backed observability smoke for Grafana + Tempo trace ingestion, CodeQL, `gosec`, and `trivy` on top of the same source-controlled release path.
+`make release-gate` is the release check command. It runs backend build, vet, lint, race coverage, certification fixtures, soak coverage, plugin and OpenAPI contract checks, release-surface consistency checks, CLI smoke coverage, dashboard lint/format/unit/build verification, coverage enforcement, and the cross-platform package matrix in one command. CI adds Playwright end-to-end coverage, a Docker-backed observability smoke for Grafana + Tempo trace ingestion, CodeQL, `gosec`, and `trivy` on top of the same source-controlled release path.
 
 Other high-signal commands:
 
@@ -175,7 +175,7 @@ make package-release-matrix
 
 ## Contributing
 
-Contributions are welcome. Keep docs, examples, and public-facing assets aligned with operator-visible behavior. See [CONTRIBUTING.md](CONTRIBUTING.md) for workflow and verification expectations.
+Contributions are welcome. Keep docs, examples, and public-facing assets aligned with visible behavior. See [CONTRIBUTING.md](CONTRIBUTING.md) for workflow and verification expectations.
 
 ## Support And Security
 

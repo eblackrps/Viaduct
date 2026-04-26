@@ -8,7 +8,7 @@ Use these images in:
 - release notes
 - evaluator packets
 - demo prep
-- operator-facing workflow docs when the dashboard changes materially
+- workflow docs when the dashboard changes materially
 
 The matching evaluator artifact checklist lives in [../pilot-evidence-kit.md](../pilot-evidence-kit.md).
 

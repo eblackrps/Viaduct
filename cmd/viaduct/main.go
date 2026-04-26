@@ -19,9 +19,9 @@ var (
 
 	rootCmd = &cobra.Command{
 		Use:   "viaduct",
-		Short: "Hypervisor-agnostic workload migration and lifecycle management",
-		Long: "Viaduct is a hypervisor-agnostic workload migration and lifecycle management " +
-			"platform for discovery, planning, migration, and operations.",
+		Short: "Multi-platform migration and lifecycle management",
+		Long: "Viaduct is a multi-platform migration and lifecycle management " +
+			"tool for discovery, planning, migration, and operations.",
 		SilenceUsage: true,
 		CompletionOptions: cobra.CompletionOptions{
 			DisableDefaultCmd: true,

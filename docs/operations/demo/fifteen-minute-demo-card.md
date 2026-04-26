@@ -33,7 +33,7 @@ Create operator trust:
 | --- | --- | --- |
 | 0:00-1:15 | `Settings` | tenant, auth mode, permissions, operator connection |
 | 1:15-2:15 | prepared terminal | one completed discovery command line or copyable command, no live waiting |
-| 2:15-5:00 | `Inventory` | posture, discovery context, assessment notes, select ready candidate |
+| 2:15-5:00 | `Inventory` | status, discovery context, assessment notes, select ready candidate |
 | 5:00-6:30 | `Workload detail` | readiness, dependency, activity, why this workload belongs in the first wave |
 | 6:30-10:30 | `Migrations` | planning workflow, target prep, execution controls, preflight, runbook |
 | 10:30-13:00 | `Execute` + `Migration Progress` | failed `verify` state, checkpoints, per-workload state, next-action reasoning |
@@ -55,13 +55,13 @@ Create operator trust:
 
 ### 5:00-6:30
 
-"I'll pick one workload to show the decision logic. In the detail panel we can see the workload's current posture, dependency context, and baseline activity clues. That is the bridge from interesting asset to candidate for the first wave."
+"I'll pick one workload to show the decision logic. In the detail panel we can see the workload's current status, dependency context, and baseline activity clues. That is the bridge from interesting asset to candidate for the first wave."
 
 "If I want to act on this, I can open the migration plan directly from here."
 
 ### 6:30-10:30
 
-"This is the real planning workflow: bring scope in, prepare the target and execution controls, validate, then save plan state. The important thing here is that Viaduct keeps the backend as the source of truth."
+"This is the real planning workflow: bring scope in, prepare the target and execution controls, validate, then save plan state. The important thing here is that Viaduct keeps the backend as the current reference."
 
 "I'm showing a prepared first-wave draft with explicit target details, execution controls, approvals, and mappings. Then preflight turns that draft into an operational decision. We can see blockers, warnings, and the derived runbook before execution starts."
 

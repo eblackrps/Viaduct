@@ -41,7 +41,7 @@ export function PlatformSummary({ inventory }: PlatformSummaryProps) {
 		<section className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
 			<SectionCard
 				title="Platform totals"
-				description="A quick capacity snapshot across the discovered estate."
+				description="A quick capacity snapshot across the discovered environment."
 			>
 				{rows.length === 0 ? (
 					<InlineNotice

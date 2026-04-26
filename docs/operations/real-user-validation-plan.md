@@ -6,7 +6,7 @@ It is not a generic discovery-interview guide. It is a field-learning kit for pu
 
 The tested path is the same path Viaduct is already narrowing around:
 
-**VMware-exit mixed-estate discovery and migration readiness assessment with approval-ready pilot planning, plus interpretation of a prepared VMware vSphere to Proxmox VE pilot run state**
+**VMware-exit multi-platform inventory collection and migration readiness assessment with approval-ready pilot planning, plus interpretation of a prepared VMware vSphere to Proxmox VE pilot run state**
 
 Use this document to:
 - recruit the right five participants

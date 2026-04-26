@@ -7,7 +7,7 @@ export function GraphPage() {
 			<PageHeader
 				eyebrow="Analysis"
 				title="Dependency graph"
-				description="Inspect workload relationships across storage, backup, and network dependencies with operator-focused search, filtering, and direct relationship detail."
+				description="Inspect workload relationships across storage, backup, and network dependencies with search, filtering, and relationship detail."
 			/>
 			<DependencyGraph />
 		</div>

@@ -19,7 +19,7 @@ This roadmap tracks planned platform work that was discussed during the v2.7.0 h
 - MFA and WebAuthn enrollment with recovery-code support for dashboard login
 - session fingerprint drift auditing and optional re-auth policy
 - snapshot retention policies with dry-run planning and background pruning
-- incident break-glass elevation with bounded TTL and auditable justification
+- emergency access with bounded TTL and auditable justification
 
 ## Deferred Platform Features
 

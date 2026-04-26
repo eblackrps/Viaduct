@@ -1,6 +1,6 @@
 # Migration Operations Guide
 
-This guide covers the operator path for planning, validating, executing, resuming, and rolling back migrations.
+This guide covers the workflow for planning, validating, executing, resuming, and rolling back migrations.
 
 For the single primary end-to-end path Viaduct is currently hardening, see [Primary Reliability Path](primary-reliability-path.md).
 

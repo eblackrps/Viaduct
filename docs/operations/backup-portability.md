@@ -56,6 +56,6 @@ On migration rollback, Viaduct can remove portable backup jobs it created during
 
 ## Recovery Expectations
 - Missing repositories should be treated as blocking portability warnings.
-- Failed verification runs should block acceptance of the migrated backup posture.
+- Failed verification runs should block acceptance of the migrated backup status.
 - Post-migration policy drift should be treated as a follow-up incident until the recreated jobs match the intended protection policy.
 - Rollback cleanup errors must be reviewed before calling the environment stable again.

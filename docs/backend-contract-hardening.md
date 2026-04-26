@@ -4,16 +4,16 @@ This document defines the backend and API contracts that must become stable for 
 
 It is intentionally scoped to the current focus and v1 promise:
 
-**VMware-exit mixed-estate discovery and migration readiness assessment with approval-ready pilot planning**
+**VMware-exit multi-platform inventory collection and migration readiness assessment with approval-ready pilot planning**
 
-This is not a request to redesign the API from scratch. The goal is to preserve the current route structure where it is already useful, make the operator contract explicit, and eliminate the mushy edges that currently force the dashboard or operator to guess.
+This is not a request to redesign the API from scratch. The goal is to preserve the current route structure where it is already useful, make the user contract explicit, and eliminate the mushy edges that currently force the dashboard or user to guess.
 
 ## Contract Hardening Rules
 
 - Keep current route families where possible. Favor additive change over churn.
 - Stabilize the packaged dashboard contract before broadening connector or workflow breadth.
-- Treat CLI, API, dashboard, OpenAPI, and report exports as one operator contract.
-- If a field matters to operator trust or frontend state, it must be documented and tested.
+- Treat CLI, API, dashboard, OpenAPI, and report exports as one user contract.
+- If a field matters to user trust or frontend state, it must be documented and tested.
 - If a workflow is still pilot-only, the contract must say so without pretending it is generic unattended automation.
 
 ## Current Contract Reality
@@ -23,9 +23,9 @@ Viaduct already has meaningful backend state and useful route coverage:
 - `internal/models/` gives the repo a real shared schema for inventory, tenants, and audit.
 - `internal/migrate/` already defines strong internal types for migration specs, plans, checkpoints, preflight reports, and migration state.
 - `internal/api/server.go` exposes the core routes the dashboard uses for inventory, graph, summary, preflight, migrations, reports, and tenant context.
-- `web/src/` already behaves like a real operator client, which means its assumptions are a reliable signal for where the backend contract is clear or weak.
+- `web/src/` already behaves like a real dashboard client, which means its assumptions are a reliable signal for where the backend contract is clear or weak.
 
-The weak part is the public operator contract:
+The weak part is the public user contract:
 
 - the OpenAPI spec only documents a subset of the routes the dashboard actually depends on
 - several important routes are documented as generic `object` responses instead of stable schemas
@@ -49,7 +49,7 @@ These are the concrete mismatches already present in the repo today:
 
 | Domain | Current Surfaces | Current State | What Is Clear | What Is Weak Or Missing | Hardening Decision |
 | --- | --- | --- | --- | --- | --- |
-| Sources | `MigrationSpec.source`, `MigrationSpec.target`, snapshot metadata, merged inventory | Weak | Platform enum and source/target address fields already exist in shared models and specs. | There is no first-class source descriptor in the operator API. `/api/v1/inventory` merges latest snapshots by source but does not tell the caller which sources or snapshot IDs were included. | Do not add broad source CRUD for v1. Add stable source descriptors and provenance fields to inventory and summary responses. |
+| Sources | `MigrationSpec.source`, `MigrationSpec.target`, snapshot metadata, merged inventory | Weak | Platform enum and source/target address fields already exist in shared models and specs. | There is no first-class source descriptor in the user-facing API. `/api/v1/inventory` merges latest snapshots by source but does not tell the caller which sources or snapshot IDs were included. | Do not add broad source CRUD for v1. Add stable source descriptors and provenance fields to inventory and summary responses. |
 | Inventory / assets | `/api/v1/inventory`, `/api/v1/snapshots`, `/api/v1/graph`, `models.DiscoveryResult`, `models.VirtualMachine` | Mixed | Core VM and infrastructure fields are already normalized and used consistently across connectors and the web app. | OpenAPI only documents a partial inventory shape. Inventory merge semantics are not explicit. Raw `time.Duration` is exposed without a documented unit. Source provenance and partial-data state are missing. | Keep the current inventory route family, but formalize the full response shape, source provenance, and duration units. |
 | Assessments / readiness | dashboard combines inventory + graph + policy + remediation + freshness locally | Missing | The dashboard logic proves Viaduct already has the raw ingredients for readiness assessment. | There is no first-class readiness contract. The frontend currently infers readiness from multiple routes and local heuristics. | Add a dedicated readiness contract for v1 instead of keeping this as frontend-only composition. |
 | Migrations / plans | `/api/v1/preflight`, `/api/v1/migrations`, `/api/v1/migrations/{id}`, `/execute`, `/resume`, `/rollback`, `migrate.MigrationState`, `migrate.MigrationPlan` | Weak | Internal migration state, phases, checkpoints, approval gates, and plan structures are already real. | OpenAPI documents only a subset of the migration flow and uses generic `object` schemas. Request format is documented as YAML or JSON, but handlers only decode JSON. `POST /api/v1/migrations` is documented as `201` but returns `202`. Execute and resume depend on in-memory spec lookup. | Preserve the route family, but freeze a stable request and response contract, add durable spec identity, and stop treating list/detail/command surfaces as loosely related. |
@@ -69,7 +69,7 @@ These are the concrete mismatches already present in the repo today:
 
 ### Problem
 
-The operator-facing API does not expose a stable source descriptor even though Viaduct internally reasons about source systems. The caller can fetch merged inventory, but cannot reliably answer:
+The user-facing API does not expose a stable source descriptor even though Viaduct internally reasons about source systems. The caller can fetch merged inventory, but cannot reliably answer:
 
 - which sources were included
 - which snapshot IDs were used
@@ -340,7 +340,7 @@ For the API:
 
 ### Required Migration Lifecycle Enums
 
-Keep `phase` as the low-level execution phase and add a stable operator-facing lifecycle state.
+Keep `phase` as the low-level execution phase and add a stable visible lifecycle state.
 
 #### Existing `phase` enum
 

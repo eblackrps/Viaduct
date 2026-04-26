@@ -21,7 +21,7 @@ These constraints matter more than market size slides or category language.
 - Viaduct already proves multi-platform discovery, normalized inventory, dependency graphing, lifecycle signals, declarative planning, preflight checks, approval gates, checkpoints, resume behavior, rollback visibility, tenant-scoped APIs, and packaged release discipline.
 - The current quickstart and release-readiness path prove an end-to-end evaluation loop through the local KVM lab, not a first-class live VMware migration pilot.
 - The support matrix already states that production migration usage should be treated as lab or pilot work first, especially for connector-specific runtime actions beyond discovery.
-- The strongest operator story today is not "one-click migration." It is "understand the estate, reduce uncertainty, define the first safe move, and keep operator controls explicit."
+- The strongest story today is not "one-click migration." It is "understand the environment, reduce uncertainty, define the first safe move, and keep controls explicit."
 
 ### What The Repo Does Not Yet Prove Strongly Enough
 - a broad VMware-to-anything cutover motion
@@ -52,13 +52,13 @@ These constraints should drive the focus choice. If the focus ignores them, it b
 - strong future packaged offer
 - not the safest opening focus
 
-### Option 2: VMware-Exit Mixed-Estate Discovery And Migration Readiness Assessment With Approval-Ready Pilot Planning
+### Option 2: VMware-Exit Multi-Platform Inventory Collection And Migration Readiness Assessment With Approval-Ready Pilot Planning
 
 **Buyer**
 - platform and virtualization teams under VMware renewal pressure who need to understand what they have, what is risky, and what the first supervised migration wave should look like
 
 **What Viaduct Can Credibly Support Today**
-- mixed-estate discovery and normalized inventory
+- multi-platform inventory collection and normalized inventory
 - dependency, backup, policy, cost, and drift context
 - declarative planning, preflight validation, and explicit approval and checkpoint state
 - shared CLI, API, and dashboard workflows that make assessment and pilot planning visible
@@ -91,10 +91,10 @@ These constraints should drive the focus choice. If the focus ignores them, it b
 - important differentiator inside the chosen focus
 - weak opening focus by itself
 
-### Option 4: Lifecycle And Risk Assessment For Inherited Virtualization Estates
+### Option 4: Lifecycle And Risk Assessment For Inherited Virtualization Environments
 
 **Buyer**
-- teams inheriting a messy virtualization estate through acquisition, centralization, or reorganization
+- teams inheriting a messy virtualization environment through acquisition, centralization, or reorganization
 
 **What Viaduct Can Credibly Support Today**
 - discovery, cost, policy, drift, and reporting views
@@ -112,7 +112,7 @@ These constraints should drive the focus choice. If the focus ignores them, it b
 ### Option 5: Multi-Tenant Migration Control Plane For MSPs And Migration Partners
 
 **Buyer**
-- MSPs or migration specialists managing multiple customer estates
+- MSPs or migration specialists managing multiple customer environments
 
 **What Viaduct Can Credibly Support Today**
 - tenant-scoped state, service accounts, packaging, and API surfaces
@@ -141,16 +141,16 @@ The initial focus should be judged against these exact questions:
 | Candidate | Urgency | Current product fit | Trust requirement | Concrete first outcome | Expansion path | Decision |
 | --- | --- | --- | --- | --- | --- | --- |
 | VMware to Proxmox planning and supervised execution | High | Medium | High | Pilot execution on a named target | Strong | Not first |
-| VMware-exit mixed-estate assessment with approval-ready pilot planning | High | High | Medium | Approved first-wave plan plus supervised pilot path | Strong | Choose now |
+| VMware-exit multi-platform assessment with approval-ready pilot planning | High | High | Medium | Approved first-wave plan plus supervised pilot path | Strong | Choose now |
 | Dependency-aware migration orchestration | Medium | Medium | High | Better orchestration story | Strong | Keep as differentiator |
-| Lifecycle and risk assessment for inherited estates | Medium | High | Medium | Estate health and rationalization view | Medium | Secondary entry point |
+| Lifecycle and risk assessment for inherited environments | Medium | High | Medium | Environment health and rationalization view | Medium | Secondary entry point |
 | Multi-tenant control plane for MSPs | Medium | Medium | High | Partner operating surface | Strong | Much later |
 
 ## Recommendation
 
 Lock Viaduct's initial focus to:
 
-**VMware-exit mixed-estate discovery and migration readiness assessment with approval-ready pilot planning**
+**VMware-exit multi-platform inventory collection and migration readiness assessment with approval-ready pilot planning**
 
 That is the sharpest initial focus because it is the narrowest statement that still matches what the repo can defend today.
 
@@ -163,7 +163,7 @@ That is the sharpest initial focus because it is the narrowest statement that st
 
 ### It Produces A Concrete Buyer Outcome
 The buyer does not just get "visibility." They get:
-- a normalized view of the current estate
+- a normalized view of the current environment
 - a clearer picture of dependency and policy risk
 - a first migration wave definition
 - an approval-ready pilot plan they can review internally before handing over production authority
@@ -184,27 +184,27 @@ If Viaduct wins the readiness and pilot-planning step, it can later grow into:
 
 ## Final Positioning Statement
 
-**Viaduct helps VMware-exit teams turn a mixed virtualization estate into a dependency-aware, approval-ready first migration wave before they trust full execution automation.**
+**Viaduct helps VMware-exit teams turn a multi-platform virtualization environment into a dependency-aware, approval-ready first migration wave before they trust full execution automation.**
 
 ## Who It Is For
 
 - platform, infrastructure, and virtualization leads facing VMware renewal pressure
-- teams with a real existing estate, not a greenfield buildout
+- teams with a real existing environment, not a greenfield buildout
 - operators who need one place to inspect inventory, dependencies, backup exposure, policy risk, and pilot planning inputs
-- teams evaluating likely targets such as Proxmox or KVM but not yet ready to standardize the entire estate around one destination
+- teams evaluating likely targets such as Proxmox or KVM but not yet ready to standardize the entire environment around one destination
 - design partners willing to run a supervised first wave instead of demanding a zero-touch migration factory
 
 ## Who It Is Not For
 
 - buyers who only want a passive inventory or CMDB-style dashboard
 - teams demanding fully autonomous production migration across every source and target pair on day one
-- organizations with no migration or estate-rationalization pressure
+- organizations with no migration or environment-rationalization pressure
 - MSPs expecting a fully finished multi-customer operating platform as the opening product
 
 ## What Viaduct Does Now Versus Later
 
 ### What Viaduct Does Now
-- discovers and normalizes mixed-estate inventory across the supported connectors
+- discovers and normalizes inventory across the supported connectors
 - surfaces dependency, backup, cost, policy, and drift context that influences migration readiness
 - lets operators define workloads, waves, approvals, windows, and preflight conditions in declarative plans
 - provides tenant-scoped visibility through the CLI, API, dashboard, reports, metrics, and audit-oriented routes

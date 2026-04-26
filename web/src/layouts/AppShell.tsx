@@ -79,19 +79,17 @@ export function AppShell({
 					<div className="sticky top-6 space-y-4">
 						<div className="panel px-4 py-4">
 							<div className="rounded-2xl bg-gradient-to-br from-ink via-steel to-slate-900 px-5 py-5 text-white shadow-[0_20px_38px_rgba(15,23,42,0.24)]">
-								<p className="operator-kicker !text-slate-300">
-									Operator console
-								</p>
+								<p className="operator-kicker !text-slate-300">Dashboard</p>
 								<p className="mt-3 font-display text-title leading-none text-white lg:text-display">
 									Viaduct
 								</p>
 								<p className="mt-3 text-body-sm text-slate-200">
-									Workspace-first migration operations with tenant-scoped
-									discovery, planning, execution, and governance in one place.
+									Migration work in one dashboard, with tenant-specific
+									discovery, planning, execution, and checks.
 								</p>
 								<div className="mt-5 flex flex-wrap gap-2">
 									<span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold text-white/90">
-										Workspace-first
+										Assessments
 									</span>
 									<span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold text-white/90">
 										Tenant-scoped
@@ -108,13 +106,13 @@ export function AppShell({
 						</div>
 
 						<div className="panel-muted px-4 py-4 text-body-sm text-slate-600">
-							<p className="operator-kicker">Operator Flow</p>
+							<p className="operator-kicker">Assessment Workflow</p>
 							<p className="mt-2 font-semibold text-ink">
 								Intake, discover, inspect, simulate, plan, execute, report.
 							</p>
 							<p className="mt-2 leading-6">
-								The dashboard keeps operator evidence attached to the same
-								workspace instead of scattering it across disconnected screens.
+								The dashboard keeps assessment evidence together instead of
+								scattering it across disconnected screens.
 							</p>
 						</div>
 					</div>

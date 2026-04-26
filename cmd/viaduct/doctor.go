@@ -15,7 +15,7 @@ func newDoctorCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "doctor",
 		Short: "Inspect the local Viaduct startup environment",
-		Long:  "Inspect the local config, lab fixtures, bundled dashboard assets, and any recorded runtime state used by the default WebUI-first startup flow.",
+		Long:  "Inspect the local config, lab fixtures, bundled dashboard assets, and any recorded runtime state used by the default dashboard startup flow.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			report, err := collectDoctorReport(configPath, webDir, host, port)
 			if err != nil {
@@ -24,7 +24,7 @@ func newDoctorCommand() *cobra.Command {
 
 			if output == "table" {
 				fmt.Fprintf(cmd.OutOrStdout(), "Config: %s\n", report.ConfigPath)
-				fmt.Fprintf(cmd.OutOrStdout(), "WebUI: %s\n", report.BaseURL)
+				fmt.Fprintf(cmd.OutOrStdout(), "Dashboard: %s\n", report.BaseURL)
 				fmt.Fprintf(cmd.OutOrStdout(), "API:   %s\n", report.APIURL)
 				fmt.Fprintf(cmd.OutOrStdout(), "Store: %s\n", summarizeDoctorStore(report.Store))
 				fmt.Fprintf(cmd.OutOrStdout(), "Auth:  %s\n", summarizeDoctorAuth(report.Auth))
@@ -41,8 +41,8 @@ func newDoctorCommand() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().IntVar(&port, "port", 8080, "Port to inspect for the local operator runtime")
-	cmd.Flags().StringVar(&host, "host", "127.0.0.1", "Host interface to inspect for the local operator runtime")
+	cmd.Flags().IntVar(&port, "port", 8080, "Port to inspect for the local runtime")
+	cmd.Flags().StringVar(&host, "host", "127.0.0.1", "Host interface to inspect for the local runtime")
 	cmd.Flags().StringVar(&webDir, "web-dir", "", "Path to built dashboard assets; when empty, Viaduct auto-detects packaged or built web assets")
 	return cmd
 }
@@ -68,7 +68,7 @@ func summarizeDoctorAuth(report doctorAuthReport) string {
 		parts = append(parts, fmt.Sprintf("%d tenant-key tenant(s)", report.TenantKeyTenants))
 	}
 	if report.ServiceAccountKeys > 0 {
-		parts = append(parts, fmt.Sprintf("%d service-account key(s)", report.ServiceAccountKeys))
+		parts = append(parts, fmt.Sprintf("%d service account key(s)", report.ServiceAccountKeys))
 	}
 	if len(parts) == 0 {
 		return "local-only fallback"

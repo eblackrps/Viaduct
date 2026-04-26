@@ -33,13 +33,13 @@ This changelog tracks published releases and the major implementation milestones
 
 - added backend OpenTelemetry tracing across inbound HTTP requests, workspace jobs, discovery, migration orchestration, report/export generation, connector HTTP clients, and the PostgreSQL-backed persistence path that operators use during real assessments
 - shipped a local Grafana + Tempo stack, source-controlled provisioning, and a validation helper so release owners can prove traces arrive from a real Viaduct runtime before tagging
-- upgraded `viaduct doctor` and `viaduct status --runtime` to report config validity, store posture, auth posture, and concrete readiness degradation reasons instead of a simple reachable/not-reachable split
+- upgraded `viaduct doctor` and `viaduct status --runtime` to report config validity, store status, auth status, and concrete readiness degradation reasons instead of a simple reachable/not-reachable split
 
 ### Evaluator And Release Readiness
 
-- strengthened the real runtime golden-path smoke so Viaduct now proves the full workspace-first evaluator flow from `viaduct start` through local session, workspace creation, discovery, graph, simulation, plan save, and report export
-- added release-surface consistency checks, a current-release source of truth, CodeQL, and a Docker-backed observability smoke so version drift and trace regressions are caught before release
-- refreshed the root docs, install guides, public site, Helm and compose samples, release references, and checked-in screenshots so the shipped operator story matches `v3.2.0`
+- strengthened the real runtime golden-path smoke so Viaduct now proves the full assessment workflow from `viaduct start` through local session, assessment creation, discovery, graph, simulation, plan save, and report export
+- added release-surface consistency checks, a current-release reference, CodeQL, and a Docker-backed observability smoke so version drift and trace regressions are caught before release
+- refreshed the root docs, install guides, public site, Helm and compose samples, release references, and checked-in screenshots so the shipped workflow matches `v3.2.0`
 
 ## [3.1.1] - 2026-04-23
 
@@ -53,9 +53,9 @@ This changelog tracks published releases and the major implementation milestones
 
 ### Get Started Experience
 
-- replaced the runtime-credential-first auth screen with a simpler Get started flow that makes the local operator session the obvious primary path when it is available, keeps service account key sign-in as the default key-based option, and moves tenant key sign-in under advanced options
-- rewrote the first-run copy, sign-in labels, and failed-auth messaging in plain English so operators can understand the local path, the key path, and the browser-session behavior at a glance
-- refreshed the checked-in README and demo screenshots plus the supporting quickstart, lab, dashboard, and operator docs so the current release surface matches the shipped Get started experience
+- replaced the runtime-credential-first auth screen with a simpler Get started flow that makes the local session the obvious primary path when it is available, keeps service account key sign-in as the default key-based option, and moves tenant key sign-in under advanced options
+- rewrote the first-run copy, sign-in labels, and failed-auth messaging in plain English so users can understand the local path, the key path, and the browser-session behavior at a glance
+- refreshed the checked-in README and demo screenshots plus the supporting quickstart, lab, dashboard, and docs so the current release surface matches the shipped Get started experience
 
 ### Session Handling And Frontend Hardening
 
@@ -85,7 +85,7 @@ This changelog tracks published releases and the major implementation milestones
 
 ### Dashboard Polish And Accessibility
 
-- standardized dashboard typography, radius, and neutral-color tokens so the operator console reads as one coherent application instead of page-local styling islands
+- standardized dashboard typography, radius, and neutral-color tokens so the dashboard reads as one coherent application instead of page-local styling islands
 - expanded focus-trap coverage, route-state accessibility checks, and visual-regression snapshots across the top operator routes, including mobile drawer restoration and keyboard-only navigation
 - removed dead frontend exports, stale re-export shims, and unused package surface while keeping the dashboard request dedupe path and shared state primitives aligned with the current shell
 
@@ -95,8 +95,8 @@ This changelog tracks published releases and the major implementation milestones
 
 - tightened dashboard-session revocation coordination with the session-manager lock and added concurrent lookup coverage around revocation and replay handling
 - continued hardening credential-hash comparison and rotation-driven session invalidation, including additional malformed-hash handling and audit coverage
-- hardened loopback request trust around malformed or zone-qualified forwarded client IPs and expanded local-runtime rejection auditing across more operator paths
-- switched admin-route authentication onto the same hashed credential-compare path as tenant and service-account credentials, so `VIADUCT_ADMIN_KEY` now stores the persisted `sha256:<hex>` digest instead of the plaintext secret
+- hardened loopback request trust around malformed or zone-qualified forwarded client IPs and expanded local-runtime rejection auditing across more dashboard paths
+- switched admin-route authentication onto the same hashed credential-compare path as tenant and service account credentials, so `VIADUCT_ADMIN_KEY` now stores the persisted `sha256:<hex>` digest instead of the plaintext secret
 
 ### Store, Executor, And Runtime Reliability
 
@@ -116,7 +116,7 @@ This changelog tracks published releases and the major implementation milestones
 ### Security Follow-Up Hardening
 
 - normalized malformed credential-hash handling onto a fixed-cost comparison path so zero, malformed, and valid stored hashes all terminate in the same constant-time compare flow
-- made dashboard-session revocation durable and atomic across the PostgreSQL revocation write plus the in-memory session cache, then revalidated credential-bound sessions against the current tenant or service-account hash on every lookup
+- made dashboard-session revocation durable and atomic across the PostgreSQL revocation write plus the in-memory session cache, then revalidated credential-bound sessions against the current tenant or service account hash on every lookup
 - hardened trusted-forwarded-peer parsing by stripping IPv6 zones before direct peer evaluation while rejecting zoned or non-canonical forwarded addresses, and added explicit `AUDIT` loopback-rejection logs for rejected non-GET local-runtime requests
 - kept loopback-only mode authoritative even when `VIADUCT_TRUSTED_PROXIES` is broadly configured, and tightened session invalidation so credential rotation immediately expires sessions bound to the old key material
 
@@ -164,18 +164,18 @@ This changelog tracks published releases and the major implementation milestones
 ### Upgrading From v2.4.1
 
 - `viaduct serve-api` now defaults to loopback and refuses unauthenticated non-loopback listeners unless you configure credentials or pass the explicit dangerous override
-- local operator bootstrap now requires a direct `127.0.0.1` browser request to a loopback-bound runtime; same-host reverse proxies and remote hostnames should use tenant or service-account credentials instead
-- PostgreSQL credential upgrades now fail fast when legacy tenant or service-account API keys were reused across multiple identities, with a remediation message that tells operators to resolve duplicate keys before restart
+- local session start now requires a direct `127.0.0.1` browser request to a loopback-bound runtime; same-host reverse proxies and remote hostnames should use tenant or service account credentials instead
+- PostgreSQL credential upgrades now fail fast when legacy tenant or service account API keys were reused across multiple identities, with a remediation message that tells operators to resolve duplicate keys before restart
 
 ### Runtime And Security Hardening
 
 - hardened `serve-api`, local runtime bootstrap, and tenant auth so protected routes no longer inherit ambient default-tenant access and forwarded/proxied requests cannot masquerade as local loopback operator traffic
-- migrated tenant and service-account credentials to hashed-at-rest storage with constant-time comparisons, persisted runtime-session digests instead of raw keys, and enforced global credential uniqueness across tenant keys and service-account keys
+- migrated tenant and service account credentials to hashed-at-rest storage with constant-time comparisons, persisted runtime-session digests instead of raw keys, and enforced global credential uniqueness across tenant keys and service account keys
 - replaced direct workspace-job goroutine fan-out with a bounded executor shared by enqueue and startup recovery, tied execution to server lifecycle cancellation, and added bounded-concurrency plus recovery coverage
 
 ### Runtime Contract And Operator UX
 
-- aligned the shipped CLI/runtime, backend router, OpenAPI contract, and dashboard around the real same-origin operator path exposed by `viaduct start`, including live docs, runtime auth bootstrap, and browser/runtime smoke coverage against the actual Go runtime
+- aligned the shipped CLI/runtime, backend router, OpenAPI contract, and dashboard around the real same-origin dashboard path exposed by `viaduct start`, including live docs, sign in, and browser/runtime smoke coverage against the actual Go runtime
 - normalized the touched dashboard request query construction onto `URLSearchParams`, removed the last frontend assumptions about the retired `default-fallback` auth mode, and clarified auth bootstrap messaging for proxied versus direct loopback runtime access
 - refreshed the release-facing README/demo screenshots and aligned the release notes, upgrade docs, install docs, lab guidance, and demo collateral around the `v2.4.2` release surface
 
@@ -185,18 +185,18 @@ This changelog tracks published releases and the major implementation milestones
 
 ### Runtime And API Contract
 
-- restored the documented local operator path so `viaduct start` serves the bundled dashboard, backend, and live Swagger docs together while exposing a loopback-only local operator bootstrap through `/api/v1/auth/session`
+- restored the documented local dashboard path so `viaduct start` serves the bundled dashboard, backend, and live Swagger docs together while exposing a loopback-only local session through `/api/v1/auth/session`
 - aligned the packaged dashboard, API router, and OpenAPI contract around paginated `/api/v2/inventory`, `/api/v2/snapshots`, and `/api/v2/migrations` list routes while explicitly documenting `/api/v1` list responses as legacy compatibility shapes
-- kept the workspace-first operator flow fully wired in the shipped backend and added browser coverage that boots both the seeded fixture server and the real `viaduct start` runtime so dashboard auth, workspace discovery, and the operator overview contract stay in sync
+- kept the assessment workflow fully wired in the shipped backend and added browser coverage that boots both the seeded fixture server and the real `viaduct start` runtime so dashboard auth, assessment discovery, and the overview contract stay in sync
 
 ### Security And Reliability
 
 - made `viaduct serve-api` bind to loopback by default and refuse unauthenticated remote listeners unless an operator configures credentials or passes an explicit dangerous override
 - tightened local operator bootstrap to require direct loopback requests and an explicit auth-session handshake so protected routes no longer inherit ambient default-tenant access
-- migrated tenant and service-account credentials to non-recoverable hashes in both stores, kept legacy plaintext PostgreSQL records authenticating through startup migration, and enforced global credential uniqueness across tenant keys and service-account keys
-- added actionable upgrade guidance when legacy PostgreSQL credential migration finds reused tenant or service-account keys, and removed the last frontend/runtime references to the retired `default-fallback` auth mode
+- migrated tenant and service account credentials to non-recoverable hashes in both stores, kept legacy plaintext PostgreSQL records authenticating through startup migration, and enforced global credential uniqueness across tenant keys and service account keys
+- added actionable upgrade guidance when legacy PostgreSQL credential migration finds reused tenant or service account keys, and removed the last frontend/runtime references to the retired `default-fallback` auth mode
 - replaced direct workspace-job goroutine fan-out with a bounded executor shared by fresh queueing and startup recovery, including lifecycle-aware shutdown and coverage for bounded concurrency and recovery requeue behavior
-- normalized dashboard query construction onto `URLSearchParams` for the touched operator routes so filter and report parameters stay encoded consistently
+- normalized dashboard query construction onto `URLSearchParams` for the touched routes so filter and report parameters stay encoded consistently
 
 ## [2.4.1] - 2026-04-17
 
@@ -223,7 +223,7 @@ This changelog tracks published releases and the major implementation milestones
 
 ### Upgrading From v2.3.0
 
-- dashboard runtime auth now keeps only the remembered session identifier in `localStorage`; tenant and service-account API keys stay in tab memory and clear on tab close
+- dashboard runtime auth now keeps only the remembered session identifier in `localStorage`; tenant and service account API keys stay in tab memory and clear on tab close
 - anonymous fallback now defaults to the viewer role unless `VIADUCT_ALLOW_ANONYMOUS_ADMIN=true` is explicitly set, so default-tenant bootstrap flows no longer inherit admin rights accidentally
 - auth routes now enforce a stricter per-IP limiter and the API server prunes expired auth sessions in the background based on the configured TTLs
 - operator health checks are now split between `/healthz` and `/readyz`, and Prometheus metrics are served behind admin authentication for packaged deployments
@@ -236,17 +236,17 @@ This changelog tracks published releases and the major implementation milestones
 - stopped swallowing workspace-job persistence failures in `internal/api/workspaces.go`, always record failed terminal state with `output_json.error`, and cap persisted job output to 1 MiB with an explicit `truncated` signal
 - added an auth-session sweeper in `internal/api/auth_session.go` so expired dashboard sessions are pruned in the background and stop cleanly with API shutdown
 
-#### Operator Console And UX Polish
+#### Dashboard UX Polish
 
-- kept runtime dashboard auth storage limited to short-lived session identifiers in `web/src/runtimeAuth.ts`, moved operator-provided API keys to tab-memory only, and clear corrupted session markers with contextual warnings
+- kept runtime dashboard auth storage limited to short-lived session identifiers in `web/src/runtimeAuth.ts`, moved user-provided API keys to tab-memory only, and clear corrupted session markers with contextual warnings
 - centralized request timeout controller creation in `web/src/api.ts`, threaded abort signals through `web/src/app/useOperatorOverview.ts`, and kept overview refresh cancellation explicit on unmount and refresh replacement
 - unified sidebar focus treatment in `web/src/components/navigation/SidebarNav.tsx`, extracted focus trapping into `web/src/components/navigation/useFocusTrap.ts`, and kept the mobile drawer accessible with dialog semantics and focus restoration via `web/src/layouts/AppShell.tsx`
 - added workspace filtering and a dedicated empty-filter recovery panel with a clear-filters action in `web/src/features/workspaces/WorkspacePage.tsx`
-- surfaced live operator alerts through an explicit polite live region in `web/src/layouts/AppShell.tsx`
+- surfaced live dashboard alerts through an explicit polite live region in `web/src/layouts/AppShell.tsx`
 
 #### Observability, Packaging, And Release Workflows
 
-- split operator health probes into `/healthz` and `/readyz`, moved metrics behind admin authentication, and updated packaged health checks plus example deployments in `internal/api/server.go`, `Dockerfile`, `examples/deploy/docker-compose.yml`, and `examples/deploy/kubernetes/deployment.yaml`
+- split health probes into `/healthz` and `/readyz`, moved metrics behind admin authentication, and updated packaged health checks plus example deployments in `internal/api/server.go`, `Dockerfile`, `examples/deploy/docker-compose.yml`, and `examples/deploy/kubernetes/deployment.yaml`
 - added starter Grafana collateral in `docs/observability/` for the Prometheus metrics surface exposed by the API
 - hardened CI in `.github/workflows/ci.yml` with fail-fast frontend a11y linting, `gosec`, and `trivy` filesystem scanning
 - added `.github/workflows/release.yml` to build cross-platform bundles, publish GitHub releases from `v*` tags, emit CycloneDX SBOM output with `syft`, and sign release artifacts plus the published container image with keyless `cosign`
@@ -255,14 +255,14 @@ This changelog tracks published releases and the major implementation milestones
 
 ### Upgrading From v2.2.0
 
-- expect the dashboard to use the refreshed operator shell, updated navigation, and denser card layouts introduced in the v2.3.0 visual refresh
+- expect the dashboard to use the refreshed shell, updated navigation, and denser card layouts introduced in the v2.3.0 visual refresh
 - if you rely on runtime dashboard authentication, verify the browser can keep the cookie-backed session path because the dashboard no longer depends on persisting plaintext API keys between reloads
 - when consuming inventory, snapshot, or migration lists programmatically, prefer the paginated `/api/v2` endpoints introduced alongside the v2.3.0 operator hardening work
 
-### Dashboard And Operator Experience
+### Dashboard Experience
 
 - rebuilt the dashboard visual system around calmer typography, standardized surfaces, clearer hierarchy, and reusable primitives for page headers, cards, notices, stats, and pagination
-- refreshed the major operator screens, including the auth bootstrap, pilot workspace flow, inventory assessment, migration workflow, lifecycle views, policy surfaces, drift views, reports, and settings
+- refreshed the major dashboard screens, including auth bootstrap, assessment flow, inventory assessment, migration workflow, lifecycle views, policy pages, drift views, reports, and settings
 - improved dense operational layouts so inventory and workspace review stay readable on laptop, desktop, tablet, and mobile breakpoints without depending on awkward overflow behavior
 
 ### Accessibility And Interaction Quality
@@ -297,29 +297,29 @@ This changelog tracks published releases and the major implementation milestones
 
 ### Dashboard And UI Polish
 
-- normalized all custom `rounded-[...]` border-radius values to standard Tailwind steps (`rounded-xl`, `rounded-2xl`) throughout the entire dashboard — removes the bubbly appearance and gives the operator console a crisper, more professional look
-- replaced per-item description lines in the sidebar navigation with compact icon-and-label rows, reducing sidebar height by roughly 60% and making the nav feel like an operator tool rather than a feature brochure
-- slimmed the sidebar brand panel by removing the "Default flow" and "Shared truth" info callouts and the "Operator path" section, leaving a clean brand mark and navigation
-- simplified the TopBar to a compact header strip — removed the 5-column metric grid, removed the static "REST API + shared store" and "Tenant-scoped visibility" badges that carried no operator signal; metrics remain available on the Dashboard page
-- fixed duplicate status badge labels in metric cards and `SignalRow` components — badges now show a meaningful status word ("Healthy", "Attention", "Critical") instead of repeating the adjacent label text
+- normalized all custom `rounded-[...]` border-radius values to standard Tailwind steps (`rounded-xl`, `rounded-2xl`) throughout the entire dashboard, removing the bubbly appearance and giving the UI a crisper look
+- replaced per-item description lines in the sidebar navigation with compact icon-and-label rows, reducing sidebar height by roughly 60% and making the nav easier to scan
+- slimmed the sidebar brand panel by removing the "Default flow" and "Shared truth" info callouts and the "Workflow" section, leaving a clean brand mark and navigation
+- simplified the TopBar to a compact header strip, removing the 5-column metric grid and static badges that carried no useful signal; metrics remain available on the Dashboard page
+- fixed duplicate status badge labels in metric cards and `SignalRow` components; badges now show a meaningful status word ("Healthy", "Attention", "Critical") instead of repeating the adjacent label text
 - removed the outer `.panel` wrapper that surrounded all page content in `AppShell`, eliminating an extra layer of nesting that was fighting with `PageHeader` and `SectionCard` panels on each page
-- corrected page heading hierarchy — `PageHeader` titles are now `text-2xl` (the page's primary heading); the TopBar shows a compact navigation label at `text-base`
-- assigned unique icons to every navigation route — `/workspaces` now uses `FolderKanban`, `/inventory` uses `Server`, `/lifecycle` uses `TrendingUp`, `/drift` uses `GitCompare`, `/graph` uses `Network`; no two routes share the same icon
-- added `MobileSidebarDrawer` — a hamburger button and slide-in drawer are now available on viewports below the `xl` breakpoint (1280 px), replacing the previous stacked-sidebar behaviour on tablets and laptops
+- corrected page heading hierarchy; `PageHeader` titles are now `text-2xl` (the page's primary heading), and the TopBar shows a compact navigation label at `text-base`
+- assigned unique icons to every navigation route; `/workspaces` now uses `FolderKanban`, `/inventory` uses `Server`, `/lifecycle` uses `TrendingUp`, `/drift` uses `GitCompare`, `/graph` uses `Network`, and no two routes share the same icon
+- added `MobileSidebarDrawer`, a hamburger button and slide-in drawer for viewports below the `xl` breakpoint (1280 px), replacing the previous stacked-sidebar behavior on tablets and laptops
 - replaced the bare error paragraph in `AppShell` with a new `ErrorBanner` component that includes an `AlertTriangle` icon, a `role="alert"` attribute, and an optional dismiss button
 
 ## [2.0.0] - 2026-04-11
 
 ### Installation, Startup, And First Run
-- added `viaduct start`, `viaduct stop`, and `viaduct doctor` so the default local experience is now one WebUI-first runtime instead of a manual multi-step API bootstrap
+- added `viaduct start`, `viaduct stop`, and `viaduct doctor` so the default local experience is now one dashboard runtime instead of a manual multi-step API bootstrap
 - taught `viaduct start` to generate the default local lab config automatically when `~/.viaduct/config.yaml` is missing and to point it at the shipped KVM fixtures
-- added recorded local runtime status reporting through `viaduct status --runtime`, including the WebUI URL, API URL, PID, and runtime log location
+- added recorded local runtime status reporting through `viaduct status --runtime`, including the dashboard URL, API URL, PID, and runtime log location
 - updated the Unix and Windows install scripts to copy bundled docs, examples, and configs together and to generate a starter config for the installed lab path
 
 ### Dashboard, Site, And Product Surfaces
 - aligned the dashboard runtime auth flow with the built-in local single-user fallback so the default local lab path no longer requires pasted browser credentials
 - synchronized the dashboard, root docs, lab docs, troubleshooting guidance, deployment examples, public site, and release-facing screenshots around the new local startup model
-- refreshed the public website and social-card copy to emphasize installation, startup, workspace progression, and controlled operator workflows more clearly
+- refreshed the public website and social-card copy to emphasize installation, startup, assessment progress, and controlled workflows more clearly
 
 ### Verification, Packaging, And Release Readiness
 - extended automated CLI coverage with tests around local runtime paths and starter-config generation
@@ -329,13 +329,13 @@ This changelog tracks published releases and the major implementation milestones
 ## [1.9.0] - 2026-04-11
 
 ### Install, Packaging, And Startup Flow
-- taught `viaduct serve-api` to serve built dashboard assets from the repo build output, packaged bundles, and installed asset paths so the default operator path is now one same-origin process
+- taught `viaduct serve-api` to serve built dashboard assets from the repo build output, packaged bundles, and installed asset paths so the default dashboard path is now one same-origin process
 - added an explicit `--web-dir` override plus `VIADUCT_WEB_DIR` support for non-standard packaged asset layouts
 - aligned the Windows install script with the shared `share/viaduct/web` layout used on Unix-like installs
 
 ### Deployment And Operator Experience
 - corrected container, Docker Compose, and Kubernetes command wiring so the shipped image starts the intended `viaduct serve-api` process cleanly
-- moved the first-run and lab documentation to the WebUI-first path at `http://localhost:8080` while preserving the Vite dev-server flow for frontend development
+- moved the first-run and lab documentation to the dashboard path at `http://localhost:8080` while preserving the Vite dev-server flow for frontend development
 - tightened troubleshooting, configuration, upgrade, and deployment guidance around the same packaged dashboard, CLI, and API behavior
 
 ### Release And Demo Surfaces
@@ -344,10 +344,10 @@ This changelog tracks published releases and the major implementation milestones
 
 ## [1.8.0] - 2026-04-11
 
-### Dashboard And Operator Experience
-- refreshed the operator dashboard shell, page hierarchy, runtime auth recovery, inventory presentation, and workspace-first progression so the web UI reads more like a serious control plane
-- added clearer workflow guidance, state markers, empty states, loading states, and recovery language around the workspace path from authentication through report export
-- tightened the shared dashboard component system for headers, cards, badges, tables, and operator-facing status callouts
+### Dashboard Experience
+- refreshed the dashboard shell, page hierarchy, runtime auth recovery, inventory presentation, and assessment progress so the dashboard reads more like a serious control plane
+- added clearer workflow guidance, state markers, empty states, loading states, and recovery language around the assessment path from authentication through report export
+- tightened the shared dashboard component system for headers, cards, badges, tables, and status callouts
 
 ### Public Website And Documentation
 - rewrote the public `site/` landing page, 404 surface, metadata, and social-card copy around discovery, dependency mapping, migration planning, supervised execution, and operator-visible reporting
@@ -356,14 +356,14 @@ This changelog tracks published releases and the major implementation milestones
 
 ## [1.7.0] - 2026-04-11
 
-### Workspace Reliability And Operator Hardening
-- added stricter validation for pilot workspace create, update, job, and report-export requests so invalid operator input fails early with field-level API errors
-- added read-only workspace access for viewer principals while keeping workspace mutation and job execution operator-scoped
+### Workspace Reliability And Auth Hardening
+- added stricter validation for pilot workspace create, update, job, and report-export requests so invalid input fails early with field-level API errors
+- added read-only workspace access for viewer principals while keeping workspace mutation and job execution scoped to the operator role
 - added workspace deletion, restart recovery for queued or running workspace jobs, configurable workspace job timeouts, and richer exported report handoff detail
 
-### Dashboard And Operator Experience
+### Dashboard Experience
 - switched runtime dashboard auth to session-scoped storage by default with an explicit remember option for trusted browsers
-- added workspace creation toggles, persisted job history, retry actions, and clearer correlation-aware job states in the workspace-first flow
+- added assessment creation toggles, persisted job history, retry actions, and clearer correlation-aware job states in the assessment workflow
 
 ### Release Engineering, Docs, And Contract
 - hardened the Windows release-gate helpers so race, coverage, and CLI smoke validation remain reproducible on Application Control-constrained operator workstations
@@ -372,20 +372,20 @@ This changelog tracks published releases and the major implementation milestones
 
 ## [1.6.0] - 2026-04-11
 
-### Workspace-First Operator Flow
-- added a first-class pilot workspace model that persists source connections, discovery snapshots, dependency graph output, target assumptions, readiness results, saved plans, approvals, notes, and exported reports
+### Assessment Workflow
+- added a pilot workspace model that persists source connections, discovery snapshots, dependency graph output, target assumptions, readiness results, saved plans, approvals, notes, and exported reports
 - added tenant-scoped API routes for listing, creating, updating, and exporting pilot workspace state without introducing a parallel product surface
-- added persisted background jobs for workspace discovery, graph generation, simulation, and plan generation so the operator workflow can survive page refreshes and produce reproducible state
+- added persisted background jobs for workspace discovery, graph generation, simulation, and plan generation so the workflow can survive page refreshes and produce reproducible state
 
 ### Dashboard And Auth Bootstrap
-- reworked the dashboard so the first operator experience is create workspace, discover, inspect, simulate, save plan, and export report
-- added runtime dashboard authentication bootstrap using service-account or tenant keys instead of relying on build-time-only configuration
+- reworked the dashboard so the first experience is create an assessment, discover, inspect, simulate, save a plan, and export a report
+- added runtime dashboard sign-in using service account or tenant keys instead of relying on build-time-only configuration
 - strengthened loading, empty, retry, and request-correlation-aware error handling across the workspace flow
 
 ### Lab, Contract, And Release Surface
 - added a deterministic `examples/lab` end-to-end smoke flow for workspace creation through report export
-- updated the published OpenAPI contract, quickstart flow, lab assets, configuration guidance, and operator docs to match the new workspace APIs and runtime auth flow
-- added v1.6.0 release-note material and release-facing screenshot assets for the workspace-first operator application
+- updated the published OpenAPI contract, quickstart flow, lab assets, configuration guidance, and docs to match the new workspace APIs and runtime auth flow
+- added v1.6.0 release-note material and release-facing screenshot assets for the assessment dashboard
 
 ## [1.5.0] - 2026-04-08
 
@@ -394,8 +394,8 @@ This changelog tracks published releases and the major implementation milestones
 - aligned repo entrypoint docs so the current product direction, support boundary, and operator guidance are easier to evaluate from the packaged and source workflows
 
 ### API And Dashboard Trust Surfaces
-- hardened the API contract with structured JSON error responses, stabilized migration command acknowledgements, and updated OpenAPI coverage for the operator-facing routes
-- improved dashboard-side error handling so settings and report workflows preserve request correlation and operator-facing failure detail instead of flattening backend errors into generic strings
+- hardened the API contract with structured JSON error responses, stabilized migration command acknowledgements, and updated OpenAPI coverage for the dashboard routes
+- improved dashboard-side error handling so settings and report workflows preserve request correlation and failure detail instead of flattening backend errors into generic strings
 
 ### Documentation And Operator Readiness
 - added presenter-ready demo assets, real-user validation templates, and commercialization decision guidance to support design-partner conversations and pilot packaging
@@ -417,11 +417,11 @@ This changelog tracks published releases and the major implementation milestones
 
 ### Dashboard Product Workflow
 - reorganized the React dashboard around a clearer app shell, navigation model, and feature-oriented page structure
-- turned migration planning into an operator workflow with intake, validation, saved-plan review, and execution-preparation states instead of a detached wizard
-- improved inventory, dependency, and remediation surfaces so planning context stays connected to the broader operator view
+- turned migration planning into a workflow with intake, validation, saved-plan review, and execution-preparation states instead of a detached wizard
+- improved inventory, dependency, and remediation pages so planning context stays connected to the broader dashboard view
 
 ### Operator Authentication And Configuration
-- added dashboard support for service-account API keys alongside tenant API keys
+- added dashboard support for service account API keys alongside tenant API keys
 - documented the new dashboard environment variable contract for local development and release packaging
 
 ### Public Web Presence
@@ -431,7 +431,7 @@ This changelog tracks published releases and the major implementation milestones
 ## [1.3.0] - 2026-04-07
 
 ### Tenant Isolation And Operability
-- added tenant-scoped permission enforcement and richer tenant introspection for service-account automation
+- added tenant-scoped permission enforcement and richer tenant introspection for service account automation
 - added store diagnostics, API build metadata, and operational metrics/reporting surfaces
 
 ### Backup And Plugin Ecosystem
@@ -458,7 +458,7 @@ This changelog tracks published releases and the major implementation milestones
 ### Plugin And Release Operability
 - added optional plugin host-version compatibility markers in `plugin.json`
 - added a machine-readable `dependency-manifest.json` to packaged release bundles
-- expanded regression coverage for service-account auth, quota enforcement, plugin compatibility, packaging metadata, and summary correctness
+- expanded regression coverage for service account auth, quota enforcement, plugin compatibility, packaging metadata, and summary correctness
 
 ## [1.1.0] - 2026-04-05
 

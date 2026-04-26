@@ -10,7 +10,7 @@ It is an execution artifact for maintainers, product leads, and engineers decidi
 
 ### What Exists Today
 
-Viaduct already has enough product surface to support one credible end-to-end operator path:
+Viaduct already has enough product surface to support one credible end-to-end workflow:
 
 - discovery through the CLI and persisted snapshots
 - tenant-scoped API auth and state
@@ -53,7 +53,7 @@ The current product still has reliability gaps that directly affect this path:
 - inventory readiness is still partially composed in the frontend rather than served as a single backend contract
 - inventory-to-plan handoff starts as a local planning draft in `inventoryPlanningDraft.ts`
 - execute and resume still depend on the in-memory `Server.specs` cache in `internal/api/server.go`
-- inventory and summary contracts still do not expose enough source provenance for operator trust
+- inventory and summary contracts still do not expose enough source provenance for user trust
 - the strongest repeatable repo rehearsal path is the KVM lab, while the supported live motion is VMware to Proxmox
 
 ### What Should Be Preserved
@@ -87,7 +87,7 @@ Viaduct does not need ten polished paths. It needs one path that the team can de
 
 **Tenant-scoped VMware vSphere source to Proxmox VE target first-wave supervised pilot**
 
-The canonical operator sequence is:
+The default workflow sequence is:
 
 1. establish tenant and auth context
 2. provide source and target discovery inputs
@@ -106,7 +106,7 @@ This path is the best first reliability target because it is the highest-overlap
 
 - the stated initial focus
 - the explicit v1 support promise
-- real operator value
+- real user value
 - real demo value
 - the repo's existing workflow surfaces
 
@@ -114,7 +114,7 @@ It is the only path that simultaneously:
 
 - starts from the VMware-exit problem Viaduct is positioned around
 - ends in a supervised pilot path with limitations documented in `docs/v1-scope.md` and the support matrix
-- touches the main operator surfaces without demanding equal maturity across every feature area
+- touches the main dashboard pages without demanding equal maturity across every feature area
 - produces useful outputs even before broad automation trust exists
 
 ## Paths That Are Important But Not Primary
@@ -126,7 +126,7 @@ It is the only path that simultaneously:
 
 ## 3. Canonical Path At A Glance
 
-| Step | Primary Operator Surface | Source Of Truth | Release-Blocking Outcome |
+| Step | Primary Dashboard Page | Current Reference | Release-Blocking Outcome |
 | --- | --- | --- | --- |
 | 0. Tenant and auth context | Dashboard `Settings` + API | `/api/v1/about`, `/api/v1/tenants/current` | Operator knows which tenant, auth mode, role, and API instance are active |
 | 1. Discovery input setup | CLI + docs/config | config, credential refs, connector flags | Operator can run discovery without editing code |
@@ -282,7 +282,7 @@ Each step below defines the current implementation, success criteria, failure mo
 ### Current Implementation
 
 - dashboard `Inventory` page in `web/src/features/inventory/InventoryPage.tsx`
-- posture signals derived from inventory, graph, policies, and remediation
+- status signals derived from inventory, graph, policies, and remediation
 
 ### Success Criteria
 
@@ -292,7 +292,7 @@ Each step below defines the current implementation, success criteria, failure mo
 
 ### Failure Modes
 
-- posture is partial but not clearly signaled
+- status is partial but not clearly signaled
 - baseline timing is unclear
 - inventory appears trustworthy even when major inputs are missing
 
@@ -401,12 +401,12 @@ Each step below defines the current implementation, success criteria, failure mo
 
 ### Backend Expectations
 
-- persisted plan state is the source of truth
+- persisted plan state is the current reference
 - spec validation is structured and field-addressable
 
 ### Immediate Hardening Implication
 
-- keep local planning draft as a convenience only; do not let it become a hidden source of truth
+- keep local planning draft as a convenience only; do not let it become a hidden current reference
 
 ## Step 6. Validate Through Preflight
 
@@ -596,8 +596,8 @@ Each step below defines the current implementation, success criteria, failure mo
 Treat the path as not reliable if any of the following are false:
 
 - there is one recommended operator sequence
-- each step has one primary operator surface
-- each step has one persisted source of truth
+- each step has one primary dashboard page
+- each step has one persisted current reference
 - tenant and auth context are visible before sensitive actions
 - source and target identity are explicit before planning and execution
 - discovery provenance is visible enough to trust the current baseline

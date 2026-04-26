@@ -94,7 +94,7 @@ const PLATFORM_OPTIONS: Platform[] = [
 
 const defaultCreateForm: CreateFormState = {
 	name: "Examples Lab Assessment",
-	description: "Assessment workspace for the local lab flow",
+	description: "Assessment for the local lab workflow",
 	sourceName: "Lab KVM",
 	sourcePlatform: "kvm",
 	sourceAddress: "examples/lab/kvm",
@@ -175,8 +175,8 @@ export function WorkspacePage() {
 					loading: false,
 					refreshing: false,
 					error: describeError(result.reason, {
-						scope: "pilot workspaces",
-						fallback: "Unable to load pilot workspaces.",
+						scope: "assessments",
+						fallback: "Unable to load assessments.",
 					}),
 				}));
 				return;
@@ -217,8 +217,8 @@ export function WorkspacePage() {
 				inventory: null,
 				refreshing: false,
 				error: describeError(workspaceResult.reason, {
-					scope: "workspace state",
-					fallback: "Unable to load workspace state.",
+					scope: "assessment state",
+					fallback: "Unable to load assessment state.",
 				}),
 			}));
 			return;
@@ -232,8 +232,8 @@ export function WorkspacePage() {
 			setState((current) => ({
 				...current,
 				actionError: describeError(reason, {
-					scope: "workspace snapshots",
-					fallback: "Unable to load workspace snapshots.",
+					scope: "assessment snapshots",
+					fallback: "Unable to load assessment snapshots.",
 				}),
 			}));
 		}
@@ -251,8 +251,8 @@ export function WorkspacePage() {
 			actionError:
 				jobsResult.status === "rejected"
 					? describeError(jobsResult.reason, {
-							scope: "workspace jobs",
-							fallback: "Unable to load workspace jobs.",
+							scope: "assessment jobs",
+							fallback: "Unable to load assessment jobs.",
 						})
 					: null,
 		}));
@@ -408,7 +408,7 @@ export function WorkspacePage() {
 				...current,
 				actionError: {
 					message:
-						"Complete the required workspace intake fields before creating the workspace.",
+						"Complete the required assessment intake fields before creating the assessment.",
 					technicalDetails: createErrors,
 				},
 			}));
@@ -454,8 +454,8 @@ export function WorkspacePage() {
 			setState((current) => ({
 				...current,
 				actionError: describeError(reason, {
-					scope: "workspace creation",
-					fallback: "Unable to create the pilot workspace.",
+					scope: "assessment creation",
+					fallback: "Unable to create the assessment.",
 				}),
 			}));
 		} finally {
@@ -468,7 +468,7 @@ export function WorkspacePage() {
 			return;
 		}
 		const confirmed = window.confirm(
-			`Delete workspace "${state.selectedWorkspace.name}"? Saved snapshots and migration records remain, but the workspace and its job history will be removed.`,
+			`Delete assessment "${state.selectedWorkspace.name}"? Saved snapshots and migration records remain, but the assessment and its job history will be removed.`,
 		);
 		if (!confirmed) {
 			return;
@@ -489,8 +489,8 @@ export function WorkspacePage() {
 			setState((current) => ({
 				...current,
 				actionError: describeError(reason, {
-					scope: "workspace deletion",
-					fallback: "Unable to delete the pilot workspace.",
+					scope: "assessment deletion",
+					fallback: "Unable to delete the assessment.",
 				}),
 			}));
 		} finally {
@@ -517,8 +517,8 @@ export function WorkspacePage() {
 			setState((current) => ({
 				...current,
 				actionError: describeError(reason, {
-					scope: "workspace update",
-					fallback: "Unable to save workspace updates.",
+					scope: "assessment update",
+					fallback: "Unable to save assessment updates.",
 				}),
 			}));
 		} finally {
@@ -571,7 +571,7 @@ export function WorkspacePage() {
 				...current,
 				actionError: describeError(reason, {
 					scope: `${job.type} retry`,
-					fallback: "Unable to retry the workspace job.",
+					fallback: "Unable to retry the assessment job.",
 				}),
 			}));
 		} finally {
@@ -625,8 +625,8 @@ export function WorkspacePage() {
 	if (state.loading) {
 		return (
 			<LoadingState
-				title="Loading pilot workspaces"
-				message="Retrieving saved pilot assessments and the latest workspace-first operator flow."
+				title="Loading assessments"
+				message="Retrieving saved assessments and the latest assessment workflow."
 			/>
 		);
 	}
@@ -634,7 +634,7 @@ export function WorkspacePage() {
 	if (state.error && state.workspaces.length === 0) {
 		return (
 			<ErrorState
-				title="Pilot workspaces unavailable"
+				title="Assessments unavailable"
 				message={state.error.message}
 				technicalDetails={state.error.technicalDetails}
 				actions={[
@@ -655,18 +655,18 @@ export function WorkspacePage() {
 		return (
 			<div className="space-y-6">
 				<PageHeader
-					eyebrow="Pilot Workspaces"
-					title="Start the workspace-first operator flow"
-					description="Create a persisted assessment workspace before discovery so source details, job history, readiness results, saved plans, notes, and exported reports stay attached to the same operator record."
+					eyebrow="Assessments"
+					title="Start an assessment"
+					description="Create an assessment before discovery so source details, job history, readiness results, saved plans, notes, and reports stay together."
 					badges={[
-						{ label: "No workspaces yet", tone: "warning" },
+						{ label: "No assessments yet", tone: "warning" },
 						{ label: "Lab defaults prefilled", tone: "info" },
 					]}
 				/>
 
 				{state.actionError ? (
 					<ErrorState
-						title="Workspace intake needs attention"
+						title="Assessment intake needs attention"
 						message={state.actionError.message}
 						technicalDetails={state.actionError.technicalDetails}
 					/>
@@ -674,13 +674,13 @@ export function WorkspacePage() {
 
 				<section className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
 					<EmptyState
-						title="Create the first workspace"
-						message="The intake form is prefilled for the local lab so a fresh clone can reach discovery, inspection, simulation, and report export without a live estate."
+						title="Create the first assessment"
+						message="The intake form is prefilled for the local lab so a fresh clone can reach discovery, inspection, simulation, and report export without a live multi-platform environment."
 					/>
 					<SectionCard
-						eyebrow="Operator flow"
+						eyebrow="Assessment workflow"
 						title="What happens after intake"
-						description="The dashboard keeps each step inside one persisted workspace instead of spreading it across disconnected pages and screenshots."
+						description="The dashboard keeps each step inside one saved assessment instead of spreading it across disconnected pages and screenshots."
 					>
 						<div className="space-y-3">
 							{buildWorkflowSteps(null, 0, 0).map((step, index) => (
@@ -704,11 +704,14 @@ export function WorkspacePage() {
 	return (
 		<div className="space-y-6">
 			<PageHeader
-				eyebrow="Pilot Workspaces"
-				title={state.selectedWorkspace?.name ?? "Pilot Workspaces"}
-				description="Guide operators through intake, discovery, inspection, simulation, plan review, and report export from one persisted workspace record."
+				eyebrow="Assessments"
+				title={state.selectedWorkspace?.name ?? "Assessments"}
+				description="Guide intake, discovery, inspection, simulation, plan review, and report export from one saved assessment."
 				badges={[
-					{ label: `${state.workspaces.length} workspace(s)`, tone: "neutral" },
+					{
+						label: `${state.workspaces.length} assessment(s)`,
+						tone: "neutral",
+					},
 					...(hasWorkspaceFilter
 						? [
 								{
@@ -730,7 +733,7 @@ export function WorkspacePage() {
 								htmlFor="workspace-filter"
 								className="operator-kicker px-1"
 							>
-								Filter workspaces
+								Filter assessments
 							</label>
 							<input
 								id="workspace-filter"
@@ -752,7 +755,7 @@ export function WorkspacePage() {
 									onChange={(event) =>
 										setSelectedWorkspaceID(event.target.value)
 									}
-									aria-label="Select workspace"
+									aria-label="Select assessment"
 									className="operator-select"
 								>
 									{filteredWorkspaces.map((workspace) => (
@@ -764,11 +767,11 @@ export function WorkspacePage() {
 							) : hasWorkspaceFilter ? (
 								<div className="panel-muted px-4 py-4 text-sm text-slate-600">
 									<p className="font-semibold text-ink">
-										No workspaces match this filter
+										No assessments match this filter
 									</p>
 									<p className="mt-2 leading-6">
 										Try a different name, source, or status to narrow the
-										workspace list.
+										assessment list.
 									</p>
 									<button
 										type="button"
@@ -785,7 +788,7 @@ export function WorkspacePage() {
 							onClick={() => setShowCreateForm((current) => !current)}
 							className="operator-button-secondary"
 						>
-							{showCreateForm ? "Hide intake" : "New workspace"}
+							{showCreateForm ? "Hide intake" : "New assessment"}
 						</button>
 						<button
 							type="button"
@@ -805,7 +808,7 @@ export function WorkspacePage() {
 							className="operator-button-danger"
 							disabled={!state.selectedWorkspace || actionLoading === "delete"}
 						>
-							{actionLoading === "delete" ? "Deleting..." : "Delete workspace"}
+							{actionLoading === "delete" ? "Deleting..." : "Delete assessment"}
 						</button>
 					</>
 				}
@@ -813,7 +816,7 @@ export function WorkspacePage() {
 
 			{state.actionError ? (
 				<ErrorState
-					title="Workspace action needs attention"
+					title="Assessment action needs attention"
 					message={state.actionError.message}
 					technicalDetails={state.actionError.technicalDetails}
 				/>
@@ -832,8 +835,8 @@ export function WorkspacePage() {
 			<section className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
 				<SectionCard
 					eyebrow="Workflow progress"
-					title="Workspace progression"
-					description="Operators can see what is complete, what is currently recommended, and what still needs evidence before handoff."
+					title="Assessment progress"
+					description="See what is complete, what is recommended, and what still needs evidence before handoff."
 				>
 					<div className="space-y-3">
 						{workflowSteps.map((step, index) => (
@@ -844,12 +847,12 @@ export function WorkspacePage() {
 
 				<SectionCard
 					eyebrow="Current state"
-					title="Workspace summary"
-					description="This panel keeps the operator-facing headline state visible without needing to scan every section."
+					title="Assessment summary"
+					description="This panel keeps the headline status visible without scanning every section."
 				>
 					<div className="grid gap-3 md:grid-cols-2">
 						<Metric
-							label="Workspace status"
+							label="Assessment status"
 							value={state.selectedWorkspace?.status ?? "draft"}
 							tone={workspaceStatusTone(state.selectedWorkspace?.status)}
 						/>
@@ -892,7 +895,7 @@ export function WorkspacePage() {
 							<p className="mt-1">
 								{activeJob.type} is {activeJob.status}.{" "}
 								{activeJob.message ??
-									"The operator API is still processing the workspace job."}
+									"The API is still processing the assessment job."}
 							</p>
 							<p className="mt-2 text-xs text-amber-800">
 								Correlation ID {activeJob.correlation_id ?? "n/a"} · Requested{" "}
@@ -923,7 +926,7 @@ export function WorkspacePage() {
 				<SectionCard
 					eyebrow="Assessment intake"
 					title="Source, target, and plan defaults"
-					description="Keep target assumptions and plan settings explicit so discovery, simulation, and exported evidence share the same operator-owned context."
+					description="Keep target assumptions and plan settings explicit so discovery, simulation, and exported evidence share the same assessment."
 				>
 					<div className="grid gap-4 lg:grid-cols-2">
 						<WorkspaceSelectField
@@ -1079,7 +1082,7 @@ export function WorkspacePage() {
 									},
 								}))
 							}
-							hint="Capture assumptions, pilot caveats, or operator reminders."
+							hint="Capture assumptions, pilot caveats, or reminders."
 						/>
 					</div>
 
@@ -1135,7 +1138,7 @@ export function WorkspacePage() {
 						>
 							{actionLoading === "settings"
 								? "Saving..."
-								: "Save workspace settings"}
+								: "Save assessment settings"}
 						</button>
 					</div>
 				</SectionCard>
@@ -1143,8 +1146,8 @@ export function WorkspacePage() {
 				<div className="space-y-5">
 					<SectionCard
 						eyebrow="Recommended actions"
-						title="Run the next operator step"
-						description="The backend remains the source of truth. These actions start persisted jobs or exports against the selected workspace."
+						title="Run the next step"
+						description="The backend remains the current reference. These actions start saved jobs or exports for the selected assessment."
 					>
 						<div className="metric-surface">
 							<p className="operator-kicker">Recommended next action</p>
@@ -1200,7 +1203,7 @@ export function WorkspacePage() {
 					<SectionCard
 						eyebrow="Source connection"
 						title="Current source baseline"
-						description="Source details, credential references, and the latest snapshot evidence stay attached to the workspace."
+						description="Source details, credential references, and the latest snapshot evidence stay attached to the assessment."
 					>
 						{latestSource ? (
 							<div className="grid gap-3">
@@ -1229,7 +1232,7 @@ export function WorkspacePage() {
 						) : (
 							<EmptyState
 								title="No source connection recorded"
-								message="Create or reload a workspace to attach a source connection before discovery."
+								message="Create or reload an assessment to attach a source connection before discovery."
 							/>
 						)}
 					</SectionCard>
@@ -1318,7 +1321,7 @@ export function WorkspacePage() {
 				<SectionCard
 					eyebrow="Job history"
 					title="Persisted background jobs"
-					description="Queued, running, and failed jobs stay attached to the workspace so operators can retry, correlate, and hand off issues cleanly."
+					description="Queued, running, and failed jobs stay attached to the assessment so teams can retry, correlate, and hand off issues cleanly."
 				>
 					{jobHistory.length === 0 ? (
 						<EmptyState
@@ -1393,7 +1396,7 @@ export function WorkspacePage() {
 			{rows.length === 0 ? (
 				<EmptyState
 					title="No discovered workloads yet"
-					message="Run discovery for this workspace to persist a snapshot baseline before inspection, simulation, or plan generation."
+					message="Run discovery for this assessment to save a snapshot baseline before inspection, simulation, or plan generation."
 				/>
 			) : (
 				<section className="grid gap-5 min-[1800px]:grid-cols-[minmax(0,1.2fr)_minmax(360px,0.8fr)]">
@@ -1456,16 +1459,16 @@ export function WorkspacePage() {
 				<DependencyGraph graph={graph} />
 				<SectionCard
 					eyebrow="Notes and artifacts"
-					title="Operator commentary and exports"
-					description="Notes, approvals, and exported reports stay attached to the workspace so pilot evidence can be handed off without rebuilding context."
+					title="Notes and exports"
+					description="Notes, approvals, and exported reports stay attached to the assessment so pilot evidence can be handed off without rebuilding context."
 				>
 					<label className="block">
-						<span className="operator-kicker">Operator note</span>
+						<span className="operator-kicker">Note</span>
 						<textarea
 							value={noteDraft}
 							onChange={(event) => setNoteDraft(event.target.value)}
 							className="operator-textarea mt-2"
-							placeholder="Capture operator notes, pilot caveats, or approval context."
+							placeholder="Capture notes, pilot caveats, or approval context."
 						/>
 					</label>
 					<div className="mt-4 flex flex-wrap gap-2">
@@ -1506,7 +1509,7 @@ export function WorkspacePage() {
 					<div className="mt-5 space-y-4">
 						<ArtifactBlock
 							title="Recent notes"
-							emptyMessage="No operator notes saved yet."
+							emptyMessage="No notes saved yet."
 						>
 							{noteHistory.slice(0, 4).map((note) => (
 								<div
@@ -1574,7 +1577,7 @@ export function WorkspacePage() {
 										<p className="mt-3 text-sm text-slate-700">
 											{approval.approved_by
 												? `Handled by ${approval.approved_by}`
-												: "Pending operator approval"}
+												: "Pending approval"}
 											{approval.ticket ? ` · Ticket ${approval.ticket}` : ""}
 										</p>
 										{approval.notes ? (
@@ -1610,13 +1613,13 @@ function WorkspaceCreateForm({
 }) {
 	return (
 		<SectionCard
-			eyebrow="Workspace intake"
-			title="Create a pilot workspace"
+			eyebrow="Assessment intake"
+			title="Create an assessment"
 			description="Use the lab defaults or adjust the source and target assumptions before starting a new assessment."
 		>
 			<div className="grid gap-4 lg:grid-cols-2">
 				<WorkspaceField
-					label="Workspace name"
+					label="Assessment name"
 					value={createForm.name}
 					onChange={(value) => onChange({ ...createForm, name: value })}
 					error={validation.name}
@@ -1702,7 +1705,7 @@ function WorkspaceCreateForm({
 					disabled={creating}
 					className="operator-button"
 				>
-					{creating ? "Creating..." : "Create workspace"}
+					{creating ? "Creating..." : "Create assessment"}
 				</button>
 			</div>
 		</SectionCard>
@@ -1815,7 +1818,7 @@ function WorkspaceCheckbox({
 			<span>
 				<span className="block text-sm font-semibold text-ink">{label}</span>
 				<span className="mt-1 block text-sm text-slate-600">
-					Persist this plan behavior in the workspace so future runs and exports
+					Save this plan behavior in the assessment so future runs and exports
 					use the same intent.
 				</span>
 			</span>
@@ -1942,19 +1945,19 @@ function buildWorkflowSteps(
 	return [
 		{
 			id: "intake",
-			label: "Create workspace",
+			label: "Create assessment",
 			summary:
 				"Capture the source connection, credential reference, target platform, and initial plan defaults.",
 			evidence: workspace
-				? `Workspace ${workspace.name} is persisted.`
-				: "No workspace exists yet.",
+				? `Assessment ${workspace.name} is saved.`
+				: "No assessment exists yet.",
 			status: stepStatus(states[0], currentIndex, 0),
 		},
 		{
 			id: "discovery",
 			label: "Run discovery",
 			summary:
-				"Persist a snapshot baseline so later graph, readiness, and report views reflect the same source evidence.",
+				"Save a snapshot baseline so later graph, readiness, and report views reflect the same source evidence.",
 			evidence:
 				(workspace?.snapshots?.length ?? 0) > 0
 					? `${workspace?.snapshots?.length ?? 0} snapshot(s) recorded.`
@@ -1976,7 +1979,7 @@ function buildWorkflowSteps(
 			id: "simulate",
 			label: "Simulate readiness",
 			summary:
-				"Derive readiness, policy issues, and recommendation signals against the same persisted workspace.",
+				"Derive readiness, policy issues, and recommendations against the same saved assessment.",
 			evidence: workspace?.readiness
 				? `Readiness is ${workspace.readiness.status}.`
 				: "Simulation has not been run yet.",
@@ -1986,7 +1989,7 @@ function buildWorkflowSteps(
 			id: "plan",
 			label: "Save plan",
 			summary:
-				"Persist a dry-run migration plan so operator review, approval, and export can use the same state.",
+				"Save a dry-run migration plan so review, approval, and export can use the same state.",
 			evidence: workspace?.saved_plan
 				? `Saved plan ${workspace.saved_plan.spec_name}.`
 				: "No plan saved yet.",
@@ -1996,7 +1999,7 @@ function buildWorkflowSteps(
 			id: "report",
 			label: "Export report",
 			summary:
-				"Keep the handoff artifact attached to the workspace so review and pilot follow-up stay traceable.",
+				"Keep the report attached to the assessment so review and pilot follow-up stay traceable.",
 			evidence:
 				(workspace?.reports?.length ?? 0) > 0
 					? `${workspace?.reports?.length ?? 0} report export(s) recorded.`
@@ -2023,10 +2026,10 @@ function recommendedWorkspaceAction(
 	selectedWorkloadCount: number,
 ): string {
 	if (!workspace) {
-		return "Create the first workspace";
+		return "Create the first assessment";
 	}
 	if ((workspace.snapshots?.length ?? 0) === 0) {
-		return "Run discovery to persist the baseline";
+		return "Run discovery to save the baseline";
 	}
 	if (!workspace.graph) {
 		return "Build the dependency graph";
@@ -2050,7 +2053,7 @@ function validateCreateForm(
 	createForm: CreateFormState,
 ): Record<keyof CreateFormState, string | null> {
 	return {
-		name: createForm.name.trim() === "" ? "Workspace name is required." : null,
+		name: createForm.name.trim() === "" ? "Assessment name is required." : null,
 		description: null,
 		sourceName:
 			createForm.sourceName.trim() === "" ? "Source name is required." : null,

@@ -59,9 +59,7 @@ describe("AuthBootstrapScreen", () => {
 		expect(
 			screen.queryByPlaceholderText("Service account key"),
 		).not.toBeInTheDocument();
-		expect(
-			screen.queryByText("Runtime credential bootstrap"),
-		).not.toBeInTheDocument();
+		expect(screen.queryByText("Sign in")).not.toBeInTheDocument();
 
 		fireEvent.click(screen.getByRole("button", { name: "Use a key instead" }));
 

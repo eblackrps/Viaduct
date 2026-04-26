@@ -1,8 +1,8 @@
 # Quickstart
 
-This quickstart uses the local KVM fixture lab so you can evaluate Viaduct end to end without a live hypervisor. The signed OCI image is the primary packaged deployment path in `v3.2.1`, but this remains the fastest route from clone to a working operator console. The repo-local current release/install reference lives in [../releases/current.md](../releases/current.md).
+This quickstart uses the local KVM fixture lab so you can evaluate Viaduct end to end without a live hypervisor. The signed OCI image is the primary packaged deployment path in `v3.2.1`, but this remains the fastest route from clone to a working dashboard. The repo-local current release/install reference lives in [../releases/current.md](../releases/current.md).
 
-The default dashboard path is now WebUI-first and workspace-first: `viaduct start`, open the browser, create a workspace, discover, inspect, simulate, save a plan, and export a report.
+The default dashboard path is now assessment-first: `viaduct start`, open the browser, create an assessment, discover, inspect, simulate, save a plan, and export a report.
 
 If you are deploying rather than building from source, start with [../operations/docker.md](../operations/docker.md).
 
@@ -44,9 +44,9 @@ If you intentionally configure a key, open `Use a key instead` from the Get star
 - preferred service account key: `lab-operator-key`
 - advanced tenant key: `lab-tenant-key`
 
-The runtime auth flow creates a server-backed session. The browser keeps only an opaque session marker, and any tenant or service account key stays server-side for that session instead of landing in browser storage. Local operator sessions do not use an API key at all. Use the keep-signed-in option only when you intentionally want that marker kept across restarts on a trusted workstation.
+The runtime auth flow creates a server-backed session. The browser keeps only an opaque session marker, and any tenant or service account key stays server-side for that session instead of landing in browser storage. Local sessions do not use an API key at all. Use the keep-signed-in option only when you intentionally want that marker kept across restarts on a trusted workstation.
 
-For packaged or persistent environments, prefer `VITE_VIADUCT_SERVICE_ACCOUNT_KEY` over `VITE_VIADUCT_API_KEY` only when you intentionally pre-seed a development build. The Get started flow is the default operator path.
+For packaged or persistent environments, prefer `VITE_VIADUCT_SERVICE_ACCOUNT_KEY` over `VITE_VIADUCT_API_KEY` only when you intentionally pre-seed a development build. The Get started flow is the default dashboard path.
 
 If you want the Vite development server while editing frontend code:
 
@@ -56,7 +56,7 @@ npm ci
 npm run dev
 ```
 
-## 3. Run The Workspace-First Operator Flow
+## 3. Run The Assessment Workflow
 
 1. Create the first pilot workspace from the prefilled lab defaults.
 2. Run discovery to save workspace snapshots.
@@ -74,7 +74,7 @@ The seeded API request body for the same intake is available in `examples/lab/pi
 ./bin/viaduct doctor
 ```
 
-`viaduct doctor` now reports config validity, store posture, shared-auth readiness, and recorded-runtime readiness so you can tell the difference between “the port answered” and “the runtime is actually ready for operator work.”
+`viaduct doctor` now reports config validity, store status, shared-auth readiness, and recorded-runtime readiness so you can tell the difference between "the port answered" and "the runtime is actually ready."
 `viaduct status --runtime` now surfaces the same ready-versus-degraded signal when you want a shorter operator check.
 
 If you want the real browser smoke from the repo root before a demo or release review:

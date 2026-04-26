@@ -54,8 +54,8 @@ func newServeAPICommand() *cobra.Command {
 	cmd.Flags().IntVar(&port, "port", 8080, "Port to bind the Viaduct API server to")
 	cmd.Flags().StringVar(&host, "host", "127.0.0.1", "Host interface to bind; defaults to loopback for safe local operation")
 	cmd.Flags().StringVar(&webDir, "web-dir", "", "Path to built dashboard assets; when empty, Viaduct auto-detects packaged or built web assets")
-	cmd.Flags().BoolVar(&localRuntime, "local-runtime", false, "Enable the local-runtime operator session-start affordances")
-	cmd.Flags().BoolVar(&allowUnauthenticatedRemote, "allow-unauthenticated-remote", false, "Dangerous: allow a non-loopback bind even when no admin, tenant, or service-account credentials are configured")
+	cmd.Flags().BoolVar(&localRuntime, "local-runtime", false, "Enable local session sign-in for the packaged runtime")
+	cmd.Flags().BoolVar(&allowUnauthenticatedRemote, "allow-unauthenticated-remote", false, "Dangerous: allow a non-loopback bind even when no admin, tenant, or service account credentials are configured")
 	_ = cmd.Flags().MarkHidden("local-runtime")
 	return cmd
 }

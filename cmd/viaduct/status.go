@@ -72,7 +72,7 @@ func newStatusCommand() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&source, "source", "", "Optional source hypervisor endpoint")
-	cmd.Flags().BoolVar(&runtimeStatus, "runtime", false, "Show the recorded local WebUI runtime state instead of snapshot and migration history")
+	cmd.Flags().BoolVar(&runtimeStatus, "runtime", false, "Show the recorded local dashboard runtime state instead of snapshot and migration history")
 
 	return cmd
 }
@@ -111,7 +111,7 @@ func runRuntimeStatus(cmd *cobra.Command) error {
 		if state != nil {
 			fmt.Fprintf(cmd.OutOrStdout(), "Mode: %s\n", state.Mode)
 			fmt.Fprintf(cmd.OutOrStdout(), "Config: %s\n", state.ConfigPath)
-			fmt.Fprintf(cmd.OutOrStdout(), "WebUI: %s\n", state.BaseURL)
+			fmt.Fprintf(cmd.OutOrStdout(), "Dashboard: %s\n", state.BaseURL)
 			fmt.Fprintf(cmd.OutOrStdout(), "API:   %s\n", state.APIURL)
 			fmt.Fprintf(cmd.OutOrStdout(), "PID: %d\n", state.PID)
 			fmt.Fprintf(cmd.OutOrStdout(), "Detached: %s\n", strings.ToLower(fmt.Sprintf("%t", state.Detached)))

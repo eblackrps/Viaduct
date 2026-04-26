@@ -15,7 +15,7 @@ Use this with [demo-scenario-brief.md](demo-scenario-brief.md) before any seriou
 - VMware source baseline is present.
 - Proxmox target baseline is present.
 - Baseline timestamps look recent and believable.
-- Non-zero posture counts are visible for `ready`, `needs review`, and `blocked`.
+- Non-zero status counts are visible for `ready`, `needs review`, and `blocked`.
 - Discovery context is visible without extra clicks.
 
 ## Standardized Workloads

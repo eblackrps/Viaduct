@@ -49,9 +49,9 @@ export function TopBar({
 
 					<div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-slate-600">
 						<div>
-							<p className="operator-kicker">Current surface</p>
+							<p className="operator-kicker">Current page</p>
 							<p className="mt-1 font-semibold text-ink">
-								{currentItem?.title ?? "Operator console"}
+								{currentItem?.title ?? "Dashboard"}
 							</p>
 						</div>
 						{lastDiscoveryAt ? (

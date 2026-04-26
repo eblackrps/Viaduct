@@ -43,7 +43,7 @@ make web-build
 ./bin/viaduct start
 ```
 
-On a fresh source checkout, `viaduct start` creates the default local lab config when it is missing, points it at `examples/lab/kvm`, and serves the WebUI and API together at `http://127.0.0.1:8080`.
+On a fresh source checkout, `viaduct start` creates the default local lab config when it is missing, points it at `examples/lab/kvm`, and serves the dashboard and API together at `http://127.0.0.1:8080`.
 The browser-first flow starts on the Get started screen, where the default local lab path offers a direct loopback-only `Start local session` action instead of requiring a pasted key.
 The same runtime also serves live operator API docs at `http://127.0.0.1:8080/api/v1/docs`.
 
@@ -135,7 +135,7 @@ viaduct --help
 viaduct doctor
 ```
 
-If you installed only the CLI and not the dashboard assets, the API and migration/lifecycle backends still work; only the packaged static WebUI is absent.
+If you installed only the CLI and not the dashboard assets, the API and migration/lifecycle backends still work; only the packaged static dashboard is absent.
 
 For browser access in packaged environments:
 - keep `VIADUCT_ALLOWED_ORIGINS` empty for same-origin deployments; set it only if the dashboard is served from a different trusted origin
@@ -145,4 +145,4 @@ For browser access in packaged environments:
 - use `VIADUCT_WORKSPACE_JOB_TIMEOUT` if workspace jobs need a different server-side timeout budget
 - use `VIADUCT_WORKSPACE_JOB_CONCURRENCY` if packaged workspace execution needs a different bounded worker count
 - use `viaduct serve-api` directly only when you intentionally want the lower-level service command instead of the local `start` flow, and keep its default loopback bind unless API credentials are configured
-- reserve `VIADUCT_ALLOW_UNAUTHENTICATED_REMOTE=true` for disposable break-glass scenarios only
+- reserve `VIADUCT_ALLOW_UNAUTHENTICATED_REMOTE=true` for disposable emergency access scenarios only

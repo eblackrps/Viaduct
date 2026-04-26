@@ -33,7 +33,7 @@ describe("primitives", () => {
 			<PageHeader
 				eyebrow="Inventory"
 				title="Fleet inventory"
-				description="Normalized operator view"
+				description="Normalized inventory view"
 				badges={[{ label: "75 workloads", tone: "info" }]}
 				actions={<button type="button">Refresh</button>}
 			/>,

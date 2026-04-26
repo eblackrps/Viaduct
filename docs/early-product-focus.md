@@ -21,15 +21,15 @@ The existing direction is worth keeping:
 - the shared backend that feeds the CLI, API, and dashboard
 - mixed-hypervisor operations as a durable model instead of a temporary bridge
 - declarative migration specs, approval gates, execution windows, and resume support
-- tenant-scoped state, service accounts, and public operator documentation
+- tenant-scoped state, service accounts, and public documentation
 - reproducible release verification through `make release-gate`
 
-None of those foundations should be reset for Phase 5. The work now is to narrow claims, strengthen trust, and make one operator workflow feel dependable.
+None of those foundations should be reset for Phase 5. The work now is to narrow claims, strengthen trust, and make one workflow feel dependable.
 
 ## What Is Still Weak
 
 The current repo still has early-product gaps:
-- the public narrative is broader than the most validated operator path
+- the public narrative is broader than the most validated workflow
 - live-environment confidence is not uniform across connector and execution combinations
 - migration execution, lifecycle guidance, and portability features can look equally mature even when the safest current value is earlier in the workflow
 - trust controls are present, but the repo needs stronger emphasis on diagnostics, auditability, approval behavior, and operator-visible caveats
@@ -41,12 +41,12 @@ These are not arguments for a rewrite. They are arguments for a more disciplined
 
 Viaduct's best early focus is:
 
-**VMware-exit mixed-estate discovery and migration readiness assessment with approval-ready pilot planning**
+**VMware-exit multi-platform inventory collection and migration readiness assessment with approval-ready pilot planning**
 
 See [Initial Use Case Analysis](initial-use-case-analysis.md) for the candidate focus options, scoring criteria, final recommendation, and positioning guidance behind this choice.
 
-In practice, that means helping an operator:
-1. discover a mixed estate
+In practice, that means helping a user:
+1. collect inventory from a multi-platform environment
 2. normalize and inspect inventory
 3. understand dependencies, backup coverage, and lifecycle signals
 4. draft and validate migration plans
@@ -60,7 +60,7 @@ See [V1 Scope Definition](v1-scope.md) for the authoritative must-have, nice-to-
 
 ### In Scope Now
 - tenant-scoped discovery and normalized inventory collection
-- operator visibility through CLI, API, dashboard, reports, and metrics
+- visibility through CLI, API, dashboard, reports, and metrics
 - dependency and backup signals, plus the cost, policy, and drift context needed for migration-readiness decisions
 - declarative migration specs, dry-run planning, preflight validation, approval gates, execution windows, checkpoints, resume state, and rollback visibility
 - packaged evaluation and demo workflows using the local lab, source builds, and release bundles
@@ -70,7 +70,7 @@ See [V1 Scope Definition](v1-scope.md) for the authoritative must-have, nice-to-
 - fully autonomous production cutover across every supported source and target combination
 - equal live-environment confidence for every connector-backed execution path
 - frontend-inferred workflow state that is not backed by the shared API and persisted state
-- policy or lifecycle remediation that silently executes changes without operator review
+- policy or lifecycle remediation that silently executes changes without review
 - ecosystem sprawl that weakens the core evaluation and pilot workflow
 
 ## Early-Product Trust Contract
@@ -78,9 +78,9 @@ See [V1 Scope Definition](v1-scope.md) for the authoritative must-have, nice-to-
 ### What Viaduct Can Credibly Stand Behind Today
 - evaluation from source or packaged artifacts using the documented quickstart and lab assets
 - tenant-scoped inventory, planning, reporting, and operational visibility
-- conservative operator workflows that keep planning and approval state explicit
+- conservative workflows that keep planning and approval state explicit
 - a shared backend contract across CLI, API, and dashboard
-- release-gated builds, public docs, and operator-visible build metadata
+- release-gated builds, public docs, and visible build metadata
 
 ### What Still Requires Pilot Framing
 - live migration execution in heterogeneous real environments
@@ -91,11 +91,11 @@ See [V1 Scope Definition](v1-scope.md) for the authoritative must-have, nice-to-
 
 ## Primary Workflow To Harden In Phase 5
 
-The product should optimize around one reliable end-to-end operator path:
+The product should optimize around one reliable end-to-end workflow:
 
 1. create or select a tenant and start a session, usually with a service account key and only using a tenant key when you intentionally need tenant-admin access
 2. run discovery against the lab or a supported pilot environment
-3. review inventory, dependency graph, snapshot history, and lifecycle posture
+3. review inventory, dependency graph, snapshot history, and lifecycle status
 4. author a migration spec and run dry-run planning plus preflight validation
 5. review approval, execution-window, checkpoint, and diagnostic state through the API and dashboard
 6. execute only in a supervised pilot environment with resume and rollback available
@@ -108,7 +108,7 @@ This workflow is wide enough to demonstrate real product value, but narrow enoug
 The next round of work should favor:
 - clearer public positioning around assessment, planning, and supervised pilots
 - tighter API and error contracts for preflight, planning, execution, resume, rollback, and reporting
-- better operator trust surfaces: approval clarity, audit trails, metrics, request correlation, and failure diagnostics
+- better trust surfaces: approval clarity, audit trails, metrics, request correlation, and failure diagnostics
 - one boringly reliable evaluation and pilot path that works the same in docs, demos, tests, and packaged artifacts
 - design-partner feedback loops that help remove scope rather than add novelty
 

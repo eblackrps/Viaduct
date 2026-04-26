@@ -43,8 +43,8 @@ export function SettingsPage({
 		<div className="space-y-6">
 			<PageHeader
 				eyebrow="Settings"
-				title="Operator settings"
-				description="Read-only runtime context for the current tenant, runtime credential handling, and dashboard-side operator assumptions."
+				title="Settings"
+				description="Read-only runtime context for the current tenant, sign-in handling, and dashboard settings."
 				badges={[
 					{
 						label: authSourceLabel,
@@ -64,30 +64,30 @@ export function SettingsPage({
 
 			{loading && !about && !currentTenant ? (
 				<LoadingState
-					title="Loading workspace settings"
-					message="Retrieving operator build metadata and the effective tenant context from the Viaduct API."
+					title="Loading settings"
+					message="Retrieving build metadata and tenant context from the Viaduct API."
 				/>
 			) : null}
 
 			{showEmpty ? (
 				settingsError ? (
 					<ErrorState
-						title="Workspace settings unavailable"
+						title="Settings unavailable"
 						message={settingsError}
 						technicalDetails={settingsErrorDetails}
 					/>
 				) : (
 					<EmptyState
 						title="No runtime context available"
-						message="The dashboard could not load either build metadata or the current tenant context from the operator API."
+						message="The dashboard could not load either build metadata or the current tenant context from the API."
 					/>
 				)
 			) : null}
 
 			<section className="grid gap-5 xl:grid-cols-2">
 				<SectionCard
-					title="Operator connection"
-					description="Current dashboard runtime assumptions for API access."
+					title="Dashboard connection"
+					description="Current dashboard settings for API access."
 				>
 					{errors.about ? (
 						<InlineError error={errors.about} />
@@ -184,8 +184,8 @@ export function SettingsPage({
 				</SectionCard>
 
 				<SectionCard
-					title="Runtime credential handling"
-					description="Session-scoped browser storage is the default operator path. Remembered keys should be limited to trusted workstations."
+					title="Sign-in handling"
+					description="Session-scoped browser storage is the default path. Remembered keys should be limited to trusted workstations."
 				>
 					<div className="grid gap-3 md:grid-cols-2">
 						<StatCard label="Credential source" value={authSourceLabel} />
@@ -221,7 +221,7 @@ export function SettingsPage({
 
 				<SectionCard
 					title="Permissions and quotas"
-					description="Effective operator permissions and tenant-level fairness controls."
+					description="Effective permissions and tenant quotas."
 					className="xl:col-span-2"
 				>
 					{currentTenant ? (
@@ -263,7 +263,7 @@ export function SettingsPage({
 
 				<SectionCard
 					title="Observed platform coverage"
-					description="Supported platforms from the operator build and workload counts from the current tenant summary."
+					description="Supported platforms from the build and workload counts from the current tenant summary."
 					className="xl:col-span-2"
 				>
 					<div className="flex flex-wrap gap-2">

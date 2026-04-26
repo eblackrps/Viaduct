@@ -7,14 +7,14 @@ export interface OperatorRouteExpectation {
 
 export const operatorRoutes: OperatorRouteExpectation[] = [
 	{
-		label: "Pilot Workspaces",
+		label: "Assessments",
 		heading: "E2E Lab Workspace",
-		readyHeading: "Operator commentary and exports",
+		readyHeading: "Notes and exports",
 		snapshotName: "pilot-workspaces",
 	},
 	{
 		label: "Overview",
-		heading: "Operational dashboard",
+		heading: "Dashboard",
 		snapshotName: "overview",
 	},
 	{
@@ -55,7 +55,7 @@ export const operatorRoutes: OperatorRouteExpectation[] = [
 	},
 	{
 		label: "Settings",
-		heading: "Operator settings",
+		heading: "Settings",
 		snapshotName: "settings",
 	},
 ];

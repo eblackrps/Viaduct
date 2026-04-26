@@ -230,7 +230,7 @@ export function useMigrationWorkspace({
 		preflight.fail_count === 0 &&
 		preflight.warn_count > 0
 			? [
-					`Latest preflight reports ${preflight.warn_count} warning check(s) that still need operator review.`,
+					`Latest preflight reports ${preflight.warn_count} warning check(s) that still need review.`,
 				]
 			: []),
 	];

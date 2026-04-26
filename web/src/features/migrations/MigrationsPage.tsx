@@ -140,7 +140,7 @@ export function MigrationsPage({
 			<PageHeader
 				eyebrow="Execution"
 				title="Migrations"
-				description="Move from selected inventory into validated migration plans, save execution-ready plan state, and keep running jobs visible in the same operational surface."
+				description="Move from selected inventory into validated migration plans, save plan state, and keep running jobs visible."
 				badges={[
 					{
 						label: `${summary?.active_migrations ?? 0} active`,
@@ -281,7 +281,7 @@ export function MigrationsPage({
 				</SectionCard>
 
 				<SectionCard
-					title="Execution posture"
+					title="Execution status"
 					description="Live migration activity from the persisted store. Saved plans stay in plan phase until you explicitly execute them."
 				>
 					<div className="grid gap-3 md:grid-cols-2">
@@ -341,8 +341,8 @@ export function MigrationsPage({
 			</section>
 
 			<SectionCard
-				title="Operational states"
-				description="Draft, ready, warning, and blocked are detailed planning states inside the workspace. Persisted migration history only exposes plan and phase metadata from the list API."
+				title="Planning states"
+				description="Draft, ready, warning, and blocked are planning states in the dashboard. Persisted migration history only exposes plan and phase metadata from the list API."
 			>
 				<div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
 					{(
@@ -382,7 +382,7 @@ export function MigrationsPage({
 			!planningDraft ? (
 				<LoadingState
 					title="Loading migration operations"
-					message="Retrieving migration history and saved discovery baselines so operators can validate the current runbook context."
+					message="Retrieving migration history and saved discovery baselines for runbook review."
 				/>
 			) : null}
 
@@ -399,7 +399,7 @@ export function MigrationsPage({
 			{showEmptyState ? (
 				<EmptyState
 					title="No migration activity recorded"
-					message="Start from inventory to prepare a planning draft, or save a migration plan so execution history and discovery baselines have an operator record to display."
+					message="Start from inventory to prepare a planning draft, or save a migration plan so execution history and discovery baselines have an assessment to display."
 				/>
 			) : null}
 

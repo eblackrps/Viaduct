@@ -1,6 +1,6 @@
 # Architecture Overview
 
-Viaduct is an API-first, hypervisor-agnostic control plane for workload discovery, migration, and lifecycle management across heterogeneous virtualization estates.
+Viaduct is an API-first, multi-platform tool for workload discovery, migration, and lifecycle management across virtualization environments.
 
 ## Design Goals
 - normalize inventory from multiple platforms into one schema
@@ -59,7 +59,7 @@ Current built-in connectors:
 
 Community connectors can also be hosted through the gRPC-based plugin system in `internal/connectors/plugin/`.
 
-## Source Of Truth
+## Current Reference
 
 The universal schema in `internal/models/` is the canonical representation of discovered workloads. Connector implementations may expose platform-native details, but Viaduct's internal coordination should always flow through the normalized model.
 

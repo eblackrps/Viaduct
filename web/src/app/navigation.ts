@@ -45,18 +45,18 @@ export const navigationGroups: NavigationGroup[] = [
 		items: [
 			{
 				path: "/workspaces",
-				label: "Pilot Workspaces",
-				title: "Pilot Workspaces",
+				label: "Assessments",
+				title: "Assessments",
 				description:
-					"Guide the workspace-first operator flow from intake and discovery through simulation, plan review, and report export.",
+					"Start an assessment, run discovery, review dependencies, save plans, and export reports.",
 				icon: FolderKanban,
 			},
 			{
 				path: "/dashboard",
 				label: "Overview",
-				title: "Operational Dashboard",
+				title: "Dashboard",
 				description:
-					"Review tenant posture, migration flow, and lifecycle signals in one operator surface.",
+					"Review tenant status, migration work, and lifecycle signals in one place.",
 				icon: LayoutDashboard,
 			},
 			{
@@ -64,15 +64,14 @@ export const navigationGroups: NavigationGroup[] = [
 				label: "Inventory",
 				title: "Fleet Inventory",
 				description:
-					"Inspect discovered workloads, placement signals, and platform distribution across the estate.",
+					"Inspect discovered workloads, placement signals, and platform distribution.",
 				icon: Server,
 			},
 			{
 				path: "/migrations",
 				label: "Migration Ops",
 				title: "Migration Operations",
-				description:
-					"Plan, validate, execute, and review workload migrations without leaving the operational context.",
+				description: "Plan, validate, execute, and review workload migrations.",
 				icon: Waypoints,
 			},
 		],
@@ -85,7 +84,7 @@ export const navigationGroups: NavigationGroup[] = [
 				label: "Lifecycle",
 				title: "Lifecycle Optimization",
 				description:
-					"Review remediation guidance and cost posture for the current workload baseline.",
+					"Review remediation guidance and cost status for the current workload baseline.",
 				icon: TrendingUp,
 			},
 			{
@@ -93,7 +92,7 @@ export const navigationGroups: NavigationGroup[] = [
 				label: "Policy",
 				title: "Policy Controls",
 				description:
-					"Inspect compliance rules, violations, and enforcement posture across current inventory.",
+					"Inspect compliance rules, violations, and enforcement status across current inventory.",
 				icon: ShieldCheck,
 			},
 			{
@@ -114,7 +113,7 @@ export const navigationGroups: NavigationGroup[] = [
 				label: "Reports",
 				title: "Reports And History",
 				description:
-					"Review historical migration records, discovery snapshots, and export-ready operator reports.",
+					"Review migration records, discovery snapshots, and exportable reports.",
 				icon: FileText,
 			},
 			{
@@ -133,9 +132,9 @@ export const navigationGroups: NavigationGroup[] = [
 			{
 				path: "/settings",
 				label: "Settings",
-				title: "Operator Settings",
+				title: "Settings",
 				description:
-					"Inspect tenant context, runtime authentication, and dashboard-side operator assumptions.",
+					"Inspect tenant context, sign-in state, and dashboard settings.",
 				icon: Settings,
 			},
 		],

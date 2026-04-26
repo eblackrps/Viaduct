@@ -13,7 +13,7 @@ For the early-product trust-control contract that defines how authentication, ro
 ## Tenant Roles
 - `viewer`: read-only access to inventory, reports, summaries, and lifecycle views
 - `operator`: viewer access plus preflight, simulation, planning, execution, resume, and rollback routes
-- `admin`: full tenant-scoped access including service-account administration
+- `admin`: full tenant-scoped access including service account administration
 
 ## Tenant Permissions
 - `inventory.read`: inventory, graph, and snapshot routes
@@ -21,7 +21,7 @@ For the early-product trust-control contract that defines how authentication, ro
 - `lifecycle.read`: cost, policy, drift, remediation, and summary routes
 - `migration.manage`: preflight, planning, execution, resume, rollback, and simulation routes
 - `tenant.read`: current-tenant introspection
-- `tenant.manage`: service-account administration
+- `tenant.manage`: service account administration
 
 Service accounts inherit their role defaults unless an explicit permission list is supplied. Explicit permissions let you scope automation more narrowly than the broad viewer/operator/admin presets.
 
@@ -29,8 +29,8 @@ Service accounts inherit their role defaults unless an explicit permission list 
 - `GET /api/v1/tenants/current` returns the effective tenant context, role, quotas, and auth method without leaking API keys
 - `GET /api/v1/service-accounts` lists existing tenant service accounts
 - `POST /api/v1/service-accounts` creates a tenant service account
-- `POST /api/v1/service-accounts/<service-account-id>/rotate` rotates a service-account API key
-- Service-account list responses intentionally redact API keys; create and rotate responses return the new key once
+- `POST /api/v1/service-accounts/<service-account-id>/rotate` rotates a service account API key
+- Service account list responses intentionally redact API keys; create and rotate responses return the new key once
 
 Example scoped operator service account:
 
@@ -54,7 +54,7 @@ Example scoped operator service account:
 - request quotas feed the API rate limiter
 - snapshot and migration quotas are enforced by the shared store, so CLI, API, and background workflows see the same limit behavior
 - tenant summaries expose remaining snapshot and migration quota headroom when configured
-- `/api/v1/metrics` exports tenant-scoped workload, snapshot, service-account, migration, and quota visibility for operators
+- `/api/v1/metrics` exports tenant-scoped workload, snapshot, service account, migration, and quota visibility
 
 ## Key Routes
 - `GET /api/v1/inventory`

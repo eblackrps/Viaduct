@@ -83,7 +83,7 @@ It does need workflow-native observability that fits the supported product path:
 
 Observability must serve two audiences without forcing them into the same view.
 
-### Operator-facing observability
+### User-facing observability
 Operators need:
 - the current state of the workflow
 - the blocking reason, if any
@@ -91,7 +91,7 @@ Operators need:
 - what action to take next
 - a request or execution identifier they can hand to support
 
-### Maintainer/support-facing observability
+### Maintainer and support observability
 Maintainers and support need:
 - the exact request, route, and tenant context
 - the exact migration or snapshot identifier
@@ -109,7 +109,7 @@ For any meaningful failure, Viaduct should produce:
 
 Viaduct should treat the following product-native records as its primary observability backbone.
 
-| Workflow step | Current source of truth | Supported observability record |
+| Workflow step | Current reference | Supported observability record |
 | --- | --- | --- |
 | Tenant/auth context | `/api/v1/about`, `/api/v1/tenants/current` | runtime context record |
 | Discovery | persisted snapshots and discovery results | snapshot history record |
@@ -138,7 +138,7 @@ For discovery, the equivalent chain is:
 
 The first version of this document did not make that CLI-first discovery path explicit enough.
 
-## 4. Operator-Facing Observability Needs
+## 4. User-Facing Observability Needs
 
 ### Operator observability requirements by workflow step
 
@@ -245,7 +245,7 @@ Viaduct should standardize on a small set of IDs, each with a clear purpose.
 - Do not introduce a generic `operation_id` or jobs abstraction for v1.
 - For migration execution, `migration_id` is the execution ID.
 - For discovery, `snapshot_id` is the baseline/history ID after persistence, while `discovery_run_id` is the correlation handle during the attempt itself.
-- If a later background worker model is added, it should still preserve `migration_id` as the operator-facing execution handle for migration work.
+- If a later background worker model is added, it should still preserve `migration_id` as the visible execution handle for migration work.
 
 ### Correlation rules
 - Every mutation request must produce a `request_id`.
@@ -299,7 +299,7 @@ Minimum history expectation:
 - `web/src/api.ts` converts API failures into `Error` objects and preserves `request_id` in the message when present.
 - most page-level hooks and surfaces store a plain string and render it inline.
 - the dashboard has route-specific loading and error states, but not a unified typed UI error model.
-- this means the UI currently cannot reliably render richer operator-facing technical details without reparsing message strings or extending the client types first.
+- this means the UI currently cannot reliably render richer technical details without reparsing message strings or extending the client types first.
 
 ### Required v1 frontend behavior
 - preserve structured API error fields in the client model, not just the rendered message
@@ -496,7 +496,7 @@ Request ID: req-456
 
 ## 15. Runbook Notes For Common Failures
 
-| Symptom | First operator surface | First maintainer/support check | Likely next action |
+| Symptom | First dashboard page | First maintainer/support check | Likely next action |
 | --- | --- | --- | --- |
 | auth failure in dashboard | `Settings` or inline page error | request ID plus `/api/v1/tenants/current` behavior | fix credential, role, or tenant selection |
 | preflight fails on approval or window | `Migrations` preflight panel | preflight check list and request log | update approval payload or wait for window |

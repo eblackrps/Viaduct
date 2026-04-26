@@ -50,7 +50,7 @@ const workflowStatusPresentation: Record<
 		label: "Warning",
 		tone: "warning",
 		description:
-			"The plan is usable, but operators still need to review non-blocking risks or pending approvals.",
+			"The plan is usable, but non-blocking risks or pending approvals still need review.",
 	},
 	blocked: {
 		label: "Blocked",
@@ -68,7 +68,7 @@ const workflowStatusPresentation: Record<
 		label: "Failed",
 		tone: "danger",
 		description:
-			"The run encountered a failure and requires operator action before it can continue.",
+			"The run encountered a failure and needs review before it can continue.",
 	},
 	completed: {
 		label: "Completed",
@@ -306,7 +306,7 @@ export function getPreflightSummary(
 		return `${report.fail_count} blocking check(s) must be resolved before execution can proceed.`;
 	}
 	if (report.warn_count > 0) {
-		return `${report.warn_count} warning check(s) still need operator review before execution.`;
+		return `${report.warn_count} warning check(s) still need review before execution.`;
 	}
 	return "The latest preflight checks passed and the draft is ready for execution review.";
 }

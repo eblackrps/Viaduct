@@ -213,7 +213,7 @@ describe("page state matrix", () => {
 			/>,
 		);
 		expect(
-			screen.getByRole("heading", { name: "No operator data available" }),
+			screen.getByRole("heading", { name: "No dashboard data available" }),
 		).toBeVisible();
 		await expectNoActionableViolations(emptyView.container);
 	});
@@ -437,7 +437,7 @@ describe("page state matrix", () => {
 		);
 		expect(
 			screen.getByRole("heading", {
-				name: "Workspace settings unavailable",
+				name: "Settings unavailable",
 			}),
 		).toBeVisible();
 		await expectNoActionableViolations(settingsError.container);
@@ -449,7 +449,7 @@ describe("page state matrix", () => {
 		);
 		const workspaceLoading = render(<WorkspacePage />);
 		expect(
-			await screen.findByRole("heading", { name: "Loading pilot workspaces" }),
+			await screen.findByRole("heading", { name: "Loading assessments" }),
 		).toBeVisible();
 		await expectNoActionableViolations(workspaceLoading.container);
 		workspaceLoading.unmount();
@@ -460,7 +460,7 @@ describe("page state matrix", () => {
 		const workspaceError = render(<WorkspacePage />);
 		expect(
 			await screen.findByRole("heading", {
-				name: "Pilot workspaces unavailable",
+				name: "Assessments unavailable",
 			}),
 		).toBeVisible();
 		await expectNoActionableViolations(workspaceError.container);
@@ -470,7 +470,7 @@ describe("page state matrix", () => {
 		const workspaceEmpty = render(<WorkspacePage />);
 		expect(
 			await screen.findByRole("heading", {
-				name: "Create the first workspace",
+				name: "Create the first assessment",
 			}),
 		).toBeVisible();
 		await expectNoActionableViolations(workspaceEmpty.container);

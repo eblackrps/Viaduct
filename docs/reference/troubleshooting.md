@@ -12,7 +12,7 @@ Fix:
 
 Cause:
 - you called a tenant-scoped API route without either `X-API-Key` or `X-Service-Account-Key`
-- or the local operator session was not started for this browser
+- or the local session was not started for this browser
 
 Fix:
 - provide a valid tenant API key or service account key
@@ -47,7 +47,7 @@ Cause:
 Fix:
 - if you are deploying with Docker, confirm the container is running with `docker ps` and inspect logs with `docker logs`
 - start `viaduct start`
-- open `http://127.0.0.1:8080` for the default same-origin operator path
+- open `http://127.0.0.1:8080` for the default same-origin dashboard path
 - set `VIADUCT_WEB_DIR` only if the built dashboard assets live outside the standard packaged or installed paths
 - use the Get started screen or prefer `VITE_VIADUCT_SERVICE_ACCOUNT_KEY` for local development
 - confirm process liveness at `/healthz` and readiness at `/readyz` or `/api/v1/health`
@@ -63,7 +63,7 @@ Fix:
 - keep the value narrow instead of using a wildcard
 - skip this override for the default same-origin path on `http://127.0.0.1:8080`
 
-## `viaduct start` Says The WebUI Assets Are Missing
+## `viaduct start` Says The Dashboard Assets Are Missing
 
 Cause:
 - the dashboard has not been built yet in a source checkout

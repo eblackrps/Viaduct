@@ -96,8 +96,8 @@ export function AuthBootstrapScreen({ auth }: AuthBootstrapScreenProps) {
 			: "Tenant key (advanced)";
 	const keyModeDescription =
 		mode === "service-account"
-			? "Best for everyday operator work in shared or packaged environments."
-			: "Use only for tenant setup or recovery when you need elevated access.";
+			? "Best for everyday work in shared or packaged environments."
+			: "Use only for tenant setup or emergency access.";
 	const showStartOptions = auth.status !== "checking" || auth.about !== null;
 
 	return (
@@ -162,7 +162,7 @@ export function AuthBootstrapScreen({ auth }: AuthBootstrapScreenProps) {
 						description={
 							auth.localOperatorAvailable
 								? "The local session is the fastest path. It starts a dashboard session for this machine and does not require a pasted key."
-								: "Paste a service account key to continue. This keeps the sign-in flow simple for normal operator work."
+								: "Paste a service account key to continue. This keeps sign-in simple for normal work."
 						}
 					>
 						<div className="space-y-5">
@@ -173,7 +173,7 @@ export function AuthBootstrapScreen({ auth }: AuthBootstrapScreenProps) {
 											<p className="operator-kicker">Recommended</p>
 											<div className="space-y-2">
 												<p className="text-lg font-semibold text-ink">
-													Local operator session
+													Local session
 												</p>
 												<p className="text-sm leading-6 text-slate-600">
 													This is the easiest path for the local runtime.
@@ -185,8 +185,7 @@ export function AuthBootstrapScreen({ auth }: AuthBootstrapScreenProps) {
 												<li>No pasted key required.</li>
 												<li>Uses the local runtime you already started.</li>
 												<li>
-													Works best for the default lab and local operator
-													flow.
+													Works best for the default lab and local workflow.
 												</li>
 											</ul>
 										</div>

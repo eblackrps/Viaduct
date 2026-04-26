@@ -13,12 +13,12 @@ This document defines the first credible trust-control model for Viaduct as an e
   - roles: `viewer`, `operator`, `admin`
   - permissions: `inventory.read`, `reports.read`, `lifecycle.read`, `migration.manage`, `tenant.read`, `tenant.manage`
 - `internal/api/server.go` already enforces role and permission boundaries per route instead of relying on frontend-only assumptions.
-- `GET /api/v1/tenants/current` already exposes effective role, permissions, auth method, and service-account identity for the active caller.
+- `GET /api/v1/tenants/current` already exposes effective role, permissions, auth method, and service account identity for the active caller.
 - `internal/models/audit.go` and the store layer already persist tenant-scoped audit events with `id`, `tenant_id`, `actor`, `request_id`, `category`, `action`, `resource`, `outcome`, `message`, `details`, and `created_at`.
 - `internal/api/reports.go` already exposes tenant-scoped audit history at `GET /api/v1/audit` and `GET /api/v1/reports/audit`.
 - `internal/api/observability.go` already generates or forwards `X-Request-ID`, returns it in API responses, and logs request-scoped metadata.
 - The dashboard already exposes some trust context:
-  - `web/src/features/settings/SettingsPage.tsx` shows auth method, role, service-account name, and effective permissions.
+  - `web/src/features/settings/SettingsPage.tsx` shows auth method, role, service account name, and effective permissions.
   - `web/src/features/reports/ReportsPage.tsx` allows report and audit export through the current credential context.
 
 ### What prior phases likely improved
@@ -27,21 +27,21 @@ This document defines the first credible trust-control model for Viaduct as an e
 - Phase 5 appears to have hardened API contracts with structured errors, request IDs, and a more explicit operator contract in `docs/reference/openapi.yaml`.
 
 ### What is still weak, ambiguous, over-scoped, or risky
-- Default-tenant fallback still exists for local/lab convenience. That is useful for demos but not a credible trust posture for real evaluation or pilot use.
-- A tenant API key currently authenticates as tenant `admin`. That is acceptable for bootstrap and break-glass use, but weak for day-to-day operator attribution.
+- Default-tenant fallback still exists for local/lab convenience. That is useful for demos but not a credible trust status for real evaluation or pilot use.
+- A tenant API key currently authenticates as tenant `admin`. That is acceptable for bootstrap and emergency access, but weak for day-to-day operator attribution.
 - Human attribution is only as good as the credential in use. If multiple humans share one tenant key, audit history collapses to `tenant:<tenant-id>`.
 - Platform-admin attribution is also weak today. `AdminAuthMiddleware` authenticates a shared `X-Admin-Key`, and admin audit events currently record only `Actor: "admin"`.
-- Audit coverage is incomplete for trust-sensitive actions. Today it is strongest for migration commands and service-account changes, but not yet consistent for report exports or authenticated authorization denials.
+- Audit coverage is incomplete for trust-sensitive actions. Today it is strongest for migration commands and service account changes, but not yet consistent for report exports or authenticated authorization denials.
 - The audit schema is intentionally small, but details are not yet normalized into a stable convention for migration commands, approval context, or export activity.
-- The role model has an important implementation nuance that is easy to misread: explicit service-account permissions narrow access inside the service account's role ceiling. They do not override `RequireTenantRole` checks in `internal/api/middleware.go`.
+- The role model has an important implementation nuance that is easy to misread: explicit service account permissions narrow access inside the service account's role ceiling. They do not override `RequireTenantRole` checks in `internal/api/middleware.go`.
 - The dashboard exposes current identity context in Settings, but not yet the action attribution an operator expects in migration history and execution detail views.
 - `GET /api/v1/migrations` and `GET /api/v1/migrations/{id}` are currently `migration.manage` routes. That means the `viewer` role cannot inspect migration history today, even though it can read audit history and reports.
-- Audit durability depends on the configured store. The in-memory store is useful for development but not a credible source of truth for pilot-grade audit history.
+- Audit durability depends on the configured store. The in-memory store is useful for development but not a credible current reference for pilot-grade audit history.
 
 ### What should be preserved
-- The current API-key-based early-product posture.
+- The current API-key-based early-product status.
 - The three-role model already present in code.
-- Explicit service-account permissions as a narrowing mechanism inside the existing role boundary, not a separate custom RBAC system.
+- Explicit service account permissions as a narrowing mechanism inside the existing role boundary, not a separate custom RBAC system.
 - Tenant-scoped routing, storage, reporting, and request-correlation behavior.
 - The existing dashboard Settings surface as the place where current caller context is explained.
 
@@ -49,7 +49,7 @@ This document defines the first credible trust-control model for Viaduct as an e
 - Freeze one early-product trust model around the primitives Viaduct already has:
   - separate platform admin and tenant credentials
   - three tenant roles
-  - service accounts as the preferred non-break-glass identity
+  - service accounts as the preferred non-emergency identity
   - audit events for all trust-sensitive mutations and exports
   - visible attribution in existing dashboard surfaces
 
@@ -73,7 +73,7 @@ This is not an SSO-first or enterprise IAM design. It is the minimum model that 
 | Credential | Current mechanism | Intended use in early product | Should be used for |
 | --- | --- | --- | --- |
 | Platform admin key | `X-Admin-Key` | Platform bootstrap and tenant administration | Creating and deleting tenants |
-| Tenant key | `X-API-Key` | Tenant bootstrap and break-glass admin access | Initial setup, emergency admin actions, short-lived direct admin work |
+| Tenant key | `X-API-Key` | Tenant bootstrap and emergency admin access | Initial setup, emergency admin actions, short-lived direct admin work |
 | Service account key | `X-Service-Account-Key` | Normal named access for operators and automation | Dashboard access, scripted operations, export jobs, migration workflows |
 
 ### Early-product authentication rules
@@ -82,13 +82,13 @@ This is not an SSO-first or enterprise IAM design. It is the minimum model that 
 - Viaduct does need explicit, named credentials with a clear intended use.
 - Tenant API keys should exist, but they should not be the recommended default for routine operator activity.
 - Dashboard and automation guidance should prefer service accounts over a shared tenant key.
-- In the current web client, that means `VITE_VIADUCT_SERVICE_ACCOUNT_KEY` should be the default documented development credential path, while `VITE_VIADUCT_API_KEY` should be documented as setup or break-glass usage.
+- In the current web client, that means `VITE_VIADUCT_SERVICE_ACCOUNT_KEY` should be the default documented development credential path, while `VITE_VIADUCT_API_KEY` should be documented as setup or emergency access.
 - Default-tenant fallback should remain available for local lab usage but should be treated as non-production behavior in docs, demos, and pilot guidance.
 - Pilots should run behind TLS termination or a trusted reverse proxy. Viaduct's early trust model assumes transport security is provided by the deployment environment.
 
 ### Early-product operator identity stance
 - When Viaduct does not yet have human user accounts, the credible substitute is a named service account per operator or per automation context.
-- Service-account metadata should carry an owner or purpose label so audit trails remain understandable.
+- Service account metadata should carry an owner or purpose label so audit trails remain understandable.
 - Shared credentials should be treated as temporary exceptions, not the default operating pattern.
 
 ## 4. Minimum Viable Role Model
@@ -99,13 +99,13 @@ Viaduct should keep the current three-role model.
 | --- | --- | --- | --- |
 | `viewer` | Implemented | Read-only evaluator, stakeholder, support reviewer | Can inspect tenant state but cannot change migration or tenant state |
 | `operator` | Implemented | Migration operator or platform engineer running planned work | Can plan, validate, execute, resume, roll back, and simulate |
-| `admin` | Implemented | Tenant owner or platform lead | Can do all operator work plus tenant/service-account administration |
+| `admin` | Implemented | Tenant owner or platform lead | Can do all operator work plus tenant and service account administration |
 
 ### Why this is enough for v1
 - It matches the code already shipping in `internal/models/tenant.go`.
 - It is easy to explain in a pilot.
 - It avoids a custom-role UI or policy editor before the product has validated its workflow boundaries.
-- It still allows narrower automation through explicit service-account permissions without changing the route model.
+- It still allows narrower automation through explicit service account permissions without changing the route model.
 
 ### What not to add yet
 - Custom roles
@@ -115,7 +115,7 @@ Viaduct should keep the current three-role model.
 - Fine-grained field-level or object-level permissions
 
 ### Clarifications that avoid scope confusion
-- Explicit service-account permissions are not a privilege-escalation mechanism. They only matter after the route's role gate has already passed.
+- Explicit service account permissions are not a privilege-escalation mechanism. They only matter after the route's role gate has already passed.
 - Viaduct does not need a new `migration.read` permission in this step. The current route boundary remains intact for v1.
 - Because the current route boundary remains intact, read-only migration oversight for `viewer` is limited to summaries, reports, and audit history, not `GET /api/v1/migrations`.
 - Admin-key actions remain only weakly attributed in v1. Do not claim stronger proof of admin identity than the current shared-key model actually provides.
@@ -128,7 +128,7 @@ Viaduct should keep the current three-role model.
 | --- | --- | --- | --- | --- | --- | --- |
 | Read inventory | `GET /api/v1/inventory` | `inventory.read` | Yes | Yes | Yes | Includes graph and snapshots |
 | Read graph and snapshots | `GET /api/v1/graph`, `GET /api/v1/snapshots` | `inventory.read` | Yes | Yes | Yes | Read-only analysis path |
-| Run preflight | `POST /api/v1/preflight` | `migration.manage` | No | Yes | Yes | Operator path starts here |
+| Run preflight | `POST /api/v1/preflight` | `migration.manage` | No | Yes | Yes | Workflow starts here |
 | Create migration plan | `POST /api/v1/migrations` | `migration.manage` | No | Yes | Yes | Creates persisted migration state |
 | Inspect migration state | `GET /api/v1/migrations`, `GET /api/v1/migrations/{id}` | `migration.manage` | No | Yes | Yes | Current route is operator-scoped |
 | Execute migration | `POST /api/v1/migrations/{id}/execute` | `migration.manage` | No | Yes | Yes | High-trust action, always auditable |
@@ -148,7 +148,7 @@ Viaduct should keep the current three-role model.
 - `admin` is the person who can change who is allowed to move workloads.
 - The same human may hold both in a small pilot, but the actions are still different and should remain separately modeled.
 - Tenant administration should not be required for routine migration operations.
-- Migration execution should not imply service-account management authority.
+- Migration execution should not imply service account management authority.
 
 ## 6. Actions That Should Always Be Auditable
 
@@ -159,8 +159,8 @@ The early-product bar is not "audit everything." The bar is "audit every trust-s
 | Action class | Current status | v1 expectation |
 | --- | --- | --- |
 | Tenant create/delete | Already audited | Keep |
-| Service-account create | Already audited | Keep |
-| Service-account key rotate | Already audited | Keep |
+| Service account create | Already audited | Keep |
+| Service account key rotate | Already audited | Keep |
 | Migration plan creation | Already audited | Keep |
 | Migration execute | Already audited for success and some failures | Normalize details and keep |
 | Migration resume | Already audited for success and some failures | Normalize details and keep |
@@ -243,8 +243,8 @@ Viaduct should keep the current `internal/models/audit.go` schema as the base co
 ### Actor conventions
 - Use `admin` for platform-admin-key actions.
 - Use `tenant:<tenant-id>` for tenant-key actions.
-- Use `service-account:<service-account-id>` for service-account actions.
-- When human user accounts do not yet exist, do not fake a richer identity in `actor`. Use `details` and service-account metadata for owner labels.
+- Use `service-account:<service-account-id>` for service account actions.
+- When human user accounts do not yet exist, do not fake a richer identity in `actor`. Use `details` and service account metadata for owner labels.
 
 ### Recommended detail keys
 - `auth_method`
@@ -261,7 +261,7 @@ Viaduct should keep the current `internal/models/audit.go` schema as the base co
 
 ### Sample audit events
 
-#### Service-account creation
+#### Service account creation
 
 ```json
 {
@@ -321,10 +321,10 @@ Viaduct does not need a large security console for v1. It does need attribution 
 
 | Surface | Current status | v1 expectation |
 | --- | --- | --- |
-| Settings page | Already shows auth method, role, service-account name, and permissions | Keep as the canonical "who am I authenticated as" surface |
+| Settings page | Already shows auth method, role, service account name, and permissions | Keep as the "who am I authenticated as" page |
 | Migration detail and history | Does not yet expose enough attribution | Do not invent new migration API fields first; source initial attribution from `GET /api/v1/audit` matched by `resource == migration_id` |
 | Reports page | Can export audit data but does not show much attribution context | Add recent audit history from `GET /api/v1/audit` before creating any separate audit page |
-| Error states | API errors already carry request ID | Keep request ID visible in operator-facing failures |
+| Error states | API errors already carry request ID | Keep request ID visible in user-facing failures |
 
 ### Minimum migration attribution fields
 - action
@@ -338,7 +338,7 @@ Viaduct does not need a large security console for v1. It does need attribution 
 ### UI behavior guidance
 - Prefer attribution summaries attached to the existing migration timeline or history rows.
 - Do not invent human identities the backend does not know.
-- If the actor is a service account, show the service-account name when available and keep the stable ID available for drill-down.
+- If the actor is a service account, show the service account name when available and keep the stable ID available for drill-down.
 - If the action came from a tenant key, label it clearly as tenant credential usage so it is visible as weaker attribution.
 - Do not create client-side synthetic audit records. The UI must render server-returned audit events and request IDs.
 - In the current repo, the first viable attribution implementation should extend `web/src/types.ts` and `web/src/api.ts` for audit events, then render those events in `web/src/features/reports/ReportsPage.tsx` and `web/src/components/MigrationHistory.tsx`.
@@ -350,7 +350,7 @@ Viaduct does not need a large security console for v1. It does need attribution 
 - API keys are provisioned and rotated out of band.
 - Pilot-grade environments use PostgreSQL, not only the in-memory store.
 - Tenant isolation is the main security boundary.
-- Operators understand that service-account ownership is the current unit of identity, not a full human user directory.
+- Operators understand that service account ownership is the current unit of identity, not a full human user directory.
 
 ### Limits
 - No SSO or OIDC yet
@@ -365,7 +365,7 @@ Viaduct does not need a large security console for v1. It does need attribution 
 ### Practical implication
 - This model is good enough for early product evaluation and supervised pilot work.
 - It is not the final identity and compliance architecture.
-- The UI and docs should state that clearly instead of implying a fuller security posture than the product actually has.
+- The UI and docs should state that clearly instead of implying a fuller security status than the product actually has.
 
 ## 11. What Is Required For v1 Versus What Can Wait
 
@@ -373,7 +373,7 @@ Viaduct does not need a large security console for v1. It does need attribution 
 - Separate platform admin and tenant credentials
 - Service accounts as first-class named credentials
 - The current `viewer` / `operator` / `admin` role model
-- Explicit service-account permissions as a narrowing control
+- Explicit service account permissions as a narrowing control
 - Tenant-scoped audit persistence in PostgreSQL-backed environments
 - Request IDs on API errors and in audit events
 - Audit coverage for all state-changing tenant/admin actions
@@ -396,9 +396,9 @@ Viaduct does not need a large security console for v1. It does need attribution 
 
 ### Work package 1: Freeze the product contract in docs and examples
 - Keep the current auth headers and three-role model.
-- Update operator-facing docs so tenant keys are setup or break-glass credentials, while dashboard and automation guidance prefer service accounts.
+- Update user-facing docs so tenant keys are setup or emergency credentials, while dashboard and automation guidance prefer service accounts.
 - Document `VITE_VIADUCT_SERVICE_ACCOUNT_KEY` as the normal dashboard credential path.
-- Treat the local operator session path as a direct loopback-only local-lab behavior in product messaging.
+- Treat the local session path as a direct loopback-only local-lab behavior in product messaging.
 
 ### Work package 2: Complete backend audit coverage
 - Normalize migration audit details in `internal/api/server.go` so `plan`, `execute`, `resume`, and `rollback` use the same detail keys.
@@ -409,7 +409,7 @@ Viaduct does not need a large security console for v1. It does need attribution 
 - Keep unauthenticated `401` failures in request logs and metrics unless a tenant can be safely identified.
 
 ### Work package 3: Surface attribution in the existing UI
-- Keep `web/src/features/settings/SettingsPage.tsx` as the canonical current-caller context view.
+- Keep `web/src/features/settings/SettingsPage.tsx` as the current-caller context view.
 - Add an `AuditEvent` type and API call in `web/src/types.ts` and `web/src/api.ts`.
 - Add recent trust-sensitive audit history to `web/src/features/reports/ReportsPage.tsx`.
 - Add migration attribution in `web/src/components/MigrationHistory.tsx` by joining server-returned audit events on migration ID, not by inventing client-side attribution.
@@ -427,19 +427,19 @@ Viaduct does not need a large security console for v1. It does need attribution 
 - Every trust-sensitive tenant or admin command emits an immediate server-side audit event with `tenant_id`, `actor`, `request_id`, `category`, `action`, `outcome`, and `created_at`.
 - Every report export from `/api/v1/reports/*` emits one server-side audit event.
 - Authenticated permission denials on trust-sensitive tenant routes emit one server-side audit event.
-- `GET /api/v1/tenants/current` remains the source of truth for UI identity context.
+- `GET /api/v1/tenants/current` remains the current reference for UI identity context.
 - The dashboard shows current auth method, role, and effective permissions.
 - Migration execution history shows action attribution without frontend-only inference.
 - The first UI attribution pass reads from audit events, not from new ad hoc migration-history fields.
-- Local operator session path is documented as lab behavior, not pilot guidance.
+- Local session path is documented as lab behavior, not pilot guidance.
 
 ### Test outlines
 - Auth middleware tests:
   - tenant key authenticates as tenant admin
   - service account key authenticates with effective permissions
   - inactive or expired service account is rejected
-  - direct loopback-only local operator session start is rejected for proxied or forwarded requests
-  - explicit service-account permissions do not bypass role-gated routes
+  - direct loopback-only local session start is rejected for proxied or forwarded requests
+  - explicit service account permissions do not bypass role-gated routes
 - Authorization tests:
   - viewer cannot call migration-manage routes
   - operator cannot create or rotate service accounts
@@ -451,7 +451,7 @@ Viaduct does not need a large security console for v1. It does need attribution 
   - authenticated `403` emits `authz:deny-role` or `authz:deny-permission`
   - audit events remain tenant-scoped in both memory and PostgreSQL-backed stores
 - UI tests:
-  - Settings page renders role, auth method, and service-account name from `GET /api/v1/tenants/current`
+  - Settings page renders role, auth method, and service account name from `GET /api/v1/tenants/current`
   - reports surface renders recent trust-sensitive audit events from `GET /api/v1/audit`
   - migration attribution renders actor, action, timestamp, and request ID using audit-event joins
 
@@ -466,7 +466,7 @@ Viaduct does not need a large security console for v1. It does need attribution 
 5. Execute the migration with `approved_by` and `ticket`, then confirm:
    - the command is accepted
    - the audit event includes request ID and approval context
-6. Attempt a service-account creation with the operator credential and confirm:
+6. Attempt a service account creation with the operator credential and confirm:
    - the API returns `403`
    - an authenticated authorization-denial audit event is recorded once that gap is implemented
 7. Export the audit report and confirm one export audit event appears.
@@ -474,7 +474,7 @@ Viaduct does not need a large security console for v1. It does need attribution 
    - Settings shows service account auth, role, and permissions
    - reports surface shows recent trust-sensitive audit events
    - migration history/detail shows attribution sourced from audit events
-   - request IDs are visible on operator-facing failures
+   - request IDs are visible on user-facing failures
 
 ## 15. Maintainer Notes
 

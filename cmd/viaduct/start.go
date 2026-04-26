@@ -22,8 +22,8 @@ func newStartCommand() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "start",
-		Short: "Start the local Viaduct operator runtime",
-		Long:  "Start the Viaduct API and bundled dashboard together for the default WebUI-first local experience.",
+		Short: "Start the local Viaduct runtime",
+		Long:  "Start the Viaduct API and bundled dashboard together for the default local dashboard experience.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			startContext, err := prepareLocalRuntime(configPath, webDir, host, port, detach)
 			if err != nil {
@@ -37,10 +37,10 @@ func newStartCommand() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().IntVar(&port, "port", 8080, "Port to bind the local operator runtime to")
-	cmd.Flags().StringVar(&host, "host", "127.0.0.1", "Host interface for the local operator runtime; defaults to loopback")
+	cmd.Flags().IntVar(&port, "port", 8080, "Port to bind the local runtime to")
+	cmd.Flags().StringVar(&host, "host", "127.0.0.1", "Host interface for the local runtime; defaults to loopback")
 	cmd.Flags().StringVar(&webDir, "web-dir", "", "Path to built dashboard assets; when empty, Viaduct auto-detects packaged or built web assets")
-	cmd.Flags().BoolVar(&openBrowserWhenReady, "open-browser", true, "Open the Viaduct WebUI in the default browser when the runtime becomes healthy")
+	cmd.Flags().BoolVar(&openBrowserWhenReady, "open-browser", true, "Open the Viaduct dashboard in the default browser when the runtime becomes healthy")
 	cmd.Flags().BoolVar(&detach, "detach", false, "Start the runtime in the background and return once the local health check passes")
 	return cmd
 }
@@ -87,7 +87,7 @@ func startForeground(cmd *cobra.Command, startContext localStartContext, openBro
 		return err
 	}
 
-	fmt.Fprintf(cmd.OutOrStdout(), "Viaduct stopped. WebUI %s is no longer available.\n", startContext.state.BaseURL)
+	fmt.Fprintf(cmd.OutOrStdout(), "Viaduct stopped. Dashboard %s is no longer available.\n", startContext.state.BaseURL)
 	return nil
 }
 
@@ -154,7 +154,7 @@ func printStartSummary(cmd *cobra.Command, startContext localStartContext) {
 		fmt.Fprintf(cmd.OutOrStdout(), "Generated local lab config at %s.\n", startContext.state.ConfigPath)
 	}
 	fmt.Fprintf(cmd.OutOrStdout(), "Viaduct %s is running.\n", startContext.state.Version)
-	fmt.Fprintf(cmd.OutOrStdout(), "WebUI: %s\n", startContext.state.BaseURL)
+	fmt.Fprintf(cmd.OutOrStdout(), "Dashboard: %s\n", startContext.state.BaseURL)
 	fmt.Fprintf(cmd.OutOrStdout(), "API:   %s\n", startContext.state.APIURL)
 	fmt.Fprintf(cmd.OutOrStdout(), "Config: %s\n", startContext.state.ConfigPath)
 	if startContext.state.Detached {

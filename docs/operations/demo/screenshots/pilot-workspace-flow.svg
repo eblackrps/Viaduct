@@ -13,17 +13,17 @@
   <rect x="32" y="28" width="1216" height="784" rx="36" fill="url(#workspace-shell)" stroke="#C8D7E2"/>
 
   <rect x="56" y="52" width="280" height="736" rx="30" fill="url(#sidebar)"/>
-  <text x="84" y="96" fill="#B8C8D5" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700" letter-spacing="1.8">VIADUCT OPERATOR CONSOLE</text>
+  <text x="84" y="96" fill="#B8C8D5" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700" letter-spacing="1.8">VIADUCT DASHBOARD</text>
   <text x="84" y="136" fill="#FFFFFF" font-family="Segoe UI, Arial, sans-serif" font-size="34" font-weight="700">Viaduct</text>
-  <text x="84" y="172" fill="#D4DFE8" font-family="Segoe UI, Arial, sans-serif" font-size="15">Discover mixed estates, map dependencies, plan controlled migrations, and keep operator handoff data in one tenant-scoped system.</text>
+  <text x="84" y="172" fill="#D4DFE8" font-family="Segoe UI, Arial, sans-serif" font-size="15">Collect multi-platform inventory, map dependencies, plan controlled migrations, and keep handoff data in one tenant-scoped system.</text>
 
   <rect x="84" y="208" width="224" height="82" rx="22" fill="#183148"/>
   <text x="106" y="236" fill="#9EB7C7" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="700">DEFAULT FLOW</text>
-  <text x="106" y="262" fill="#FFFFFF" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">Authenticate, create a workspace, discover, inspect, simulate, plan, and export.</text>
+  <text x="106" y="262" fill="#FFFFFF" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">Sign in, create an assessment, discover, inspect, simulate, save a plan, and export.</text>
 
   <text x="84" y="332" fill="#9EB7C7" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="700" letter-spacing="1.4">PILOT</text>
   <rect x="84" y="348" width="224" height="52" rx="20" fill="#F7FBFD"/>
-  <text x="108" y="378" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="700">Pilot Workspaces</text>
+  <text x="108" y="378" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="700">Assessments</text>
   <text x="108" y="394" fill="#5A7181" font-family="Segoe UI, Arial, sans-serif" font-size="12">Selected</text>
 
   <text x="84" y="438" fill="#9EB7C7" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="700" letter-spacing="1.4">OPERATE</text>
@@ -36,15 +36,15 @@
 
   <rect x="360" y="52" width="864" height="190" rx="28" fill="#FFFFFF" stroke="#D5E1E8"/>
   <rect x="392" y="82" width="128" height="30" rx="15" fill="#E8F4FA"/>
-  <text x="420" y="101" fill="#1E657E" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700">Operator console</text>
+  <text x="420" y="101" fill="#1E657E" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700">Dashboard</text>
   <rect x="532" y="82" width="114" height="30" rx="15" fill="#F3F8FB" stroke="#D5E1E8"/>
   <text x="566" y="101" fill="#425B6B" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700">tenant-pilot</text>
   <rect x="658" y="82" width="150" height="30" rx="15" fill="#F3F8FB" stroke="#D5E1E8"/>
-  <text x="690" y="101" fill="#425B6B" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700">Service-account key</text>
+  <text x="690" y="101" fill="#425B6B" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700">Service account key</text>
 
-  <text x="392" y="136" fill="#5C7689" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="700" letter-spacing="1.4">CURRENT SURFACE</text>
-  <text x="392" y="170" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="30" font-weight="700">Pilot Workspaces</text>
-  <text x="392" y="198" fill="#5A7181" font-family="Segoe UI, Arial, sans-serif" font-size="15">Guide the workspace-first operator flow from intake and discovery through simulation, plan review, and report export.</text>
+  <text x="392" y="136" fill="#5C7689" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="700" letter-spacing="1.4">CURRENT VIEW</text>
+  <text x="392" y="170" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="30" font-weight="700">Assessments</text>
+  <text x="392" y="198" fill="#5A7181" font-family="Segoe UI, Arial, sans-serif" font-size="15">Guide the assessment workflow from intake and discovery through simulation, plan review, and report export.</text>
 
   <rect x="936" y="82" width="184" height="38" rx="19" fill="#F6FAFC" stroke="#D5E1E8"/>
   <text x="968" y="106" fill="#536B7A" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700">Session-only browser key</text>
@@ -68,12 +68,12 @@
   <text x="899" y="214" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="700">0</text>
 
   <rect x="360" y="262" width="864" height="526" rx="28" fill="#FFFFFF" stroke="#D5E1E8"/>
-  <text x="392" y="308" fill="#5C7689" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700" letter-spacing="1.6">PILOT WORKSPACES</text>
+  <text x="392" y="308" fill="#5C7689" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700" letter-spacing="1.6">ASSESSMENTS</text>
   <text x="392" y="346" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="30" font-weight="700">Examples Lab Assessment</text>
-  <text x="392" y="374" fill="#5A7181" font-family="Segoe UI, Arial, sans-serif" font-size="15">Guide operators through intake, discovery, inspection, simulation, plan review, and report export from one persisted workspace record.</text>
+  <text x="392" y="374" fill="#5A7181" font-family="Segoe UI, Arial, sans-serif" font-size="15">Guide users through intake, discovery, inspection, simulation, plan review, and report export from one saved assessment.</text>
 
   <rect x="392" y="392" width="132" height="30" rx="15" fill="#F3F8FB" stroke="#D5E1E8"/>
-  <text x="424" y="411" fill="#425B6B" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700">1 workspace(s)</text>
+  <text x="424" y="411" fill="#425B6B" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700">1 assessment</text>
   <rect x="536" y="392" width="92" height="30" rx="15" fill="#EAF7EE"/>
   <text x="563" y="411" fill="#2E7D4D" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700">reported</text>
   <rect x="640" y="392" width="296" height="30" rx="15" fill="#E8F4FA"/>
@@ -81,9 +81,9 @@
 
   <rect x="392" y="446" width="474" height="150" rx="24" fill="#FFFFFF" stroke="#D5E1E8"/>
   <text x="420" y="476" fill="#5C7689" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="700" letter-spacing="1.4">WORKFLOW PROGRESS</text>
-  <text x="420" y="508" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="24" font-weight="700">Workspace progression</text>
+  <text x="420" y="508" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="24" font-weight="700">Assessment progress</text>
   <rect x="420" y="526" width="418" height="44" rx="18" fill="#ECF8F0"/>
-  <text x="442" y="553" fill="#2E7D4D" font-family="Segoe UI, Arial, sans-serif" font-size="14">01 Create workspace  02 Run discovery  03 Inspect workloads</text>
+  <text x="442" y="553" fill="#2E7D4D" font-family="Segoe UI, Arial, sans-serif" font-size="14">01 Create assessment  02 Run discovery  03 Inspect workloads</text>
   <rect x="420" y="578" width="418" height="44" rx="18" fill="#ECF8F0"/>
   <text x="442" y="605" fill="#2E7D4D" font-family="Segoe UI, Arial, sans-serif" font-size="14">04 Simulate readiness  05 Save plan  06 Export report</text>
 
@@ -95,7 +95,7 @@
 
   <rect x="890" y="446" width="306" height="136" rx="24" fill="#FFFFFF" stroke="#D5E1E8"/>
   <text x="918" y="476" fill="#5C7689" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="700" letter-spacing="1.4">CURRENT STATE</text>
-  <text x="918" y="508" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="24" font-weight="700">Workspace summary</text>
+  <text x="918" y="508" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="24" font-weight="700">Assessment summary</text>
   <rect x="918" y="528" width="80" height="38" rx="16" fill="#F4F8FB"/>
   <text x="940" y="551" fill="#425B6B" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700">Reports</text>
   <text x="973" y="577" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="20" font-weight="700">1</text>
@@ -108,7 +108,7 @@
 
   <rect x="890" y="598" width="306" height="162" rx="24" fill="#FFFFFF" stroke="#D5E1E8"/>
   <text x="918" y="628" fill="#5C7689" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="700" letter-spacing="1.4">RECOMMENDED ACTIONS</text>
-  <text x="918" y="660" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="24" font-weight="700">Run the next operator step</text>
+  <text x="918" y="660" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="24" font-weight="700">Run the next step</text>
   <rect x="918" y="680" width="250" height="54" rx="18" fill="#F4F8FB"/>
   <text x="938" y="704" fill="#5A7181" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="700">Recommended next action</text>
   <text x="938" y="724" fill="#102231" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700">Review notes, approvals, and exported evidence</text>

@@ -1,6 +1,6 @@
 # Documentation Index
 
-This directory holds the deeper Viaduct documentation set. The repo-root docs are the public entrypoints; `docs/` carries the more detailed reference, operator workflow, and scope material behind them.
+This directory holds the deeper Viaduct documentation set. The repo-root docs are the public entrypoints; `docs/` carries the more detailed reference, workflows, and scope material behind them.
 
 ## Getting Started
 
@@ -8,9 +8,9 @@ This directory holds the deeper Viaduct documentation set. The repo-root docs ar
 - [Quickstart](getting-started/quickstart.md)
 - [Docker Operations](operations/docker.md)
 
-For v3.2.1, the signed GHCR OCI image is the primary packaged install surface. The Docker Hub mirror at `docker.io/emb079/viaduct` is published from the same workflow when the required Actions secrets are configured. The current release/install reference lives in [releases/current.md](releases/current.md). The default local contributor path still starts with `viaduct start`, opens the WebUI at `http://127.0.0.1:8080`, and uses the shipped lab fixtures when no local config exists yet.
+For v3.2.1, the signed GHCR OCI image is the primary packaged install method. The Docker Hub mirror at `docker.io/emb079/viaduct` is published from the same workflow when the required Actions secrets are configured. The current release/install reference lives in [releases/current.md](releases/current.md). The default local contributor path still starts with `viaduct start`, opens the dashboard at `http://127.0.0.1:8080`, and uses the shipped lab fixtures when no local config exists yet.
 
-## Operator Workflows
+## Workflows
 
 - [Pilot Workspace Flow](operations/pilot-workspace-flow.md)
 - [Migration Operations](operations/migration-operations.md)
