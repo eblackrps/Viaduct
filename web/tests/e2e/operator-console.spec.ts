@@ -33,9 +33,7 @@ test("loads the operational dashboard from the seeded API", async ({
 
 	await navigateTo(page, "Overview");
 
-	await expect(
-		page.getByRole("heading", { name: "Operational dashboard" }),
-	).toBeVisible();
+	await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
 	await expect(page.getByText("Workloads")).toBeVisible();
 	await expect(page.getByText("Recommendations")).toBeVisible();
 	await expect(page.getByText("1 platforms observed")).toBeVisible();

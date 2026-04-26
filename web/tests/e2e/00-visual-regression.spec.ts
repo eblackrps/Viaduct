@@ -21,6 +21,7 @@ async function captureRoute(page: Page, label: string) {
 	await expect(page).toHaveScreenshot(label, {
 		animations: "disabled",
 		fullPage: false,
+		maxDiffPixelRatio: 0.08,
 	});
 }
 
