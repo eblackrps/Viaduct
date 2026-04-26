@@ -72,7 +72,7 @@ This changelog tracks published releases and the major implementation milestones
 
 ### Release Model And Packaging
 
-- shifted Viaduct to a Docker-canonical release model: the signed multi-arch GHCR image is now the primary release artifact, while native binary bundles remain published as an alternative path for operators who cannot run containers
+- shifted Viaduct to a Docker-first release model: the signed multi-arch GHCR image is now the main release artifact, while native binary bundles remain published as an alternative path for operators who cannot run containers
 - added a dedicated `image.yml` workflow that builds, signs, attests, scans, and publishes OCI images on merges to `main` and on release tags, while keeping native bundles as secondary tag assets
 - documented the new v3 release cadence, deprecation policy, and roadmap so forward-looking platform work lives outside the changelog
 - raised the supported source-build floor to Go `1.25.9+` so the Docker and release pipelines ship a Go toolchain line that clears the container vulnerability gate instead of baking known stdlib CVEs into the image
@@ -192,7 +192,7 @@ This changelog tracks published releases and the major implementation milestones
 ### Security And Reliability
 
 - made `viaduct serve-api` bind to loopback by default and refuse unauthenticated remote listeners unless an operator configures credentials or passes an explicit dangerous override
-- tightened local operator bootstrap to require direct loopback requests and an explicit auth-session handshake so protected routes no longer inherit ambient default-tenant access
+- tightened local sign-in to require direct loopback requests and an explicit auth-session handshake so protected routes no longer inherit ambient default-tenant access
 - migrated tenant and service account credentials to non-recoverable hashes in both stores, kept legacy plaintext PostgreSQL records authenticating through startup migration, and enforced global credential uniqueness across tenant keys and service account keys
 - added actionable upgrade guidance when legacy PostgreSQL credential migration finds reused tenant or service account keys, and removed the last frontend/runtime references to the retired `default-fallback` auth mode
 - replaced direct workspace-job goroutine fan-out with a bounded executor shared by fresh queueing and startup recovery, including lifecycle-aware shutdown and coverage for bounded concurrency and recovery requeue behavior
@@ -209,7 +209,7 @@ This changelog tracks published releases and the major implementation milestones
 
 ### Release Engineering And Maintenance
 
-- aligned `make release-gate` with the repo’s public contract by adding connector certification coverage plus dashboard lint, format, unit-test, and build verification to the canonical local release-owner path
+- aligned `make release-gate` with the repo’s public contract by adding connector certification coverage plus dashboard lint, format, unit-test, and build verification to the main local release check
 - aligned `make package-release-matrix`, `scripts/package_release`, and `.github/workflows/release.yml` around the shipped artifact matrix: `linux/amd64`, `linux/arm64`, `darwin/arm64`, and `windows/amd64` tarballs plus `dist/SHA256SUMS`
 - made the tag workflow source-controlled and reproducible end to end by publishing GitHub releases from versioned files under `docs/releases/` and by tagging GHCR images with both `vX.Y.Z` and `X.Y.Z` alongside `latest`
 - refreshed the release toolchain surface with the `node:20.20-bookworm-slim` base image, current GitHub Actions dependencies, and the latest web-tooling maintenance updates already merged on `main`
@@ -357,33 +357,33 @@ This changelog tracks published releases and the major implementation milestones
 ## [1.7.0] - 2026-04-11
 
 ### Workspace Reliability And Auth Hardening
-- added stricter validation for pilot workspace create, update, job, and report-export requests so invalid input fails early with field-level API errors
+- added stricter validation for assessment create, update, job, and report-export requests so invalid input fails early with field-level API errors
 - added read-only workspace access for viewer principals while keeping workspace mutation and job execution scoped to the operator role
 - added workspace deletion, restart recovery for queued or running workspace jobs, configurable workspace job timeouts, and richer exported report handoff detail
 
 ### Dashboard Experience
 - switched runtime dashboard auth to session-scoped storage by default with an explicit remember option for trusted browsers
-- added assessment creation toggles, persisted job history, retry actions, and clearer correlation-aware job states in the assessment workflow
+- added assessment creation toggles, saved job history, retry actions, and clearer request and job ID states in the assessment workflow
 
 ### Release Engineering, Docs, And Contract
 - hardened the Windows release-gate helpers so race, coverage, and CLI smoke validation remain reproducible on Application Control-constrained operator workstations
 - documented `VIADUCT_ALLOWED_ORIGINS` and `VIADUCT_WORKSPACE_JOB_TIMEOUT`
-- updated the pilot workspace guide, quickstarts, installation guides, and OpenAPI contract to match the hardened workspace and auth behavior
+- updated the assessment guide, quickstarts, installation guides, and OpenAPI contract to match the hardened workspace and auth behavior
 
 ## [1.6.0] - 2026-04-11
 
 ### Assessment Workflow
-- added a pilot workspace model that persists source connections, discovery snapshots, dependency graph output, target assumptions, readiness results, saved plans, approvals, notes, and exported reports
-- added tenant-scoped API routes for listing, creating, updating, and exporting pilot workspace state without introducing a parallel product surface
+- added an assessment model that persists source connections, discovery snapshots, dependency graph output, target assumptions, readiness results, saved plans, approvals, notes, and exported reports
+- added tenant-scoped API routes for listing, creating, updating, and exporting assessment state without introducing a parallel product surface
 - added persisted background jobs for workspace discovery, graph generation, simulation, and plan generation so the workflow can survive page refreshes and produce reproducible state
 
 ### Dashboard And Auth Bootstrap
 - reworked the dashboard so the first experience is create an assessment, discover, inspect, simulate, save a plan, and export a report
 - added runtime dashboard sign-in using service account or tenant keys instead of relying on build-time-only configuration
-- strengthened loading, empty, retry, and request-correlation-aware error handling across the workspace flow
+- strengthened loading, empty, retry, and request ID error handling across the assessment workflow
 
 ### Lab, Contract, And Release Surface
-- added a deterministic `examples/lab` end-to-end smoke flow for workspace creation through report export
+- added a repeatable `examples/lab` end-to-end smoke flow for assessment creation through report export
 - updated the published OpenAPI contract, quickstart flow, lab assets, configuration guidance, and docs to match the new workspace APIs and runtime auth flow
 - added v1.6.0 release-note material and release-facing screenshot assets for the assessment dashboard
 
@@ -395,7 +395,7 @@ This changelog tracks published releases and the major implementation milestones
 
 ### API And Dashboard Trust Surfaces
 - hardened the API contract with structured JSON error responses, stabilized migration command acknowledgements, and updated OpenAPI coverage for the dashboard routes
-- improved dashboard-side error handling so settings and report workflows preserve request correlation and failure detail instead of flattening backend errors into generic strings
+- improved dashboard-side error handling so settings and report workflows preserve request IDs and failure detail instead of flattening backend errors into generic strings
 
 ### Documentation And Operator Readiness
 - added presenter-ready demo assets, real-user validation templates, and commercialization decision guidance to support design-partner conversations and pilot packaging
@@ -474,7 +474,7 @@ This changelog tracks published releases and the major implementation milestones
 - added connector certification coverage and a tagged soak-test path for large-wave migration exercises
 - added deployment reference assets for Docker Compose, systemd, and Kubernetes-based pilot environments
 - added plugin manifest validation and config-aware plugin connection handling so plugin connectors receive the same auth and transport settings as built-in connectors
-- added tenant-scoped audit exports, request correlation headers, API metrics, and basic tenant rate limiting to improve diagnostics without changing core workflows
+- added tenant-scoped audit exports, request ID headers, API metrics, and basic tenant rate limiting to improve diagnostics without changing core workflows
 
 ### Maintenance
 - refreshed the dashboard stack to React 19, Vite 8, and `@vitejs/plugin-react` 6 with a Node 20.19+ baseline

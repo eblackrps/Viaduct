@@ -601,7 +601,7 @@ export function WorkspacePage() {
 				...current,
 				actionError: describeError(reason, {
 					scope: "report export",
-					fallback: "Unable to export the pilot report.",
+					fallback: "Unable to export the assessment report.",
 				}),
 			}));
 		} finally {
@@ -1082,7 +1082,7 @@ export function WorkspacePage() {
 									},
 								}))
 							}
-							hint="Capture assumptions, pilot caveats, or reminders."
+							hint="Capture assumptions, notes, or reminders."
 						/>
 					</div>
 
@@ -1320,13 +1320,13 @@ export function WorkspacePage() {
 
 				<SectionCard
 					eyebrow="Job history"
-					title="Persisted background jobs"
-					description="Queued, running, and failed jobs stay attached to the assessment so teams can retry, correlate, and hand off issues cleanly."
+					title="Background jobs"
+					description="Queued, running, and failed jobs stay attached to the assessment so teams can retry and pass on request IDs."
 				>
 					{jobHistory.length === 0 ? (
 						<EmptyState
 							title="No jobs recorded yet"
-							message="Discovery, graph, simulation, and plan requests will appear here with status, request correlation, and retry guidance."
+							message="Discovery, graph, simulation, and plan requests will appear here with status, request IDs, and retry guidance."
 						/>
 					) : (
 						<div className="space-y-3">
@@ -1468,7 +1468,7 @@ export function WorkspacePage() {
 							value={noteDraft}
 							onChange={(event) => setNoteDraft(event.target.value)}
 							className="operator-textarea mt-2"
-							placeholder="Capture notes, pilot caveats, or approval context."
+							placeholder="Capture notes, constraints, or approval context."
 						/>
 					</label>
 					<div className="mt-4 flex flex-wrap gap-2">
@@ -1502,7 +1502,7 @@ export function WorkspacePage() {
 							onClick={() => void handleExportReport()}
 							className="operator-button-secondary"
 						>
-							Download pilot report
+							Download assessment report
 						</button>
 					</div>
 
@@ -2044,7 +2044,7 @@ function recommendedWorkspaceAction(
 		return "Save the migration plan";
 	}
 	if ((workspace.reports?.length ?? 0) === 0) {
-		return "Export the pilot report";
+		return "Export the assessment report";
 	}
 	return "Review notes, approvals, and exported evidence";
 }

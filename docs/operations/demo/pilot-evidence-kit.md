@@ -1,8 +1,8 @@
 # Pilot Evidence Kit
 
-Use this checklist when you need one clean evaluator packet from the workspace-first Viaduct flow.
+Use this checklist when you need one clean evaluator packet from the Viaduct assessment workflow.
 
-The goal is simple: prove that the same operator session can discover inventory, inspect it, simulate a plan, save that plan, and export evidence without switching tools or inventing extra manual steps.
+The goal is simple: prove that the same signed-in session can discover inventory, inspect it, simulate a plan, save that plan, and export evidence without switching tools or adding manual steps.
 
 ## Required Artifacts
 
@@ -12,13 +12,13 @@ Capture these five items from one run of the default local lab or an equivalent 
    Show the `Get started` screen before sign-in, or capture the local-session entry if you are using the loopback `Start local session` path.
 
 2. Discovery evidence
-   Capture the workspace after discovery has finished and the workload assessment table is visible.
+   Capture the assessment after discovery has finished and the workload table is visible.
 
 3. Planning evidence
-   Capture the workspace after dependency graph generation and readiness simulation, with the `Save plan` action visible.
+   Capture the assessment after dependency graph generation and readiness simulation, with the `Save plan` action visible.
 
 4. Saved-plan evidence
-   Capture the workspace after the plan has been saved and the `Export report` action is available.
+   Capture the assessment after the plan has been saved and the `Export report` action is available.
 
 5. Exported report evidence
    Keep the exported Markdown report itself. This is the evaluator handoff artifact because it includes source scope, target assumptions, graph output, readiness, and saved-plan metadata in one document.
@@ -32,7 +32,7 @@ Capture the output when you need to prove config, store, auth status, and runtim
   Capture this when you need to show the recorded local runtime URL, PID, and ready versus degraded status.
 
 - Request IDs
-  If a workspace step fails, capture the request ID shown in the API response or dashboard error panel along with the workspace or job identifier.
+  If an assessment step fails, capture the request ID shown in the API response or dashboard error panel along with the assessment or job identifier.
 
 ## Suggested File Names
 
@@ -63,10 +63,10 @@ make web-e2e-setup
 make pilot-smoke
 ```
 
-That combination gives you the same operator story that CI validates for the real `viaduct start` path.
+That combination gives you the same dashboard path that CI validates for the real `viaduct start` path.
 
 ## Reference Assets
 
-- [Pilot workspace flow](../pilot-workspace-flow.md)
+- [Assessment workflow](../pilot-workspace-flow.md)
 - [Demo kit](README.md)
 - [Screenshot assets](screenshots/README.md)

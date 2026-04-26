@@ -32,7 +32,7 @@ The dashboard uses a slate-based neutral system with:
 - accent: `accent`
 - semantic states: `success`, `warning`, `danger`, `info`
 
-Viaduct does not ship a mixed `gray` / `zinc` / `slate` neutral palette. Slate is the canonical neutral family for the dashboard.
+Viaduct does not ship a mixed `gray` / `zinc` / `slate` neutral palette. Slate is the standard neutral family for the dashboard.
 
 ## Dark Mode
 

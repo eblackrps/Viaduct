@@ -58,7 +58,7 @@ In the dashboard:
 3. Inspect the workload and graph state.
 4. Run readiness simulation.
 5. Save the plan.
-6. Export the pilot report.
+6. Export the assessment report.
 
 The matching seeded request body for API-driven creation is in [examples/lab/pilot-workspace-create.json](examples/lab/pilot-workspace-create.json).
 

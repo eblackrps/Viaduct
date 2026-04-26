@@ -353,8 +353,8 @@ export function AuthBootstrapScreen({ auth }: AuthBootstrapScreenProps) {
 										What happens next
 									</p>
 									<p className="mt-1 text-sm leading-6 text-slate-600">
-										After sign-in, you land in the workspace flow to create a
-										workspace, run discovery, inspect workloads, and save a
+										After sign-in, you land in the assessment workflow to create
+										an assessment, run discovery, inspect workloads, and save a
 										plan. This browser stores only a non-sensitive session
 										marker.
 									</p>

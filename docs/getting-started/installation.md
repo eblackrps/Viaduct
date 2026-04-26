@@ -1,6 +1,6 @@
 # Installation
 
-Viaduct can be evaluated from the signed OCI image, from source, or from a native release bundle when containers are not an option. For v3.2.1, the OCI image is the primary packaged install surface.
+Viaduct can be evaluated from the signed OCI image, from source, or from a native release bundle when containers are not an option. For v3.2.1, the OCI image is the main packaged install path.
 
 ## Primary OCI Install
 

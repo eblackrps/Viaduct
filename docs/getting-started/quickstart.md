@@ -1,6 +1,6 @@
 # Quickstart
 
-This quickstart uses the local KVM fixture lab so you can evaluate Viaduct end to end without a live hypervisor. The signed OCI image is the primary packaged deployment path in `v3.2.1`, but this remains the fastest route from clone to a working dashboard. The repo-local current release/install reference lives in [../releases/current.md](../releases/current.md).
+This quickstart uses the local KVM fixture lab so you can evaluate Viaduct end to end without a live hypervisor. The signed OCI image is the main packaged install path in `v3.2.1`, but this remains the fastest route from clone to a working dashboard. The repo-local current release/install reference lives in [../releases/current.md](../releases/current.md).
 
 The default dashboard path is now assessment-first: `viaduct start`, open the browser, create an assessment, discover, inspect, simulate, save a plan, and export a report.
 
@@ -58,12 +58,12 @@ npm run dev
 
 ## 3. Run The Assessment Workflow
 
-1. Create the first pilot workspace from the prefilled lab defaults.
-2. Run discovery to save workspace snapshots.
+1. Create the first assessment from the prefilled lab defaults.
+2. Run discovery to save assessment snapshots.
 3. Inspect the workload table and dependency graph.
 4. Run readiness simulation.
 5. Save the migration plan.
-6. Export the pilot report.
+6. Export the assessment report.
 
 The seeded API request body for the same intake is available in `examples/lab/pilot-workspace-create.json`.
 
@@ -101,7 +101,7 @@ This validates the same local fixture set through the CLI.
 
 ## Next Steps
 - Installation details: [installation.md](installation.md)
-- Pilot workspace guide: [../operations/pilot-workspace-flow.md](../operations/pilot-workspace-flow.md)
+- Assessment workflow guide: [../operations/pilot-workspace-flow.md](../operations/pilot-workspace-flow.md)
 - Configuration reference: [../reference/configuration.md](../reference/configuration.md)
 - Migration operations guide: [../operations/migration-operations.md](../operations/migration-operations.md)
 - Auth, role, and auditability model: [../operations/auth-role-audit-model.md](../operations/auth-role-audit-model.md)

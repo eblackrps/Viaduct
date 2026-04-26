@@ -70,7 +70,7 @@ Detailed validation status, including fixture-backed versus live-lab claims, is 
 
 ## Primary Docker Install
 
-Viaduct v3.2.1 uses the signed GHCR OCI image as the primary packaged artifact.
+Viaduct v3.2.1 uses the signed GHCR OCI image as the main packaged install path.
 
 ```bash
 docker pull ghcr.io/eblackrps/viaduct:3.2.1

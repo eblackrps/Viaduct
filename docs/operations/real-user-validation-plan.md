@@ -39,7 +39,7 @@ Viaduct already has enough real product surface to run workflow-based sessions:
 Prior phases likely made this step possible by delivering:
 
 - a shared backend instead of frontend-only demo logic
-- tenant-scoped auth, audit, reporting, and request correlation
+- tenant-scoped auth, audit, reporting, and request IDs
 - persisted migration state with approvals, checkpoints, resume, and rollback
 - a product-grade dashboard shell with real operator pages
 - enough docs and packaging discipline to run sessions honestly

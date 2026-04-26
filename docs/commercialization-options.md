@@ -485,7 +485,7 @@ If Viaduct follows the recommended path, the next commercialization-supporting p
 - keep [v1-scope.md](v1-scope.md) and [support-matrix.md](reference/support-matrix.md) aligned to one supported live motion
 - keep release and packaging work centered on [RELEASE.md](../RELEASE.md), `make release-gate`, and `make package-release-matrix`
 - keep auth work centered on the current tenant and service account model, not SSO-first expansion
-- keep telemetry limited to observability, request correlation, audit/report exports, and support packets unless a later explicit decision changes that
+- keep telemetry limited to observability, request IDs, audit/report exports, and support packets unless a later explicit decision changes that
 - reject feature additions that do not make the assessment and supervised pilot path more supportable, more trustworthy, or easier to deliver repeatedly
 
 ## 7. What The Recommended Path Should Delay

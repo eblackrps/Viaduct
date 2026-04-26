@@ -24,7 +24,7 @@ export const operatorRoutes: OperatorRouteExpectation[] = [
 		snapshotName: "inventory",
 	},
 	{
-		label: "Migration Ops",
+		label: "Migrations",
 		heading: "Migrations",
 		snapshotName: "migrations",
 	},

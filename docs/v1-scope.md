@@ -151,7 +151,7 @@ These outputs are required for v1 because they help a user justify and control t
 - last discovery time and workload counts
 - platform distribution and migration counts
 - current migration phase, approval state, and checkpoint state
-- audit events with actor, action, outcome, and request correlation
+- audit events with actor, action, outcome, and request IDs
 
 If a report is not useful for first-wave readiness, approval, or pilot control, it is not required for v1.
 

@@ -2,7 +2,7 @@
 
 Use this to stage one repeatable Viaduct demo environment.
 
-This is the canonical prepared state behind both [3-minute-demo-card.md](three-minute-demo-card.md) and [fifteen-minute-demo-card.md](fifteen-minute-demo-card.md).
+This is the reference prepared state behind both [3-minute-demo-card.md](three-minute-demo-card.md) and [fifteen-minute-demo-card.md](fifteen-minute-demo-card.md).
 
 ## Purpose
 
@@ -10,14 +10,14 @@ This is the canonical prepared state behind both [3-minute-demo-card.md](three-m
 - prevent presenters from improvising seeded state
 - make the VMware-exit assessment and supervised pilot lane feel consistent across calls
 
-## Canonical Demo Lane
+## Reference Demo Lane
 
 - initial focus: VMware-exit assessment leading to an approval-ready first wave
 - named live-motion story: VMware vSphere source to Proxmox VE target
-- operator promise: supervised pilot control, not fleet-wide autonomous migration
+- demo promise: supervised pilot control, not fleet-wide autonomous migration
 - current reference: persisted backend state already loaded before the demo starts
 
-## Canonical Tenant And Identity
+## Reference Tenant And Identity
 
 - tenant: `vmware-exit-demo`
 - dashboard credential: named service account `demo-operator`
@@ -29,7 +29,7 @@ This is the canonical prepared state behind both [3-minute-demo-card.md](three-m
   - `tenant.read`
 - fallback only: tenant API key for emergency access, not normal demo use
 
-## Canonical Workloads
+## Reference Workloads
 
 ### `web-portal-01`
 
@@ -60,7 +60,7 @@ This is the canonical prepared state behind both [3-minute-demo-card.md](three-m
 - blocked or high-risk status is obvious
   - the reason looks operationally plausible, for example snapshot, backup, or policy friction
 
-## Canonical Screen State
+## Reference Screen State
 
 | Screen | Must Be Visible | Why It Matters |
 | --- | --- | --- |
@@ -81,7 +81,7 @@ Keep the status cards stable across the full session. If the dashboard shows top
 
 The exact totals are less important than consistency. Do not let the presenter see one set of counts on `Inventory` and a contradictory state later in `Migrations`.
 
-## Canonical Planning State
+## Reference Planning State
 
 The saved first-wave draft should show:
 
@@ -98,7 +98,7 @@ The saved first-wave draft should show:
 
 This state is for the planning story. It should stop short of pretending the draft is already safe to run.
 
-## Canonical Failed Pilot Story
+## Reference Failed Pilot Story
 
 The prepared pilot run should represent the same wave after the operator resolved the planning blocker and started execution.
 

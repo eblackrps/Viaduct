@@ -13,14 +13,14 @@ An assessment ties together:
 
 Use this workflow when you want one durable assessment instead of bouncing between disconnected discovery, graph, simulation, and reporting pages.
 
-The signed OCI image is the primary packaged deployment path. The source-based lab flow below remains the fastest way to evaluate the dashboard from a fresh clone.
+The signed OCI image is the main packaged install path. The source-based lab flow below remains the fastest way to evaluate the dashboard from a fresh clone.
 
 ## Recommended Backends
 
 - Local evaluation and demos: in-memory store is acceptable and keeps the `examples/lab` flow fast.
 - Any serious pilot: PostgreSQL is the recommended backend so assessment state, jobs, approvals, and reports persist across restarts.
 
-## Deterministic Lab Bootstrap
+## Repeatable Lab Setup
 
 This path is the default local evaluation route from a fresh clone.
 
@@ -48,7 +48,7 @@ Open [http://127.0.0.1:8080](http://127.0.0.1:8080). The dashboard opens on the 
 Live API docs remain available at [http://127.0.0.1:8080/api/v1/docs](http://127.0.0.1:8080/api/v1/docs) throughout the workflow.
 
 If you intentionally configure key-based access instead, open `Use a key instead` from the same screen:
-- `Service account key` for normal operator access
+- `Service account key` for normal dashboard access
 - `Tenant key (advanced)` for tenant setup or emergency admin recovery
 
 The dashboard runtime auth flow now creates a server-backed session. The browser stores only an opaque session marker, while any tenant or service account key stays server-side for that session instead of landing in browser storage. Local sessions do not use an API key at all. Use the keep-signed-in option only on a trusted browser that should keep that marker across restarts.
@@ -70,7 +70,7 @@ Inside the dashboard:
 3. Inspect the workload table, dependency graph, and selected workload set.
 4. Run simulation to derive readiness and recommendations.
 5. Save the plan to persist a dry-run migration record.
-6. Export the pilot report.
+6. Export the assessment report.
 
 The assessment keeps the discovery baseline, readiness result, saved plan, notes, approvals, report history, and job correlation detail together.
 
@@ -144,7 +144,7 @@ curl -X POST \
   http://127.0.0.1:8080/api/v1/workspaces
 ```
 
-Then progress the workspace with persisted background jobs:
+Then progress the assessment with saved background jobs:
 
 ```bash
 curl -X POST \
@@ -180,14 +180,14 @@ curl -X POST \
 
 ## Error Handling Expectations
 
-The workspace flow is correlation-aware:
+The assessment workflow keeps request IDs and job IDs linked:
 - job records persist the originating `correlation_id`
 - API errors include a request ID and retryability signal
 - dashboard error panels expose technical details instead of flattening failures into generic toasts
 
-If a step fails, capture the request ID and workspace/job identifier together. That is the intended handoff bundle for troubleshooting.
+If a step fails, capture the request ID and assessment or job identifier together. These are the troubleshooting details to pass on.
 
-Queued or running workspace jobs are recovered when the API starts again, and each job is subject to the server-side timeout configured by `VIADUCT_WORKSPACE_JOB_TIMEOUT`.
+Queued or running assessment jobs are recovered when the API starts again, and each job is subject to the server-side timeout configured by `VIADUCT_WORKSPACE_JOB_TIMEOUT`.
 
 If you want to discard a completed assessment, delete it through the dashboard or `DELETE /api/v1/workspaces/{workspaceID}`. That removes the assessment record and its job history, but it does not purge persisted snapshots or migration records outside the assessment.
 
@@ -197,7 +197,7 @@ The deterministic end-to-end lab smoke now lives in:
 - `tests/integration/pilot_workspace_smoke_test.go`
 - `web/tests/e2e/runtime-operator.spec.ts`
 
-Run the focused smoke when you want a tight workspace regression pass:
+Run the focused smoke when you want a tight assessment regression pass:
 
 ```bash
 go test ./tests/integration -run PilotWorkspace_LabFlow_CreateDiscoverGraphSimulatePlanReport_Expected -v
@@ -222,4 +222,4 @@ The root-level shortcut for the whole evaluator path is:
 make pilot-smoke
 ```
 
-For release work, `make release-gate` and `make release-surface-check` remain the canonical verification path.
+For release work, `make release-gate` and `make release-surface-check` remain the main verification path.

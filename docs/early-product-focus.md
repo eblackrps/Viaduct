@@ -108,7 +108,7 @@ This workflow is wide enough to demonstrate real product value, but narrow enoug
 The next round of work should favor:
 - clearer public positioning around assessment, planning, and supervised pilots
 - tighter API and error contracts for preflight, planning, execution, resume, rollback, and reporting
-- better trust surfaces: approval clarity, audit trails, metrics, request correlation, and failure diagnostics
+- better trust surfaces: approval clarity, audit trails, metrics, request IDs, and failure diagnostics
 - one boringly reliable evaluation and pilot path that works the same in docs, demos, tests, and packaged artifacts
 - design-partner feedback loops that help remove scope rather than add novelty
 

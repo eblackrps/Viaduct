@@ -29,7 +29,7 @@ export function StatCard({
 
 	return (
 		<article className={classes}>
-			<div className="flex items-start justify-between gap-3">
+			<div className="flex flex-wrap items-start justify-between gap-3">
 				<p className="operator-kicker">{label}</p>
 				{badge ? (
 					<StatusBadge tone={badge.tone}>{badge.label}</StatusBadge>

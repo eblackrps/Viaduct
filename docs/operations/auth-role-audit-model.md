@@ -180,7 +180,7 @@ The early-product bar is not "audit everything." The bar is "audit every trust-s
 - It avoids flooding the audit log with low-value read noise.
 - It keeps the implementation centered on the existing `AuditEvent` model.
 
-## 7. Canonical Action Vocabulary And Repo Ownership
+## 7. Action Vocabulary And Repo Ownership
 
 The model only becomes executable if audit action names and ownership points are fixed. Viaduct should use the following route-to-action mapping for v1.
 
@@ -446,8 +446,8 @@ Viaduct does not need a large security console for v1. It does need attribution 
   - admin can perform tenant-manage routes
 - Audit tests:
   - `handleMigrations` emits `migration:plan`
-  - `handleMigrationByID` execute/resume/rollback emit canonical actions with request ID
-  - `writeSummaryReport`, `writeMigrationsReport`, and `writeAuditReport` emit canonical export actions
+  - `handleMigrationByID` execute/resume/rollback emit standard actions with request ID
+  - `writeSummaryReport`, `writeMigrationsReport`, and `writeAuditReport` emit standard export actions
   - authenticated `403` emits `authz:deny-role` or `authz:deny-permission`
   - audit events remain tenant-scoped in both memory and PostgreSQL-backed stores
 - UI tests:

@@ -23,7 +23,7 @@ This map is intended to help new contributors and operators find the parts of th
 
 ## High-Leverage Files
 - `AGENTS.md`: contributor rules, patterns, and gotchas
-- `Makefile`: canonical build, test, release-gate, and package targets
+- `Makefile`: main build, test, release-gate, and package targets
 - `.github/workflows/ci.yml`: CI and release bundle generation
 - `scripts/package_release.go`: release bundle packager
 - `internal/api/server.go`: primary backend integration point

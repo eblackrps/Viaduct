@@ -35,14 +35,14 @@ This is a product and engineering artifact, not a generic telemetry wishlist. It
   - `web/src/features/inventory/WorkloadDetailPanel.tsx` already admits that there is no VM-scoped activity feed yet
 
 ### What prior phases likely improved
-- Phase 3 appears to have established the tenant-aware API/store model, which is why request correlation, audit, and metrics are already tenant-scoped.
+- Phase 3 appears to have established the tenant-aware API/store model, which is why request IDs, audit, and metrics are already tenant-scoped.
 - Phase 4 appears to have established execution windows, approvals, checkpoints, resume behavior, and rollback state, which gives Viaduct a real execution history surface instead of a fire-and-forget command flow.
-- Phase 5 appears to have improved contract clarity with structured API errors and request correlation that the frontend can already surface.
+- Phase 5 appears to have improved contract clarity with structured API errors and request IDs that the frontend can already surface.
 
 ### What is still weak, ambiguous, over-scoped, or risky
 - Observability is real but fragmented. Operators can see some state in `Settings`, some in `Migrations`, some in `Reports`, some in raw API errors, and some only in backend logs.
 - The backend has request logs and metrics, but not yet a clearly defined structured logging contract for discovery, migration phases, report export, or authorization failures.
-- There is no generic trace model today, and there should not be a generic tracing platform bolted on casually. The repo already has workflow-native signals, but they are not yet treated as the canonical execution trace.
+- There is no generic trace model today, and there should not be a generic tracing platform bolted on casually. The repo already has workflow-native signals, but they are not yet treated as the main execution trace.
 - The current frontend error model collapses most failures to plain strings. `web/src/api.ts` preserves request IDs in the message, but the UI does not consistently retain the raw error code, retryability, field errors, or route/action context.
 - Discovery history is represented by snapshots, not by a first-class discovery job/event history. That is acceptable for v1 if the expectations remain explicit.
 - CLI-driven discovery does not have an HTTP `request_id`, so the first version of this spec was too API-centric for the actual product path.
@@ -52,7 +52,7 @@ This is a product and engineering artifact, not a generic telemetry wishlist. It
 - The biggest current correlation gap is the async boundary in `internal/api/server.go`: execute and resume launch background work with `context.Background()`, which drops the originating request context and weakens request-to-execution traceability.
 
 ### What should be preserved
-- `X-Request-ID` as the ingress-level correlation primitive.
+- `X-Request-ID` as the ingress-level request ID.
 - `migration_id` as the long-running workflow identifier instead of inventing a generic jobs platform.
 - migration checkpoints, preflight checks, audit events, and summary/report exports as the workflow-native observability signals.
 - the current Settings, Migrations, Reports, and Workload detail surfaces instead of replacing them with a brand-new observability console.
@@ -60,7 +60,7 @@ This is a product and engineering artifact, not a generic telemetry wishlist. It
 
 ### The smallest credible next move
 - Freeze one observability model that treats:
-  - `request_id` as the request correlation primitive
+  - `request_id` as the request ID primitive
   - `migration_id` as the execution correlation primitive
   - a discovery-specific run identifier as the CLI/API discovery correlation primitive
   - audit events plus checkpoints as the operator-visible execution trace
@@ -512,7 +512,7 @@ The first version of this artifact did not tie the work tightly enough to the co
 
 | Area | Files | Why they matter |
 | --- | --- | --- |
-| API request correlation and metrics | `internal/api/observability.go` | request IDs, request completion logs, normalized route metrics |
+| API request IDs and metrics | `internal/api/observability.go` | request IDs, request completion logs, normalized route metrics |
 | command acceptance and async handoff | `internal/api/server.go` | execute/resume/rollback request handling, migration command responses, background context handoff |
 | auth failures and denials | `internal/api/middleware.go` | missing credentials, invalid credentials, authorization denials |
 | audit and export history | `internal/api/reports.go` | audit route, report export behavior, audit save failures |
@@ -528,7 +528,7 @@ The first version of this artifact did not tie the work tightly enough to the co
 ### Phase 1: Close the correlation-model gaps first
 - Add this observability requirements document and link it from the main docs entrypoints.
 - Align support docs so issues include `request_id`, `migration_id`, and `snapshot_id` when relevant.
-- Treat `request_id`, `migration_id`, and `snapshot_id` as the canonical existing handles.
+- Treat `request_id`, `migration_id`, and `snapshot_id` as the current handles.
 - Introduce `origin_request_id` for async execute/resume chains and `discovery_run_id` for discovery attempts.
 
 Acceptance gate:

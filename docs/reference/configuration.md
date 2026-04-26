@@ -66,7 +66,7 @@ Fields:
 - `VIADUCT_OTEL_ENVIRONMENT`: deployment environment label added to traces; defaults to `local` for `viaduct start` and `self-hosted` otherwise
 - `VIADUCT_OTEL_SAMPLER`: trace sampler name; supported values are `parentbased_traceidratio`, `traceidratio`, `always_on`, `always_off`, `parentbased_always_on`, and `parentbased_always_off`
 - `VIADUCT_OTEL_SAMPLER_ARG`: numeric sample ratio used by the ratio-based samplers; defaults to `1`
-- `VIADUCT_WORKSPACE_JOB_TIMEOUT`: per-job server-side timeout for pilot workspace discovery, graph, simulation, and plan generation; defaults to `2m`
+- `VIADUCT_WORKSPACE_JOB_TIMEOUT`: per-job server-side timeout for assessment discovery, graph, simulation, and plan generation; defaults to `2m`
 - `VIADUCT_WORKSPACE_ENQUEUE_TIMEOUT`: maximum time an API request waits for the bounded workspace executor to acknowledge queue admission before returning `ErrEnqueueTimeout`; defaults to `30s`
 - `VIADUCT_WORKSPACE_JOB_CONCURRENCY`: bounded worker count for queued and recovered workspace jobs; defaults to `4`
 - `VIADUCT_HTTP_READ_HEADER_TIMEOUT`: maximum time to read request headers; defaults to `10s`
@@ -107,9 +107,9 @@ Tenant and service account credentials are persisted as non-recoverable hashes i
 - `X-API-Key`: tenant-scoped API key for inventory, migration, lifecycle, and summary routes
 - `X-Service-Account-Key`: scoped machine credential for tenant service accounts
 - `X-Admin-Key`: admin-only plaintext API key for tenant creation and deletion; the stored server-side `VIADUCT_ADMIN_KEY` must be `sha256:<hex>` in production mode
-- `X-Request-ID`: optional caller-supplied request correlation ID; when absent, the API generates one
+- `X-Request-ID`: optional caller-supplied request ID; when absent, the API generates one
 - `X-Trace-ID`: response header exposing the current backend trace identifier when tracing is active
-- `Traceparent`: optional inbound W3C trace context header for request-to-request correlation
+- `Traceparent`: optional inbound W3C trace context header for request-to-request tracing
 
 ## Observability Notes
 

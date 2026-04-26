@@ -124,7 +124,7 @@ It is the only path that simultaneously:
 - lifecycle and backup portability remain supporting signals, not the core end-to-end proof path
 - any other live migration motion is explicitly outside the first hardening target
 
-## 3. Canonical Path At A Glance
+## 3. Main Path At A Glance
 
 | Step | Primary Dashboard Page | Current Reference | Release-Blocking Outcome |
 | --- | --- | --- | --- |
@@ -564,7 +564,7 @@ Each step below defines the current implementation, success criteria, failure mo
 ### Failure Modes
 
 - export payloads differ from on-screen state
-- audit output lacks actor, outcome, or request correlation
+- audit output lacks actor, outcome, or request IDs
 - export failures are opaque
 
 ### Required Data And Contracts

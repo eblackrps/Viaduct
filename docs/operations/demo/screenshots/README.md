@@ -15,7 +15,7 @@ The matching evaluator artifact checklist lives in [../pilot-evidence-kit.md](..
 ## Current Files
 
 - [Get started screen](auth-bootstrap.png)
-- [Pilot workspace](pilot-workspace.png)
+- [Assessment overview](pilot-workspace.png)
 - [Inventory assessment](inventory-assessment.png)
 - [Dependency graph](dependency-graph.png)
 - [Migration operations](migration-ops.png)
@@ -24,7 +24,7 @@ The matching evaluator artifact checklist lives in [../pilot-evidence-kit.md](..
 ## Historical Files
 
 - [Pilot bootstrap SVG](pilot-bootstrap.svg)
-- [Pilot workspace flow SVG](pilot-workspace-flow.svg)
+- [Assessment workflow SVG](pilot-workspace-flow.svg)
 
 The SVG files remain for older release notes that referenced them directly. They predate the current Get started wording and are kept only for historical release collateral. New release-facing docs should prefer the PNG captures above.
 
@@ -40,7 +40,7 @@ npm run screenshots:readme
 
 ![Get started screen](auth-bootstrap.png)
 
-![Pilot workspace](pilot-workspace.png)
+![Assessment overview](pilot-workspace.png)
 
 ![Inventory assessment](inventory-assessment.png)
 

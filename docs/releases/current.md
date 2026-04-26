@@ -8,7 +8,7 @@ The only tag-publishing workflow is [`.github/workflows/image.yml`](../../.githu
 
 ## Primary Install
 
-Use the signed GHCR image as the primary packaged artifact:
+Use the signed GHCR image as the main packaged install path:
 
 ```bash
 docker pull ghcr.io/eblackrps/viaduct:3.2.1

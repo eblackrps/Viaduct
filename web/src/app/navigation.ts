@@ -69,8 +69,8 @@ export const navigationGroups: NavigationGroup[] = [
 			},
 			{
 				path: "/migrations",
-				label: "Migration Ops",
-				title: "Migration Operations",
+				label: "Migrations",
+				title: "Migrations",
 				description: "Plan, validate, execute, and review workload migrations.",
 				icon: Waypoints,
 			},

@@ -6,7 +6,7 @@ For the single primary end-to-end path Viaduct is currently hardening, see [Prim
 
 For operator and maintainer debugging expectations across this workflow, see [Observability Requirements](observability-requirements.md).
 
-For the workspace-first assessment flow that now precedes saved-plan handoff, see [Pilot Workspace Flow](pilot-workspace-flow.md).
+For the assessment workflow that now precedes saved-plan handoff, see [Assessment Workflow](pilot-workspace-flow.md).
 
 ## 1. Prepare Inventory
 
@@ -36,7 +36,7 @@ Validate the spec:
 viaduct plan --spec examples/lab/migration-window.yaml
 ```
 
-If you are operating through the dashboard, this same planning intent can now start from a pilot workspace. The workspace persists source connections, readiness state, and the saved dry-run migration plan before you move into explicit execution routes.
+If you are using the dashboard, this same planning intent can start from an assessment. The assessment saves source connections, readiness state, and the dry-run migration plan before you move into execution routes.
 
 ## 3. Run Preflight
 

@@ -99,6 +99,6 @@ curl -X POST \
 - Keep admin and tenant API keys separate.
 - Use tenant service accounts for automation and rotate them on a schedule.
 - Set tenant quotas deliberately so noisy environments do not crowd out shared control-plane capacity.
-- Keep request correlation IDs when integrating Viaduct behind reverse proxies or shared control planes.
+- Keep request IDs when integrating Viaduct behind reverse proxies or shared control planes.
 - Validate tenant A/B isolation with integration tests or a staging environment before onboarding multiple customers or business units.
 - Treat any cross-tenant leakage as critical severity.
