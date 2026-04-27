@@ -177,6 +177,7 @@ beforeEach(() => {
 	mockUseSettingsData.mockReturnValue({
 		about: sampleAbout,
 		currentTenant: sampleCurrentTenant,
+		readiness: null,
 		loading: false,
 		errors: {},
 	});
@@ -420,6 +421,7 @@ describe("page state matrix", () => {
 		mockUseSettingsData.mockReturnValue({
 			about: null,
 			currentTenant: null,
+			readiness: null,
 			loading: false,
 			errors: {
 				about: {

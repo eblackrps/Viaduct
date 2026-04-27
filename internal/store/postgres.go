@@ -503,14 +503,27 @@ func (s *PostgresStore) ListSnapshotsPage(ctx context.Context, tenantID string, 
 	return items, total, nil
 }
 
-// QueryVMs returns stored VMs that match the supplied filter criteria.
+// QueryVMs returns VMs from the latest snapshot per source/platform that match the supplied filter criteria.
 func (s *PostgresStore) QueryVMs(ctx context.Context, tenantID string, filter VMFilter) ([]models.VirtualMachine, error) {
 	ctx, cancel := s.readContext(ctx)
 	defer cancel()
 
 	tenantID = normalizeTenantID(tenantID)
+	platformName := string(filter.Platform)
 
-	rows, err := s.db.QueryContext(ctx, `SELECT raw_json FROM snapshots WHERE tenant_id = $1 ORDER BY discovered_at DESC`, tenantID)
+	rows, err := s.db.QueryContext(
+		ctx,
+		`SELECT raw_json
+FROM (
+    SELECT DISTINCT ON (lower(btrim(source)), platform) discovered_at, raw_json
+    FROM snapshots
+    WHERE tenant_id = $1 AND ($2 = '' OR platform = $2)
+    ORDER BY lower(btrim(source)), platform, discovered_at DESC
+) current_snapshots
+ORDER BY discovered_at DESC`,
+		tenantID,
+		platformName,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("postgres store: query snapshots for VMs: %w", err)
 	}

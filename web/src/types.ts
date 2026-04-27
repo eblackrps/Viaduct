@@ -515,6 +515,34 @@ export interface AboutResponse {
 	local_operator_session_enabled: boolean;
 }
 
+export interface ConnectorCircuitSnapshot {
+	endpoint: string;
+	platform: string;
+	address: string;
+	state: string;
+	failure_count: number;
+	last_failure?: string;
+	last_failure_at?: string;
+	retry_after_seconds?: number;
+	opened_until?: string;
+	last_state_changed_at?: string;
+}
+
+export interface ReadinessResponse {
+	status: string;
+	policies_loaded: boolean;
+	auth_configured: boolean;
+	dashboard_assets: boolean;
+	production_mode: boolean;
+	store?: {
+		backend?: string;
+		schema_version?: number;
+		persistent?: boolean;
+	};
+	circuit_breakers?: ConnectorCircuitSnapshot[];
+	issues?: string[];
+}
+
 export interface CurrentTenant {
 	tenant_id: string;
 	name: string;

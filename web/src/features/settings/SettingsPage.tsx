@@ -24,17 +24,27 @@ export function SettingsPage({
 	onForgetRuntimeKey,
 }: SettingsPageProps) {
 	const authConfigured = hasApiKeyConfigured();
-	const { about, currentTenant, loading, errors } = useSettingsData();
+	const { about, currentTenant, readiness, loading, errors } =
+		useSettingsData();
 	const supportedPlatforms =
 		about?.supported_platforms ?? Object.keys(summary?.platform_counts ?? {});
 	const platformCounts = summary?.platform_counts ?? {};
-	const settingsError = [errors.about?.message, errors.currentTenant?.message]
+	const openCircuits =
+		readiness?.circuit_breakers?.filter(
+			(circuit) => circuit.state === "open",
+		) ?? [];
+	const settingsError = [
+		errors.about?.message,
+		errors.currentTenant?.message,
+		errors.readiness?.message,
+	]
 		.filter(Boolean)
 		.join(" ");
 	const settingsErrorDetails = Array.from(
 		new Set([
 			...(errors.about?.technicalDetails ?? []),
 			...(errors.currentTenant?.technicalDetails ?? []),
+			...(errors.readiness?.technicalDetails ?? []),
 		]),
 	);
 	const showEmpty = !loading && !about && !currentTenant;
@@ -185,7 +195,7 @@ export function SettingsPage({
 
 				<SectionCard
 					title="Sign-in handling"
-					description="Session-scoped browser storage is the default path. Remembered keys should be limited to trusted workstations."
+					description="Session-scoped browser storage is the default path. Remembered sessions still depend on the running API."
 				>
 					<div className="grid gap-3 md:grid-cols-2">
 						<StatCard label="Credential source" value={authSourceLabel} />
@@ -197,6 +207,10 @@ export function SettingsPage({
 						<StatCard
 							label="Shared-workstation guidance"
 							value="Forget remembered keys after the session ends"
+						/>
+						<StatCard
+							label="API restart behavior"
+							value="Sign in again after restart"
 						/>
 					</div>
 					{onForgetRuntimeKey ? (
@@ -285,6 +299,76 @@ export function SettingsPage({
 							tone="info"
 						/>
 					</div>
+				</SectionCard>
+
+				<SectionCard
+					title="Connector checks"
+					description="Credential refs are checked when discovery runs. Open connector circuits appear here."
+					className="xl:col-span-2"
+				>
+					{errors.readiness ? (
+						<InlineError error={errors.readiness} />
+					) : (
+						<div className="space-y-4">
+							<div className="grid gap-3 md:grid-cols-3">
+								<StatCard
+									label="Readiness"
+									value={readiness?.status ?? "Unavailable"}
+								/>
+								<StatCard
+									label="Open circuits"
+									value={String(openCircuits.length)}
+								/>
+								<StatCard
+									label="Policies"
+									value={
+										readiness?.policies_loaded === true
+											? "Loaded"
+											: readiness
+												? "Needs review"
+												: "Unavailable"
+									}
+								/>
+							</div>
+							<div className="flex flex-wrap gap-2">
+								{supportedPlatforms.map((platform) => {
+									const circuit = readiness?.circuit_breakers?.find(
+										(item) => item.platform === platform,
+									);
+									return (
+										<StatusBadge
+											key={platform}
+											tone={circuit?.state === "open" ? "danger" : "neutral"}
+										>
+											{platform}: {circuit?.state ?? "ready"}
+										</StatusBadge>
+									);
+								})}
+								{supportedPlatforms.length === 0 ? (
+									<StatusBadge tone="neutral">
+										No platforms reported
+									</StatusBadge>
+								) : null}
+							</div>
+							{openCircuits.length > 0 ? (
+								<div className="space-y-2">
+									{openCircuits.map((circuit) => (
+										<InlineNotice
+											key={circuit.endpoint}
+											tone="warning"
+											title={`${circuit.platform} connector unavailable`}
+											message={`${circuit.address || circuit.endpoint} will retry after ${circuit.retry_after_seconds ?? 0}s.`}
+										/>
+									))}
+								</div>
+							) : (
+								<InlineNotice
+									message="No open connector circuits are reported right now."
+									tone="success"
+								/>
+							)}
+						</div>
+					)}
 				</SectionCard>
 			</section>
 		</div>

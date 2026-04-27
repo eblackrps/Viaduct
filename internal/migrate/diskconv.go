@@ -66,6 +66,17 @@ func ConvertDisk(ctx context.Context, req ConversionRequest) (*ConversionResult,
 	if err != nil {
 		return nil, fmt.Errorf("convert disk: stat source %s: %w", req.SourcePath, err)
 	}
+	if !sourceInfo.Mode().IsRegular() {
+		return nil, fmt.Errorf("convert disk: source %s is not a regular file", req.SourcePath)
+	}
+	if err := validateConversionPaths(req.SourcePath, req.TargetPath); err != nil {
+		return nil, fmt.Errorf("convert disk: %w", err)
+	}
+	if _, err := os.Stat(req.TargetPath); err == nil {
+		return nil, fmt.Errorf("convert disk: target %s already exists", req.TargetPath)
+	} else if !os.IsNotExist(err) {
+		return nil, fmt.Errorf("convert disk: stat target %s: %w", req.TargetPath, err)
+	}
 
 	sourceFormat, err := qemuFormat(req.SourceFormat)
 	if err != nil {
@@ -80,6 +91,15 @@ func ConvertDisk(ctx context.Context, req ConversionRequest) (*ConversionResult,
 	if err := os.MkdirAll(filepath.Dir(req.TargetPath), 0o750); err != nil {
 		return nil, fmt.Errorf("convert disk: create target directory: %w", err)
 	}
+	tempTarget, err := reserveConversionTarget(req.TargetPath)
+	if err != nil {
+		return nil, fmt.Errorf("convert disk: reserve target: %w", err)
+	}
+	defer func() {
+		if tempTarget != req.TargetPath {
+			_ = os.Remove(tempTarget)
+		}
+	}()
 
 	if req.OnProgress != nil {
 		req.OnProgress(0)
@@ -90,7 +110,7 @@ func ConvertDisk(ctx context.Context, req ConversionRequest) (*ConversionResult,
 	if req.Thin {
 		args = append(args, "-o", "preallocation=off")
 	}
-	args = append(args, req.SourcePath, req.TargetPath)
+	args = append(args, req.SourcePath, tempTarget)
 
 	// #nosec G204 -- qemu-img is a fixed executable and arguments are structured from validated conversion inputs.
 	command := exec.CommandContext(ctx, "qemu-img", args...)
@@ -105,14 +125,20 @@ func ConvertDisk(ctx context.Context, req ConversionRequest) (*ConversionResult,
 		return nil, fmt.Errorf("convert disk: checksum source: %w", err)
 	}
 
-	targetChecksum, err := checksumFile(req.TargetPath, req.OnProgress, 50, 100)
+	targetChecksum, err := checksumFile(tempTarget, req.OnProgress, 50, 100)
 	if err != nil {
 		return nil, fmt.Errorf("convert disk: checksum target: %w", err)
 	}
 
-	targetInfo, err := os.Stat(req.TargetPath)
+	targetInfo, err := os.Stat(tempTarget)
 	if err != nil {
-		return nil, fmt.Errorf("convert disk: stat target %s: %w", req.TargetPath, err)
+		return nil, fmt.Errorf("convert disk: stat target %s: %w", tempTarget, err)
+	}
+	if err := os.Link(tempTarget, req.TargetPath); err != nil {
+		return nil, fmt.Errorf("convert disk: finalize target %s: %w", req.TargetPath, err)
+	}
+	if err := os.Remove(tempTarget); err != nil {
+		return nil, fmt.Errorf("convert disk: remove temporary target %s: %w", tempTarget, err)
 	}
 
 	if req.OnProgress != nil {
@@ -134,16 +160,33 @@ func ConvertDisk(ctx context.Context, req ConversionRequest) (*ConversionResult,
 
 // ValidateConversion runs qemu-img check against the converted target disk.
 func ValidateConversion(source, target string) error {
+	return ValidateConversionContext(context.Background(), source, target)
+}
+
+// ValidateConversionContext runs qemu-img check against the converted target disk with caller cancellation.
+func ValidateConversionContext(ctx context.Context, source, target string) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	if strings.TrimSpace(target) == "" {
 		return fmt.Errorf("validate conversion: target path is required")
 	}
-	if _, err := os.Stat(target); err != nil {
+	if strings.TrimSpace(source) != "" {
+		if err := validateConversionPaths(source, target); err != nil {
+			return fmt.Errorf("validate conversion: %w", err)
+		}
+	}
+	targetInfo, err := os.Stat(target)
+	if err != nil {
 		return fmt.Errorf("validate conversion: stat target %s: %w", target, err)
+	}
+	if !targetInfo.Mode().IsRegular() {
+		return fmt.Errorf("validate conversion: target %s is not a regular file", target)
 	}
 
 	args := []string{"check", target}
 	// #nosec G204 -- qemu-img is a fixed executable and target is passed as an argument rather than through a shell.
-	command := exec.Command("qemu-img", args...)
+	command := exec.CommandContext(ctx, "qemu-img", args...)
 	var stderr bytes.Buffer
 	command.Stderr = &stderr
 	if err := command.Run(); err != nil {
@@ -151,6 +194,39 @@ func ValidateConversion(source, target string) error {
 	}
 
 	return nil
+}
+
+func validateConversionPaths(source, target string) error {
+	sourcePath, err := filepath.Abs(source)
+	if err != nil {
+		return fmt.Errorf("resolve source path %s: %w", source, err)
+	}
+	targetPath, err := filepath.Abs(target)
+	if err != nil {
+		return fmt.Errorf("resolve target path %s: %w", target, err)
+	}
+	if filepath.Clean(sourcePath) == filepath.Clean(targetPath) {
+		return fmt.Errorf("source and target paths must be different")
+	}
+	return nil
+}
+
+func reserveConversionTarget(target string) (string, error) {
+	dir := filepath.Dir(target)
+	base := "." + filepath.Base(target) + "-*.tmp"
+	file, err := os.CreateTemp(dir, base)
+	if err != nil {
+		return "", err
+	}
+	name := file.Name()
+	if err := file.Close(); err != nil {
+		_ = os.Remove(name)
+		return "", err
+	}
+	if err := os.Remove(name); err != nil {
+		return "", err
+	}
+	return name, nil
 }
 
 func qemuFormat(format DiskFormat) (string, error) {

@@ -7,6 +7,7 @@ import {
 	type ReactNode,
 } from "react";
 import {
+	cancelWorkspaceJob,
 	createWorkspace,
 	createWorkspaceJob,
 	deleteWorkspace,
@@ -68,6 +69,15 @@ interface WorkflowStep {
 	summary: string;
 	evidence: string;
 	status: "complete" | "current" | "upcoming";
+}
+
+interface AssessmentTimelineEvent {
+	id: string;
+	kind: string;
+	title: string;
+	detail: string;
+	timestamp: string;
+	tone: StatusTone;
 }
 
 interface CreateFormState {
@@ -366,6 +376,19 @@ export function WorkspacePage() {
 			),
 		[state.selectedWorkspace?.notes],
 	);
+	const assessmentTimeline = useMemo(
+		() =>
+			buildAssessmentTimeline(
+				state.selectedWorkspace,
+				jobHistory,
+				reportHistory,
+			),
+		[state.selectedWorkspace, jobHistory, reportHistory],
+	);
+	const runbookItems = useMemo(
+		() => buildReadinessRunbook(state.selectedWorkspace),
+		[state.selectedWorkspace],
+	);
 	const latestSource = state.selectedWorkspace?.source_connections?.[0] ?? null;
 	const workflowSteps = useMemo(
 		() =>
@@ -572,6 +595,28 @@ export function WorkspacePage() {
 				actionError: describeError(reason, {
 					scope: `${job.type} retry`,
 					fallback: "Unable to retry the assessment job.",
+				}),
+			}));
+		} finally {
+			setActionLoading(null);
+		}
+	}
+
+	async function handleCancelJob(job: WorkspaceJob) {
+		if (!state.selectedWorkspace) {
+			return;
+		}
+		setActionLoading(`cancel:${job.id}`);
+		setState((current) => ({ ...current, actionError: null }));
+		try {
+			await cancelWorkspaceJob(state.selectedWorkspace.id, job.id);
+			await refreshWorkspaceDetail(state.selectedWorkspace.id);
+		} catch (reason) {
+			setState((current) => ({
+				...current,
+				actionError: describeError(reason, {
+					scope: `${job.type} cancellation`,
+					fallback: "Unable to cancel the assessment job.",
 				}),
 			}));
 		} finally {
@@ -1305,6 +1350,10 @@ export function WorkspacePage() {
 						/>
 					) : null}
 
+					{runbookItems.length > 0 ? (
+						<IssueList title="Runbook" items={runbookItems} tone="info" />
+					) : null}
+
 					{reportHistory.length > 0 ? (
 						<div className="mt-4 metric-surface">
 							<p className="operator-kicker">Latest export</p>
@@ -1372,6 +1421,18 @@ export function WorkspacePage() {
 											>
 												Refresh status
 											</button>
+											{job.status === "queued" || job.status === "running" ? (
+												<button
+													type="button"
+													onClick={() => void handleCancelJob(job)}
+													disabled={actionLoading === `cancel:${job.id}`}
+													className="operator-button-danger px-3 py-2 text-xs"
+												>
+													{actionLoading === `cancel:${job.id}`
+														? "Canceling..."
+														: "Cancel"}
+												</button>
+											) : null}
 											{job.retryable || job.status === "failed" ? (
 												<button
 													type="button"
@@ -1392,6 +1453,38 @@ export function WorkspacePage() {
 					)}
 				</SectionCard>
 			</section>
+
+			<SectionCard
+				eyebrow="Timeline"
+				title="Assessment timeline"
+				description="Jobs, notes, approvals, reports, and errors stay in one review path."
+			>
+				{assessmentTimeline.length === 0 ? (
+					<EmptyState
+						title="No timeline events yet"
+						message="Create notes, run jobs, save plans, or export reports to build the assessment timeline."
+					/>
+				) : (
+					<div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+						{assessmentTimeline.slice(0, 9).map((event) => (
+							<div key={event.id} className="metric-surface">
+								<div className="flex flex-wrap items-center gap-2">
+									<StatusBadge tone={event.tone}>{event.kind}</StatusBadge>
+									<span className="text-xs text-slate-500">
+										{formatTimestamp(event.timestamp)}
+									</span>
+								</div>
+								<p className="mt-2 text-sm font-semibold text-ink">
+									{event.title}
+								</p>
+								<p className="mt-1 text-xs leading-5 text-slate-600">
+									{event.detail}
+								</p>
+							</div>
+						))}
+					</div>
+				)}
+			</SectionCard>
 
 			{rows.length === 0 ? (
 				<EmptyState
@@ -1921,6 +2014,125 @@ function IssueList({
 			</div>
 		</div>
 	);
+}
+
+function buildAssessmentTimeline(
+	workspace: PilotWorkspace | null,
+	jobs: WorkspaceJob[],
+	reports: NonNullable<PilotWorkspace["reports"]>,
+): AssessmentTimelineEvent[] {
+	if (!workspace) {
+		return [];
+	}
+
+	const events: AssessmentTimelineEvent[] = [
+		{
+			id: `workspace-created-${workspace.id}`,
+			kind: "assessment",
+			title: "Assessment created",
+			detail: workspace.name,
+			timestamp: workspace.created_at,
+			tone: "neutral",
+		},
+	];
+
+	for (const snapshot of workspace.snapshots ?? []) {
+		events.push({
+			id: `snapshot-${snapshot.snapshot_id}`,
+			kind: "snapshot",
+			title: `${snapshot.platform} snapshot saved`,
+			detail: `${snapshot.vm_count} workload(s) from ${snapshot.source || snapshot.source_connection_id}.`,
+			timestamp: snapshot.discovered_at,
+			tone: "info",
+		});
+	}
+	for (const job of jobs) {
+		events.push({
+			id: `job-${job.id}`,
+			kind: "job",
+			title: `${job.type} ${job.status}`,
+			detail:
+				job.error ||
+				job.message ||
+				`Correlation ID ${job.correlation_id ?? "n/a"}.`,
+			timestamp: job.completed_at ?? job.updated_at ?? job.requested_at,
+			tone: workspaceJobTone(job.status),
+		});
+	}
+	for (const note of workspace.notes ?? []) {
+		events.push({
+			id: `note-${note.id}`,
+			kind: "note",
+			title: note.author || "Assessment note",
+			detail: note.body,
+			timestamp: note.created_at,
+			tone: note.kind === "system" ? "info" : "neutral",
+		});
+	}
+	for (const approval of workspace.approvals ?? []) {
+		events.push({
+			id: `approval-${approval.id}`,
+			kind: "approval",
+			title: `${approval.stage} ${approval.status}`,
+			detail: approval.ticket
+				? `Ticket ${approval.ticket}`
+				: approval.approved_by || "No approver recorded.",
+			timestamp: approval.created_at,
+			tone:
+				approval.status === "approved"
+					? "success"
+					: approval.status === "rejected"
+						? "danger"
+						: "warning",
+		});
+	}
+	for (const report of reports) {
+		events.push({
+			id: `report-${report.id}`,
+			kind: "report",
+			title: report.file_name,
+			detail: `${report.format} export, correlation ID ${report.correlation_id ?? "n/a"}.`,
+			timestamp: report.exported_at,
+			tone: "success",
+		});
+	}
+
+	return events.sort(
+		(left, right) =>
+			new Date(right.timestamp).getTime() - new Date(left.timestamp).getTime(),
+	);
+}
+
+function buildReadinessRunbook(workspace: PilotWorkspace | null): string[] {
+	const readiness = workspace?.readiness;
+	if (!readiness) {
+		return workspace
+			? ["Run readiness simulation before review or handoff."]
+			: [];
+	}
+
+	const items = [
+		...(readiness.blocking_issues ?? []).map(
+			(issue) => `Fix blocker: ${issue}`,
+		),
+		...(readiness.warning_issues ?? []).map(
+			(issue) => `Review warning: ${issue}`,
+		),
+	];
+	if ((readiness.policy_violation_count ?? 0) > 0) {
+		items.push(
+			"Open Policy to review enforce-level violations before planning.",
+		);
+	}
+	if ((readiness.recommendation_count ?? 0) > 0) {
+		items.push(
+			"Open Lifecycle to compare recommendations against cost and policy.",
+		);
+	}
+	if (items.length === 0 && readiness.status === "ready") {
+		items.push("Save the plan and export the assessment report.");
+	}
+	return items;
 }
 
 function HistoryRow({ label, value }: { label: string; value: string }) {

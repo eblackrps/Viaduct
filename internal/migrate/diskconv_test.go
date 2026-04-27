@@ -66,10 +66,67 @@ func TestConvertDisk_UnsupportedFormat(t *testing.T) {
 	}
 }
 
+func TestConvertDisk_SourceDirectoryRejected(t *testing.T) {
+	t.Parallel()
+
+	_, err := ConvertDisk(context.Background(), ConversionRequest{
+		SourcePath:   t.TempDir(),
+		SourceFormat: FormatRAW,
+		TargetPath:   filepath.Join(t.TempDir(), "target.qcow2"),
+		TargetFormat: FormatQCOW2,
+	})
+	if err == nil {
+		t.Fatal("ConvertDisk() error = nil, want error")
+	}
+}
+
+func TestConvertDisk_SourceTargetCollisionRejected(t *testing.T) {
+	t.Parallel()
+
+	source := filepath.Join(t.TempDir(), "source.raw")
+	if err := os.WriteFile(source, []byte("source"), 0o644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	_, err := ConvertDisk(context.Background(), ConversionRequest{
+		SourcePath:   source,
+		SourceFormat: FormatRAW,
+		TargetPath:   source,
+		TargetFormat: FormatQCOW2,
+	})
+	if err == nil {
+		t.Fatal("ConvertDisk() error = nil, want source/target collision error")
+	}
+}
+
+func TestConvertDisk_ExistingTargetRejected(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	source := filepath.Join(root, "source.raw")
+	target := filepath.Join(root, "target.qcow2")
+	if err := os.WriteFile(source, []byte("source"), 0o644); err != nil {
+		t.Fatalf("WriteFile(source) error = %v", err)
+	}
+	if err := os.WriteFile(target, []byte("target"), 0o644); err != nil {
+		t.Fatalf("WriteFile(target) error = %v", err)
+	}
+
+	_, err := ConvertDisk(context.Background(), ConversionRequest{
+		SourcePath:   source,
+		SourceFormat: FormatRAW,
+		TargetPath:   target,
+		TargetFormat: FormatQCOW2,
+	})
+	if err == nil {
+		t.Fatal("ConvertDisk() error = nil, want existing target error")
+	}
+}
+
 func TestValidateConversion_MissingFile(t *testing.T) {
 	t.Parallel()
 
-	err := ValidateConversion("source.vmdk", filepath.Join(t.TempDir(), "missing.qcow2"))
+	err := ValidateConversionContext(context.Background(), "source.vmdk", filepath.Join(t.TempDir(), "missing.qcow2"))
 	if err == nil {
 		t.Fatal("ValidateConversion() error = nil, want error")
 	}

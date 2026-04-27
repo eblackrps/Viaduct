@@ -154,6 +154,8 @@ type Server struct {
 	httpShutdownTimeout     time.Duration
 	workspaceJobExecutor    workspaceJobEnqueuer
 	workspaceJobWorkers     int
+	workspaceJobCancelMu    sync.Mutex
+	workspaceJobCancels     map[string]context.CancelFunc
 	authSessions            *authSessionManager
 	localRuntimeMode        bool
 	allowUnauthRemote       bool
@@ -268,6 +270,7 @@ func NewServer(engine *discovery.Engine, stateStore store.Store, port int, catal
 		httpIdleTimeout:         durationEnv("VIADUCT_HTTP_IDLE_TIMEOUT", defaultHTTPIdleTimeout),
 		httpShutdownTimeout:     durationEnv("VIADUCT_HTTP_SHUTDOWN_TIMEOUT", defaultHTTPShutdownTimeout),
 		workspaceJobWorkers:     intEnv("VIADUCT_WORKSPACE_JOB_CONCURRENCY", defaultWorkspaceJobConcurrency),
+		workspaceJobCancels:     make(map[string]context.CancelFunc),
 		authSessions:            newAuthSessionManager(durationEnv("VIADUCT_AUTH_SESSION_TTL", 12*time.Hour), persistentAuthSessionTTL()),
 		connectorCircuits:       newConnectorCircuitRegistry(loadConnectorCircuitConfig()),
 		productionMode:          productionModeFromEnv(),

@@ -158,7 +158,7 @@ func (s *MemoryStore) ListSnapshotsPage(ctx context.Context, tenantID string, pl
 	return paginateItems(items, page, perPage), total, nil
 }
 
-// QueryVMs returns VMs from stored snapshots that match the supplied filter.
+// QueryVMs returns VMs from the latest snapshot per source/platform that match the supplied filter.
 func (s *MemoryStore) QueryVMs(ctx context.Context, tenantID string, filter VMFilter) ([]models.VirtualMachine, error) {
 	select {
 	case <-ctx.Done():
@@ -171,12 +171,9 @@ func (s *MemoryStore) QueryVMs(ctx context.Context, tenantID string, filter VMFi
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
+	snapshots := s.currentSnapshotsLocked(tenantID, filter.Platform)
 	results := make([]models.VirtualMachine, 0)
-	for _, snapshot := range s.snapshots {
-		if snapshot.result == nil || snapshot.tenantID != tenantID {
-			continue
-		}
-
+	for _, snapshot := range snapshots {
 		for _, vm := range snapshot.result.VMs {
 			if !matchesFilter(vm, filter) {
 				continue
@@ -190,6 +187,32 @@ func (s *MemoryStore) QueryVMs(ctx context.Context, tenantID string, filter VMFi
 	}
 
 	return results, nil
+}
+
+func (s *MemoryStore) currentSnapshotsLocked(tenantID string, platform models.Platform) []storedSnapshot {
+	latest := make(map[string]storedSnapshot)
+	for _, snapshot := range s.snapshots {
+		if snapshot.result == nil || snapshot.tenantID != tenantID {
+			continue
+		}
+		if platform != "" && snapshot.result.Platform != platform {
+			continue
+		}
+
+		key := currentSnapshotKey(snapshot.result.Source, snapshot.result.Platform)
+		if existing, ok := latest[key]; !ok || snapshot.result.DiscoveredAt.After(existing.result.DiscoveredAt) {
+			latest[key] = snapshot
+		}
+	}
+
+	items := make([]storedSnapshot, 0, len(latest))
+	for _, snapshot := range latest {
+		items = append(items, snapshot)
+	}
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].result.DiscoveredAt.After(items[j].result.DiscoveredAt)
+	})
+	return items
 }
 
 // SaveMigration persists a serialized migration record in memory.
@@ -1287,6 +1310,10 @@ func tenantWorkspaceKey(tenantID, workspaceID string) string {
 
 func tenantWorkspaceJobKey(tenantID, workspaceID, jobID string) string {
 	return tenantID + ":" + workspaceID + ":" + jobID
+}
+
+func currentSnapshotKey(source string, platform models.Platform) string {
+	return strings.ToLower(strings.TrimSpace(source)) + ":" + string(platform)
 }
 
 func copyStringSlice(input []string) []string {

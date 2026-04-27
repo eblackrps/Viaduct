@@ -141,7 +141,7 @@ func (s *Server) handleWorkspaces(w http.ResponseWriter, r *http.Request) {
 			Action:   "create",
 			Resource: created.ID,
 			Outcome:  models.AuditOutcomeSuccess,
-			Message:  "pilot workspace created",
+			Message:  "assessment created",
 		})
 		writeJSON(w, http.StatusCreated, created)
 	default:
@@ -174,6 +174,10 @@ func (s *Server) handleWorkspaceByID(w http.ResponseWriter, r *http.Request) {
 		}
 		if len(parts) == 3 {
 			s.handleWorkspaceJobByID(w, r, tenantID, workspaceID, parts[2])
+			return
+		}
+		if len(parts) == 4 && parts[3] == "cancel" {
+			s.handleWorkspaceJobCancel(w, r, tenantID, workspaceID, parts[2])
 			return
 		}
 	case "reports":
@@ -260,7 +264,7 @@ func (s *Server) handleWorkspaceDocument(w http.ResponseWriter, r *http.Request,
 			Action:   "update",
 			Resource: workspaceID,
 			Outcome:  models.AuditOutcomeSuccess,
-			Message:  "pilot workspace updated",
+			Message:  "assessment updated",
 		})
 		writeJSON(w, http.StatusOK, updated)
 	case http.MethodDelete:
@@ -275,7 +279,7 @@ func (s *Server) handleWorkspaceDocument(w http.ResponseWriter, r *http.Request,
 			Action:   "delete",
 			Resource: workspaceID,
 			Outcome:  models.AuditOutcomeSuccess,
-			Message:  "pilot workspace deleted",
+			Message:  "assessment deleted",
 		})
 		w.WriteHeader(http.StatusNoContent)
 	default:
@@ -387,6 +391,65 @@ func (s *Server) handleWorkspaceJobByID(w http.ResponseWriter, r *http.Request, 
 	writeJSON(w, http.StatusOK, job)
 }
 
+func (s *Server) handleWorkspaceJobCancel(w http.ResponseWriter, r *http.Request, tenantID, workspaceID, jobID string) {
+	if r.Method != http.MethodPost {
+		writeAPIError(w, r, http.StatusMethodNotAllowed, "invalid_request", "method not allowed", apiErrorOptions{})
+		return
+	}
+
+	job, err := s.store.GetWorkspaceJob(r.Context(), tenantID, workspaceID, jobID)
+	if err != nil {
+		writeAPIError(w, r, http.StatusNotFound, "workspace_job_not_found", err.Error(), apiErrorOptions{
+			Details: map[string]any{
+				"workspace_id": workspaceID,
+				"job_id":       jobID,
+			},
+		})
+		return
+	}
+	if !workspaceJobCanCancel(job.Status) {
+		writeJSON(w, http.StatusOK, job)
+		return
+	}
+
+	_ = s.cancelWorkspaceJob(tenantID, workspaceID, jobID)
+	current, err := s.store.GetWorkspaceJob(r.Context(), tenantID, workspaceID, jobID)
+	if err != nil {
+		writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
+		return
+	}
+	if !workspaceJobCanCancel(current.Status) {
+		writeJSON(w, http.StatusOK, current)
+		return
+	}
+	if err := s.failWorkspaceJob(r.Context(), tenantID, *current, true, fmt.Errorf("workspace job canceled")); err != nil {
+		writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
+		return
+	}
+
+	updated, err := s.store.GetWorkspaceJob(r.Context(), tenantID, workspaceID, jobID)
+	if err != nil {
+		writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
+		return
+	}
+	s.recordAuditEvent(r, models.AuditEvent{
+		Category: "workspace",
+		Action:   "cancel-job",
+		Resource: jobID,
+		Outcome:  models.AuditOutcomeSuccess,
+		Message:  "assessment job canceled",
+		Details: map[string]string{
+			"workspace_id": workspaceID,
+			"job_type":     string(job.Type),
+		},
+	})
+	writeJSON(w, http.StatusAccepted, updated)
+}
+
+func workspaceJobCanCancel(status models.WorkspaceJobStatus) bool {
+	return status == models.WorkspaceJobStatusQueued || status == models.WorkspaceJobStatusRunning
+}
+
 func (s *Server) handleWorkspaceReportExport(w http.ResponseWriter, r *http.Request, tenantID, workspaceID string) {
 	if r.Method != http.MethodPost {
 		writeAPIError(w, r, http.StatusMethodNotAllowed, "invalid_request", "method not allowed", apiErrorOptions{})
@@ -449,9 +512,23 @@ func (s *Server) handleWorkspaceReportExport(w http.ResponseWriter, r *http.Requ
 		Jobs:       jobs,
 		ExportedAt: time.Now().UTC(),
 	}
-	reportName := firstNonEmpty(strings.TrimSpace(request.Name), "pilot-workspace-report")
+	reportName := firstNonEmpty(strings.TrimSpace(request.Name), "assessment-report")
 	reportID := uuid.NewString()
 	fileName := fmt.Sprintf("%s-%s.%s", workspaceReportSlug(*workspace), reportID[:8], workspaceReportExtension(format))
+	var payload []byte
+	var contentType string
+	if format == "json" {
+		payload, err = json.MarshalIndent(document, "", "  ")
+		if err != nil {
+			telemetry.RecordError(span, err)
+			writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
+			return
+		}
+		contentType = "application/json"
+	} else {
+		payload = []byte(renderWorkspaceReportMarkdown(document))
+		contentType = "text/markdown; charset=utf-8"
+	}
 
 	workspace.Reports = append(workspace.Reports, models.WorkspaceReportArtifact{
 		ID:            reportID,
@@ -473,31 +550,14 @@ func (s *Server) handleWorkspaceReportExport(w http.ResponseWriter, r *http.Requ
 		Action:   "export-report",
 		Resource: workspaceID,
 		Outcome:  models.AuditOutcomeSuccess,
-		Message:  "pilot workspace report exported",
+		Message:  "assessment report generated",
 		Details: map[string]string{
 			"format": format,
 			"name":   reportName,
 		},
 	})
 
-	if format == "json" {
-		payload, err := json.MarshalIndent(document, "", "  ")
-		if err != nil {
-			telemetry.RecordError(span, err)
-			writeAPIError(w, r, http.StatusInternalServerError, "internal_error", err.Error(), apiErrorOptions{Retryable: true})
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", fileName))
-		w.WriteHeader(http.StatusOK)
-		if err := writeChunkedResponse(r.Context(), w, payload); err != nil && !errors.Is(err, context.Canceled) {
-			packageLogger.Warn("failed to stream workspace report", "format", format, "request_id", responseRequestID(nil, r), "error", err.Error())
-		}
-		return
-	}
-
-	payload := []byte(renderWorkspaceReportMarkdown(document))
-	w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
+	w.Header().Set("Content-Type", contentType)
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", fileName))
 	w.WriteHeader(http.StatusOK)
 	if err := writeChunkedResponse(r.Context(), w, payload); err != nil && !errors.Is(err, context.Canceled) {
@@ -513,20 +573,29 @@ func (s *Server) enqueueWorkspaceJob(ctx context.Context, job models.WorkspaceJo
 		ctx = context.Background()
 	}
 	parentCtx := context.WithoutCancel(ctx)
-	var release context.CancelFunc
+	releases := make([]context.CancelFunc, 0, 2)
 	if s != nil && s.workspaceJobTimeout > 0 {
 		timeoutCtx, cancel := context.WithTimeout(parentCtx, s.workspaceJobTimeout)
 		parentCtx = timeoutCtx
-		release = onceCancel(cancel)
+		releases = append(releases, cancel)
 	}
+	taskCtx, cancel := context.WithCancel(parentCtx)
+	s.registerWorkspaceJobCancel(job.TenantID, job.WorkspaceID, job.ID, cancel)
+	releases = append(releases, cancel)
+	release := onceCancel(func() {
+		s.unregisterWorkspaceJobCancel(job.TenantID, job.WorkspaceID, job.ID)
+		for _, cancel := range releases {
+			cancel()
+		}
+	})
 	err := s.workspaceJobExecutor.Enqueue(ctx, workspaceJobTask{
 		tenantID:    job.TenantID,
 		workspaceID: job.WorkspaceID,
 		jobID:       job.ID,
-		ctx:         parentCtx,
+		ctx:         taskCtx,
 		release:     release,
 	})
-	if err != nil && release != nil {
+	if err != nil {
 		release()
 	}
 	return err
@@ -537,6 +606,46 @@ func onceCancel(cancel context.CancelFunc) context.CancelFunc {
 	return func() {
 		once.Do(cancel)
 	}
+}
+
+func (s *Server) registerWorkspaceJobCancel(tenantID, workspaceID, jobID string, cancel context.CancelFunc) {
+	if s == nil || cancel == nil {
+		return
+	}
+	s.workspaceJobCancelMu.Lock()
+	defer s.workspaceJobCancelMu.Unlock()
+	if s.workspaceJobCancels == nil {
+		s.workspaceJobCancels = make(map[string]context.CancelFunc)
+	}
+	s.workspaceJobCancels[workspaceJobCancelKey(tenantID, workspaceID, jobID)] = cancel
+}
+
+func (s *Server) unregisterWorkspaceJobCancel(tenantID, workspaceID, jobID string) {
+	if s == nil {
+		return
+	}
+	s.workspaceJobCancelMu.Lock()
+	defer s.workspaceJobCancelMu.Unlock()
+	delete(s.workspaceJobCancels, workspaceJobCancelKey(tenantID, workspaceID, jobID))
+}
+
+func (s *Server) cancelWorkspaceJob(tenantID, workspaceID, jobID string) bool {
+	if s == nil {
+		return false
+	}
+	s.workspaceJobCancelMu.Lock()
+	cancel := s.workspaceJobCancels[workspaceJobCancelKey(tenantID, workspaceID, jobID)]
+	delete(s.workspaceJobCancels, workspaceJobCancelKey(tenantID, workspaceID, jobID))
+	s.workspaceJobCancelMu.Unlock()
+	if cancel == nil {
+		return false
+	}
+	cancel()
+	return true
+}
+
+func workspaceJobCancelKey(tenantID, workspaceID, jobID string) string {
+	return strings.TrimSpace(tenantID) + ":" + strings.TrimSpace(workspaceID) + ":" + strings.TrimSpace(jobID)
 }
 
 func (s *Server) runWorkspaceJob(ctx context.Context, tenantID, workspaceID, jobID string) {
@@ -577,6 +686,16 @@ func (s *Server) runWorkspaceJob(ctx context.Context, tenantID, workspaceID, job
 		return
 	}
 	jobForFailure = *job
+	if job.Status != models.WorkspaceJobStatusQueued && job.Status != models.WorkspaceJobStatusRunning {
+		return
+	}
+	if ctx.Err() != nil {
+		persistCtx := store.ContextWithTenantID(context.WithoutCancel(storeCtx), tenantID)
+		if persistErr := s.recordWorkspaceJobFailure(persistCtx, tenantID, *job, true, fmt.Errorf("workspace job canceled")); persistErr != nil {
+			return
+		}
+		return
+	}
 	workspace, err := s.store.GetWorkspace(storeCtx, tenantID, workspaceID)
 	if err != nil {
 		telemetry.RecordError(span, err)
@@ -1377,8 +1496,8 @@ func syncWorkspacePlanApproval(workspace *models.PilotWorkspace, createdAt time.
 func renderWorkspaceReportMarkdown(document workspaceReportDocument) string {
 	workspace := document.Workspace
 	var builder strings.Builder
-	builder.WriteString("# Pilot Workspace Report\n\n")
-	writeWorkspaceReportf(&builder, "- Workspace: %s\n", workspace.Name)
+	builder.WriteString("# Assessment Report\n\n")
+	writeWorkspaceReportf(&builder, "- Assessment: %s\n", workspace.Name)
 	writeWorkspaceReportf(&builder, "- Workspace ID: %s\n", workspace.ID)
 	if strings.TrimSpace(workspace.Description) != "" {
 		writeWorkspaceReportf(&builder, "- Description: %s\n", workspace.Description)
@@ -1651,7 +1770,7 @@ func workspaceReportSlug(workspace models.PilotWorkspace) string {
 	}, name)
 	name = strings.Trim(name, "-")
 	if name == "" {
-		return "pilot-workspace"
+		return "assessment"
 	}
 	return name
 }

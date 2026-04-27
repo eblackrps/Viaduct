@@ -3,19 +3,26 @@ import {
 	describeError,
 	getAbout,
 	getCurrentTenant,
+	getReadiness,
 	isAbortError,
 	type ErrorDisplay,
 } from "../../api";
-import type { AboutResponse, CurrentTenant } from "../../types";
+import type {
+	AboutResponse,
+	CurrentTenant,
+	ReadinessResponse,
+} from "../../types";
 
 interface SettingsDataErrors {
 	about?: ErrorDisplay;
 	currentTenant?: ErrorDisplay;
+	readiness?: ErrorDisplay;
 }
 
 interface SettingsDataState {
 	about: AboutResponse | null;
 	currentTenant: CurrentTenant | null;
+	readiness: ReadinessResponse | null;
 	loading: boolean;
 	errors: SettingsDataErrors;
 }
@@ -25,6 +32,7 @@ export function useSettingsData(): SettingsDataState {
 	const [currentTenant, setCurrentTenant] = useState<CurrentTenant | null>(
 		null,
 	);
+	const [readiness, setReadiness] = useState<ReadinessResponse | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [errors, setErrors] = useState<SettingsDataErrors>({});
 	const requestSequenceRef = useRef(0);
@@ -40,8 +48,9 @@ export function useSettingsData(): SettingsDataState {
 		void Promise.allSettled([
 			getAbout({ signal: controller.signal }),
 			getCurrentTenant({ signal: controller.signal }),
+			getReadiness({ signal: controller.signal }),
 		])
-			.then(([aboutResult, currentTenantResult]) => {
+			.then(([aboutResult, currentTenantResult, readinessResult]) => {
 				if (requestSequence !== requestSequenceRef.current) {
 					return;
 				}
@@ -63,6 +72,14 @@ export function useSettingsData(): SettingsDataState {
 									fallback: "Unable to load tenant context.",
 								})
 							: undefined,
+					readiness:
+						readinessResult.status === "rejected" &&
+						!isAbortError(readinessResult.reason)
+							? describeError(readinessResult.reason, {
+									scope: "runtime readiness",
+									fallback: "Unable to load runtime readiness.",
+								})
+							: undefined,
 				};
 
 				if (aboutResult.status === "fulfilled") {
@@ -70,6 +87,9 @@ export function useSettingsData(): SettingsDataState {
 				}
 				if (currentTenantResult.status === "fulfilled") {
 					setCurrentTenant(currentTenantResult.value);
+				}
+				if (readinessResult.status === "fulfilled") {
+					setReadiness(readinessResult.value);
 				}
 
 				setErrors(nextErrors);
@@ -87,6 +107,7 @@ export function useSettingsData(): SettingsDataState {
 	return {
 		about,
 		currentTenant,
+		readiness,
 		loading,
 		errors,
 	};

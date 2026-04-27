@@ -2398,7 +2398,7 @@
                 }
               }
             },
-            "description": "Saved pilot workspaces"
+            "description": "Saved assessments"
           },
           "401": {
             "$ref": "#/components/responses/ErrorResponse"
@@ -2418,7 +2418,7 @@
             "ServiceAccountKey": []
           }
         ],
-        "summary": "List pilot workspaces"
+        "summary": "List assessments"
       },
       "post": {
         "requestBody": {
@@ -2440,7 +2440,7 @@
                 }
               }
             },
-            "description": "Pilot workspace created"
+            "description": "Assessment created"
           },
           "400": {
             "$ref": "#/components/responses/ErrorResponse"
@@ -2466,7 +2466,7 @@
             "ServiceAccountKey": []
           }
         ],
-        "summary": "Create a pilot workspace"
+        "summary": "Create an assessment"
       }
     },
     "/api/v1/workspaces/{workspaceID}": {
@@ -2483,7 +2483,7 @@
         ],
         "responses": {
           "204": {
-            "description": "Pilot workspace deleted"
+            "description": "Assessment deleted"
           },
           "401": {
             "$ref": "#/components/responses/ErrorResponse"
@@ -2506,7 +2506,7 @@
             "ServiceAccountKey": []
           }
         ],
-        "summary": "Delete a pilot workspace"
+        "summary": "Delete an assessment"
       },
       "get": {
         "parameters": [
@@ -2528,7 +2528,7 @@
                 }
               }
             },
-            "description": "Pilot workspace state"
+            "description": "Assessment state"
           },
           "401": {
             "$ref": "#/components/responses/ErrorResponse"
@@ -2551,7 +2551,7 @@
             "ServiceAccountKey": []
           }
         ],
-        "summary": "Get a pilot workspace"
+        "summary": "Get an assessment"
       },
       "patch": {
         "parameters": [
@@ -2583,7 +2583,7 @@
                 }
               }
             },
-            "description": "Updated pilot workspace state"
+            "description": "Updated assessment state"
           },
           "400": {
             "$ref": "#/components/responses/ErrorResponse"
@@ -2609,7 +2609,7 @@
             "ServiceAccountKey": []
           }
         ],
-        "summary": "Update pilot workspace state"
+        "summary": "Update assessment state"
       }
     },
     "/api/v1/workspaces/{workspaceID}/jobs": {
@@ -2664,7 +2664,7 @@
             "ServiceAccountKey": []
           }
         ],
-        "summary": "List persisted pilot workspace jobs"
+        "summary": "List assessment jobs"
       },
       "post": {
         "parameters": [
@@ -2722,7 +2722,7 @@
             "ServiceAccountKey": []
           }
         ],
-        "summary": "Create a persisted pilot workspace job"
+        "summary": "Create an assessment job"
       }
     },
     "/api/v1/workspaces/{workspaceID}/jobs/{jobID}": {
@@ -2754,7 +2754,7 @@
                 }
               }
             },
-            "description": "Pilot workspace job state"
+            "description": "Assessment job state"
           },
           "401": {
             "$ref": "#/components/responses/ErrorResponse"
@@ -2774,7 +2774,72 @@
             "ServiceAccountKey": []
           }
         ],
-        "summary": "Get pilot workspace job status"
+        "summary": "Get assessment job status"
+      }
+    },
+    "/api/v1/workspaces/{workspaceID}/jobs/{jobID}/cancel": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspaceID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "jobID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceJob"
+                }
+              }
+            },
+            "description": "Assessment job was already terminal"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceJob"
+                }
+              }
+            },
+            "description": "Assessment job canceled"
+          },
+          "401": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "TenantAPIKey": []
+          },
+          {
+            "ServiceAccountKey": []
+          }
+        ],
+        "summary": "Cancel an assessment job"
       }
     },
     "/api/v1/workspaces/{workspaceID}/reports/export": {
@@ -2813,7 +2878,7 @@
                 }
               }
             },
-            "description": "Exported pilot workspace report document"
+            "description": "Exported assessment report document"
           },
           "400": {
             "$ref": "#/components/responses/ErrorResponse"
@@ -2839,7 +2904,7 @@
             "ServiceAccountKey": []
           }
         ],
-        "summary": "Export a pilot workspace report"
+        "summary": "Export an assessment report"
       }
     },
     "/api/v2/inventory": {

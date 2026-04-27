@@ -109,4 +109,21 @@ describe("useAuthBootstrap", () => {
 		);
 		expect(result.current.status).toBe("authenticated");
 	});
+
+	it("keeps non-401 credential errors visible", async () => {
+		apiMocks.getCurrentTenant.mockReset();
+		apiMocks.getCurrentTenant.mockRejectedValue(
+			Object.assign(new Error("server rejected credentials"), {
+				status: 500,
+				code: "invalid_credentials",
+			}),
+		);
+
+		const { result } = renderHook(() => useAuthBootstrap());
+
+		await waitFor(() => {
+			expect(result.current.status).toBe("error");
+		});
+		expect(runtimeAuthMocks.clearDashboardAuthSession).not.toHaveBeenCalled();
+	});
 });

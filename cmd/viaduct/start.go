@@ -126,6 +126,7 @@ func startDetached(cmd *cobra.Command, startContext localStartContext) error {
 	child.Stderr = logFile
 	child.Stdin = nil
 	child.Env = os.Environ()
+	configureDetachedCommand(child)
 
 	if err := child.Start(); err != nil {
 		return fmt.Errorf("start: launch background runtime: %w", err)

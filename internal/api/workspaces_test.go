@@ -59,7 +59,7 @@ func TestServer_HandleWorkspaces_CreateUpdateAndList_Expected(t *testing.T) {
 
 	createRequest := httptest.NewRequest(http.MethodPost, "/api/v1/workspaces", bytes.NewBufferString(`{
 		"name":"Lab Assessment",
-		"description":"Pilot workspace",
+		"description":"Assessment",
 		"source_connections":[{"id":"src-1","name":"Lab KVM","platform":"kvm","address":"examples/lab/kvm","credential_ref":"lab-kvm"}],
 		"target_assumptions":{"platform":"proxmox","address":"https://pilot-proxmox.local:8006/api2/json","default_host":"pve-node-01"}
 	}`))
@@ -78,7 +78,7 @@ func TestServer_HandleWorkspaces_CreateUpdateAndList_Expected(t *testing.T) {
 	}
 
 	updateRequest := httptest.NewRequest(http.MethodPatch, "/api/v1/workspaces/"+created.ID, bytes.NewBufferString(`{
-		"description":"Updated pilot workspace",
+		"description":"Updated assessment",
 		"plan_settings":{"name":"lab-plan","parallel":2,"verify_boot":true}
 	}`))
 	updateRecorder := httptest.NewRecorder()
@@ -187,11 +187,118 @@ func TestServer_HandleWorkspaceJobs_DiscoveryAndReport_Expected(t *testing.T) {
 	if contentType := reportRecorder.Header().Get("Content-Type"); !strings.Contains(contentType, "text/markdown") {
 		t.Fatalf("Content-Type = %q, want markdown", contentType)
 	}
-	if !strings.Contains(reportRecorder.Body.String(), "# Pilot Workspace Report") {
+	if !strings.Contains(reportRecorder.Body.String(), "# Assessment Report") {
 		t.Fatalf("unexpected report payload: %s", reportRecorder.Body.String())
 	}
 	if !strings.Contains(reportRecorder.Body.String(), "## Background Jobs") || !strings.Contains(reportRecorder.Body.String(), "## Report History") {
 		t.Fatalf("report is missing operator handoff sections: %s", reportRecorder.Body.String())
+	}
+}
+
+func TestServer_HandleWorkspaceJobCancel_MarksQueuedJobFailed_Expected(t *testing.T) {
+	t.Parallel()
+
+	stateStore := store.NewMemoryStore()
+	server := mustNewServer(t, stateStore)
+	recordingExecutor := &workspaceJobRecordingExecutor{}
+	server.workspaceJobExecutor = recordingExecutor
+	ctx := store.ContextWithTenantID(context.Background(), store.DefaultTenantID)
+
+	if err := stateStore.CreateWorkspace(ctx, store.DefaultTenantID, models.PilotWorkspace{
+		ID:     "workspace-cancel",
+		Name:   "Cancel Workspace",
+		Status: models.PilotWorkspaceStatusDraft,
+		Snapshots: []models.WorkspaceSnapshot{
+			{
+				SnapshotID:   "snapshot-cancel",
+				Source:       "lab",
+				Platform:     models.PlatformKVM,
+				DiscoveredAt: time.Now().UTC(),
+			},
+		},
+	}); err != nil {
+		t.Fatalf("CreateWorkspace() error = %v", err)
+	}
+
+	createRequest := httptest.NewRequest(http.MethodPost, "/api/v1/workspaces/workspace-cancel/jobs", bytes.NewBufferString(`{"type":"graph"}`))
+	createRecorder := httptest.NewRecorder()
+	server.handleWorkspaceByID(createRecorder, createRequest.WithContext(ctx))
+	if createRecorder.Code != http.StatusAccepted {
+		t.Fatalf("create job status = %d, want %d: %s", createRecorder.Code, http.StatusAccepted, createRecorder.Body.String())
+	}
+	var created models.WorkspaceJob
+	if err := json.Unmarshal(createRecorder.Body.Bytes(), &created); err != nil {
+		t.Fatalf("Unmarshal(created) error = %v", err)
+	}
+
+	cancelRequest := httptest.NewRequest(http.MethodPost, "/api/v1/workspaces/workspace-cancel/jobs/"+created.ID+"/cancel", nil)
+	cancelRecorder := httptest.NewRecorder()
+	server.handleWorkspaceByID(cancelRecorder, cancelRequest.WithContext(ctx))
+	if cancelRecorder.Code != http.StatusAccepted {
+		t.Fatalf("cancel job status = %d, want %d: %s", cancelRecorder.Code, http.StatusAccepted, cancelRecorder.Body.String())
+	}
+
+	job, err := stateStore.GetWorkspaceJob(ctx, store.DefaultTenantID, "workspace-cancel", created.ID)
+	if err != nil {
+		t.Fatalf("GetWorkspaceJob() error = %v", err)
+	}
+	if job.Status != models.WorkspaceJobStatusFailed || !job.Retryable || !strings.Contains(job.Error, "canceled") {
+		t.Fatalf("job after cancel = %#v, want retryable canceled failure", job)
+	}
+	if len(recordingExecutor.tasks) != 1 {
+		t.Fatalf("recorded tasks = %d, want 1", len(recordingExecutor.tasks))
+	}
+	select {
+	case <-recordingExecutor.tasks[0].ctx.Done():
+	default:
+		t.Fatal("queued task context was not canceled")
+	}
+}
+
+func TestServer_HandleWorkspaceJobCancel_TerminalJobUnchanged_Expected(t *testing.T) {
+	t.Parallel()
+
+	stateStore := store.NewMemoryStore()
+	server := mustNewServer(t, stateStore)
+	ctx := store.ContextWithTenantID(context.Background(), store.DefaultTenantID)
+	now := time.Now().UTC()
+
+	if err := stateStore.CreateWorkspace(ctx, store.DefaultTenantID, models.PilotWorkspace{
+		ID:     "workspace-terminal-cancel",
+		Name:   "Terminal Cancel Workspace",
+		Status: models.PilotWorkspaceStatusDraft,
+	}); err != nil {
+		t.Fatalf("CreateWorkspace() error = %v", err)
+	}
+	if err := stateStore.SaveWorkspaceJob(ctx, store.DefaultTenantID, models.WorkspaceJob{
+		ID:            "job-terminal",
+		TenantID:      store.DefaultTenantID,
+		WorkspaceID:   "workspace-terminal-cancel",
+		Type:          models.WorkspaceJobTypeGraph,
+		Status:        models.WorkspaceJobStatusSucceeded,
+		RequestedAt:   now,
+		StartedAt:     now,
+		UpdatedAt:     now,
+		CompletedAt:   now,
+		CorrelationID: "req-terminal",
+		Message:       "Graph generated.",
+	}); err != nil {
+		t.Fatalf("SaveWorkspaceJob() error = %v", err)
+	}
+
+	cancelRequest := httptest.NewRequest(http.MethodPost, "/api/v1/workspaces/workspace-terminal-cancel/jobs/job-terminal/cancel", nil)
+	cancelRecorder := httptest.NewRecorder()
+	server.handleWorkspaceByID(cancelRecorder, cancelRequest.WithContext(ctx))
+	if cancelRecorder.Code != http.StatusOK {
+		t.Fatalf("cancel terminal job status = %d, want %d: %s", cancelRecorder.Code, http.StatusOK, cancelRecorder.Body.String())
+	}
+
+	job, err := stateStore.GetWorkspaceJob(ctx, store.DefaultTenantID, "workspace-terminal-cancel", "job-terminal")
+	if err != nil {
+		t.Fatalf("GetWorkspaceJob() error = %v", err)
+	}
+	if job.Status != models.WorkspaceJobStatusSucceeded || job.Error != "" || job.Retryable {
+		t.Fatalf("terminal job after cancel = %#v, want unchanged succeeded job", job)
 	}
 }
 

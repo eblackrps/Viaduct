@@ -111,7 +111,7 @@ export const navigationGroups: NavigationGroup[] = [
 			{
 				path: "/reports",
 				label: "Reports",
-				title: "Reports And History",
+				title: "Reports and history",
 				description:
 					"Review migration records, discovery snapshots, and exportable reports.",
 				icon: FileText,

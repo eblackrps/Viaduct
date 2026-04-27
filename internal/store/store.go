@@ -41,7 +41,7 @@ type Store interface {
 	ListSnapshots(ctx context.Context, tenantID string, platform models.Platform, limit int) ([]SnapshotMeta, error)
 	// ListSnapshotsPage returns a single page of snapshot metadata plus the total number of matching snapshots.
 	ListSnapshotsPage(ctx context.Context, tenantID string, platform models.Platform, page, perPage int) ([]SnapshotMeta, int, error)
-	// QueryVMs returns VMs that match the supplied filter criteria across stored snapshots.
+	// QueryVMs returns VMs that match the supplied filter criteria from the latest snapshot per source/platform.
 	QueryVMs(ctx context.Context, tenantID string, filter VMFilter) ([]models.VirtualMachine, error)
 	// SaveMigration persists a migration state payload by identifier.
 	SaveMigration(ctx context.Context, tenantID string, record MigrationRecord) error
@@ -142,7 +142,7 @@ type SnapshotMeta struct {
 	DiscoveredAt time.Time `json:"discovered_at" yaml:"discovered_at"`
 }
 
-// VMFilter filters VM queries across one or more stored snapshots.
+// VMFilter filters VM queries across current stored snapshots.
 type VMFilter struct {
 	// Platform restricts results to a specific platform when provided.
 	Platform models.Platform `json:"platform,omitempty" yaml:"platform,omitempty"`

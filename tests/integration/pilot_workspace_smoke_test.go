@@ -78,7 +78,7 @@ func TestPilotWorkspace_LabFlow_CreateDiscoverGraphSimulatePlanReport_Expected(t
 	if reportRecorder.Code != http.StatusOK {
 		t.Fatalf("report status = %d, want %d: %s", reportRecorder.Code, http.StatusOK, reportRecorder.Body.String())
 	}
-	if !strings.Contains(reportRecorder.Body.String(), "# Pilot Workspace Report") {
+	if !strings.Contains(reportRecorder.Body.String(), "# Assessment Report") {
 		t.Fatalf("unexpected report body: %s", reportRecorder.Body.String())
 	}
 

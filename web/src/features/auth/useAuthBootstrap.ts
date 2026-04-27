@@ -165,8 +165,5 @@ function isExpectedUnauthenticated(reason: unknown): boolean {
 	if (reason.status === 401) {
 		return true;
 	}
-	return (
-		reason.code === "missing_credentials" ||
-		reason.code === "invalid_credentials"
-	);
+	return false;
 }

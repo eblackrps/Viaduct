@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -92,6 +93,50 @@ func TestReadWriteLocalRuntimeState_RoundTrip_Expected(t *testing.T) {
 	}
 	if got.PID != want.PID || got.BaseURL != want.BaseURL || !got.StartedAt.Equal(now) {
 		t.Fatalf("runtime state round-trip mismatch: got %#v want %#v", got, want)
+	}
+}
+
+func TestStopCommand_StaleRuntimeStateClearedWithoutKill_Expected(t *testing.T) {
+	root := t.TempDir()
+	previousConfigPath := configPath
+	configPath = filepath.Join(root, "config.yaml")
+	defer func() {
+		configPath = previousConfigPath
+	}()
+
+	paths, err := resolveLocalRuntimePaths(configPath)
+	if err != nil {
+		t.Fatalf("resolveLocalRuntimePaths() error = %v", err)
+	}
+	if err := writeLocalRuntimeState(paths, localRuntimeState{
+		PID:        0,
+		Detached:   true,
+		BaseURL:    "http://127.0.0.1:1",
+		APIURL:     "http://127.0.0.1:1/api/v1/",
+		ConfigPath: paths.ConfigPath,
+		Version:    "dev",
+		Commit:     "none",
+		StartedAt:  time.Now().UTC(),
+	}); err != nil {
+		t.Fatalf("writeLocalRuntimeState() error = %v", err)
+	}
+
+	var output bytes.Buffer
+	cmd := newStopCommand()
+	cmd.SetOut(&output)
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("stop command error = %v", err)
+	}
+
+	state, err := readLocalRuntimeState(paths)
+	if err != nil {
+		t.Fatalf("readLocalRuntimeState() error = %v", err)
+	}
+	if state != nil {
+		t.Fatalf("runtime state = %#v, want cleared", state)
+	}
+	if !strings.Contains(output.String(), "Removed stale local Viaduct runtime record") {
+		t.Fatalf("output = %q, want stale runtime message", output.String())
 	}
 }
 

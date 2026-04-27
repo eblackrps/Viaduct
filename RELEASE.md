@@ -12,6 +12,7 @@ This document describes the current packaged-image and native-bundle release pro
 - `make release-surface-check`: verify the current version, install docs, site copy, and deployment samples still agree
 - `make site-check`: verify public-site version strings, local links, screenshot assets, and the GitHub Pages source directory
 - `make support-matrix-check`: verify website and README connector claims still match the support matrix
+- `make container-cve-check CONTAINER_CVE_IMAGE=ghcr.io/eblackrps/viaduct:<version>`: scan a built or published container for high and critical CVEs
 - `make release-remote-check VERSION=3.2.1 BASE_URL=https://viaducthq.com`: verify an already-published release, GHCR image, cosign identity, expected assets, and live site content without modifying the release
 - `go run ./scripts/release_acceptance -image <image> -certificate-identity <workflow-identity>`: pull a published image, verify its cosign identity, start it against PostgreSQL in production mode, and exercise health/readiness/about plus tenant auth
 - `make web-e2e-setup`: install the dashboard dependencies plus the Playwright Chromium runtime for local browser smoke
@@ -36,7 +37,7 @@ On Windows, `make release-gate` still builds `bin/viaduct.exe`, but it validates
 5. Smoke-test the packaged binary with `viaduct version`, `viaduct --help`, `viaduct doctor`, and the local start flow (`viaduct start --config <installed-config> --detach --open-browser=false`) against the bundled dashboard assets when they are present.
    When the local environment has browser prerequisites installed, run `make pilot-smoke` as the high-signal evaluator path before tagging.
 6. Confirm install docs, quickstarts, upgrade docs, rollback docs, deployment examples, and the assessment guide still match the artifact layout and current auth behavior.
-7. Run `make release-surface-check` and `make support-matrix-check` so the current version, release notes, image tags, Helm/Compose samples, public-facing docs, and connector claims agree before tagging.
+7. Run `make release-surface-check`, `make support-matrix-check`, and `make container-cve-check CONTAINER_CVE_IMAGE=ghcr.io/eblackrps/viaduct:<version>` so the current version, release notes, image tags, Helm/Compose samples, public-facing docs, connector claims, and container CVE status agree before tagging.
 8. Run `make site-check`; after Pages deployment, run `make site-check-live BASE_URL=https://viaducthq.com`.
 9. Refresh the checked-in README and demo screenshots, then confirm the root README, install docs, quickstarts, and the `site/` landing page all lead with the same packaged install and verification path for the current release.
 10. Verify the plugin manifest check, OpenAPI contract check, and runtime Swagger UI (`/api/v1/docs`) remain aligned.

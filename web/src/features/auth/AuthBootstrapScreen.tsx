@@ -397,8 +397,8 @@ function RememberSessionCheckbox({
 					Keep me signed in on this browser
 				</span>
 				<span className="mt-1.5 block leading-6 text-slate-600">
-					Viaduct keeps only a non-sensitive session marker here. Leave this off
-					on shared devices.
+					Viaduct keeps only a session marker in this browser. If the API
+					restarts, sign in again. Leave this off on shared devices.
 				</span>
 			</span>
 		</label>

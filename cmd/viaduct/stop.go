@@ -27,7 +27,16 @@ func newStopCommand() *cobra.Command {
 				return nil
 			}
 
-			if err := killRuntimeProcess(state.PID); err != nil && runtimeReachable(state, 2*time.Second) {
+			verified, reason := recordedRuntimeVerified(state, 2*time.Second)
+			if !verified {
+				if err := clearLocalRuntimeState(paths); err != nil {
+					return fmt.Errorf("stop: %w", err)
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), "Removed stale local Viaduct runtime record for %s. %s\n", state.BaseURL, reason)
+				return nil
+			}
+
+			if err := killRuntimeProcess(state.PID); err != nil {
 				return fmt.Errorf("stop: %w", err)
 			}
 

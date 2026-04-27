@@ -19,6 +19,7 @@ import type {
 	PilotWorkspace,
 	PreflightReport,
 	RecommendationReport,
+	ReadinessResponse,
 	RollbackResult,
 	SnapshotMeta,
 	SimulationRequest,
@@ -771,6 +772,15 @@ export function getCurrentTenant(
 	return request<CurrentTenant>("/api/v1/tenants/current", undefined, options);
 }
 
+export function getReadiness(
+	options?: RequestOptions,
+): Promise<ReadinessResponse> {
+	return request<ReadinessResponse>("/readyz", undefined, {
+		...options,
+		skipAuth: true,
+	});
+}
+
 export function listWorkspaces(): Promise<PilotWorkspace[]> {
 	return request<PilotWorkspace[]>("/api/v1/workspaces");
 }
@@ -871,6 +881,18 @@ export function createWorkspaceJob(
 	});
 }
 
+export function cancelWorkspaceJob(
+	workspaceID: string,
+	jobID: string,
+): Promise<WorkspaceJob> {
+	return request<WorkspaceJob>(
+		`/api/v1/workspaces/${workspaceID}/jobs/${jobID}/cancel`,
+		{
+			method: "POST",
+		},
+	);
+}
+
 export async function exportWorkspaceReport(
 	workspaceID: string,
 	format: "markdown" | "json" = "markdown",
@@ -886,7 +908,7 @@ export async function exportWorkspaceReport(
 		blob: result.blob,
 		filename:
 			result.filename ??
-			`pilot-workspace-report.${format === "json" ? "json" : "md"}`,
+			`assessment-report.${format === "json" ? "json" : "md"}`,
 		contentType: result.contentType,
 	};
 }

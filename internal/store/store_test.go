@@ -153,6 +153,59 @@ func TestMemoryStore_QueryVMs_TenantScoped(t *testing.T) {
 	}
 }
 
+func TestMemoryStore_QueryVMs_UsesLatestSnapshotPerSourcePlatform_Expected(t *testing.T) {
+	t.Parallel()
+
+	stateStore := NewMemoryStore()
+	ctx := context.Background()
+	older := time.Date(2026, time.April, 3, 12, 0, 0, 0, time.UTC)
+	newer := older.Add(time.Hour)
+
+	if _, err := stateStore.SaveDiscovery(ctx, DefaultTenantID, &models.DiscoveryResult{
+		Source:   "vcenter",
+		Platform: models.PlatformVMware,
+		VMs: []models.VirtualMachine{
+			{Name: "web-stale", Platform: models.PlatformVMware, PowerState: models.PowerOn},
+		},
+		DiscoveredAt: older,
+	}); err != nil {
+		t.Fatalf("SaveDiscovery(older) error = %v", err)
+	}
+	if _, err := stateStore.SaveDiscovery(ctx, DefaultTenantID, &models.DiscoveryResult{
+		Source:   "vcenter",
+		Platform: models.PlatformVMware,
+		VMs: []models.VirtualMachine{
+			{Name: "web-current", Platform: models.PlatformVMware, PowerState: models.PowerOn},
+		},
+		DiscoveredAt: newer,
+	}); err != nil {
+		t.Fatalf("SaveDiscovery(newer) error = %v", err)
+	}
+	if _, err := stateStore.SaveDiscovery(ctx, DefaultTenantID, &models.DiscoveryResult{
+		Source:   "pve",
+		Platform: models.PlatformProxmox,
+		VMs: []models.VirtualMachine{
+			{Name: "pve-current", Platform: models.PlatformProxmox, PowerState: models.PowerOn},
+		},
+		DiscoveredAt: older.Add(30 * time.Minute),
+	}); err != nil {
+		t.Fatalf("SaveDiscovery(other platform) error = %v", err)
+	}
+
+	items, err := stateStore.QueryVMs(ctx, DefaultTenantID, VMFilter{PowerState: models.PowerOn})
+	if err != nil {
+		t.Fatalf("QueryVMs() error = %v", err)
+	}
+
+	names := make([]string, 0, len(items))
+	for _, item := range items {
+		names = append(names, item.Name)
+	}
+	if strings.Join(names, ",") != "web-current,pve-current" {
+		t.Fatalf("QueryVMs() names = %#v, want only current snapshots", names)
+	}
+}
+
 func TestMemoryStore_SaveAndListMigration_TenantScoped(t *testing.T) {
 	t.Parallel()
 

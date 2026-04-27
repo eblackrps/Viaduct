@@ -102,6 +102,7 @@ type doctorAuthReport struct {
 
 type doctorRuntimeAbout struct {
 	Version              string `json:"version,omitempty" yaml:"version,omitempty"`
+	Commit               string `json:"commit,omitempty" yaml:"commit,omitempty"`
 	StoreBackend         string `json:"store_backend,omitempty" yaml:"store_backend,omitempty"`
 	PersistentStore      bool   `json:"persistent_store" yaml:"persistent_store"`
 	LocalOperatorSession bool   `json:"local_operator_session_enabled" yaml:"local_operator_session_enabled"`
@@ -324,6 +325,38 @@ func runtimeReachable(state *localRuntimeState, timeout time.Duration) bool {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	return healthCheck(ctx, strings.TrimRight(state.BaseURL, "/")+"/api/v1/health") == nil
+}
+
+func recordedRuntimeVerified(state *localRuntimeState, timeout time.Duration) (bool, string) {
+	if state == nil {
+		return false, "No runtime state is recorded."
+	}
+	if state.PID <= 0 {
+		return false, "The recorded process ID is invalid."
+	}
+	if ok, reason := runtimeProcessMatchesCurrentExecutable(state.PID); !ok {
+		return false, reason
+	}
+	if !runtimeReachable(state, timeout) {
+		return false, "The recorded runtime is no longer reachable."
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	about, err := doctorEndpointAbout(ctx, strings.TrimRight(state.BaseURL, "/")+"/api/v1/about")
+	if err != nil {
+		return false, fmt.Sprintf("The recorded runtime did not return matching build metadata: %v.", err)
+	}
+	if !about.LocalOperatorSession {
+		return false, "The recorded endpoint is not a local runtime session."
+	}
+	if state.Version != "" && about.Version != "" && state.Version != about.Version {
+		return false, fmt.Sprintf("The recorded runtime version is %s, but the endpoint reports %s.", state.Version, about.Version)
+	}
+	if state.Commit != "" && state.Commit != "none" && about.Commit != "" && about.Commit != state.Commit {
+		return false, fmt.Sprintf("The recorded runtime commit is %s, but the endpoint reports %s.", state.Commit, about.Commit)
+	}
+	return true, "The recorded runtime matches the active process."
 }
 
 func waitForRuntimeHealth(baseURL string, timeout time.Duration) error {
@@ -705,6 +738,7 @@ func doctorEndpointReadiness(ctx context.Context, url string) (doctorRuntimeRead
 func doctorEndpointAbout(ctx context.Context, url string) (doctorRuntimeAbout, error) {
 	type response struct {
 		Version              string `json:"version"`
+		Commit               string `json:"commit"`
 		StoreBackend         string `json:"store_backend"`
 		PersistentStore      bool   `json:"persistent_store"`
 		LocalOperatorSession bool   `json:"local_operator_session_enabled"`
@@ -717,6 +751,7 @@ func doctorEndpointAbout(ctx context.Context, url string) (doctorRuntimeAbout, e
 	about, _ := payload.(*response)
 	return doctorRuntimeAbout{
 		Version:              strings.TrimSpace(about.Version),
+		Commit:               strings.TrimSpace(about.Commit),
 		StoreBackend:         strings.TrimSpace(about.StoreBackend),
 		PersistentStore:      about.PersistentStore,
 		LocalOperatorSession: about.LocalOperatorSession,
