@@ -93,8 +93,8 @@ Fields:
 
 The dashboard reads this through Vite. See [`../../web/.env.example`](../../web/.env.example).
 
-The dashboard now also supports a runtime Get started flow. When neither variable is set, the app either:
-- offers a direct loopback-only local session when `viaduct start` is running against the default local lab path and the default tenant is still unkeyed, or
+The dashboard also supports a runtime Get started flow. When neither variable is set, the app either:
+- starts a local browser session automatically for the default local Docker/runtime path when the default tenant is still unkeyed, or
 - starts on the Get started screen and accepts a service account key or, when needed, a tenant key under advanced options at runtime
 
 The runtime Get started flow creates a server-backed session. The browser stores only an opaque session identifier, and any tenant or service account key stays server-side for that session instead of landing in browser storage. Local sessions do not use an API key at all. Non-persistent sessions keep that identifier in session storage. Users can explicitly choose to remember only that non-sensitive marker in local storage on trusted workstations.
@@ -120,7 +120,7 @@ Tenant and service account credentials are persisted as non-recoverable hashes i
 
 ## Tenant Defaults
 - The built-in `default` tenant exists automatically in both the memory store and PostgreSQL store.
-- `viaduct start` exposes the local session only through the explicit loopback auth-session flow. A fresh clone can still reach the dashboard without manual key seeding, but protected routes require the issued session cookie rather than ambient fallback access.
+- The local Docker/runtime path exposes the local session only through the auth-session flow. A fresh clone can still reach the dashboard without manual key seeding, but protected routes require the issued session cookie rather than ambient fallback access.
 - Any shared or persistent deployment should use explicit tenant or service account keys instead of relying on the local session path.
 - Any pilot or packaged dashboard deployment should prefer named service account credentials over a shared tenant-wide key.
 

@@ -1,43 +1,31 @@
 # Quickstart
 
-The signed OCI image is the primary packaged install for Viaduct `v3.2.1`, but this quickstart remains the fastest local lab path from a fresh clone. It uses the shipped KVM fixtures so you can reach the assessment-to-report workflow without a live hypervisor environment. The current release/install reference also lives in [docs/releases/current.md](docs/releases/current.md).
+The fastest local path is Docker Compose from the repo root. It builds the dashboard and API, starts PostgreSQL, uses the shipped KVM fixtures, and opens the dashboard without tenant keys, service-account keys, or copied secret files. The current release/install reference for `v3.2.1` also lives in [docs/releases/current.md](docs/releases/current.md).
 
-The default path is now browser-first: start the local runtime, open the dashboard, create an assessment, discover, inspect, simulate, save a plan, and export a report.
+The default path is browser-first: start Viaduct, open the dashboard, create an assessment, discover, inspect, simulate, save a plan, and export a report.
 
-If you are deploying rather than evaluating from source, start with [INSTALL.md](INSTALL.md) and [docs/operations/docker.md](docs/operations/docker.md).
+If you are deploying a shared or production environment, use [INSTALL.md](INSTALL.md) and [docs/operations/docker.md](docs/operations/docker.md).
 
-## 1. Build Viaduct
+## 1. Start Viaduct
 
 ```bash
-go mod tidy
-make build
-make web-build
-./bin/viaduct version
-./bin/viaduct start
+docker compose up -d --build
 ```
 
-On Windows PowerShell:
+Or, if you have `make`:
 
-```powershell
-go mod tidy
-make build
-make web-build
-.\bin\viaduct.exe version
-.\bin\viaduct.exe start
+```bash
+make local-up
 ```
 
-On a fresh source checkout, `viaduct start` writes `~/.viaduct/config.yaml` automatically if it does not exist and points it at the shipped `examples/lab/kvm` fixtures.
-
-For any persistent non-demo environment, configure `state_store_dsn` and use PostgreSQL instead of the in-memory store.
+The checked-in `compose.yaml` is intentionally local-only. It publishes Viaduct on `127.0.0.1:8080`, persists state in a Docker PostgreSQL volume, and uses [deploy/local/config.yaml](deploy/local/config.yaml), which contains no API keys.
 
 ## 2. Open The Dashboard
 
 Open [http://127.0.0.1:8080](http://127.0.0.1:8080). The same local runtime serves the dashboard at `/` and the API at `/api/v1/`.
 Live Swagger UI is also available at [http://127.0.0.1:8080/api/v1/docs](http://127.0.0.1:8080/api/v1/docs).
 
-For the default local lab path, the Get started screen offers `Start local session` on direct `127.0.0.1` requests, so you do not need to paste a browser key.
-
-If you intentionally configure tenant keys or service account keys, open `Use a key instead` from the Get started screen. Service account keys are the normal path, while tenant keys remain available under the advanced option for setup or recovery. The runtime auth flow creates a server-backed session: the browser keeps only a non-sensitive session marker, and any tenant or service account key stays server-side for that session instead of landing in browser storage. Local sessions do not use an API key at all. Use the keep-signed-in option only on a trusted workstation.
+For the default local Docker path, the dashboard starts a local browser session automatically. There is no key to paste.
 
 If you want the Vite development server instead of the packaged local shell:
 
@@ -62,15 +50,13 @@ In the dashboard:
 
 The matching seeded request body for API-driven creation is in [examples/lab/pilot-workspace-create.json](examples/lab/pilot-workspace-create.json).
 
-## 4. Check The Local Runtime
+## 4. Check Or Stop The Stack
 
 ```bash
-./bin/viaduct status --runtime
-./bin/viaduct doctor
+docker compose ps
+docker compose logs -f viaduct
+docker compose down
 ```
-
-`viaduct doctor` now reports whether the config parses cleanly, which store backend is active, whether shared auth is configured, and whether the recorded runtime is merely reachable or actually ready.
-`viaduct status --runtime` now mirrors that ready-versus-degraded view, so it is a quick way to confirm the local URL, PID, and readiness status together.
 
 If you want the browser half of the evaluator smoke from the repo root:
 
@@ -79,13 +65,29 @@ make web-e2e-setup
 make pilot-smoke
 ```
 
-Stop the local runtime when you are finished:
+## 5. Optional Native Source Path
+
+If you want to run the binary directly instead of Docker:
 
 ```bash
-./bin/viaduct stop
+go mod tidy
+make build
+make web-build
+./bin/viaduct start
 ```
 
-## 5. Optional CLI Corroboration
+On Windows PowerShell:
+
+```powershell
+go mod tidy
+make build
+make web-build
+.\bin\viaduct.exe start
+```
+
+`viaduct start` writes `~/.viaduct/config.yaml` automatically when it does not exist and points it at the shipped `examples/lab/kvm` fixtures.
+
+## 6. Optional CLI Corroboration
 
 ```bash
 ./bin/viaduct discover --type kvm --source examples/lab/kvm --save

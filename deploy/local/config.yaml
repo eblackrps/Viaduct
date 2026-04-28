@@ -1,0 +1,14 @@
+# Local Docker configuration.
+#
+# This file intentionally contains no tenant, service-account, or admin keys.
+# The local Compose stack starts Viaduct in local-runtime mode and publishes it
+# only on 127.0.0.1, so the dashboard can open with a local browser session.
+
+insecure: false
+state_store_dsn: ""
+
+sources:
+  kvm:
+    address: "examples/lab/kvm"
+
+plugins: {}

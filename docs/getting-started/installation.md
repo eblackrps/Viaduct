@@ -1,6 +1,16 @@
 # Installation
 
-Viaduct can be evaluated from the signed OCI image, from source, or from a native release bundle when containers are not an option. For v3.2.1, the OCI image is the main packaged install path.
+Viaduct can be evaluated from Docker Compose, from the signed OCI image, from source, or from a native release bundle when containers are not an option. For local evaluation from this repo, Docker Compose is the shortest path.
+
+## Local Docker Evaluation
+
+From the repo root:
+
+```bash
+docker compose up -d --build
+```
+
+Open `http://127.0.0.1:8080`. The local Docker stack starts PostgreSQL, serves the dashboard, uses the bundled KVM lab fixtures, and starts a local browser session without tenant keys, service-account keys, or admin keys.
 
 ## Primary OCI Install
 
@@ -44,7 +54,7 @@ make web-build
 ```
 
 On a fresh source checkout, `viaduct start` creates the default local lab config when it is missing, points it at `examples/lab/kvm`, and serves the dashboard and API together at `http://127.0.0.1:8080`.
-The browser-first flow starts on the Get started screen, where the default local lab path offers a direct loopback-only `Start local session` action instead of requiring a pasted key.
+The default local lab path does not require a pasted key.
 The same runtime also serves live operator API docs at `http://127.0.0.1:8080/api/v1/docs`.
 
 ## Native Release Bundle Alternative
@@ -141,7 +151,7 @@ For browser access in packaged environments:
 - keep `VIADUCT_ALLOWED_ORIGINS` empty for same-origin deployments; set it only if the dashboard is served from a different trusted origin
 - set `VIADUCT_WEB_DIR` only if the built dashboard assets live outside the standard packaged or installed paths
 - prefer service account keys for normal operator access
-- rely on the Get started session flow for packaged environments unless you intentionally pre-seed a development-only browser credential
+- rely on the server-backed Get started session flow unless you intentionally pre-seed a development-only browser credential
 - use `VIADUCT_WORKSPACE_JOB_TIMEOUT` if workspace jobs need a different server-side timeout budget
 - use `VIADUCT_WORKSPACE_JOB_CONCURRENCY` if packaged workspace execution needs a different bounded worker count
 - use `viaduct serve-api` directly only when you intentionally want the lower-level service command instead of the local `start` flow, and keep its default loopback bind unless API credentials are configured

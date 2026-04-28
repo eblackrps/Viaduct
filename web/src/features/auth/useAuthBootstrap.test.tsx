@@ -84,7 +84,43 @@ describe("useAuthBootstrap", () => {
 			});
 	});
 
+	it("starts a local runtime session automatically when the server allows it", async () => {
+		const { result } = renderHook(() => useAuthBootstrap());
+
+		await waitFor(() => {
+			expect(result.current.status).toBe("authenticated");
+		});
+
+		expect(apiMocks.createDashboardAuthSession).toHaveBeenCalledWith(
+			"local",
+			"",
+			false,
+		);
+		expect(runtimeAuthMocks.setDashboardAuthSession).toHaveBeenCalledWith(
+			"local",
+			{
+				remember: false,
+				sessionID: "session-123",
+			},
+		);
+	});
+
 	it("creates a runtime session marker without retaining the raw key", async () => {
+		apiMocks.getAbout.mockResolvedValue({
+			name: "Viaduct",
+			api_version: "v1",
+			version: "3.2.1",
+			commit: "abc123",
+			built_at: "2026-04-22T00:00:00Z",
+			go_version: "go1.26.0",
+			plugin_protocol: "v1",
+			local_operator_session_enabled: false,
+			supported_platforms: ["kvm"],
+			supported_permissions: [],
+			store_backend: "postgres",
+			persistent_store: true,
+		});
+
 		const { result } = renderHook(() => useAuthBootstrap());
 
 		await waitFor(() => {

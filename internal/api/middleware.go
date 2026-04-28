@@ -225,8 +225,8 @@ func bindHostIsLoopbackOnly(host string) bool {
 	return parsed != nil && parsed.IsLoopback()
 }
 
-func localRuntimeRequestAllowed(r *http.Request, bindHost string) bool {
-	reason := localRuntimeRequestRejectionReason(r, bindHost)
+func localRuntimeRequestAllowed(r *http.Request, bindHost string, allowRemotePeer bool) bool {
+	reason := localRuntimeRequestRejectionReason(r, bindHost, allowRemotePeer)
 	if reason == "" {
 		return true
 	}
@@ -716,11 +716,11 @@ func requestUsesForwardingHeaders(r *http.Request) bool {
 	return false
 }
 
-func localRuntimeRequestRejectionReason(r *http.Request, bindHost string) string {
-	if !bindHostIsLoopbackOnly(bindHost) {
+func localRuntimeRequestRejectionReason(r *http.Request, bindHost string, allowRemotePeer bool) string {
+	if !allowRemotePeer && !bindHostIsLoopbackOnly(bindHost) {
 		return "bind_host_not_loopback_only"
 	}
-	if !requestFromLoopback(r) {
+	if !allowRemotePeer && !requestFromLoopback(r) {
 		return "peer_not_loopback"
 	}
 	if !requestHostIsLoopback(r) {

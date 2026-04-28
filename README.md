@@ -68,9 +68,27 @@ Detailed validation status, including fixture-backed versus live-lab claims, is 
 | Veeam Backup & Replication | Implemented | Backup discovery, restore-point correlation, and portability planning support. |
 | Community plugins | Implemented | gRPC plugin host with manifest and compatibility checks. |
 
-## Primary Docker Install
+## Run Locally
 
-Viaduct v3.2.1 uses the signed GHCR OCI image as the main packaged install path.
+For local evaluation, the repo root now has the boring path:
+
+```bash
+docker compose up -d --build
+```
+
+Open [http://127.0.0.1:8080](http://127.0.0.1:8080). No tenant key, service-account key, admin key, or copied secret config is required for the local lab. The stack starts PostgreSQL with a trust-only internal Docker connection, runs Viaduct in local-runtime mode, and uses the bundled KVM fixtures so discovery works immediately.
+
+Stop it with:
+
+```bash
+docker compose down
+```
+
+Use `docker compose down -v` only when you want to delete the local data volume.
+
+## Published Image
+
+Viaduct v3.2.1 uses the signed GHCR OCI image as the main packaged release artifact.
 
 ```bash
 docker pull ghcr.io/eblackrps/viaduct:3.2.1
@@ -81,15 +99,11 @@ cosign verify ghcr.io/eblackrps/viaduct:3.2.1 \
   'https://token.actions.githubusercontent.com'
 ```
 
-The primary signed registry is `ghcr.io/eblackrps/viaduct`. The Docker Hub mirror is `docker.io/emb079/viaduct:3.2.1` when repository Docker Hub secrets are configured.
-
-GitHub Actions is configured to mirror release tags plus `main` branch `:edge` and `:sha-*` image tags to Docker Hub whenever `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` are configured as Actions secrets for this repo or as inherited organization secrets. Detailed container guidance lives in [docs/operations/docker.md](docs/operations/docker.md). The Compose and Helm samples in [deploy/docker-compose.prod.yml](deploy/docker-compose.prod.yml) and [deploy/helm/viaduct](deploy/helm/viaduct) use PostgreSQL-backed state for persistent deployments. Native bundles remain available on GitHub Releases as an alternative path for environments that cannot run containers.
-
-For the production Compose sample, create `config/config.yaml` from `configs/config.example.yaml` before starting the service; the container mounts that directory at `/etc/viaduct:ro`.
+The primary signed registry is `ghcr.io/eblackrps/viaduct`. The Docker Hub mirror is `docker.io/emb079/viaduct:3.2.1` when repository Docker Hub secrets are configured. Detailed container guidance lives in [docs/operations/docker.md](docs/operations/docker.md). The production Compose and Helm samples in [deploy/docker-compose.prod.yml](deploy/docker-compose.prod.yml) and [deploy/helm/viaduct](deploy/helm/viaduct) use PostgreSQL-backed state with explicit credentials for shared deployments.
 
 ## Source Build And Local Lab
 
-The cleanest contributor and offline evaluation path is still the local lab in [examples/lab](examples/lab). Docker is the primary packaged install path, but the local assessment workflow remains fastest from a fresh clone.
+The direct binary path is still available for contributors who do not want Docker:
 
 ```bash
 make build
@@ -104,7 +118,7 @@ On a fresh source checkout, `viaduct start`:
 - serves the built dashboard and API together at [http://127.0.0.1:8080](http://127.0.0.1:8080)
 - opens the dashboard automatically on interactive local runs when practical
 
-For the default local lab path, the Get started screen offers `Start local session` on direct `127.0.0.1` browser requests, so no pasted browser key is required. If you need a shared or packaged setup, open `Use a key instead`; service account keys are the normal path, and tenant keys remain available under the advanced option.
+For the default local lab path, no pasted browser key is required.
 
 Use these companion commands when you need them:
 

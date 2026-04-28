@@ -25,6 +25,7 @@ func TestPackageRelease_CreatesBundleAndArchive(t *testing.T) {
 	mustWriteFile(t, filepath.Join(workspace, ".env.example"), "VIADUCT_ADMIN_KEY=\n")
 	mustWriteFile(t, filepath.Join(workspace, "scripts", "install.sh"), "#!/usr/bin/env sh\n")
 	mustWriteFile(t, filepath.Join(workspace, "scripts", "install.ps1"), "Write-Host 'ok'\n")
+	mustWriteFile(t, filepath.Join(workspace, "deploy", "README.md"), "# Deploy\n")
 	mustWriteFile(t, filepath.Join(workspace, "docs", "guide.md"), "guide\n")
 	mustWriteFile(t, filepath.Join(workspace, "configs", "config.example.yaml"), "sources: {}\n")
 	mustWriteFile(t, filepath.Join(workspace, "examples", "lab", "README.md"), "lab\n")
@@ -69,6 +70,9 @@ func TestPackageRelease_CreatesBundleAndArchive(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(bundleDir, "INSTALL.md")); err != nil {
 		t.Fatalf("install guide missing from bundle: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(bundleDir, "deploy", "README.md")); err != nil {
+		t.Fatalf("deploy references missing from bundle: %v", err)
 	}
 	dependencyManifestPath := filepath.Join(bundleDir, "dependency-manifest.json")
 	dependencyPayload, err := os.ReadFile(dependencyManifestPath)
@@ -126,6 +130,7 @@ func TestPackageRelease_BundleTargetOverride_WritesManifestTarget(t *testing.T) 
 	mustWriteFile(t, filepath.Join(workspace, ".env.example"), "VIADUCT_ADMIN_KEY=\n")
 	mustWriteFile(t, filepath.Join(workspace, "scripts", "install.sh"), "#!/usr/bin/env sh\n")
 	mustWriteFile(t, filepath.Join(workspace, "scripts", "install.ps1"), "Write-Host 'ok'\n")
+	mustWriteFile(t, filepath.Join(workspace, "deploy", "README.md"), "# Deploy\n")
 	mustWriteFile(t, filepath.Join(workspace, "docs", "guide.md"), "guide\n")
 	mustWriteFile(t, filepath.Join(workspace, "configs", "config.example.yaml"), "sources: {}\n")
 	mustWriteFile(t, filepath.Join(workspace, "examples", "lab", "README.md"), "lab\n")
@@ -184,6 +189,7 @@ func TestPackageRelease_MissingBinary_ReturnsError(t *testing.T) {
 	mustWriteFile(t, filepath.Join(workspace, ".env.example"), "VIADUCT_ADMIN_KEY=\n")
 	mustWriteFile(t, filepath.Join(workspace, "scripts", "install.sh"), "#!/usr/bin/env sh\n")
 	mustWriteFile(t, filepath.Join(workspace, "scripts", "install.ps1"), "Write-Host 'ok'\n")
+	mustWriteFile(t, filepath.Join(workspace, "deploy", "README.md"), "# Deploy\n")
 	mustWriteFile(t, filepath.Join(workspace, "docs", "guide.md"), "guide\n")
 	mustWriteFile(t, filepath.Join(workspace, "configs", "config.example.yaml"), "sources: {}\n")
 	mustWriteFile(t, filepath.Join(workspace, "examples", "lab", "README.md"), "lab\n")

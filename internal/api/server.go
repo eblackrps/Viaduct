@@ -158,6 +158,7 @@ type Server struct {
 	workspaceJobCancels     map[string]context.CancelFunc
 	authSessions            *authSessionManager
 	localRuntimeMode        bool
+	localRuntimeRemotePeer  bool
 	allowUnauthRemote       bool
 	productionMode          bool
 	connectorCircuits       *connectorCircuitRegistry
@@ -321,6 +322,15 @@ func (s *Server) SetLocalRuntimeMode(enabled bool) {
 		return
 	}
 	s.localRuntimeMode = enabled
+}
+
+// SetLocalRuntimeRemotePeer allows local-runtime session start from Docker bridge peers
+// when the container port is published only on host loopback.
+func (s *Server) SetLocalRuntimeRemotePeer(enabled bool) {
+	if s == nil {
+		return
+	}
+	s.localRuntimeRemotePeer = enabled
 }
 
 // SetAllowUnauthenticatedRemote enables explicit dangerous remote binds without configured authentication.
@@ -533,6 +543,14 @@ func (s *Server) validateBindSecurity(ctx context.Context) error {
 	}
 	if s.productionMode {
 		return fmt.Errorf("api server: production remote bind requires configured admin, tenant, or service-account credentials; dangerous unauthenticated remote override is ignored in production mode")
+	}
+	if s.localRuntimeMode && s.localRuntimeRemotePeer {
+		packageLogger.Warn(
+			"starting local-runtime container listener without configured authentication; this mode is intended only for Docker port publishing bound to host loopback",
+			"bind_host", strings.TrimSpace(s.bindHost),
+			"port", s.port,
+		)
+		return nil
 	}
 	if s.allowUnauthRemote {
 		packageLogger.Warn(
@@ -809,7 +827,7 @@ func (s *Server) localOperatorSessionEnabled(r *http.Request) bool {
 	if s == nil || !s.localRuntimeMode || s.store == nil || r == nil {
 		return false
 	}
-	if !localRuntimeRequestAllowed(r, s.bindHost) {
+	if !localRuntimeRequestAllowed(r, s.bindHost, s.localRuntimeRemotePeer) {
 		return false
 	}
 	if hasConfiguredAPIKeys(r.Context(), s.store, s.adminAPIKey) {

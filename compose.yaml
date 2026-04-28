@@ -1,0 +1,73 @@
+name: viaduct-local
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: viaduct
+      POSTGRES_USER: viaduct
+      POSTGRES_HOST_AUTH_METHOD: trust
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U viaduct -d viaduct"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  viaduct:
+    image: ${VIADUCT_IMAGE:-viaduct:local}
+    build:
+      context: .
+      args:
+        VERSION: ${VIADUCT_VERSION:-local}
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    depends_on:
+      postgres:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    ports:
+      - "127.0.0.1:${VIADUCT_PORT:-8080}:8080"
+    environment:
+      VIADUCT_STATE_STORE_DSN: postgres://viaduct@postgres:5432/viaduct?sslmode=disable
+      VIADUCT_WEB_DIR: /opt/viaduct/web
+    command:
+      - serve-api
+      - --local-runtime
+      - --local-runtime-container
+      - --host
+      - 0.0.0.0
+      - --config
+      - /etc/viaduct/config.yaml
+      - --port
+      - "8080"
+    volumes:
+      - viaduct-data:/var/lib/viaduct
+      - ./deploy/local/config.yaml:/etc/viaduct/config.yaml:ro
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "/viaduct",
+          "healthcheck",
+          "--url",
+          "http://127.0.0.1:8080/readyz",
+          "--timeout",
+          "5s",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  postgres-data:
+  viaduct-data:

@@ -15,9 +15,29 @@ If those secrets are added after a GitHub release tag already exists, release ow
 gh workflow run image.yml --ref main -f mirror_release_tag=v3.2.1
 ```
 
-## Pull And Run
+## Local Evaluation
 
-For persistent deployments, use PostgreSQL and set `VIADUCT_ENVIRONMENT=production`. The Compose sample in `deploy/docker-compose.prod.yml` starts PostgreSQL and Viaduct together, reads the admin-key hash and database password from environment variables, and uses `/readyz` for the container health check.
+For the local lab, run Compose from the repo root:
+
+```bash
+docker compose up -d --build
+```
+
+Open [http://127.0.0.1:8080](http://127.0.0.1:8080). This path requires no tenant key, service-account key, admin key, or copied secret file. It starts PostgreSQL with a trust-only internal Docker connection, runs Viaduct in local-runtime mode, and uses the bundled KVM fixtures for the default assessment flow.
+
+The root `compose.yaml` publishes only `127.0.0.1:${VIADUCT_PORT:-8080}` on the host. Do not reuse it for a remotely reachable shared environment.
+
+Stop it with:
+
+```bash
+docker compose down
+```
+
+Use `docker compose down -v` only when you intentionally want to delete local state.
+
+## Production Pull And Run
+
+For shared or production deployments, use PostgreSQL and set `VIADUCT_ENVIRONMENT=production`. The Compose sample in `deploy/docker-compose.prod.yml` starts PostgreSQL and Viaduct together, reads the admin-key hash and database password from environment variables, and uses `/readyz` for the container health check.
 
 ```bash
 docker pull ghcr.io/eblackrps/viaduct:3.2.1
@@ -39,7 +59,7 @@ readiness endpoint and checks the store, schema state, policy loading, auth
 configuration, connector circuit state, dashboard assets, and production mode.
 Use `/readyz` for Compose, Kubernetes, and load balancer readiness checks.
 
-For a single-container evaluation run, omit `VIADUCT_ENVIRONMENT=production` and keep the listener bound to loopback unless credentials are configured:
+For a single-container evaluation run outside Compose, omit `VIADUCT_ENVIRONMENT=production` and keep the listener bound to loopback unless credentials are configured:
 
 ```bash
 docker run --rm \

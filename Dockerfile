@@ -40,6 +40,7 @@ WORKDIR /opt/viaduct
 COPY --from=go-builder /out/viaduct /viaduct
 COPY --from=web-builder /src/web/dist /opt/viaduct/web
 COPY configs /opt/viaduct/configs
+COPY examples/lab/kvm /opt/viaduct/examples/lab/kvm
 
 ENV HOME=/tmp \
     VIADUCT_WEB_DIR=/opt/viaduct/web

@@ -1,13 +1,15 @@
 # Deployment Assets
 
-This directory contains production-oriented container deployment assets for Viaduct.
+This directory contains container deployment assets for Viaduct.
 
 ## Contents
 
-- `docker-compose.prod.yml`: hardened single-host container deployment
+- `../compose.yaml`: keyless local Docker lab from the repo root
+- `local/config.yaml`: keyless local Docker lab config used by `../compose.yaml`
+- `docker-compose.prod.yml`: hardened single-host production container deployment
 - `helm/viaduct/`: Helm chart for Kubernetes installs using the published OCI image
 
-These assets assume the OCI image is the primary packaged release artifact and that writable state is mounted at `/var/lib/viaduct`.
+The root Compose path is for localhost evaluation only. Production assets assume the OCI image is the primary packaged release artifact and that writable state is mounted at `/var/lib/viaduct`.
 
 ## Observability
 

@@ -9,9 +9,21 @@ This is the top-level installation entrypoint for Viaduct. Use it with [QUICKSTA
 - `make` for the standard workflow
 - `golangci-lint` for local linting
 
-## Primary Install From Docker
+## Primary Local Install From Docker
 
-Viaduct v3.2.1 uses the signed OCI image as the primary packaged install path.
+For local evaluation from this repo, use the checked-in Compose file. It starts PostgreSQL and Viaduct, serves the dashboard at `127.0.0.1:8080`, and does not require tenant, service-account, or admin keys.
+
+```bash
+docker compose up -d --build
+```
+
+Open [http://127.0.0.1:8080](http://127.0.0.1:8080). The dashboard starts a local browser session automatically.
+
+Use `docker compose down` to stop the stack. Add `-v` only when you intentionally want to delete the local PostgreSQL data volume.
+
+## Published Image
+
+Viaduct v3.2.1 uses the signed OCI image as the primary packaged release artifact.
 
 ```bash
 docker pull ghcr.io/eblackrps/viaduct:3.2.1
@@ -29,7 +41,7 @@ cosign verify ghcr.io/eblackrps/viaduct:3.2.1 \
 
 The primary signed registry is `ghcr.io/eblackrps/viaduct`. The Docker Hub mirror is `docker.io/emb079/viaduct:3.2.1` when repository Docker Hub secrets are configured.
 
-GitHub Actions mirrors release tags plus `main` branch `:edge` and `:sha-*` image tags to Docker Hub whenever `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` are configured for this repo or exposed through organization-level Actions secrets. For persistent deployments, follow the PostgreSQL-backed container guidance in [docs/operations/docker.md](docs/operations/docker.md), the Compose sample in [deploy/docker-compose.prod.yml](deploy/docker-compose.prod.yml), or the Helm chart defaults in [deploy/helm/viaduct](deploy/helm/viaduct).
+GitHub Actions mirrors release tags plus `main` branch `:edge` and `:sha-*` image tags to Docker Hub whenever `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` are configured for this repo or exposed through organization-level Actions secrets. For shared or production deployments, follow the PostgreSQL-backed container guidance in [docs/operations/docker.md](docs/operations/docker.md), the Compose sample in [deploy/docker-compose.prod.yml](deploy/docker-compose.prod.yml), or the Helm chart defaults in [deploy/helm/viaduct](deploy/helm/viaduct).
 
 The Compose sample mounts `./config` to `/etc/viaduct:ro`. Before running it, create `config/config.yaml` from `configs/config.example.yaml`, review the settings, and keep secrets in environment variables or a secret manager.
 
@@ -50,7 +62,7 @@ Start the local runtime:
 ./bin/viaduct start
 ```
 
-On a fresh source checkout, `viaduct start` generates the default local lab config when `~/.viaduct/config.yaml` is missing, serves the built dashboard and API together, and prints the dashboard URL. The browser-first flow starts on the Get started screen, where the default local lab path offers `Start local session` instead of requiring a pasted key.
+On a fresh source checkout, `viaduct start` generates the default local lab config when `~/.viaduct/config.yaml` is missing, serves the built dashboard and API together, and prints the dashboard URL. The default local lab path does not require a pasted key.
 
 The default local URL is [http://127.0.0.1:8080](http://127.0.0.1:8080).
 The same runtime also serves live API docs at [http://127.0.0.1:8080/api/v1/docs](http://127.0.0.1:8080/api/v1/docs).

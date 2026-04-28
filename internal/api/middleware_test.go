@@ -489,8 +489,32 @@ func TestLocalRuntimeRequestAllowed_RejectsForwardedProxyRequest_Expected(t *tes
 	req.RemoteAddr = "127.0.0.1:41000"
 	req.Header.Set("X-Forwarded-For", "203.0.113.10")
 
-	if localRuntimeRequestAllowed(req, "127.0.0.1") {
+	if localRuntimeRequestAllowed(req, "127.0.0.1", false) {
 		t.Fatal("localRuntimeRequestAllowed() = true, want false for forwarded proxy request")
+	}
+}
+
+func TestLocalRuntimeRequestAllowed_RemotePeerAllowedForExplicitLocalComposeOverride_Expected(t *testing.T) {
+	t.Parallel()
+
+	req := httptest.NewRequest(http.MethodPost, "http://127.0.0.1:8080/api/v1/auth/session", nil)
+	req.RemoteAddr = "172.18.0.1:41000"
+	req.Header.Set("Origin", "http://127.0.0.1:8080")
+
+	if !localRuntimeRequestAllowed(req, "0.0.0.0", true) {
+		t.Fatal("localRuntimeRequestAllowed() = false, want true for explicit local compose override")
+	}
+}
+
+func TestLocalRuntimeRequestAllowed_RemotePeerOverrideStillRejectsNonLoopbackHost_Expected(t *testing.T) {
+	t.Parallel()
+
+	req := httptest.NewRequest(http.MethodPost, "http://viaduct.example.local/api/v1/auth/session", nil)
+	req.RemoteAddr = "172.18.0.1:41000"
+	req.Header.Set("Origin", "http://viaduct.example.local")
+
+	if localRuntimeRequestAllowed(req, "0.0.0.0", true) {
+		t.Fatal("localRuntimeRequestAllowed() = true, want false for non-loopback host")
 	}
 }
 
@@ -506,7 +530,7 @@ func TestLocalRuntimeRequestAllowed_RejectionLogsAuditForMutatingRequests_Expect
 	req.RemoteAddr = "127.0.0.1:41000"
 	req.Header.Set("Origin", "http://evil.example")
 
-	if localRuntimeRequestAllowed(req, "127.0.0.1") {
+	if localRuntimeRequestAllowed(req, "127.0.0.1", false) {
 		t.Fatal("localRuntimeRequestAllowed() = true, want false for mismatched origin")
 	}
 
@@ -528,7 +552,7 @@ func TestLocalRuntimeRequestAllowed_RejectionLogsAuditForGetRequests_Expected(t 
 	req.RemoteAddr = "127.0.0.1:41000"
 	req.Header.Set("Origin", "http://evil.example")
 
-	if localRuntimeRequestAllowed(req, "127.0.0.1") {
+	if localRuntimeRequestAllowed(req, "127.0.0.1", false) {
 		t.Fatal("localRuntimeRequestAllowed() = true, want false for mismatched GET origin")
 	}
 
@@ -608,7 +632,7 @@ func TestLocalRuntimeRequestAllowed_MutatingRequestsRequireSameOriginSource_Expe
 				req.Header.Set("Referer", tc.referer)
 			}
 
-			if got := localRuntimeRequestAllowed(req, "127.0.0.1"); got != tc.want {
+			if got := localRuntimeRequestAllowed(req, "127.0.0.1", false); got != tc.want {
 				t.Fatalf("localRuntimeRequestAllowed(%s, origin=%q, referer=%q) = %t, want %t", tc.method, tc.origin, tc.referer, got, tc.want)
 			}
 		})

@@ -236,17 +236,18 @@ export function WorkspacePage() {
 
 		const workspace = workspaceResult.value;
 		let inventory: DiscoveryResult | null = null;
+		let inventoryError: ErrorDisplay | null = null;
 		try {
 			inventory = await loadWorkspaceInventory(workspace.snapshots ?? []);
 		} catch (reason) {
-			setState((current) => ({
-				...current,
-				actionError: describeError(reason, {
-					scope: "assessment snapshots",
-					fallback: "Unable to load assessment snapshots.",
-				}),
-			}));
+			inventoryError = describeError(reason, {
+				scope: "assessment snapshots",
+				fallback: "Unable to load assessment snapshots.",
+			});
 		}
+		const jobs = jobsResult.status === "fulfilled" ? jobsResult.value : [];
+		const latestFailedJob =
+			jobsResult.status === "fulfilled" ? latestFailedWorkspaceJob(jobs) : null;
 		setSettingsDraft({
 			target_assumptions: workspace.target_assumptions ?? {},
 			plan_settings: workspace.plan_settings ?? {},
@@ -254,7 +255,7 @@ export function WorkspacePage() {
 		setState((current) => ({
 			...current,
 			selectedWorkspace: workspace,
-			jobs: jobsResult.status === "fulfilled" ? jobsResult.value : [],
+			jobs,
 			inventory,
 			refreshing: false,
 			error: null,
@@ -264,7 +265,11 @@ export function WorkspacePage() {
 							scope: "assessment jobs",
 							fallback: "Unable to load assessment jobs.",
 						})
-					: null,
+					: latestFailedJob
+						? workspaceJobFailureDisplay(latestFailedJob)
+						: inventoryError
+							? inventoryError
+							: null,
 		}));
 	}, []);
 
@@ -2399,6 +2404,38 @@ function stringArrayFromUnknown(value: unknown): string[] {
 
 function toOptionalArray(values: string[]): string[] | undefined {
 	return values.length > 0 ? values : undefined;
+}
+
+function latestFailedWorkspaceJob(jobs: WorkspaceJob[]): WorkspaceJob | null {
+	const latestJob = [...jobs].sort(
+		(left, right) => workspaceJobTimeValue(right) - workspaceJobTimeValue(left),
+	)[0];
+
+	return latestJob?.status === "failed" ? latestJob : null;
+}
+
+function workspaceJobTimeValue(job: WorkspaceJob): number {
+	const value =
+		job.completed_at ?? job.updated_at ?? job.started_at ?? job.requested_at;
+	const parsed = Date.parse(value);
+	return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function workspaceJobFailureDisplay(job: WorkspaceJob): ErrorDisplay {
+	const technicalDetails = [
+		job.error?.trim() || job.message?.trim() || null,
+		job.correlation_id ? `Correlation ID: ${job.correlation_id}` : null,
+		`Requested: ${formatTimestamp(job.requested_at)}`,
+	].filter((detail): detail is string => detail !== null);
+
+	return {
+		message: `${capitalizeWorkspaceJobType(job.type)} job failed.`,
+		technicalDetails,
+	};
+}
+
+function capitalizeWorkspaceJobType(type: WorkspaceJobType): string {
+	return type.charAt(0).toUpperCase() + type.slice(1);
 }
 
 function formatTimestamp(value?: string): string {

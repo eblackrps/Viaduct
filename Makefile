@@ -54,7 +54,7 @@ LINUX_ARM64_BINARY = bin/viaduct-linux-arm64
 DARWIN_ARM64_BINARY = bin/viaduct-darwin-arm64
 WINDOWS_BINARY = bin/viaduct.exe
 
-.PHONY: all build build-linux build-linux-amd64 build-linux-arm64 build-darwin-arm64 build-windows test lint proto docker dashboard serve web-install web-e2e-setup web-build web-verify web-runtime-smoke pilot-smoke observability-up observability-down observability-validate site-check site-check-live release-acceptance release-remote-check container-cve-check package-release package-release-host-bundle package-release-linux package-release-linux-amd64 package-release-linux-amd64-bundle package-release-linux-arm64 package-release-linux-arm64-bundle package-release-darwin-arm64 package-release-darwin-arm64-bundle package-release-windows package-release-windows-bundle package-release-matrix certification-test soak-test plugin-check openapi-generate contract-check workflow-lint release-surface-check support-matrix-check repo-drift-check timing-check migrate-diag release-gate clean
+.PHONY: all build build-linux build-linux-amd64 build-linux-arm64 build-darwin-arm64 build-windows test lint proto docker dashboard serve local-up local-down local-logs web-install web-e2e-setup web-build web-verify web-runtime-smoke pilot-smoke observability-up observability-down observability-validate site-check site-check-live release-acceptance release-remote-check container-cve-check package-release package-release-host-bundle package-release-linux package-release-linux-amd64 package-release-linux-amd64-bundle package-release-linux-arm64 package-release-linux-arm64-bundle package-release-darwin-arm64 package-release-darwin-arm64-bundle package-release-windows package-release-windows-bundle package-release-matrix certification-test soak-test plugin-check openapi-generate contract-check workflow-lint release-surface-check support-matrix-check repo-drift-check timing-check migrate-diag release-gate clean
 
 all: lint test build
 
@@ -99,6 +99,15 @@ dashboard:
 serve:
 	$(WEB_INSTALL)
 	cd web && npm run dev:full
+
+local-up:
+	docker compose up -d --build
+
+local-down:
+	docker compose down
+
+local-logs:
+	docker compose logs -f viaduct
 
 web-install:
 	$(WEB_INSTALL)

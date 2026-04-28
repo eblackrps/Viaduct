@@ -19,4 +19,9 @@ func TestNewServeAPICommand_DefaultsToLoopbackAndExposesDangerousOverride_Expect
 	if overrideFlag == nil {
 		t.Fatal("allow-unauthenticated-remote flag is missing")
 	}
+
+	containerFlag := cmd.Flags().Lookup("local-runtime-container")
+	if containerFlag == nil {
+		t.Fatal("local-runtime-container flag is missing")
+	}
 }

@@ -2041,6 +2041,19 @@ func TestServer_ValidateBindSecurity_RemoteBindAllowsExplicitDangerousOverride_E
 	}
 }
 
+func TestServer_ValidateBindSecurity_LocalRuntimeContainerAllowsRemoteBind_Expected(t *testing.T) {
+	t.Parallel()
+
+	server := mustNewServer(t, store.NewMemoryStore())
+	server.SetBindHost("0.0.0.0")
+	server.SetLocalRuntimeMode(true)
+	server.SetLocalRuntimeRemotePeer(true)
+
+	if err := server.validateBindSecurity(context.Background()); err != nil {
+		t.Fatalf("validateBindSecurity() error = %v", err)
+	}
+}
+
 func TestServer_ValidateBindSecurity_ProductionIgnoresDangerousRemoteOverride_Expected(t *testing.T) {
 	server := mustNewServer(t, store.NewMemoryStore())
 	server.SetBindHost("0.0.0.0")

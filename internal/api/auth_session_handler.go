@@ -223,7 +223,7 @@ func (s *Server) localRuntimeOperatorPrincipal(ctx context.Context, r *http.Requ
 	if s == nil || !s.localRuntimeMode {
 		return AuthenticatedPrincipal{}, fmt.Errorf("local runtime session start is not enabled on this server")
 	}
-	if !localRuntimeRequestAllowed(r, s.bindHost) {
+	if !localRuntimeRequestAllowed(r, s.bindHost, s.localRuntimeRemotePeer) {
 		return AuthenticatedPrincipal{}, fmt.Errorf("local runtime session start is available only for direct loopback requests to a loopback-bound runtime")
 	}
 	if hasConfiguredAPIKeys(ctx, s.store, s.adminAPIKey) {

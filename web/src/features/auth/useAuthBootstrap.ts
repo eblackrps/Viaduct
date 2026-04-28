@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
 	createDashboardAuthSession,
 	deleteDashboardAuthSession,
@@ -41,6 +41,17 @@ export function useAuthBootstrap(): AuthBootstrapState {
 		null,
 	);
 	const [error, setError] = useState<ErrorDisplay | null>(null);
+	const suppressAutoLocalSession = useRef(false);
+
+	const startLocalSession = useCallback(async (remember = false) => {
+		requestManager.cancelAll();
+		const session = await createDashboardAuthSession("local", "", remember);
+		requestManager.cancelAll();
+		setDashboardAuthSession("local", {
+			remember,
+			sessionID: session.session_id,
+		});
+	}, []);
 
 	const refresh = useCallback(async () => {
 		setStatus("checking");
@@ -48,6 +59,8 @@ export function useAuthBootstrap(): AuthBootstrapState {
 			getAbout({ dedupe: false }),
 			getCurrentTenant({ dedupe: false }),
 		]);
+		const nextAbout =
+			aboutResult.status === "fulfilled" ? aboutResult.value : null;
 		if (aboutResult.status === "fulfilled") {
 			setAbout(aboutResult.value);
 		}
@@ -63,6 +76,29 @@ export function useAuthBootstrap(): AuthBootstrapState {
 			if (getDashboardAuthSession().source === "runtime") {
 				clearDashboardAuthSession();
 			}
+			if (
+				nextAbout?.local_operator_session_enabled &&
+				!suppressAutoLocalSession.current
+			) {
+				try {
+					await startLocalSession(false);
+					setCurrentTenant(await getCurrentTenant({ dedupe: false }));
+					setError(null);
+					setStatus("authenticated");
+					return;
+				} catch (reason) {
+					clearDashboardAuthSession();
+					setCurrentTenant(null);
+					setError(
+						describeError(reason, {
+							scope: "your local session",
+							fallback: "Unable to start the local dashboard session.",
+						}),
+					);
+					setStatus("error");
+					return;
+				}
+			}
 			setCurrentTenant(null);
 			setError(null);
 			setStatus("unauthenticated");
@@ -77,7 +113,7 @@ export function useAuthBootstrap(): AuthBootstrapState {
 			}),
 		);
 		setStatus("error");
-	}, []);
+	}, [startLocalSession]);
 
 	async function connect(
 		mode: Exclude<DashboardAuthMode, "none">,
@@ -108,14 +144,9 @@ export function useAuthBootstrap(): AuthBootstrapState {
 	}
 
 	async function connectLocal(remember = false) {
-		requestManager.cancelAll();
+		suppressAutoLocalSession.current = false;
 		try {
-			const session = await createDashboardAuthSession("local", "", remember);
-			requestManager.cancelAll();
-			setDashboardAuthSession("local", {
-				remember,
-				sessionID: session.session_id,
-			});
+			await startLocalSession(remember);
 			await refresh();
 		} catch (reason) {
 			requestManager.cancelAll();
@@ -132,6 +163,7 @@ export function useAuthBootstrap(): AuthBootstrapState {
 	}
 
 	function signOut() {
+		suppressAutoLocalSession.current = true;
 		requestManager.cancelAll();
 		clearDashboardAuthSession();
 		void deleteDashboardAuthSession()

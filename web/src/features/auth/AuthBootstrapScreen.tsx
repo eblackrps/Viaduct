@@ -1,4 +1,4 @@
-import { ChevronDown, ShieldCheck } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 import { useEffect, useState, type FormEvent, type ReactElement } from "react";
 import { ErrorState } from "../../components/primitives/ErrorState";
 import { LoadingState } from "../../components/primitives/LoadingState";
@@ -108,7 +108,7 @@ export function AuthBootstrapScreen({ auth }: AuthBootstrapScreenProps) {
 					title="Get started"
 					description={
 						auth.localOperatorAvailable
-							? "Start a local session for this machine, or use a key for a shared or packaged environment."
+							? "Viaduct can open a local dashboard session on this machine. No tenant key or service account key is required."
 							: "Use a service account key to start your dashboard session. Tenant keys are still available for setup or recovery."
 					}
 					badges={[
@@ -156,12 +156,12 @@ export function AuthBootstrapScreen({ auth }: AuthBootstrapScreenProps) {
 						eyebrow="Start here"
 						title={
 							auth.localOperatorAvailable
-								? "Start on this machine"
+								? "Open the local dashboard"
 								: "Start with a key"
 						}
 						description={
 							auth.localOperatorAvailable
-								? "The local session is the fastest path. It starts a dashboard session for this machine and does not require a pasted key."
+								? "The local runtime creates a browser session for this machine so you can go straight to assessments."
 								: "Paste a service account key to continue. This keeps sign-in simple for normal work."
 						}
 					>
@@ -176,9 +176,9 @@ export function AuthBootstrapScreen({ auth }: AuthBootstrapScreenProps) {
 													Local session
 												</p>
 												<p className="text-sm leading-6 text-slate-600">
-													This is the easiest path for the local runtime.
-													Viaduct starts the session for this machine, and the
-													sign-in details stay on the server.
+													Viaduct starts the session for this local runtime.
+													There is no key to paste and no tenant setup step for
+													the default lab.
 												</p>
 											</div>
 											<ul className="space-y-2 text-sm leading-6 text-slate-600">
@@ -203,138 +203,127 @@ export function AuthBootstrapScreen({ auth }: AuthBootstrapScreenProps) {
 								</div>
 							) : null}
 
-							<div className="panel-subtle px-5 py-5">
-								<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-									<div className="space-y-2">
-										<p className="text-base font-semibold text-ink">
-											{auth.localOperatorAvailable
-												? "Use a key instead"
-												: "Use a key"}
-										</p>
-										<p className="text-sm leading-6 text-slate-600">
-											Service account keys are the normal choice for shared or
-											packaged environments.
-										</p>
+							{!auth.localOperatorAvailable ? (
+								<div className="panel-subtle px-5 py-5">
+									<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+										<div className="space-y-2">
+											<p className="text-base font-semibold text-ink">
+												Use a key
+											</p>
+											<p className="text-sm leading-6 text-slate-600">
+												Service account keys are the normal choice for shared or
+												packaged environments.
+											</p>
+										</div>
 									</div>
-									{auth.localOperatorAvailable ? (
-										<button
-											type="button"
-											onClick={() => setShowKeyForm((current) => !current)}
-											aria-expanded={showKeyForm}
-											className="operator-button-ghost"
+
+									{showKeyForm ? (
+										<form
+											id="auth-key-form"
+											className="mt-5 space-y-4 border-t border-slate-200/80 pt-5"
+											onSubmit={handleSubmit}
 										>
-											{showKeyForm ? "Hide key sign-in" : "Use a key instead"}
-											<ChevronDown
-												className={`h-4 w-4 transition-transform ${showKeyForm ? "rotate-180" : ""}`}
-											/>
-										</button>
-									) : null}
-								</div>
-
-								{showKeyForm ? (
-									<form
-										id="auth-key-form"
-										className="mt-5 space-y-4 border-t border-slate-200/80 pt-5"
-										onSubmit={handleSubmit}
-									>
-										<div className="space-y-3">
-											<div className="flex flex-wrap items-center gap-2">
-												<button
-													type="button"
-													onClick={() => setMode("service-account")}
-													aria-pressed={mode === "service-account"}
-													className={`operator-toggle-button rounded-full border ${
-														mode === "service-account"
-															? "border-slate-300 bg-white text-ink shadow-[0_8px_18px_rgba(15,23,42,0.08)]"
-															: "border-slate-200 bg-transparent text-slate-600"
-													} px-3.5 py-2`}
-												>
-													Service account key
-												</button>
-												<button
-													type="button"
-													onClick={toggleAdvancedOptions}
-													aria-expanded={showAdvancedOptions}
-													className="operator-button-ghost min-h-0 px-3 py-2"
-												>
-													{showAdvancedOptions
-														? "Hide advanced options"
-														: "Show advanced options"}
-												</button>
-											</div>
-
-											{showAdvancedOptions ? (
-												<div className="operator-toggle">
+											<div className="space-y-3">
+												<div className="flex flex-wrap items-center gap-2">
 													<button
 														type="button"
 														onClick={() => setMode("service-account")}
 														aria-pressed={mode === "service-account"}
-														className={`operator-toggle-button ${mode === "service-account" ? "operator-toggle-button-active" : ""}`}
+														className={`operator-toggle-button rounded-full border ${
+															mode === "service-account"
+																? "border-slate-300 bg-white text-ink shadow-[0_8px_18px_rgba(15,23,42,0.08)]"
+																: "border-slate-200 bg-transparent text-slate-600"
+														} px-3.5 py-2`}
 													>
 														Service account key
 													</button>
 													<button
 														type="button"
-														onClick={() => setMode("tenant")}
-														aria-pressed={mode === "tenant"}
-														className={`operator-toggle-button ${mode === "tenant" ? "operator-toggle-button-active" : ""}`}
+														onClick={toggleAdvancedOptions}
+														aria-expanded={showAdvancedOptions}
+														className="operator-button-ghost min-h-0 px-3 py-2"
 													>
-														Tenant key (advanced)
+														{showAdvancedOptions
+															? "Hide advanced options"
+															: "Show advanced options"}
 													</button>
 												</div>
-											) : null}
-										</div>
 
-										<div className="grid gap-4">
-											<label className="block">
-												<span className="operator-kicker">Paste your key</span>
-												<input
-													type="password"
-													value={apiKey}
-													onChange={(event) => setAPIKey(event.target.value)}
-													className="operator-input mt-2"
-													placeholder={keyModeTitle}
-												/>
-											</label>
-											<div className="metric-surface">
-												<p className="text-sm font-semibold text-ink">
-													{keyModeTitle}
-												</p>
-												<p className="mt-1 text-sm leading-6 text-slate-600">
-													{keyModeDescription}
-												</p>
+												{showAdvancedOptions ? (
+													<div className="operator-toggle">
+														<button
+															type="button"
+															onClick={() => setMode("service-account")}
+															aria-pressed={mode === "service-account"}
+															className={`operator-toggle-button ${mode === "service-account" ? "operator-toggle-button-active" : ""}`}
+														>
+															Service account key
+														</button>
+														<button
+															type="button"
+															onClick={() => setMode("tenant")}
+															aria-pressed={mode === "tenant"}
+															className={`operator-toggle-button ${mode === "tenant" ? "operator-toggle-button-active" : ""}`}
+														>
+															Tenant key (advanced)
+														</button>
+													</div>
+												) : null}
 											</div>
-											<RememberSessionCheckbox
-												remember={remember}
-												onChange={setRemember}
-											/>
-										</div>
 
-										<div className="flex flex-wrap gap-2">
-											<button
-												type="submit"
-												disabled={submitting || apiKey.trim() === ""}
-												className={
-													auth.localOperatorAvailable
-														? "operator-button-secondary"
-														: "operator-button"
-												}
-											>
-												{submitting ? "Starting session..." : "Start session"}
-											</button>
-											{runtimeKeyPresent ? (
+											<div className="grid gap-4">
+												<label className="block">
+													<span className="operator-kicker">
+														Paste your key
+													</span>
+													<input
+														type="password"
+														value={apiKey}
+														onChange={(event) => setAPIKey(event.target.value)}
+														className="operator-input mt-2"
+														placeholder={keyModeTitle}
+													/>
+												</label>
+												<div className="metric-surface">
+													<p className="text-sm font-semibold text-ink">
+														{keyModeTitle}
+													</p>
+													<p className="mt-1 text-sm leading-6 text-slate-600">
+														{keyModeDescription}
+													</p>
+												</div>
+												<RememberSessionCheckbox
+													remember={remember}
+													onChange={setRemember}
+												/>
+											</div>
+
+											<div className="flex flex-wrap gap-2">
 												<button
-													type="button"
-													onClick={() => auth.signOut()}
-													className="operator-button-secondary"
+													type="submit"
+													disabled={submitting || apiKey.trim() === ""}
+													className={
+														auth.localOperatorAvailable
+															? "operator-button-secondary"
+															: "operator-button"
+													}
 												>
-													Sign out on this browser
+													{submitting ? "Starting session..." : "Start session"}
 												</button>
-											) : null}
-										</div>
-									</form>
-								) : null}
-							</div>
+												{runtimeKeyPresent ? (
+													<button
+														type="button"
+														onClick={() => auth.signOut()}
+														className="operator-button-secondary"
+													>
+														Sign out on this browser
+													</button>
+												) : null}
+											</div>
+										</form>
+									) : null}
+								</div>
+							) : null}
 
 							{auth.localOperatorAvailable ? (
 								<RememberSessionCheckbox

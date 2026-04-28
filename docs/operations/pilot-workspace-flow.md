@@ -13,51 +13,37 @@ An assessment ties together:
 
 Use this workflow when you want one durable assessment instead of bouncing between disconnected discovery, graph, simulation, and reporting pages.
 
-The signed OCI image is the main packaged install path. The source-based lab flow below remains the fastest way to evaluate the dashboard from a fresh clone.
+The default local Docker flow below is the fastest way to evaluate the dashboard from a fresh clone.
 
 ## Recommended Backends
 
-- Local evaluation and demos: in-memory store is acceptable and keeps the `examples/lab` flow fast.
+- Local evaluation and demos: the root Docker Compose stack starts PostgreSQL automatically.
 - Any serious pilot: PostgreSQL is the recommended backend so assessment state, jobs, approvals, and reports persist across restarts.
 
 ## Repeatable Lab Setup
 
 This path is the default local evaluation route from a fresh clone.
 
-## 1. Build And Start Viaduct From Source
+## 1. Start Viaduct
 
 ```bash
-make build
-make web-build
-./bin/viaduct start
+docker compose up -d --build
 ```
 
-On Windows PowerShell:
-
-```powershell
-.\bin\viaduct.exe start
-```
-
-On a fresh source checkout, `viaduct start` creates `~/.viaduct/config.yaml` automatically when it is missing and points it at the shipped `examples/lab/kvm` fixtures.
-
-The local runtime serves the dashboard at [http://127.0.0.1:8080](http://127.0.0.1:8080) and the API under `/api/v1/`.
+The local Docker runtime serves the dashboard at [http://127.0.0.1:8080](http://127.0.0.1:8080), persists state in PostgreSQL, and uses the bundled `examples/lab/kvm` fixtures.
 
 ## 2. Open The Dashboard
 
-Open [http://127.0.0.1:8080](http://127.0.0.1:8080). The dashboard opens on the assessment route and starts on the Get started screen. For this default local lab path, choose `Start local session` from a direct `127.0.0.1` browser request; no pasted browser key is required.
+Open [http://127.0.0.1:8080](http://127.0.0.1:8080). The dashboard opens on the assessment route and starts a local browser session automatically. No pasted key is required.
 Live API docs remain available at [http://127.0.0.1:8080/api/v1/docs](http://127.0.0.1:8080/api/v1/docs) throughout the workflow.
 
-If you intentionally configure key-based access instead, open `Use a key instead` from the same screen:
-- `Service account key` for normal dashboard access
-- `Tenant key (advanced)` for tenant setup or emergency admin recovery
-
-The dashboard runtime auth flow now creates a server-backed session. The browser stores only an opaque session marker, while any tenant or service account key stays server-side for that session instead of landing in browser storage. Local sessions do not use an API key at all. Use the keep-signed-in option only on a trusted browser that should keep that marker across restarts.
+The dashboard runtime auth flow creates a server-backed session. The browser stores only an opaque session marker. Local sessions do not use an API key at all.
 
 You can still pre-seed development credentials with:
 - `VITE_VIADUCT_SERVICE_ACCOUNT_KEY`
 - `VITE_VIADUCT_API_KEY`
 
-The Get started flow is the default path because it works for packaged environments and does not require a rebuild to rotate credentials.
+The server-backed Get started flow is the default shared-environment path because it does not require a rebuild to rotate credentials.
 
 The same-origin local path does not need special CORS configuration. If you serve the dashboard from another host or port, set `VIADUCT_ALLOWED_ORIGINS` before starting the API.
 
@@ -80,7 +66,7 @@ Read-only users can inspect assessment state and export reports with viewer acce
 
 If this run is for a pilot approval, design-partner review, or release check, keep one small evidence packet from the same assessment:
 
-1. Get started entry or local-session start
+1. Dashboard entry after local session start
 2. Discovery-complete assessment screenshot
 3. Simulation-complete assessment screenshot
 4. Saved-plan assessment screenshot

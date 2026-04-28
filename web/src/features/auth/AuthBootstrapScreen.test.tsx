@@ -44,7 +44,7 @@ describe("AuthBootstrapScreen", () => {
 		cleanup();
 	});
 
-	it("keeps the local session path primary and tucks key sign-in behind a disclosure", () => {
+	it("keeps the local session path keyless", () => {
 		render(<AuthBootstrapScreen auth={buildAuthState()} />);
 
 		expect(
@@ -53,33 +53,11 @@ describe("AuthBootstrapScreen", () => {
 		expect(
 			screen.getByRole("button", { name: "Start local session" }),
 		).toBeInTheDocument();
-		expect(
-			screen.getByRole("button", { name: "Use a key instead" }),
-		).toBeInTheDocument();
+		expect(screen.queryByText("Use a key")).not.toBeInTheDocument();
 		expect(
 			screen.queryByPlaceholderText("Service account key"),
 		).not.toBeInTheDocument();
 		expect(screen.queryByText("Sign in")).not.toBeInTheDocument();
-
-		fireEvent.click(screen.getByRole("button", { name: "Use a key instead" }));
-
-		expect(
-			screen.getByPlaceholderText("Service account key"),
-		).toBeInTheDocument();
-		expect(
-			screen.getByRole("button", { name: "Show advanced options" }),
-		).toBeInTheDocument();
-		expect(
-			screen.queryByRole("button", { name: "Tenant key (advanced)" }),
-		).not.toBeInTheDocument();
-
-		fireEvent.click(
-			screen.getByRole("button", { name: "Show advanced options" }),
-		);
-
-		expect(
-			screen.getByRole("button", { name: "Tenant key (advanced)" }),
-		).toBeInTheDocument();
 	});
 
 	it("clears the key field after a successful key-based sign-in", async () => {

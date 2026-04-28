@@ -16,7 +16,7 @@ Cause:
 
 Fix:
 - provide a valid tenant API key or service account key
-- on the default local lab path, use `Start local session` from the Get started screen and keep the request direct to `127.0.0.1`
+- on the default local Docker path, refresh `http://127.0.0.1:8080`; the dashboard should start a local session automatically
 - verify tenant status in the admin tenant list
 - prefer a service account key for normal dashboard or automation use if you are not intentionally using tenant-admin access
 

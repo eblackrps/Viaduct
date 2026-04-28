@@ -23,6 +23,7 @@ type serveAPIOptions struct {
 	WebDir                     string
 	Host                       string
 	LocalRuntime               bool
+	LocalRuntimeContainer      bool
 	AllowUnauthenticatedRemote bool
 }
 
@@ -31,6 +32,7 @@ func newServeAPICommand() *cobra.Command {
 	var webDir string
 	var host string
 	var localRuntime bool
+	var localRuntimeContainer bool
 	var allowUnauthenticatedRemote bool
 
 	cmd := &cobra.Command{
@@ -46,6 +48,7 @@ func newServeAPICommand() *cobra.Command {
 				WebDir:                     webDir,
 				Host:                       host,
 				LocalRuntime:               localRuntime,
+				LocalRuntimeContainer:      localRuntimeContainer,
 				AllowUnauthenticatedRemote: allowUnauthenticatedRemote,
 			})
 		},
@@ -55,8 +58,10 @@ func newServeAPICommand() *cobra.Command {
 	cmd.Flags().StringVar(&host, "host", "127.0.0.1", "Host interface to bind; defaults to loopback for safe local operation")
 	cmd.Flags().StringVar(&webDir, "web-dir", "", "Path to built dashboard assets; when empty, Viaduct auto-detects packaged or built web assets")
 	cmd.Flags().BoolVar(&localRuntime, "local-runtime", false, "Enable local session sign-in for the packaged runtime")
+	cmd.Flags().BoolVar(&localRuntimeContainer, "local-runtime-container", false, "Allow local-runtime sessions through Docker host-loopback port publishing")
 	cmd.Flags().BoolVar(&allowUnauthenticatedRemote, "allow-unauthenticated-remote", false, "Dangerous: allow a non-loopback bind even when no admin, tenant, or service account credentials are configured")
 	_ = cmd.Flags().MarkHidden("local-runtime")
+	_ = cmd.Flags().MarkHidden("local-runtime-container")
 	return cmd
 }
 
@@ -98,6 +103,7 @@ func runServeAPI(ctx context.Context, options serveAPIOptions) error {
 	server.SetBindHost(options.Host)
 	server.SetDashboardDir(options.WebDir)
 	server.SetLocalRuntimeMode(options.LocalRuntime)
+	server.SetLocalRuntimeRemotePeer(options.LocalRuntimeContainer)
 	server.SetAllowUnauthenticatedRemote(options.AllowUnauthenticatedRemote || strings.EqualFold(strings.TrimSpace(os.Getenv("VIADUCT_ALLOW_UNAUTHENTICATED_REMOTE")), "true"))
 	server.SetConnectorConfigResolver(func(platform models.Platform, address, credentialRef string) connectors.Config {
 		return resolveMigrationConnectorConfig(address, string(platform), credentialRef, cfg)

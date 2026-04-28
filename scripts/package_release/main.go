@@ -143,6 +143,7 @@ func packageRelease(options releaseOptions) error {
 		{source: filepath.Join(workspace, "scripts", "install.ps1"), target: filepath.Join(bundleDir, "install.ps1")},
 		{source: binaryPath, target: filepath.Join(bundleDir, "bin", filepath.Base(binaryPath))},
 		{source: webDir, target: filepath.Join(bundleDir, "web"), dir: true},
+		{source: filepath.Join(workspace, "deploy"), target: filepath.Join(bundleDir, "deploy"), dir: true},
 		{source: filepath.Join(workspace, "docs"), target: filepath.Join(bundleDir, "docs"), dir: true},
 		{source: filepath.Join(workspace, "configs"), target: filepath.Join(bundleDir, "configs"), dir: true},
 		{source: filepath.Join(workspace, "examples"), target: filepath.Join(bundleDir, "examples"), dir: true},
