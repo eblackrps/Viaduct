@@ -23,23 +23,23 @@ Use `docker compose down` to stop the stack. Add `-v` only when you intentionall
 
 ## Published Image
 
-Viaduct v3.2.1 uses the signed OCI image as the primary packaged release artifact.
+Viaduct v3.3.0 uses the signed OCI image as the primary packaged release artifact.
 
 ```bash
-docker pull ghcr.io/eblackrps/viaduct:3.2.1
+docker pull ghcr.io/eblackrps/viaduct:3.3.0
 ```
 
 Verify the image before rollout:
 
 ```bash
-cosign verify ghcr.io/eblackrps/viaduct:3.2.1 \
+cosign verify ghcr.io/eblackrps/viaduct:3.3.0 \
   --certificate-identity \
-  'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.2.1' \
+  'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.3.0' \
   --certificate-oidc-issuer \
   'https://token.actions.githubusercontent.com'
 ```
 
-The primary signed registry is `ghcr.io/eblackrps/viaduct`. The Docker Hub mirror is `docker.io/emb079/viaduct:3.2.1` when repository Docker Hub secrets are configured.
+The primary signed registry is `ghcr.io/eblackrps/viaduct`. The Docker Hub mirror is `docker.io/emb079/viaduct:3.3.0` when repository Docker Hub secrets are configured.
 
 GitHub Actions mirrors release tags plus `main` branch `:edge` and `:sha-*` image tags to Docker Hub whenever `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` are configured for this repo or exposed through organization-level Actions secrets. For shared or production deployments, follow the PostgreSQL-backed container guidance in [docs/operations/docker.md](docs/operations/docker.md), the Compose sample in [deploy/docker-compose.prod.yml](deploy/docker-compose.prod.yml), or the Helm chart defaults in [deploy/helm/viaduct](deploy/helm/viaduct).
 

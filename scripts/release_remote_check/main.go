@@ -35,7 +35,7 @@ func main() {
 		baseURL string
 		offline bool
 	)
-	flag.StringVar(&version, "version", "3.2.1", "Release version without leading v")
+	flag.StringVar(&version, "version", "3.3.0", "Release version without leading v")
 	flag.StringVar(&baseURL, "base-url", "https://viaducthq.com", "Published site URL")
 	flag.BoolVar(&offline, "offline", false, "Only validate local command wiring; skip network and tool-dependent remote checks")
 	flag.Parse()

@@ -1,6 +1,6 @@
 services:
   viaduct:
-    image: ghcr.io/eblackrps/viaduct:3.2.1
+    image: ghcr.io/eblackrps/viaduct:3.3.0
     restart: unless-stopped
     read_only: true
     tmpfs:
@@ -85,3 +85,4 @@ services:
 
 volumes:
   viaduct-postgres:
+  viaduct-state:

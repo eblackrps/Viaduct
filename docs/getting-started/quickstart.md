@@ -1,6 +1,6 @@
 # Quickstart
 
-This quickstart uses the local KVM fixture lab so you can evaluate Viaduct end to end without a live hypervisor. The fastest route from clone to a working dashboard is the checked-in Docker Compose stack. The repo-local current release/install reference for `v3.2.1` lives in [../releases/current.md](../releases/current.md).
+This quickstart uses the local KVM fixture lab so you can evaluate Viaduct end to end without a live hypervisor. The fastest route from clone to a working dashboard is the checked-in Docker Compose stack. The repo-local current release/install reference for `v3.3.0` lives in [../releases/current.md](../releases/current.md).
 
 The default dashboard path is assessment-first: start Viaduct, open the browser, create an assessment, discover, inspect, simulate, save a plan, and export a report.
 

@@ -7,6 +7,7 @@ The current release/install reference lives in [current.md](current.md).
 ## Files
 
 - [Current release reference](current.md)
+- [v3.3.0 release notes](v3.3.0.md)
 - [v3.2.1 release notes](v3.2.1.md)
 - [v3.2.0 release notes](v3.2.0.md)
 - [v3.1.1 release notes](v3.1.1.md)
@@ -33,4 +34,4 @@ Keep these notes aligned with:
 - [Screenshot assets](../operations/demo/screenshots/README.md)
 - [RELEASE.md](../../RELEASE.md)
 
-The tag workflow in [`.github/workflows/image.yml`](../../.github/workflows/image.yml) uses the versioned note file that matches the tag (for example `docs/releases/v3.2.1.md`) as the source-controlled GitHub release body when it exists. The same workflow publishes the signed GHCR image and mirrors it to `docker.io/emb079/viaduct` when Docker Hub secrets are configured for this repo or inherited from the organization. [`.github/workflows/release.yml`](../../.github/workflows/release.yml) is intentionally a guard-only workflow now, so future contributors do not reintroduce a second publishing pipeline with a conflicting signing identity. Keep the matching changelog entry and site links in sync before tagging.
+The tag workflow in [`.github/workflows/image.yml`](../../.github/workflows/image.yml) uses the versioned note file that matches the tag (for example `docs/releases/v3.3.0.md`) as the source-controlled GitHub release body when it exists. The same workflow publishes the signed GHCR image and mirrors it to `docker.io/emb079/viaduct` when Docker Hub secrets are configured for this repo or inherited from the organization. [`.github/workflows/release.yml`](../../.github/workflows/release.yml) is intentionally a guard-only workflow now, so future contributors do not reintroduce a second publishing pipeline with a conflicting signing identity. Keep the matching changelog entry and site links in sync before tagging.

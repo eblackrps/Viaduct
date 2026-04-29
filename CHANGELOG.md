@@ -8,6 +8,26 @@ This changelog tracks published releases and the major implementation milestones
 
 - No unreleased changes are documented yet.
 
+## [3.3.0] - 2026-04-29
+
+### Local Docker And First Run
+
+- added a root `compose.yaml` local evaluation stack that starts PostgreSQL and Viaduct without tenant, service-account, or admin keys
+- packaged the KVM lab fixtures into the container image so dashboard discovery works immediately after `docker compose up -d --build`
+- added local Make targets and deployment docs for starting, stopping, and troubleshooting the keyless local Docker runtime
+
+### Dashboard And Runtime Auth
+
+- made the dashboard automatically start a local operator session when the server exposes the trusted local runtime path
+- removed the service-provider key requirement from the default local dashboard flow while preserving service-account and tenant-key auth for shared deployments
+- surfaced failed background assessment jobs directly in the workspace view so discovery, graph, simulation, and plan errors are visible without digging through job history
+
+### Release And Packaging
+
+- added local Docker config and deployment assets to release bundles
+- refreshed release-facing docs, install snippets, Docker operations guidance, and README screenshots for the keyless local assessment workflow
+- kept `/api/v1` backward compatible and did not add new `/api/v2` routes
+
 ## [3.2.1] - 2026-04-25
 
 ### Release, Website, And Deployment Surfaces

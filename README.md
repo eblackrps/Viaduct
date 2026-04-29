@@ -41,10 +41,10 @@ It is strongest when operators need:
 
 ## Screenshots
 
-These are current seeded-product captures from the packaged dashboard. They reflect the `viaduct start` path, the Get started sign-in screen, and the current assessment dashboard across inventory, graph, migration, and reporting pages.
+These are current seeded-product captures from the packaged dashboard. They reflect the keyless local session path and the current assessment dashboard across inventory, graph, migration, and reporting pages.
 
 <p align="center">
-  <img src="docs/operations/demo/screenshots/auth-bootstrap.png" alt="Viaduct dashboard Get started screen with local and key-based session options" width="32%" />
+  <img src="docs/operations/demo/screenshots/auth-bootstrap.png" alt="Viaduct dashboard opened through the keyless local session" width="32%" />
   <img src="docs/operations/demo/screenshots/pilot-workspace.png" alt="Viaduct assessment overview with workflow progress" width="32%" />
   <img src="docs/operations/demo/screenshots/inventory-assessment.png" alt="Viaduct inventory assessment with selected workload detail" width="32%" />
 </p>
@@ -88,18 +88,18 @@ Use `docker compose down -v` only when you want to delete the local data volume.
 
 ## Published Image
 
-Viaduct v3.2.1 uses the signed GHCR OCI image as the main packaged release artifact.
+Viaduct v3.3.0 uses the signed GHCR OCI image as the main packaged release artifact.
 
 ```bash
-docker pull ghcr.io/eblackrps/viaduct:3.2.1
-cosign verify ghcr.io/eblackrps/viaduct:3.2.1 \
+docker pull ghcr.io/eblackrps/viaduct:3.3.0
+cosign verify ghcr.io/eblackrps/viaduct:3.3.0 \
   --certificate-identity \
-  'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.2.1' \
+  'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.3.0' \
   --certificate-oidc-issuer \
   'https://token.actions.githubusercontent.com'
 ```
 
-The primary signed registry is `ghcr.io/eblackrps/viaduct`. The Docker Hub mirror is `docker.io/emb079/viaduct:3.2.1` when repository Docker Hub secrets are configured. Detailed container guidance lives in [docs/operations/docker.md](docs/operations/docker.md). The production Compose and Helm samples in [deploy/docker-compose.prod.yml](deploy/docker-compose.prod.yml) and [deploy/helm/viaduct](deploy/helm/viaduct) use PostgreSQL-backed state with explicit credentials for shared deployments.
+The primary signed registry is `ghcr.io/eblackrps/viaduct`. The Docker Hub mirror is `docker.io/emb079/viaduct:3.3.0` when repository Docker Hub secrets are configured. Detailed container guidance lives in [docs/operations/docker.md](docs/operations/docker.md). The production Compose and Helm samples in [deploy/docker-compose.prod.yml](deploy/docker-compose.prod.yml) and [deploy/helm/viaduct](deploy/helm/viaduct) use PostgreSQL-backed state with explicit credentials for shared deployments.
 
 ## Source Build And Local Lab
 

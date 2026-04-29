@@ -33,7 +33,7 @@ func main() {
 		keep       bool
 	)
 
-	flag.StringVar(&image, "image", "", "Published Viaduct image reference to validate, for example ghcr.io/eblackrps/viaduct:3.2.1")
+	flag.StringVar(&image, "image", "", "Published Viaduct image reference to validate, for example ghcr.io/eblackrps/viaduct:3.3.0")
 	flag.StringVar(&identity, "certificate-identity", "", "Expected cosign certificate identity")
 	flag.StringVar(&issuer, "certificate-oidc-issuer", "https://token.actions.githubusercontent.com", "Expected cosign OIDC issuer")
 	flag.IntVar(&port, "port", 18080, "Loopback host port for the acceptance container")

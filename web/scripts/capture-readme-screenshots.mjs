@@ -8,12 +8,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const webDir = path.resolve(__dirname, "..");
 const repoDir = path.resolve(webDir, "..");
 const baseURL = "http://127.0.0.1:4173";
-const serviceAccountKey = "sa-e2e-key";
 
 const dashboardShots = [
 	{
 		name: "auth-bootstrap.png",
-		capture: captureAuthBootstrap,
+		capture: captureLocalEntry,
 	},
 	{
 		name: "pilot-workspace.png",
@@ -60,6 +59,13 @@ const labCopies = [
 	},
 ];
 
+const siteCopies = [
+	"pilot-workspace.png",
+	"inventory-assessment.png",
+	"dependency-graph.png",
+	"reports-history.png",
+];
+
 const screenshotDir = path.resolve(
 	repoDir,
 	"docs",
@@ -71,7 +77,15 @@ const screenshotDir = path.resolve(
 async function main() {
 	const server = spawn(
 		"go",
-		["run", "../tests/e2e/server", "-port", "4173", "-web-dir", "dist"],
+		[
+			"run",
+			"../tests/e2e/server",
+			"-port",
+			"4173",
+			"-web-dir",
+			"dist",
+			"-local-runtime",
+		],
 		{
 			cwd: webDir,
 			stdio: "inherit",
@@ -106,26 +120,25 @@ async function main() {
 			const sourcePath = path.resolve(screenshotDir, copy.source);
 			await copyFile(sourcePath, copy.target);
 		}
+		for (const fileName of siteCopies) {
+			await copyFile(
+				path.resolve(screenshotDir, fileName),
+				path.resolve(repoDir, "site", "assets", fileName),
+			);
+		}
 	} finally {
 		await stopProcessTree(server.pid);
 	}
 }
 
-async function captureAuthBootstrap(page, targetPath) {
-	await page.goto("/", { waitUntil: "domcontentloaded" });
-	await page.getByRole("heading", { name: "Get started" }).waitFor();
-	await page.screenshot({ path: targetPath, fullPage: false });
-}
-
 async function login(page) {
 	await page.goto("/");
-	const useKeyButton = page.getByRole("button", { name: "Use a key instead" });
-	if (await useKeyButton.isVisible().catch(() => false)) {
-		await useKeyButton.click();
-	}
-	await page.getByLabel("Paste your key").fill(serviceAccountKey);
-	await page.getByRole("button", { name: "Start session" }).click();
 	await page.getByRole("heading", { name: "E2E Lab Workspace" }).waitFor();
+}
+
+async function captureLocalEntry(page, targetPath) {
+	await login(page);
+	await page.screenshot({ path: targetPath, fullPage: false });
 }
 
 async function captureWorkspace(page, targetPath) {

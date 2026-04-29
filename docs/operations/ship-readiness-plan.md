@@ -1,10 +1,10 @@
 # Ship Readiness Record
 
-This record summarizes the release-readiness work completed for `v3.2.1`. It is intentionally limited to verified repository surfaces: release metadata, website copy, deployment defaults, runtime readiness, screenshots, and validation commands.
+This record summarizes the release-readiness work completed for `v3.3.0`. It is intentionally limited to verified repository surfaces: release metadata, website copy, deployment defaults, runtime readiness, screenshots, and validation commands.
 
 ## Completed
 
-- Active install, release, website, Compose, Helm, package metadata, and release-note surfaces are aligned on `v3.2.1`.
+- Active install, release, website, Compose, Helm, package metadata, and release-note surfaces are aligned on `v3.3.0`.
 - `make release-surface-check` fails when active docs, website files, image tags, or release links drift from the dashboard package version.
 - `make site-check` validates the static site source, local assets, Pages workflow directory, and active release version strings.
 - `scripts/release_acceptance` can validate a published image by pulling it, verifying cosign identity, running it against PostgreSQL in production mode, and checking health/readiness/about plus tenant auth.
@@ -24,8 +24,8 @@ When Docker, cosign, and network access are available, validate the published im
 
 ```bash
 go run ./scripts/release_acceptance \
-  -image ghcr.io/eblackrps/viaduct:3.2.1 \
-  -certificate-identity 'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.2.1'
+  -image ghcr.io/eblackrps/viaduct:3.3.0 \
+  -certificate-identity 'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.3.0'
 ```
 
 After GitHub Pages deploys, verify the public site artifact:

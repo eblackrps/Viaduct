@@ -1,6 +1,6 @@
 # Docker Operations
 
-Viaduct v3.2.1 uses the signed GHCR OCI image as the primary packaged release artifact.
+Viaduct v3.3.0 uses the signed GHCR OCI image as the primary packaged release artifact.
 
 ## Registries
 
@@ -12,7 +12,7 @@ GitHub Actions mirrors release tags plus `main` branch `:edge` and `:sha-*` imag
 If those secrets are added after a GitHub release tag already exists, release owners can backfill the Docker Hub semver tags from the current workflow definition without retagging the repo:
 
 ```bash
-gh workflow run image.yml --ref main -f mirror_release_tag=v3.2.1
+gh workflow run image.yml --ref main -f mirror_release_tag=v3.3.0
 ```
 
 ## Local Evaluation
@@ -40,7 +40,7 @@ Use `docker compose down -v` only when you intentionally want to delete local st
 For shared or production deployments, use PostgreSQL and set `VIADUCT_ENVIRONMENT=production`. The Compose sample in `deploy/docker-compose.prod.yml` starts PostgreSQL and Viaduct together, reads the admin-key hash and database password from environment variables, and uses `/readyz` for the container health check.
 
 ```bash
-docker pull ghcr.io/eblackrps/viaduct:3.2.1
+docker pull ghcr.io/eblackrps/viaduct:3.3.0
 mkdir -p config
 cp configs/config.example.yaml config/config.yaml
 # edit config/config.yaml before starting the service
@@ -69,7 +69,7 @@ docker run --rm \
   -v "$PWD/config:/etc/viaduct:ro" \
   -e VIADUCT_ADMIN_KEY='sha256:<hex>' \
   -p 127.0.0.1:8080:8080 \
-  ghcr.io/eblackrps/viaduct:3.2.1 \
+  ghcr.io/eblackrps/viaduct:3.3.0 \
   serve-api --host 127.0.0.1 --config /etc/viaduct/config.yaml --port 8080
 ```
 
@@ -80,7 +80,7 @@ Writable fallback files such as audit retry logs live under `/var/lib/viaduct`. 
 If GHCR access is restricted in your environment and the mirror tag has been published, you can pull the mirrored image instead:
 
 ```bash
-docker pull docker.io/emb079/viaduct:3.2.1
+docker pull docker.io/emb079/viaduct:3.3.0
 ```
 
 Treat GHCR as the verification source even when you deploy from the Docker Hub mirror.
@@ -88,9 +88,9 @@ Treat GHCR as the verification source even when you deploy from the Docker Hub m
 ## Verify The Image Signature
 
 ```bash
-cosign verify ghcr.io/eblackrps/viaduct:3.2.1 \
+cosign verify ghcr.io/eblackrps/viaduct:3.3.0 \
   --certificate-identity \
-  'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.2.1' \
+  'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.3.0' \
   --certificate-oidc-issuer \
   'https://token.actions.githubusercontent.com'
 ```
@@ -98,9 +98,9 @@ cosign verify ghcr.io/eblackrps/viaduct:3.2.1 \
 ## Verify The SBOM Attestation
 
 ```bash
-cosign verify-attestation --type spdx ghcr.io/eblackrps/viaduct:3.2.1 \
+cosign verify-attestation --type spdx ghcr.io/eblackrps/viaduct:3.3.0 \
   --certificate-identity \
-  'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.2.1' \
+  'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.3.0' \
   --certificate-oidc-issuer \
   'https://token.actions.githubusercontent.com'
 ```

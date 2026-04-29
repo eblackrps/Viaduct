@@ -15,15 +15,15 @@ Open `http://127.0.0.1:8080`. The local Docker stack starts PostgreSQL, serves t
 ## Primary OCI Install
 
 ```bash
-docker pull ghcr.io/eblackrps/viaduct:3.2.1
-cosign verify ghcr.io/eblackrps/viaduct:3.2.1 \
+docker pull ghcr.io/eblackrps/viaduct:3.3.0
+cosign verify ghcr.io/eblackrps/viaduct:3.3.0 \
   --certificate-identity \
-  'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.2.1' \
+  'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.3.0' \
   --certificate-oidc-issuer \
   'https://token.actions.githubusercontent.com'
 ```
 
-The primary signed registry is `ghcr.io/eblackrps/viaduct`. The Docker Hub mirror is `docker.io/emb079/viaduct:3.2.1` when repository Docker Hub secrets are configured.
+The primary signed registry is `ghcr.io/eblackrps/viaduct`. The Docker Hub mirror is `docker.io/emb079/viaduct:3.3.0` when repository Docker Hub secrets are configured.
 
 GitHub Actions mirrors release tags plus `main` branch `:edge` and `:sha-*` tags to Docker Hub whenever `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` are configured for this repo or inherited from an organization secret scope. For runtime flags, upgrade guidance, SBOM verification, the production compose sample, and the Helm chart defaults, continue with [../operations/docker.md](../operations/docker.md), [../../deploy/docker-compose.prod.yml](../../deploy/docker-compose.prod.yml), and [../../deploy/helm/viaduct](../../deploy/helm/viaduct).
 
@@ -78,7 +78,7 @@ The packaging matrix is:
 - `darwin/arm64`
 - `windows/amd64`
 
-Git tags keep the leading `v`, but bundle names use the numeric release label. For example, `v3.2.1` publishes `dist/viaduct_3.2.1_linux_amd64.tar.gz`.
+Git tags keep the leading `v`, but bundle names use the numeric release label. For example, `v3.3.0` publishes `dist/viaduct_3.3.0_linux_amd64.tar.gz`.
 
 Each bundle includes:
 - the Viaduct CLI binary

@@ -1,6 +1,6 @@
 # Quickstart
 
-The fastest local path is Docker Compose from the repo root. It builds the dashboard and API, starts PostgreSQL, uses the shipped KVM fixtures, and opens the dashboard without tenant keys, service-account keys, or copied secret files. The current release/install reference for `v3.2.1` also lives in [docs/releases/current.md](docs/releases/current.md).
+The fastest local path is Docker Compose from the repo root. It builds the dashboard and API, starts PostgreSQL, uses the shipped KVM fixtures, and opens the dashboard without tenant keys, service-account keys, or copied secret files. The current release/install reference for `v3.3.0` also lives in [docs/releases/current.md](docs/releases/current.md).
 
 The default path is browser-first: start Viaduct, open the dashboard, create an assessment, discover, inspect, simulate, save a plan, and export a report.
 

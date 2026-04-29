@@ -62,7 +62,7 @@ The lower-level `viaduct serve-api` path also serves the dashboard, but it now b
 See [./.env.example](./.env.example).
 
 The dashboard also supports a runtime Get started flow. When no environment key is set, the app either:
-- offers a direct loopback-only `Start local session` path when the packaged runtime started through `viaduct start` is running against the default local lab path, or
+- starts a direct loopback-only local session when the packaged runtime started through `viaduct start` or local Docker is running against the default local lab path, or
 - opens the Get started screen so the user can use a service account key, with the tenant key path kept under advanced options when needed
 
 The runtime Get started flow keeps tenant or service account credentials in a server-backed session behind an `httpOnly` cookie. The browser stores only an opaque session marker, and local sessions do not use an API key at all. Non-persistent sessions use session storage for that marker, and the remember option persists only the marker in local storage on trusted workstations.

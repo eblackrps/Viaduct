@@ -58,7 +58,7 @@
           <a href="https://github.com/eblackrps/Viaduct/blob/main/docs/operations/docker.md">Docker install</a>
           <a href="https://github.com/eblackrps/Viaduct/blob/main/SECURITY.md">Security</a>
           <a href="https://github.com/eblackrps/Viaduct">GitHub</a>
-          <a class="release-link" href="https://github.com/eblackrps/Viaduct/releases/tag/v3.2.1">Current release: v3.2.1</a>
+          <a class="release-link" href="https://github.com/eblackrps/Viaduct/releases/tag/v3.3.0">Current release: v3.3.0</a>
         </nav>
       </div>
     </header>
@@ -92,7 +92,7 @@
               src="assets/pilot-workspace.png"
               alt="Viaduct assessment overview showing discovery, readiness, and saved migration planning steps"
             />
-            <figcaption>Assessment overview from the v3.2.1 dashboard.</figcaption>
+            <figcaption>Assessment overview from the v3.3.0 dashboard.</figcaption>
           </figure>
         </div>
       </section>
@@ -132,7 +132,7 @@
         <div class="shell">
           <div class="section-heading">
             <p class="eyebrow">Current dashboard</p>
-            <h2 id="screenshots-title">Screenshots from the checked-in v3.2.1 app.</h2>
+            <h2 id="screenshots-title">Screenshots from the checked-in v3.3.0 app.</h2>
           </div>
           <div class="screenshots-grid">
             <figure class="screenshot screenshot-wide">
@@ -200,22 +200,22 @@
         <div class="shell split">
           <div>
             <p class="eyebrow">Install and verify</p>
-            <h2 id="install-title">Use the signed v3.2.1 container image.</h2>
+            <h2 id="install-title">Use the signed v3.3.0 container image.</h2>
             <p>
-              The GHCR image is the main packaged install path for v3.2.1. Native bundles,
+              The GHCR image is the main packaged install path for v3.3.0. Native bundles,
               checksums, SBOMs, and release notes are published on GitHub Releases.
             </p>
             <p class="notice">Use PostgreSQL and configure authentication for persistent deployments.</p>
           </div>
           <div class="code-panel">
-            <pre><code>docker pull ghcr.io/eblackrps/viaduct:3.2.1
-cosign verify ghcr.io/eblackrps/viaduct:3.2.1 \
+            <pre><code>docker pull ghcr.io/eblackrps/viaduct:3.3.0
+cosign verify ghcr.io/eblackrps/viaduct:3.3.0 \
   --certificate-identity \
-  'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.2.1' \
+  'https://github.com/eblackrps/Viaduct/.github/workflows/image.yml@refs/tags/v3.3.0' \
   --certificate-oidc-issuer \
   'https://token.actions.githubusercontent.com'</code></pre>
             <div class="link-row">
-              <a href="https://github.com/eblackrps/Viaduct/releases/tag/v3.2.1">Release notes</a>
+              <a href="https://github.com/eblackrps/Viaduct/releases/tag/v3.3.0">Release notes</a>
               <a href="https://github.com/eblackrps/Viaduct/blob/main/docs/operations/docker.md">Docker guide</a>
               <a href="https://github.com/eblackrps/Viaduct/blob/main/INSTALL.md">Install guide</a>
             </div>

@@ -13,7 +13,7 @@ This document describes the current packaged-image and native-bundle release pro
 - `make site-check`: verify public-site version strings, local links, screenshot assets, and the GitHub Pages source directory
 - `make support-matrix-check`: verify website and README connector claims still match the support matrix
 - `make container-cve-check CONTAINER_CVE_IMAGE=ghcr.io/eblackrps/viaduct:<version>`: scan a built or published container for high and critical CVEs
-- `make release-remote-check VERSION=3.2.1 BASE_URL=https://viaducthq.com`: verify an already-published release, GHCR image, cosign identity, expected assets, and live site content without modifying the release
+- `make release-remote-check VERSION=3.3.0 BASE_URL=https://viaducthq.com`: verify an already-published release, GHCR image, cosign identity, expected assets, and live site content without modifying the release
 - `go run ./scripts/release_acceptance -image <image> -certificate-identity <workflow-identity>`: pull a published image, verify its cosign identity, start it against PostgreSQL in production mode, and exercise health/readiness/about plus tenant auth
 - `make web-e2e-setup`: install the dashboard dependencies plus the Playwright Chromium runtime for local browser smoke
 - `make pilot-smoke`: run the root-level evaluator path (`tests/integration` assessment smoke plus the real `viaduct start` browser smoke)

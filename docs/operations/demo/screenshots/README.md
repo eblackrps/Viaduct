@@ -1,7 +1,7 @@
 # Screenshot Assets
 
 This directory contains the current release-facing dashboard screenshots for Viaduct.
-The PNG captures are generated from the seeded Playwright fixture runtime and reflect the current packaged operator shell, not illustrative mockups.
+The PNG captures are generated from the seeded Playwright fixture runtime and reflect the current packaged dashboard shell, not illustrative mockups.
 
 Use these images in:
 - the root `README.md`
@@ -14,7 +14,7 @@ The matching evaluator artifact checklist lives in [../pilot-evidence-kit.md](..
 
 ## Current Files
 
-- [Get started screen](auth-bootstrap.png)
+- [Keyless local dashboard entry](auth-bootstrap.png)
 - [Assessment overview](pilot-workspace.png)
 - [Inventory assessment](inventory-assessment.png)
 - [Dependency graph](dependency-graph.png)
@@ -38,7 +38,7 @@ npm run screenshots:readme
 
 ## Preview
 
-![Get started screen](auth-bootstrap.png)
+![Keyless local dashboard entry](auth-bootstrap.png)
 
 ![Assessment overview](pilot-workspace.png)
 

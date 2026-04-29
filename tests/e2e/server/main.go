@@ -35,28 +35,30 @@ const (
 
 func main() {
 	var (
-		host   string
-		port   int
-		webDir string
+		host         string
+		port         int
+		webDir       string
+		localRuntime bool
 	)
 
 	flag.StringVar(&host, "host", "127.0.0.1", "Host interface to bind")
 	flag.IntVar(&port, "port", 4173, "Port to bind")
 	flag.StringVar(&webDir, "web-dir", filepath.Join("web", "dist"), "Path to built dashboard assets")
+	flag.BoolVar(&localRuntime, "local-runtime", false, "Seed the fixture under the default tenant and enable keyless local sessions")
 	flag.Parse()
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	if err := run(ctx, host, port, webDir); err != nil {
+	if err := run(ctx, host, port, webDir, localRuntime); err != nil {
 		fmt.Fprintf(os.Stderr, "e2e server: %v\n", err)
 		os.Exit(1)
 	}
 }
 
-func run(ctx context.Context, host string, port int, webDir string) error {
+func run(ctx context.Context, host string, port int, webDir string, localRuntime bool) error {
 	stateStore := store.NewMemoryStore()
-	if err := seedState(ctx, stateStore); err != nil {
+	if err := seedState(ctx, stateStore, localRuntime); err != nil {
 		return err
 	}
 
@@ -67,44 +69,50 @@ func run(ctx context.Context, host string, port int, webDir string) error {
 	server.SetBuildInfo("e2e", "fixture", time.Now().UTC().Format(time.RFC3339))
 	server.SetBindHost(host)
 	server.SetDashboardDir(resolvePath(webDir))
+	server.SetLocalRuntimeMode(localRuntime)
 	return server.Start(ctx)
 }
 
-func seedState(ctx context.Context, stateStore store.Store) error {
+func seedState(ctx context.Context, stateStore store.Store, localRuntime bool) error {
 	now := time.Date(2026, time.April, 16, 12, 0, 0, 0, time.UTC)
-	tenant := models.Tenant{
-		ID:        e2eTenantID,
-		Name:      "E2E Tenant",
-		APIKey:    e2eTenantKey,
-		CreatedAt: now.Add(-2 * time.Hour),
-		Active:    true,
-		Quotas: models.TenantQuota{
-			RequestsPerMinute: 5000,
-			MaxSnapshots:      25,
-			MaxMigrations:     25,
-		},
-		ServiceAccounts: []models.ServiceAccount{
-			{
-				ID:     e2eServiceAccountID,
-				Name:   e2eServiceAccountName,
-				APIKey: e2eServiceAccountKey,
-				Role:   models.TenantRoleAdmin,
-				Permissions: []models.TenantPermission{
-					models.TenantPermissionInventoryRead,
-					models.TenantPermissionReportsRead,
-					models.TenantPermissionLifecycleRead,
-					models.TenantPermissionMigrationManage,
-					models.TenantPermissionTenantRead,
-					models.TenantPermissionTenantManage,
-				},
-				Active:        true,
-				CreatedAt:     now.Add(-90 * time.Minute),
-				LastRotatedAt: now.Add(-45 * time.Minute),
+	tenantID := e2eTenantID
+	if localRuntime {
+		tenantID = store.DefaultTenantID
+	} else {
+		tenant := models.Tenant{
+			ID:        e2eTenantID,
+			Name:      "E2E Tenant",
+			APIKey:    e2eTenantKey,
+			CreatedAt: now.Add(-2 * time.Hour),
+			Active:    true,
+			Quotas: models.TenantQuota{
+				RequestsPerMinute: 5000,
+				MaxSnapshots:      25,
+				MaxMigrations:     25,
 			},
-		},
-	}
-	if err := stateStore.CreateTenant(ctx, tenant); err != nil {
-		return fmt.Errorf("seed tenant: %w", err)
+			ServiceAccounts: []models.ServiceAccount{
+				{
+					ID:     e2eServiceAccountID,
+					Name:   e2eServiceAccountName,
+					APIKey: e2eServiceAccountKey,
+					Role:   models.TenantRoleAdmin,
+					Permissions: []models.TenantPermission{
+						models.TenantPermissionInventoryRead,
+						models.TenantPermissionReportsRead,
+						models.TenantPermissionLifecycleRead,
+						models.TenantPermissionMigrationManage,
+						models.TenantPermissionTenantRead,
+						models.TenantPermissionTenantManage,
+					},
+					Active:        true,
+					CreatedAt:     now.Add(-90 * time.Minute),
+					LastRotatedAt: now.Add(-45 * time.Minute),
+				},
+			},
+		}
+		if err := stateStore.CreateTenant(ctx, tenant); err != nil {
+			return fmt.Errorf("seed tenant: %w", err)
+		}
 	}
 
 	discoveryResult, err := discoverFixtures()
@@ -114,21 +122,21 @@ func seedState(ctx context.Context, stateStore store.Store) error {
 	discoveryResult.DiscoveredAt = now.Add(-30 * time.Minute)
 	discoveryResult.Duration = 850 * time.Millisecond
 
-	snapshotID, err := stateStore.SaveDiscovery(ctx, e2eTenantID, discoveryResult)
+	snapshotID, err := stateStore.SaveDiscovery(ctx, tenantID, discoveryResult)
 	if err != nil {
 		return fmt.Errorf("seed discovery snapshot: %w", err)
 	}
 
 	olderSnapshot := cloneDiscoveryResult(discoveryResult)
 	olderSnapshot.DiscoveredAt = now.Add(-3 * time.Hour)
-	if _, err := stateStore.SaveDiscovery(ctx, e2eTenantID, olderSnapshot); err != nil {
+	if _, err := stateStore.SaveDiscovery(ctx, tenantID, olderSnapshot); err != nil {
 		return fmt.Errorf("seed historical discovery snapshot: %w", err)
 	}
 
-	if err := seedWorkspace(ctx, stateStore, now, snapshotID, discoveryResult); err != nil {
+	if err := seedWorkspace(ctx, stateStore, tenantID, now, snapshotID, discoveryResult); err != nil {
 		return err
 	}
-	if err := seedMigrations(ctx, stateStore, now, discoveryResult); err != nil {
+	if err := seedMigrations(ctx, stateStore, tenantID, now, discoveryResult); err != nil {
 		return err
 	}
 
@@ -150,10 +158,10 @@ func discoverFixtures() (*models.DiscoveryResult, error) {
 	return result, nil
 }
 
-func seedWorkspace(ctx context.Context, stateStore store.Store, now time.Time, snapshotID string, discoveryResult *models.DiscoveryResult) error {
+func seedWorkspace(ctx context.Context, stateStore store.Store, tenantID string, now time.Time, snapshotID string, discoveryResult *models.DiscoveryResult) error {
 	workspace := models.PilotWorkspace{
 		ID:          e2eWorkspaceID,
-		TenantID:    e2eTenantID,
+		TenantID:    tenantID,
 		Name:        e2eWorkspaceName,
 		Description: "Browser fixture workspace for the Viaduct operator console",
 		Status:      models.PilotWorkspaceStatusDiscovered,
@@ -207,13 +215,13 @@ func seedWorkspace(ctx context.Context, stateStore store.Store, now time.Time, s
 			},
 		},
 	}
-	if err := stateStore.CreateWorkspace(ctx, e2eTenantID, workspace); err != nil {
+	if err := stateStore.CreateWorkspace(ctx, tenantID, workspace); err != nil {
 		return fmt.Errorf("seed workspace: %w", err)
 	}
 	return nil
 }
 
-func seedMigrations(ctx context.Context, stateStore store.Store, now time.Time, discoveryResult *models.DiscoveryResult) error {
+func seedMigrations(ctx context.Context, stateStore store.Store, tenantID string, now time.Time, discoveryResult *models.DiscoveryResult) error {
 	plannedSpecName := "e2e-kvm-plan"
 	plannedState := migratepkg.MigrationState{
 		ID:             e2eSavedMigrationID,
@@ -254,9 +262,9 @@ func seedMigrations(ctx context.Context, stateStore store.Store, now time.Time, 
 	if err != nil {
 		return fmt.Errorf("marshal planned migration: %w", err)
 	}
-	if err := stateStore.SaveMigration(ctx, e2eTenantID, store.MigrationRecord{
+	if err := stateStore.SaveMigration(ctx, tenantID, store.MigrationRecord{
 		ID:        e2eSavedMigrationID,
-		TenantID:  e2eTenantID,
+		TenantID:  tenantID,
 		SpecName:  plannedSpecName,
 		Phase:     string(migratepkg.PhasePlan),
 		StartedAt: plannedState.StartedAt,
@@ -287,9 +295,9 @@ func seedMigrations(ctx context.Context, stateStore store.Store, now time.Time, 
 	if err != nil {
 		return fmt.Errorf("marshal completed migration: %w", err)
 	}
-	if err := stateStore.SaveMigration(ctx, e2eTenantID, store.MigrationRecord{
+	if err := stateStore.SaveMigration(ctx, tenantID, store.MigrationRecord{
 		ID:          e2eCompletedMigrationID,
-		TenantID:    e2eTenantID,
+		TenantID:    tenantID,
 		SpecName:    completedSpecName,
 		Phase:       string(migratepkg.PhaseComplete),
 		StartedAt:   completedState.StartedAt,

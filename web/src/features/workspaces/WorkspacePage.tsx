@@ -108,7 +108,7 @@ const defaultCreateForm: CreateFormState = {
 	sourceName: "Lab KVM",
 	sourcePlatform: "kvm",
 	sourceAddress: "examples/lab/kvm",
-	sourceCredentialRef: "lab-kvm",
+	sourceCredentialRef: "",
 	targetPlatform: "proxmox",
 	targetAddress: "https://pilot-proxmox.local:8006/api2/json",
 	defaultHost: "pve-node-01",
@@ -1253,7 +1253,7 @@ export function WorkspacePage() {
 					<SectionCard
 						eyebrow="Source connection"
 						title="Current source baseline"
-						description="Source details, credential references, and the latest snapshot evidence stay attached to the assessment."
+						description="Source details and the latest snapshot evidence stay attached to the assessment."
 					>
 						{latestSource ? (
 							<div className="grid gap-3">
@@ -1262,7 +1262,7 @@ export function WorkspacePage() {
 								<HistoryRow label="Address" value={latestSource.address} />
 								<HistoryRow
 									label="Credential reference"
-									value={latestSource.credential_ref || "Not set"}
+									value={latestSource.credential_ref || "None"}
 								/>
 								<HistoryRow
 									label="Latest discovery"
@@ -1750,7 +1750,7 @@ function WorkspaceCreateForm({
 					error={validation.sourceAddress}
 				/>
 				<WorkspaceField
-					label="Credential reference"
+					label="Credential reference (optional)"
 					value={createForm.sourceCredentialRef}
 					onChange={(value) =>
 						onChange({ ...createForm, sourceCredentialRef: value })
@@ -2164,7 +2164,7 @@ function buildWorkflowSteps(
 			id: "intake",
 			label: "Create assessment",
 			summary:
-				"Capture the source connection, credential reference, target platform, and initial plan defaults.",
+				"Capture the source connection, target platform, and initial plan defaults.",
 			evidence: workspace
 				? `Assessment ${workspace.name} is saved.`
 				: "No assessment exists yet.",
@@ -2279,10 +2279,7 @@ function validateCreateForm(
 			createForm.sourceAddress.trim() === ""
 				? "Source address is required."
 				: null,
-		sourceCredentialRef:
-			createForm.sourceCredentialRef.trim() === ""
-				? "Credential reference is required."
-				: null,
+		sourceCredentialRef: null,
 		targetPlatform: null,
 		targetAddress:
 			createForm.targetAddress.trim() === ""
