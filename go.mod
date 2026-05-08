@@ -17,7 +17,7 @@ require (
 	go.uber.org/goleak v1.3.0
 	google.golang.org/grpc v1.80.0
 	gopkg.in/yaml.v3 v3.0.1
-	libvirt.org/go/libvirt v1.12002.0
+	libvirt.org/go/libvirt v1.12003.0
 )
 
 require (
