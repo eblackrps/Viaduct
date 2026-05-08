@@ -306,7 +306,7 @@ jobs:
     needs: image
     runs-on: ubuntu-latest
     steps:
-      - uses: sigstore/cosign-installer@v4.1.1
+      - uses: sigstore/cosign-installer@v4.1.2
 
       - name: Authenticate to GHCR for signing
         shell: bash
@@ -354,7 +354,7 @@ jobs:
 
       - uses: anchore/sbom-action/download-syft@v0.24.0
 
-      - uses: sigstore/cosign-installer@v4.1.1
+      - uses: sigstore/cosign-installer@v4.1.2
 
       - name: Generate image SBOMs
         shell: bash
@@ -442,7 +442,7 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - uses: sigstore/cosign-installer@v4.1.1
+      - uses: sigstore/cosign-installer@v4.1.2
 
       - name: Run published image acceptance smoke
         shell: bash
@@ -475,7 +475,7 @@ jobs:
           cache: "npm"
           cache-dependency-path: web/package-lock.json
 
-      - uses: sigstore/cosign-installer@v4.1.1
+      - uses: sigstore/cosign-installer@v4.1.2
 
       - name: Build cross-platform release bundles
         shell: bash
