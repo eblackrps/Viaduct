@@ -9,7 +9,7 @@ require (
 	github.com/masterzen/winrm v0.0.0-20260407182533-5570be7f80cf
 	github.com/spf13/cobra v1.10.2
 	github.com/swaggo/http-swagger/v2 v2.0.2
-	github.com/vmware/govmomi v0.53.1
+	github.com/vmware/govmomi v0.54.0
 	go.opentelemetry.io/otel v1.43.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.43.0
 	go.opentelemetry.io/otel/sdk v1.43.0
